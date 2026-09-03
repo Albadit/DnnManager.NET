@@ -1,6 +1,7 @@
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Application.UseCases;
+using DnnManager.Domain;
 using DnnManager.Presentation.Tui;
 using Microsoft.Extensions.Options;
 
@@ -165,8 +166,18 @@ internal sealed class CloneView
         _screen.Clear();
         _screen.DrawCentredTitle(1, $"Clone from {sourceLabel} - name the new project", Theme.HeaderFg);
         Console.SetCursorPosition(0, 3);
-        var name = _text.Show("Project name");
-        return string.IsNullOrWhiteSpace(name) ? null : name;
+
+        // Re-prompt rather than bail: the name becomes a folder, an IIS site and a hostname, so
+        // catching a bad one here beats failing after the user has picked a source and credentials.
+        while (true)
+        {
+            var name = _text.Show("Project name");
+            if (string.IsNullOrWhiteSpace(name)) return null; // Esc / blank = cancel
+
+            var check = ProjectName.Validate(name);
+            if (check.Success) return name;
+            _status.Fail(check.Error!);
+        }
     }
 
     // What to do when an already-saved project is selected.

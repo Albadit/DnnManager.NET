@@ -50,8 +50,13 @@ public interface IIisManager
     /// Lets setup skip website creation gracefully instead of failing when IIS is absent.</summary>
     bool IsAvailable();
 
-    bool SiteExists(string siteName);
-    string? GetSiteState(string siteName);
+    /// <summary>
+    /// One-shot snapshot of every IIS site: name -> state. Loading applicationHost.config is what a
+    /// <c>ServerManager</c> actually costs, so callers that need the status of many sites take one
+    /// snapshot rather than querying site by site. Empty when IIS is unavailable.
+    /// </summary>
+    IReadOnlyDictionary<string, string> GetSiteStates();
+
     Result GrantPermissions(string path, IEnumerable<string> identities);
 
     /// <summary>

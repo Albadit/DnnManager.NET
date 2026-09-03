@@ -178,21 +178,26 @@ public sealed class IisManager : IIisManager
         }
     }
 
-    public bool SiteExists(string siteName)
+    public IReadOnlyDictionary<string, string> GetSiteStates()
     {
-        try { using var sm = new ServerManager(); return sm.Sites[siteName] != null; }
-        catch { return false; }
-    }
-
-    public string? GetSiteState(string siteName)
-    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         try
         {
             using var sm = new ServerManager();
-            var s = sm.Sites[siteName];
-            return s?.State.ToString();
+            foreach (var site in sm.Sites)
+            {
+                // A site whose state momentarily can't be read still exists - record it as unknown
+                // rather than dropping it from the snapshot and reporting "no IIS site".
+                string state;
+                try { state = site.State.ToString(); } catch { state = "Unknown"; }
+                map[site.Name] = state;
+            }
         }
-        catch { return null; }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Could not read IIS site states");
+        }
+        return map;
     }
 
     public Result GrantPermissions(string path, IEnumerable<string> identities)

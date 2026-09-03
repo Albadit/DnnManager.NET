@@ -76,6 +76,9 @@ public sealed class CloneProjectUseCase
 
     public async Task<Result> ExecuteAsync(CloneProjectRequest req, IProgressReporter reporter, CancellationToken ct)
     {
+        var nameCheck = ProjectName.Validate(req.TargetProjectName);
+        if (!nameCheck.Success) return nameCheck;
+
         try
         {
             var project = _projects.Build(req.TargetProjectName);

@@ -36,7 +36,26 @@ public sealed class ProcessRunner
         p.Start();
         p.BeginOutputReadLine();
         p.BeginErrorReadLine();
-        await p.WaitForExitAsync(ct);
+        try
+        {
+            await p.WaitForExitAsync(ct);
+        }
+        catch (OperationCanceledException)
+        {
+            // Cancellation only abandons the *wait* - the child keeps running. These are docker,
+            // sqlcmd and powershell invocations that hold container locks, SQL connections and file
+            // handles, so take the whole tree down (docker CLI spawns helpers) and wait for it to
+            // actually exit before letting the caller move on.
+            try
+            {
+                if (!p.HasExited) p.Kill(entireProcessTree: true);
+                // Bounded: reaping a killed child must not turn a cancellation into a hang.
+                using var grace = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                await p.WaitForExitAsync(grace.Token);
+            }
+            catch { /* already gone, or not ours to kill */ }
+            throw;
+        }
         return new ProcessResult { ExitCode = p.ExitCode, StdOut = stdout.ToString(), StdErr = stderr.ToString() };
     }
 }

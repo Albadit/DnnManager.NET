@@ -40,6 +40,12 @@ public sealed class SqlServerService : ISqlServerService
         return await _proc.RunAsync("docker", args, ct);
     }
 
+    // Database names are not always ours: the local ones come from the project name, but the name a
+    // site actually uses is read out of its web.config. Quote them properly instead of interpolating
+    // raw text into T-SQL.
+    private static string Quoted(string identifier) => "[" + identifier.Replace("]", "]]") + "]";
+    private static string Literal(string value) => value.Replace("'", "''");
+
     public async Task<Result> WaitReadyAsync(int timeoutSeconds, IProgressReporter reporter, CancellationToken ct)
     {
         reporter.Info($"Waiting for SQL Server (up to {timeoutSeconds}s)…");
@@ -55,7 +61,7 @@ public sealed class SqlServerService : ISqlServerService
 
     public async Task<Result<bool>> DatabaseExistsAsync(string database, CancellationToken ct)
     {
-        var q = $"SET NOCOUNT ON; IF EXISTS (SELECT 1 FROM sys.databases WHERE name = N'{database}') PRINT 'EXISTS'";
+        var q = $"SET NOCOUNT ON; IF EXISTS (SELECT 1 FROM sys.databases WHERE name = N'{Literal(database)}') PRINT 'EXISTS'";
         var r = await SqlcmdAsync(null, null, null, q, ct);
         if (!r.Success) return Result<bool>.Fail(r.StdErr.Length > 0 ? r.StdErr : r.StdOut);
         return Result<bool>.Ok(r.StdOut.Contains("EXISTS", StringComparison.Ordinal));
@@ -66,8 +72,8 @@ public sealed class SqlServerService : ISqlServerService
         // Create the database by name only. The DNN site (and this tool) connect as the container's
         // sa, so there is no per-project SQL login/user to provision.
         var sql = $@"
-IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'{db.DatabaseName}')
-BEGIN CREATE DATABASE [{db.DatabaseName}] COLLATE {db.Collation}; END";
+IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'{Literal(db.DatabaseName)}')
+BEGIN CREATE DATABASE {Quoted(db.DatabaseName)} COLLATE {db.Collation}; END";
         var r = await SqlcmdAsync(null, null, null, sql, ct);
         return r.Success ? Result.Ok() : Result.Fail(r.StdErr);
     }
@@ -75,10 +81,10 @@ BEGIN CREATE DATABASE [{db.DatabaseName}] COLLATE {db.Collation}; END";
     public async Task<Result> DropDatabaseAsync(string database, CancellationToken ct)
     {
         var sql = $@"
-IF EXISTS (SELECT name FROM sys.databases WHERE name = N'{database}')
+IF EXISTS (SELECT name FROM sys.databases WHERE name = N'{Literal(database)}')
 BEGIN
-  ALTER DATABASE [{database}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-  DROP DATABASE [{database}];
+  ALTER DATABASE {Quoted(database)} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+  DROP DATABASE {Quoted(database)};
 END";
         var r = await SqlcmdAsync(null, null, null, sql, ct);
         return r.Success ? Result.Ok() : Result.Fail(r.StdErr);
@@ -90,7 +96,7 @@ END";
         var containerPath = $"{containerDir}/{backupFileName}";
         await _proc.RunAsync("docker", new[] { "exec", Container, "mkdir", "-p", containerDir }, ct);
 
-        var sql = $"BACKUP DATABASE [{database}] TO DISK = N'{containerPath}' WITH INIT, FORMAT, COMPRESSION, STATS = 10;";
+        var sql = $"BACKUP DATABASE {Quoted(database)} TO DISK = N'{Literal(containerPath)}' WITH INIT, FORMAT, COMPRESSION, STATS = 10;";
         var r = await SqlcmdAsync(null, null, null, sql, ct);
         if (!r.Success) return Result<string>.Fail(r.StdErr);
 
@@ -122,7 +128,7 @@ DECLARE @t TABLE (LogicalName nvarchar(128), PhysicalName nvarchar(260), Type ch
  SourceBlockSize int, FileGroupID int, LogGroupGUID uniqueidentifier,
  DifferentialBaseLSN numeric(25,0), DifferentialBaseGUID uniqueidentifier,
  IsReadOnly bit, IsPresent bit, TDEThumbprint varbinary(32), SnapshotUrl nvarchar(360));
-INSERT INTO @t EXEC('RESTORE FILELISTONLY FROM DISK = N''{containerPath}''');
+INSERT INTO @t EXEC('RESTORE FILELISTONLY FROM DISK = N''{Literal(Literal(containerPath))}''');
 SELECT LogicalName + '|' + Type FROM @t;";
         var args = new List<string>
         {
@@ -147,11 +153,11 @@ SELECT LogicalName + '|' + Type FROM @t;";
         // No per-project login to remap: the site connects as the container's sa (a sysadmin),
         // which can access the restored database regardless of the user mappings it carries.
         var restoreSql = $@"
-IF EXISTS (SELECT 1 FROM sys.databases WHERE name = N'{db.DatabaseName}')
-  ALTER DATABASE [{db.DatabaseName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-RESTORE DATABASE [{db.DatabaseName}] FROM DISK = N'{containerPath}' WITH REPLACE, {string.Join(", ", moves)}, STATS = 10;
-IF EXISTS (SELECT 1 FROM sys.databases WHERE name = N'{db.DatabaseName}')
-  ALTER DATABASE [{db.DatabaseName}] SET MULTI_USER;";
+IF EXISTS (SELECT 1 FROM sys.databases WHERE name = N'{Literal(db.DatabaseName)}')
+  ALTER DATABASE {Quoted(db.DatabaseName)} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+RESTORE DATABASE {Quoted(db.DatabaseName)} FROM DISK = N'{Literal(containerPath)}' WITH REPLACE, {string.Join(", ", moves)}, STATS = 10;
+IF EXISTS (SELECT 1 FROM sys.databases WHERE name = N'{Literal(db.DatabaseName)}')
+  ALTER DATABASE {Quoted(db.DatabaseName)} SET MULTI_USER;";
         var rr = await SqlcmdAsync(null, null, null, restoreSql, ct);
         await _proc.RunAsync("docker", new[] { "exec", Container, "rm", "-f", containerPath }, ct);
         return rr.Success ? Result.Ok() : Result.Fail(rr.StdErr);
@@ -159,13 +165,13 @@ IF EXISTS (SELECT 1 FROM sys.databases WHERE name = N'{db.DatabaseName}')
 
     public async Task<Result> RemapPortalAliasesAsync(string database, string hostnameSuffix, string newHostname, CancellationToken ct)
     {
-        // Escape single quotes in the inputs.
-        var db = database.Replace("'", "''");
-        var sfx = hostnameSuffix.Replace("'", "''");
-        var hn = newHostname.Replace("'", "''");
+        // The database is an identifier; the suffix and hostname are string literals.
+        var db = Quoted(database);
+        var sfx = Literal(hostnameSuffix);
+        var hn = Literal(newHostname);
 
         var sql = $@"
-USE [{db}];
+USE {db};
 SET NOCOUNT ON;
 
 -- If the new alias is already present, just make sure portal 0 has only it.

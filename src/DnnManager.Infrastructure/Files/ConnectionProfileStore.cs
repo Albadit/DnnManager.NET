@@ -132,17 +132,29 @@ public sealed class ConnectionProfileStore : IFtpProfileStore, ISqlProfileStore
         }
         catch
         {
+            // An unreadable file starts an empty store, and the next Save would write over it -
+            // silently destroying every saved connection. Set the damaged file aside first so the
+            // passwords in it can still be recovered by hand.
+            try { File.Move(_path, _path + ".corrupt", overwrite: true); } catch { /* best effort */ }
             return New();
         }
     }
 
+    private static readonly JsonSerializerOptions WriteOptions = new()
+    {
+        WriteIndented = true,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    };
+
     private void Write(Dictionary<string, ProjectConnections> map)
     {
-        var json = JsonSerializer.Serialize(map, new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-        });
-        File.WriteAllText(_path, json);
+        var json = JsonSerializer.Serialize(map, WriteOptions);
+
+        // Write-then-rename rather than writing in place: this file holds every saved credential,
+        // and a crash (or a full disk) partway through an in-place write would truncate the lot.
+        // The rename is atomic on NTFS, so readers see either the old file or the complete new one.
+        var temp = _path + ".tmp";
+        File.WriteAllText(temp, json);
+        File.Move(temp, _path, overwrite: true);
     }
 }

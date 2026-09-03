@@ -58,6 +58,9 @@ public sealed class SetupProjectUseCase
 
     public async Task<Result> ExecuteAsync(SetupProjectRequest req, IProgressReporter reporter, CancellationToken ct)
     {
+        var nameCheck = ProjectName.Validate(req.ProjectName);
+        if (!nameCheck.Success) return nameCheck;
+
         try
         {
             reporter.Step("Step 1: Prerequisites");

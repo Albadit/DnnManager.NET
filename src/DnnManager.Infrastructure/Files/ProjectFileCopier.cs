@@ -30,20 +30,26 @@ public sealed class ProjectFileCopier : IProjectFileCopier
         if (!Directory.Exists(src)) return Result.Fail($"Source folder does not exist: {src}");
 
         reporter.Info($"Copying files from {src}");
-        var files = Directory.EnumerateFiles(src, "*", SearchOption.AllDirectories).ToList();
+        // Enumerating FileInfo (rather than paths) carries each size over from the directory scan,
+        // so the byte total costs no extra file-system calls.
+        var files = new DirectoryInfo(src).EnumerateFiles("*", SearchOption.AllDirectories).ToList();
         var total = files.Count;
+        var progress = new ProgressThrottle();
+        // One CreateDirectory per distinct destination folder instead of one per file.
+        var createdDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var fileCount = 0;
         var byteCount = 0L;
         foreach (var file in files)
         {
             ct.ThrowIfCancellationRequested();
-            var rel = Path.GetRelativePath(src, file);
+            var rel = Path.GetRelativePath(src, file.FullName);
             var destFile = Path.Combine(dest, rel);
-            Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
-            File.Copy(file, destFile, overwrite: true);
+            var destDir = Path.GetDirectoryName(destFile)!;
+            if (createdDirs.Add(destDir)) Directory.CreateDirectory(destDir);
+            file.CopyTo(destFile, overwrite: true);
             fileCount++;
-            byteCount += new FileInfo(destFile).Length;
-            reporter.Progress($"{fileCount}/{total}  {rel}");
+            byteCount += file.Length;
+            if (progress.Due()) reporter.Progress($"{fileCount}/{total}  {rel}");
         }
         reporter.Success($"Copied {fileCount} files ({byteCount / 1024d / 1024d:N1} MB).");
         return Result.Ok();
@@ -56,7 +62,7 @@ public sealed class ProjectFileCopier : IProjectFileCopier
 
         try
         {
-            var client = new AsyncFtpClient(source.FtpHost, source.FtpUser ?? "", source.FtpPassword ?? "", source.FtpPort <= 0 ? 21 : source.FtpPort);
+            await using var client = new AsyncFtpClient(source.FtpHost, source.FtpUser ?? "", source.FtpPassword ?? "", source.FtpPort <= 0 ? 21 : source.FtpPort);
             // Azure App Service (and most modern hosts) require FTPS. Auto negotiates
             // explicit TLS and falls back to plain FTP when the server allows it.
             client.Config.EncryptionMode = FtpEncryptionMode.Auto;
@@ -70,7 +76,8 @@ public sealed class ProjectFileCopier : IProjectFileCopier
             var root = remotePath.TrimEnd('/');
             if (root.Length == 0) root = "/";
             var files = new List<FtpListItem>();
-            await ScanAsync(client, root, files, reporter, ct);
+            var progress = new ProgressThrottle();
+            await ScanAsync(client, root, files, reporter, progress, ct);
             reporter.Info($"Found {files.Count} files \u2014 downloading\u2026");
 
             if (files.Count == 0)
@@ -82,6 +89,7 @@ public sealed class ProjectFileCopier : IProjectFileCopier
 
             // 2. Download each file, updating one status line per file.
             var prefix = root == "/" ? "/" : root + "/";
+            var createdDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             int ok = 0;
             long bytes = 0;
             var failed = new List<string>();
@@ -93,9 +101,10 @@ public sealed class ProjectFileCopier : IProjectFileCopier
                     ? item.FullName[prefix.Length..]
                     : item.FullName.TrimStart('/');
                 var localPath = Path.Combine(dest, rel.Replace('/', Path.DirectorySeparatorChar));
-                Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
+                var localDir = Path.GetDirectoryName(localPath)!;
+                if (createdDirs.Add(localDir)) Directory.CreateDirectory(localDir);
 
-                reporter.Progress($"{i + 1}/{files.Count}  {rel}");
+                if (progress.Due()) reporter.Progress($"{i + 1}/{files.Count}  {rel}");
 
                 // A single locked/transient file on the server (e.g. an in-use
                 // cache file) must not abort the whole clone - record and move on.
@@ -153,6 +162,26 @@ public sealed class ProjectFileCopier : IProjectFileCopier
         }
     }
 
+    /// <summary>
+    /// Rate-limits status-line updates to roughly ten a second. Every
+    /// <see cref="IProgressReporter.Progress"/> call repaints a full-width console line, which on a
+    /// site with tens of thousands of small files costs considerably more than the copy itself.
+    /// Check <see cref="Due"/> before building the message so skipped updates cost nothing at all.
+    /// </summary>
+    private sealed class ProgressThrottle
+    {
+        private const long IntervalMs = 100;
+        private long _nextTicks;
+
+        public bool Due()
+        {
+            var now = Environment.TickCount64;
+            if (now < _nextTicks) return false;
+            _nextTicks = now + IntervalMs;
+            return true;
+        }
+    }
+
     // Regenerable cache/temp folders that are routinely locked by the running site and
     // don't need to be cloned. Matched by directory name (case-insensitive).
     private static readonly HashSet<string> SkipDirectories = new(StringComparer.OrdinalIgnoreCase)
@@ -166,7 +195,8 @@ public sealed class ProjectFileCopier : IProjectFileCopier
 
     /// <summary>Recursively collects every file under <paramref name="path"/>, reporting scan progress.</summary>
     private async Task ScanAsync(
-        AsyncFtpClient client, string path, List<FtpListItem> files, IProgressReporter reporter, CancellationToken ct)
+        AsyncFtpClient client, string path, List<FtpListItem> files, IProgressReporter reporter,
+        ProgressThrottle progress, CancellationToken ct)
     {
         // Listing a single directory can fail transiently on Azure (the data
         // connection gets recycled, surfacing as a NullReferenceException). Don't
@@ -207,12 +237,12 @@ public sealed class ProjectFileCopier : IProjectFileCopier
                     reporter.Progress($"Skipping cache folder {it.Name}/ …");
                     continue;
                 }
-                await ScanAsync(client, it.FullName, files, reporter, ct);
+                await ScanAsync(client, it.FullName, files, reporter, progress, ct);
             }
             else if (it.Type == FtpObjectType.File)
             {
                 files.Add(it);
-                if (files.Count % 20 == 0)
+                if (progress.Due())
                     reporter.Progress($"Scanning remote files\u2026 {files.Count} found");
             }
         }

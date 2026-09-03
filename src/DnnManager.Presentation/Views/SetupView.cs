@@ -1,5 +1,6 @@
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.UseCases;
+using DnnManager.Domain;
 using DnnManager.Presentation.Tui;
 
 namespace DnnManager.Presentation.Views;
@@ -26,8 +27,18 @@ internal sealed class SetupView
         _screen.DrawCentredTitle(1, "Setup a new DNN project", Theme.HeaderFg);
         Console.SetCursorPosition(0, 3);
 
-        var name = _text.Show("Project name");
-        if (string.IsNullOrWhiteSpace(name)) { _status.Fail("Cancelled."); _status.Pause(); return; }
+        // Re-prompt on a bad name instead of dropping the user back to the menu - the name becomes a
+        // folder under the base directory, an IIS site/app-pool, a hostname and a database name.
+        string name;
+        while (true)
+        {
+            var entered = _text.Show("Project name");
+            if (string.IsNullOrWhiteSpace(entered)) { _status.Fail("Cancelled."); _status.Pause(); return; }
+
+            var check = ProjectName.Validate(entered);
+            if (check.Success) { name = entered; break; }
+            _status.Fail(check.Error!);
+        }
 
         var apis = _releases.KnownReleaseApis.ToList();
         var apiMenu = new SelectableList<string>(_screen)
