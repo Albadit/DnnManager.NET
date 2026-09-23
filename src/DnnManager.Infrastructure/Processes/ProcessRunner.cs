@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
 
@@ -33,7 +34,17 @@ public sealed class ProcessRunner
         var stderr = new StringBuilder();
         p.OutputDataReceived += (_, e) => { if (e.Data != null) stdout.AppendLine(e.Data); };
         p.ErrorDataReceived += (_, e) => { if (e.Data != null) stderr.AppendLine(e.Data); };
-        p.Start();
+        try
+        {
+            p.Start();
+        }
+        catch (Win32Exception ex)
+        {
+            // The executable isn't installed / on PATH (e.g. no Docker). Report it as an ordinary
+            // failed run so callers take their "tool missing" path instead of unwinding the whole
+            // operation - setup is meant to skip the database step when Docker is absent, not abort.
+            return new ProcessResult { ExitCode = -1, StdErr = $"Could not start '{fileName}': {ex.Message}" };
+        }
         p.BeginOutputReadLine();
         p.BeginErrorReadLine();
         try

@@ -79,6 +79,13 @@ public interface IDockerService
 {
     Task<bool> IsContainerRunningAsync(string containerName, CancellationToken ct);
     Task<bool> DoesContainerExistAsync(string containerName, CancellationToken ct);
+
+    /// <summary>
+    /// The container's state as Docker reports it (<c>running</c>, <c>exited</c>, <c>created</c>…), or
+    /// null when no such container exists. One CLI call answers both "exists?" and "running?".
+    /// </summary>
+    Task<string?> GetContainerStateAsync(string containerName, CancellationToken ct);
+
     Task<int?> GetPublishedPortAsync(string containerName, CancellationToken ct);
     Task<Result> StartContainerAsync(string containerName, CancellationToken ct);
 

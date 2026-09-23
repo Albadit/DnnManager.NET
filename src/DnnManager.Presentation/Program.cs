@@ -56,6 +56,7 @@ builder.Services.AddSingleton<DnnManager.Application.Abstractions.IUserPrompt>(s
 
 builder.Services.AddSingleton<MainMenuView>();
 builder.Services.AddScoped<SetupView>();
+builder.Services.AddScoped<ExistingProjectView>();
 builder.Services.AddScoped<RemoveView>();
 builder.Services.AddScoped<PrerequisitesView>();
 builder.Services.AddScoped<ProjectsListView>();

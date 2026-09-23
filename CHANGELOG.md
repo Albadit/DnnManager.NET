@@ -2,6 +2,52 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## Unreleased
+
+### Added
+
+- **Set up an existing project folder.** A new main-menu action for a DNN site
+  whose files are already under `BaseDirectory`: it creates the IIS website and,
+  optionally, a local database - without downloading, copying or overwriting
+  any files. When a database is requested it reuses the one `web.config`
+  already points at on the local container, or creates `<name>_dnndev` and asks
+  before repointing `web.config`. Existing databases are never dropped.
+- **Setup detects an existing folder up front.** Typing the name of a folder
+  that already exists now offers "IIS website only", "IIS website + database"
+  or downloading DNN over it, instead of asking to overwrite halfway through.
+
+### Fixed
+
+- **Setup no longer fails outright when Docker isn't installed.** Launching a
+  missing executable threw instead of returning a failed result, so the
+  intended "Docker not found - skipping the database" path never ran; the whole
+  setup aborted with "The system cannot find the file specified".
+- **URLs honour `SitePort`.** Setup and clone printed, and probed,
+  `http://<host>` even when the site was bound to a different port.
+- A failure to grant IIS folder permissions is now reported instead of ignored.
+- The "no configured projects" message referred to `docker-compose.yml`; it now
+  says `web.config`, which is what is actually checked.
+
+### Performance
+
+- **IIS feature check: one PowerShell process instead of 16.** Every feature
+  was queried in its own `powershell.exe` with its own DISM module load
+  (~0.8 s each here); all features are now queried, and enabled, in one run.
+- **Docker check: one call instead of two.** `docker version` replaces
+  `docker --version` + `docker info` (~1.3 s -> ~0.3 s measured here).
+- **Fewer `docker` calls when preparing SQL.** Container existence and state
+  come from one `docker ps`, and clone no longer re-queries the container to
+  decide whether its source database is local.
+- **IIS sites are torn down once, not twice.** Setup and clone called
+  `RemoveSite` right before `CreateSite`, which already removes the old site
+  and waits for its worker process to exit.
+
+### Changed
+
+- Setup, clone and the new action share one implementation of the IIS-site and
+  SQL-container steps (`Provisioning.cs`), and one definition of the hostname,
+  site URL, database-name and server conventions (`AppOptions`).
+
 ## v1.0.2 - 2026-09-03
 
 A hardening and performance patch. No new features and no configuration

@@ -56,9 +56,6 @@ public sealed class ListProjectsUseCase
         {
             var siteExists = siteStates.TryGetValue(project.Name, out var siteState);
 
-            var siteUrl = $"http://{project.Name}.{_opts.HostnameSuffix}";
-            if (_opts.SitePort != 80) siteUrl += $":{_opts.SitePort}";
-
             list.Add(new ProjectStatus(
                 project.Name,
                 project.ProjectDirectory,
@@ -66,11 +63,11 @@ public sealed class ListProjectsUseCase
                 siteExists ? siteState : null,
                 size,
                 containerRunning,
-                webConfigDb ?? (project.Name + _opts.Docker.DefaultDbNameSuffix),
+                webConfigDb ?? _opts.DatabaseNameFor(project.Name),
                 // The site always connects as the container sa.
                 "sa",
                 sqlPort,
-                siteUrl));
+                _opts.SiteUrlFor(project.Name)));
         }
         return list;
     }

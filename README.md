@@ -204,6 +204,32 @@ it only needs `appsettings.json` next to it if you want to override defaults.
 Environment variables prefixed with `DNNMGR_` override settings, e.g.
 `DNNMGR_DnnManager__Docker__SaPassword=...`.
 
+## Set up an existing project folder
+
+For a DNN site whose files are **already** in a folder under `BaseDirectory`
+(copied over by hand, checked out from git, left behind by an earlier run),
+**Set up an existing project folder** creates only what is missing - the files
+are never downloaded, copied or overwritten.
+
+Flow (handled by [`ExistingProjectView`](src/DnnManager.Presentation/Views/ExistingProjectView.cs)
+→ [`HostExistingProjectUseCase`](src/DnnManager.Application/UseCases/HostExistingProjectUseCase.cs)):
+
+1. **Pick the folder** - each one shows whether it already has an IIS site.
+2. **Choose** `IIS website only` or `IIS website + local database`.
+3. **IIS website** - checks the IIS features, then creates (or recreates) the
+   site and app pool bound to `<folder>.<HostnameSuffix>`, grants the IIS
+   identities access to the folder and starts the site.
+4. **Database (optional)** - starts the shared SQL container, then:
+   - if `web.config` already points at the local container, keeps that
+     database (creating it only if it is missing) and leaves `web.config` alone;
+   - otherwise creates `<folder>_dnndev` if missing (existing data is never
+     dropped) and asks before pointing `web.config`'s `SiteSqlServer` at it.
+   A new database is empty: run the install wizard, or restore a backup with
+   **Database → Overwrite database**.
+
+Typing the name of an existing folder into **Setup a new DNN project** offers
+the same two choices, plus downloading DNN over the folder as before.
+
 ## Clone existing project
 
 The **Clone** action copies an existing DNN site (files + database) into a brand
@@ -272,6 +298,8 @@ message, no pause.
 |---|---|
 | Menu | [`Views/MainMenuView.cs`](src/DnnManager.Presentation/Views/MainMenuView.cs) |
 | Setup | [`UseCases/SetupProjectUseCase.cs`](src/DnnManager.Application/UseCases/SetupProjectUseCase.cs) + [`SetupView`](src/DnnManager.Presentation/Views/SetupView.cs) |
+| Existing folder (IIS / DB only) | [`UseCases/HostExistingProjectUseCase.cs`](src/DnnManager.Application/UseCases/HostExistingProjectUseCase.cs) + [`ExistingProjectView`](src/DnnManager.Presentation/Views/ExistingProjectView.cs) |
+| Shared IIS site / SQL container steps | [`UseCases/Provisioning.cs`](src/DnnManager.Application/UseCases/Provisioning.cs) |
 | Remove | [`UseCases/RemoveProjectUseCase.cs`](src/DnnManager.Application/UseCases/RemoveProjectUseCase.cs) + [`RemoveView`](src/DnnManager.Presentation/Views/OtherViews.cs) |
 | Check prerequisites | [`UseCases/CheckPrerequisitesUseCase.cs`](src/DnnManager.Application/UseCases/CheckPrerequisitesUseCase.cs) |
 | Show projects info | [`UseCases/ListProjectsUseCase.cs`](src/DnnManager.Application/UseCases/ListProjectsUseCase.cs) |

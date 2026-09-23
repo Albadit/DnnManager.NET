@@ -37,11 +37,11 @@ public sealed class CloneProjectUseCase
     private readonly IWebConfigService _webConfig;
     private readonly IRemoteSqlBackupService _remoteBackup;
     private readonly IBacpacService _bacpac;
-    private readonly IDockerService _docker;
+    private readonly LocalSqlContainer _sqlContainer;
     private readonly ISqlServerService _sql;
     private readonly IIisManager _iis;
+    private readonly IisSiteProvisioner _site;
     private readonly IPrerequisiteChecker _prereq;
-    private readonly IUserPrompt _prompt;
     private readonly ILogger<CloneProjectUseCase> _log;
 
     public CloneProjectUseCase(
@@ -52,11 +52,11 @@ public sealed class CloneProjectUseCase
         IWebConfigService webConfig,
         IRemoteSqlBackupService remoteBackup,
         IBacpacService bacpac,
-        IDockerService docker,
+        LocalSqlContainer sqlContainer,
         ISqlServerService sql,
         IIisManager iis,
+        IisSiteProvisioner site,
         IPrerequisiteChecker prereq,
-        IUserPrompt prompt,
         ILogger<CloneProjectUseCase> log)
     {
         _opts = opts.Value;
@@ -66,11 +66,11 @@ public sealed class CloneProjectUseCase
         _webConfig = webConfig;
         _remoteBackup = remoteBackup;
         _bacpac = bacpac;
-        _docker = docker;
+        _sqlContainer = sqlContainer;
         _sql = sql;
         _iis = iis;
+        _site = site;
         _prereq = prereq;
-        _prompt = prompt;
         _log = log;
     }
 
@@ -82,11 +82,10 @@ public sealed class CloneProjectUseCase
         try
         {
             var project = _projects.Build(req.TargetProjectName);
-            var hostname = $"{req.TargetProjectName}.{_opts.HostnameSuffix}";
+            var hostname = _opts.HostnameFor(req.TargetProjectName);
 
             // 1) Target directory.
             reporter.Step($"Preparing target project '{req.TargetProjectName}'");
-            Directory.CreateDirectory(_opts.BaseDirectory);
             Directory.CreateDirectory(project.ProjectDirectory);
 
             // 2) Copy website files (skipped for a database-only run).
@@ -192,45 +191,12 @@ public sealed class CloneProjectUseCase
 
             // 4) Ensure shared docker SQL container is up, write compose, get port
             reporter.Step("Preparing local SQL Server (Docker)");
-            var containerName = _opts.Docker.ContainerName;
-            var containerExists = await _docker.DoesContainerExistAsync(containerName, ct);
-            var containerRunning = containerExists && await _docker.IsContainerRunningAsync(containerName, ct);
-
-            if (containerExists)
-            {
-                if (!containerRunning)
-                {
-                    reporter.Info($"Container '{containerName}' exists but is stopped \u2014 starting it.");
-                    var start = await _docker.StartContainerAsync(containerName, ct);
-                    if (!start.Success) return start;
-                }
-                else
-                {
-                    reporter.Info($"Reusing running SQL Server container '{containerName}'.");
-                }
-            }
-            else
-            {
-                // Bring up the shared container from the docker-compose.yml shipped with the app.
-                var up = await _docker.ComposeUpAsync(ct);
-                if (!up.Success) return up;
-            }
-
-            // The shared container publishes the fixed port (1433); read it back to be certain.
-            var existingPort = await _docker.GetPublishedPortAsync(containerName, ct);
-            if (existingPort is null) return Result.Fail($"Could not determine published port for '{containerName}'.");
-            var port = existingPort.Value;
-
-            var ready = await _sql.WaitReadyAsync(180, reporter, ct);
-            if (!ready.Success) return ready;
+            var ready = await _sqlContainer.EnsureReadyAsync(reporter, ct);
+            if (!ready.Success) return Result.Fail(ready.Error!);
+            var port = ready.Value;
 
             // 6) Create the local database (by name only; the site connects as the container sa)
-            var db = new DatabaseConfig(
-                Server: $"{_opts.Docker.ContainerIp},{port}",
-                DatabaseName: req.TargetProjectName + _opts.Docker.DefaultDbNameSuffix,
-                Collation: _opts.Docker.Collation,
-                Port: port,
-                BackupDirectory: project.BackupDirectory);
+            var db = _sqlContainer.DatabaseFor(project, _opts.DatabaseNameFor(req.TargetProjectName), port);
 
             // If the local DB already exists, drop it first (the chosen action already
             // authorized overwriting the database).
@@ -257,7 +223,7 @@ public sealed class CloneProjectUseCase
                 var cached = Path.Combine(project.BackupDirectory, $"clone_{stamp}_{req.TargetProjectName}.bacpac");
                 try { File.Copy(bacpacTmp, cached, overwrite: true); reporter.Info($"Cached BACPAC at {cached}"); } catch { }
 
-                var import = await _bacpac.ImportAsync($"{_opts.Docker.ContainerIp},{port}", "sa", _opts.Docker.SaPassword,
+                var import = await _bacpac.ImportAsync(db.Server, "sa", _opts.Docker.SaPassword,
                     db.DatabaseName, bacpacTmp, reporter, ct);
                 if (!import.Success) return import;
 
@@ -276,7 +242,7 @@ public sealed class CloneProjectUseCase
                 //    route the backup through the container instead of a Windows path it can't see.
                 reporter.Step("Backing up source database");
                 string srcBakHostPath;
-                if (await IsLocalDockerSourceAsync(src, ct))
+                if (_sqlContainer.IsLocalContainer(src.Server, port))
                 {
                     reporter.Info("Source DB is on the local Docker SQL container - using container backup path.");
                     var fileName = Path.GetFileName(req.SourceBackupServerPath);
@@ -325,24 +291,7 @@ public sealed class CloneProjectUseCase
             if (req.CreateIisSite && _iis.IsAvailable())
             {
                 reporter.Step("Creating IIS site");
-                _iis.RemoveSite(req.TargetProjectName);
-                var siteCreate = _iis.CreateSite(req.TargetProjectName, project.ProjectDirectory, hostname, _opts.SitePort);
-                if (!siteCreate.Success)
-                {
-                    reporter.Fail($"IIS site creation failed: {siteCreate.Error}. Continuing without a website.");
-                }
-                else
-                {
-                    _iis.GrantPermissions(project.ProjectDirectory, new[]
-                    {
-                        "IIS_IUSRS",
-                        "IUSR",
-                        $"IIS APPPOOL\\{req.TargetProjectName}"
-                    });
-                    _iis.StartSite(req.TargetProjectName);
-                    siteCreated = true;
-                    reporter.Success($"IIS site '{req.TargetProjectName}' bound to http://{hostname}");
-                }
+                siteCreated = _site.TryCreateSite(project, reporter);
             }
             else if (req.CreateIisSite)
             {
@@ -351,7 +300,7 @@ public sealed class CloneProjectUseCase
 
             reporter.Step("Clone complete");
             if (siteCreated)
-                reporter.Success($"Open http://{hostname} to use the cloned site.");
+                reporter.Success($"Open {_opts.SiteUrlFor(req.TargetProjectName)} to use the cloned site.");
             else
                 reporter.Success($"Cloned files are ready in {project.ProjectDirectory}. " +
                                  "Point a web server (and database) at them to use the site.");
@@ -362,36 +311,5 @@ public sealed class CloneProjectUseCase
             _log.LogError(ex, "Clone failed");
             return Result.Fail(ex.Message);
         }
-    }
-
-    private async Task<bool> IsLocalDockerSourceAsync(SiteSqlConnection src, CancellationToken ct)
-    {
-        // Parse host[,port] from src.Server.
-        var server = src.Server.Trim();
-        string host = server; int? port = null;
-        var commaIdx = server.IndexOf(',');
-        if (commaIdx > 0)
-        {
-            host = server[..commaIdx].Trim();
-            if (int.TryParse(server[(commaIdx + 1)..].Trim(), out var p)) port = p;
-        }
-
-        var isLocalHost =
-            string.Equals(host, _opts.Docker.ContainerIp, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(host, "127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(host, "(local)",   StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(host, ".",         StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(host, Environment.MachineName, StringComparison.OrdinalIgnoreCase);
-        if (!isLocalHost) return false;
-
-        var containerName = _opts.Docker.ContainerName;
-        if (!await _docker.DoesContainerExistAsync(containerName, ct)) return false;
-        var pubPort = await _docker.GetPublishedPortAsync(containerName, ct);
-        if (pubPort is null) return false;
-
-        // If the source string includes an explicit port, it must match.
-        if (port.HasValue && port.Value != pubPort.Value) return false;
-        return true;
     }
 }

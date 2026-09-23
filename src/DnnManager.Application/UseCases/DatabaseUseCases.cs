@@ -76,7 +76,7 @@ public sealed class ExportDatabaseUseCase
             // Server - we authenticate as its sa, so we must not trust web.config's Data Source, which
             // may be a named instance / alias / stale port the Docker sa can't reach.
             var webDb = DeveloperDb.FromWebConfig(p, _webConfig);
-            var dbName = webDb ?? (p.Name + _opts.Docker.DefaultDbNameSuffix);
+            var dbName = webDb ?? _opts.DatabaseNameFor(p.Name);
             var server = await ResolveLocalServerAsync(ct);
             if (server is null)
                 return Result.Fail($"The shared SQL Server container '{_opts.Docker.ContainerName}' isn't running - start it and retry.");
@@ -119,7 +119,7 @@ public sealed class ExportDatabaseUseCase
     private async Task<string?> ResolveLocalServerAsync(CancellationToken ct)
     {
         var port = await _docker.GetPublishedPortAsync(_opts.Docker.ContainerName, ct);
-        return port is null ? null : $"{_opts.Docker.ContainerIp},{port}";
+        return port is null ? null : _opts.ServerFor(port.Value);
     }
 }
 
@@ -171,12 +171,12 @@ public sealed class ImportDatabaseUseCase
         // conventional {project}_dnndev name. This keeps backup and restore symmetric - otherwise a
         // backup of DB 'A' could be restored into a differently-named DB 'B', leaving the live site DB
         // untouched. The server is always the local Docker SQL Server (we connect as its sa).
-        var dbName = DeveloperDb.FromWebConfig(p, _webConfig) ?? (projectName + _opts.Docker.DefaultDbNameSuffix);
+        var dbName = DeveloperDb.FromWebConfig(p, _webConfig) ?? _opts.DatabaseNameFor(projectName);
         var port = await _docker.GetPublishedPortAsync(_opts.Docker.ContainerName, ct);
         if (port is null)
             return Result.Fail($"The shared SQL Server container '{_opts.Docker.ContainerName}' isn't running - start it and retry.");
         var db = new DatabaseConfig(
-            $"{_opts.Docker.ContainerIp},{port.Value}",
+            _opts.ServerFor(port.Value),
             dbName,
             _opts.Docker.Collation,
             port.Value,

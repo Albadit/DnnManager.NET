@@ -24,6 +24,7 @@ internal sealed class MainMenuView
         var items = new[]
         {
             new MenuItem("Setup a new DNN project",          c => RunScopedAsync<SetupView>(v => v.RunAsync(c))),
+            new MenuItem("Setup an existing project folder", c => RunScopedAsync<ExistingProjectView>(v => v.RunAsync(c))),
             new MenuItem("Clone a DNN project (local / FTP)", c => RunScopedAsync<CloneView>(v => v.RunAsync(c))),
             new MenuItem("Remove a DNN project",             c => RunScopedAsync<RemoveView>(v => v.RunAsync(c))),
             new MenuItem("Check prerequisites",              c => RunScopedAsync<PrerequisitesView>(v => v.RunAsync(c))),

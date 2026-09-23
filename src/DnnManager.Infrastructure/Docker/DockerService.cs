@@ -29,6 +29,15 @@ public sealed class DockerService : IDockerService
         return r.Success && r.StdOut.Trim() == containerName;
     }
 
+    public async Task<string?> GetContainerStateAsync(string containerName, CancellationToken ct)
+    {
+        var r = await _proc.RunAsync("docker",
+            new[] { "ps", "-a", "--filter", $"name=^{containerName}$", "--format", "{{.State}}" }, ct);
+        if (!r.Success) return null;
+        var state = r.StdOut.Trim();
+        return state.Length > 0 ? state : null;
+    }
+
     public async Task<Result> StartContainerAsync(string containerName, CancellationToken ct)
     {
         var r = await _proc.RunAsync("docker", new[] { "start", containerName }, ct);

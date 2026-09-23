@@ -15,6 +15,19 @@ public sealed class AppOptions
     public IReadOnlyList<string> GitHubReleaseApis { get; set; } = Array.Empty<string>();
     public IReadOnlyList<IisFeatureSetting> RequiredIisFeatures { get; set; } = Array.Empty<IisFeatureSetting>();
     public ConsoleOptions Console { get; set; } = new();
+
+    /// <summary>The host header a project's IIS site is bound to: <c>{project}.{HostnameSuffix}</c>.</summary>
+    public string HostnameFor(string projectName) => $"{projectName}.{HostnameSuffix}";
+
+    /// <summary>The URL a project's site answers on, including the port when it isn't 80.</summary>
+    public string SiteUrlFor(string projectName) =>
+        SitePort == 80 ? $"http://{HostnameFor(projectName)}" : $"http://{HostnameFor(projectName)}:{SitePort}";
+
+    /// <summary>The conventional local database name for a project: <c>{project}{DefaultDbNameSuffix}</c>.</summary>
+    public string DatabaseNameFor(string projectName) => projectName + Docker.DefaultDbNameSuffix;
+
+    /// <summary>The SQL Server address (<c>ip,port</c>) of the shared container for a published port.</summary>
+    public string ServerFor(int port) => $"{Docker.ContainerIp},{port}";
 }
 
 public sealed class ConsoleOptions
