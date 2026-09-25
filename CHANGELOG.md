@@ -28,6 +28,9 @@ projects, `appsettings.json` and `connections.json` keep working as they are.
   the sidebar switches the whole app live, including the sidebar, the activity
   log, inputs, lists, the projects table, scrollbars and the window title bar. The choice is saved as
   `Theme` in `appsettings.json`; by default the app follows the Windows app theme.
+- **Reset IIS.** A button on the Projects page restarts IIS (`iisreset`) after
+  a confirmation - for stuck sites, or to pick up IIS changes such as a newly
+  installed URL Rewrite module behind a 500.19 error.
 - **Show / hide passwords.** Every password field has an eye button.
 - **Hideable activity log.** The chevron in the Activity header collapses the
   log to its header bar (still showing the running operation and Cancel), and

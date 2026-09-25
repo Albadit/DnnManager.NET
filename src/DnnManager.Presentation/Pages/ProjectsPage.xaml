@@ -4,6 +4,8 @@
     <DockPanel Margin="28,24,28,20">
         <DockPanel DockPanel.Dock="Top">
             <Button DockPanel.Dock="Right" x:Name="RefreshButton" Content="Refresh" VerticalAlignment="Top" MinWidth="104" Click="Refresh_Click" />
+            <Button DockPanel.Dock="Right" Content="Reset IIS" VerticalAlignment="Top" Margin="0,0,8,0" Click="ResetIis_Click"
+                    ToolTip="Restart IIS (iisreset) - clears stuck sites and picks up IIS changes, e.g. a newly installed URL Rewrite module" />
             <StackPanel>
                 <TextBlock Style="{StaticResource PageTitle}" Text="Projects" />
                 <TextBlock Style="{StaticResource PageSubtitle}" x:Name="Subtitle" Text="Every project folder, its IIS site and its database." />

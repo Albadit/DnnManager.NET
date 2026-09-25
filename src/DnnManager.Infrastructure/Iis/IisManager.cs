@@ -26,6 +26,18 @@ public sealed class IisManager : IIisManager
         _log = log;
     }
 
+    public async Task<Result> ResetAsync(CancellationToken ct)
+    {
+        var iisreset = Path.Combine(Environment.SystemDirectory, "iisreset.exe");
+        if (!File.Exists(iisreset)) return Result.Fail($"iisreset was not found at {iisreset}.");
+
+        var r = await _proc.RunAsync(iisreset, new[] { "/restart" }, ct);
+        if (r.Success) return Result.Ok();
+
+        var output = (r.StdErr.Length > 0 ? r.StdErr : r.StdOut).Trim();
+        return Result.Fail($"iisreset failed (exit code {r.ExitCode}): {output}");
+    }
+
     public Result CreateSite(string siteName, string physicalPath, string hostname, int port)
     {
         try

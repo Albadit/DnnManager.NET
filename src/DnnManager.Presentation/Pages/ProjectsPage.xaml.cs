@@ -140,6 +140,13 @@ public partial class ProjectsPage : UserControl, IRefreshable
             (sp, reporter, ct) => sp.GetRequiredService<RemoveProjectUseCase>().ExecuteAsync(row.Name, reporter, ct));
     }
 
+    private async void ResetIis_Click(object sender, RoutedEventArgs e)
+    {
+        // ResetIisUseCase asks for confirmation itself; the list refreshes when it finishes.
+        await _runner.RunAsync("Reset IIS",
+            (sp, reporter, ct) => sp.GetRequiredService<ResetIisUseCase>().ExecuteAsync(reporter, ct));
+    }
+
     private static void Shell(string target)
     {
         try { Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); }

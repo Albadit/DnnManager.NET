@@ -46,6 +46,9 @@ public interface IIisManager
     /// Lets setup skip website creation gracefully instead of failing when IIS is absent.</summary>
     bool IsAvailable();
 
+    /// <summary>Restarts all IIS services (<c>iisreset /restart</c>).</summary>
+    Task<Result> ResetAsync(CancellationToken ct);
+
     /// <summary>
     /// One-shot snapshot of every IIS site: name -> state. Loading applicationHost.config is what a
     /// <c>ServerManager</c> actually costs, so callers that need the status of many sites take one

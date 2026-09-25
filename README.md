@@ -105,7 +105,7 @@ VS Code tasks for build, publish and zip are in `.vscode/tasks.json`.
 
 | Page | What it does |
 |---|---|
-| **Projects** | Table of every project folder: name, site URL, IIS state, SQL status, database, size and path. **Refresh** shows it's working (button reads *Refreshing…*, a bar runs along the table) and the subtitle shows when it last updated. The table scrolls both ways - **Shift + mouse wheel** scrolls sideways. **Open site** (or double-click a row), **Open folder** and **Remove…** act on the selected project. |
+| **Projects** | Table of every project folder: name, site URL, IIS state, SQL status, database, size and path. **Refresh** shows it's working (button reads *Refreshing…*, a bar runs along the table) and the subtitle shows when it last updated. The table scrolls both ways - **Shift + mouse wheel** scrolls sideways. **Open site** (or double-click a row), **Open folder** and **Remove…** act on the selected project. **Reset IIS** restarts IIS (`iisreset`, after a confirmation) - e.g. after installing the URL Rewrite module when a site shows *HTTP Error 500.19*. |
 | **New project** | Enter a name (validated as you type), pick the DNN release source and optionally a version (blank = latest). If a folder with that name already exists, it offers the **Existing folder** choices instead, plus downloading DNN over the folder. |
 | **Existing folder** | Pick a folder, then *IIS website + local database* (the default), *local database only* or *IIS website only*, and optionally a backup to restore. See [Set up an existing project folder](#set-up-an-existing-project-folder). |
 | **Clone project** | Copy a site from a local folder or an FTP server into a new project. See [Clone a project](#clone-a-project). |
