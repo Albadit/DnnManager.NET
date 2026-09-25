@@ -33,15 +33,15 @@ public partial class ExistingFolderOptions : UserControl
         set
         {
             Redownload.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
-            if (!value && Redownload.IsChecked == true) IisOnly.IsChecked = true;
+            if (!value && Redownload.IsChecked == true) IisAndDatabase.IsChecked = true;
         }
     }
 
     public ExistingFolderAction Action =>
-        IisAndDatabase.IsChecked == true ? ExistingFolderAction.IisAndDatabase :
-        DatabaseOnly.IsChecked == true   ? ExistingFolderAction.DatabaseOnly :
-        Redownload.IsChecked == true     ? ExistingFolderAction.Redownload :
-                                           ExistingFolderAction.IisOnly;
+        IisOnly.IsChecked == true      ? ExistingFolderAction.IisOnly :
+        DatabaseOnly.IsChecked == true ? ExistingFolderAction.DatabaseOnly :
+        Redownload.IsChecked == true   ? ExistingFolderAction.Redownload :
+                                         ExistingFolderAction.IisAndDatabase;
 
     public bool SetupsDatabase => Action is ExistingFolderAction.IisAndDatabase or ExistingFolderAction.DatabaseOnly;
 

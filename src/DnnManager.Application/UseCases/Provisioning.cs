@@ -72,9 +72,20 @@ public sealed class LocalSqlContainer
     }
 
     /// <summary>True for a file <see cref="RestoreAsync"/> can restore: a <c>.bacpac</c> or a native <c>.bak</c>.</summary>
-    public static bool IsBackupFile(string path) =>
-        path.EndsWith(".bacpac", StringComparison.OrdinalIgnoreCase) ||
-        path.EndsWith(".bak", StringComparison.OrdinalIgnoreCase);
+    public static bool IsBackupFile(string path)
+    {
+        if (path.EndsWith(".bacpac", StringComparison.OrdinalIgnoreCase)) return true;
+        if (!path.EndsWith(".bak", StringComparison.OrdinalIgnoreCase)) return false;
+
+        // DNN sites are full of hand-made copies like web.config.bak - those aren't database backups.
+        var inner = Path.GetExtension(Path.GetFileNameWithoutExtension(path));
+        return !CopiedFileExtensions.Contains(inner);
+    }
+
+    private static readonly HashSet<string> CopiedFileExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".config", ".json", ".xml", ".txt", ".resources", ".resx", ".js", ".css", ".aspx", ".ascx", ".cs", ".dll"
+    };
 
     /// <summary>
     /// Restores <paramref name="backupFile"/> into <paramref name="db"/>, replacing any existing database of

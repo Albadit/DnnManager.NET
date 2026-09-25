@@ -60,6 +60,11 @@ All notable changes to DnnManager.NET are documented here.
 
 ### Fixed
 
+- **Copied config files are no longer offered as database backups.** Files
+  like `web.config.bak` matched the `.bak` filter, so setting up an existing
+  folder could pre-select one as the backup to restore. Only real `.bak` /
+  `.bacpac` database backups are listed and accepted now.
+
 - **Setup no longer fails outright when Docker isn't installed.** Launching a
   missing executable threw instead of returning a failed result, so the
   intended "Docker not found - skipping the database" path never ran; the whole

@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:c="clr-namespace:DnnManager.Presentation.Controls">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="28,24,28,20" MaxWidth="760" HorizontalAlignment="Left">
+        <StackPanel Margin="28,24,28,20">
             <TextBlock Style="{StaticResource PageTitle}" Text="New project" />
             <TextBlock Style="{StaticResource PageSubtitle}"
                        Text="Downloads DNN into a new folder, creates its IIS website and hostname, and an empty database in the shared SQL Server container." />
