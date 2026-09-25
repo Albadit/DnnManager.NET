@@ -2,15 +2,17 @@
 
 All notable changes to DnnManager.NET are documented here.
 
-## Unreleased
+## v1.0.3 - 2026-09-25
+
+The terminal UI is replaced by a desktop app, **DNN Manager**. Existing
+projects, `appsettings.json` and `connections.json` keep working as they are.
 
 ### Added
 
 - **Desktop GUI replaces the terminal UI.** `dnnmgr.exe` is now a WPF app:
-  a sidebar with every former menu action - projects overview (open site /
-  folder, remove), new project, existing folder, clone (local or FTP with a
-  folder browser), database backup / overwrite, saved connections and
-  prerequisites - and a live activity log with Cancel. Use-case questions open
+  a sidebar with the actions - projects overview (open site / folder, remove),
+  new project, existing folder, clone (local or FTP with a folder browser),
+  live sites and prerequisites - and a live activity log with Cancel. Use-case questions open
   as dialogs. The use cases themselves are unchanged. The app is now called
   **DNN Manager** (window title, sidebar and dialogs).
 - **Settings page.** The gear icon at the bottom of the sidebar edits
@@ -40,9 +42,9 @@ All notable changes to DnnManager.NET are documented here.
   `web.config`. A restore remaps the portal alias to the local hostname, and
   an existing database is only replaced after you confirm.
 - **Setup detects an existing folder up front.** Typing the name of a folder
-  that already exists now offers "IIS website only", "IIS website + database",
-  "database only", or downloading DNN over it, instead of asking to overwrite
-  halfway through.
+  that already exists now offers "IIS website + local database" (the default),
+  "local database only", "IIS website only", or downloading DNN over it,
+  instead of asking to overwrite halfway through.
 - **`appsettings.json` / `docker-compose.yml` are generated.** Their defaults
   are defined in code (`BundledFiles.cs`), so neither file is needed in the
   source tree or the publish folder - the build no longer fails when they're
@@ -98,6 +100,13 @@ All notable changes to DnnManager.NET are documented here.
 
 ### Changed
 
+- **Projects page.** **Refresh** shows it's working (*Refreshing…*, a loading
+  bar, faded rows) and the subtitle shows when the list last updated. Columns
+  size to their content and the table scrolls sideways (scrollbar or
+  Shift + mouse wheel). Pages stay scrollable while an operation runs.
+- **Prerequisites** lists the IIS Windows features as a table.
+- New project, Clone and Prerequisites use the full window width, and plain text
+  follows the theme colour (it was unreadable in dark mode).
 - Setup, clone and the new action share one implementation of the IIS-site and
   SQL-container steps (`Provisioning.cs`), and one definition of the hostname,
   site URL, database-name and server conventions (`AppOptions`).

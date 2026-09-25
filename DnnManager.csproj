@@ -11,7 +11,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <DebugType>embedded</DebugType>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <!-- Program.Main builds the DI host before starting WPF, so App.xaml is a plain Page. -->
     <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
   </PropertyGroup>
