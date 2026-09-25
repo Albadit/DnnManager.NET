@@ -14,7 +14,7 @@
                     <TextBlock Style="{StaticResource FieldLabel}" Text="Project name" Margin="0,0,0,4" />
                     <TextBox x:Name="NameBox" TextChanged="NameBox_TextChanged" />
                     <TextBlock x:Name="NameError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
-                    <TextBlock x:Name="NameHint" Style="{StaticResource Hint}"
+                    <TextBlock Style="{StaticResource Hint}"
                                Text="Letters, digits, '-', '_' or '.' - the name becomes the folder, the IIS site, the hostname and the database name." />
                 </StackPanel>
             </Border>

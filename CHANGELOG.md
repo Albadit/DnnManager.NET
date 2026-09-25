@@ -57,6 +57,12 @@ All notable changes to DnnManager.NET are documented here.
   (`ExportDatabaseUseCase`, `ImportDatabaseUseCase`, `IRemoteSqlAdminService`)
   are gone. To load a backup into a local project's database, use **Existing
   folder** with **local database only**.
+- **Unused code.** Docker helpers nothing called (`DoesContainerExistAsync`,
+  `ComposeDownAsync`, `ExecAsync`), `ListConfiguredProjects`, the
+  `DockerSettings` / `IisFeature` records, unused fields
+  (`DatabaseConfig.RemoteBackupDirectory`, `ProjectStatus.DatabaseUser`), the
+  SqlPackage `IsAvailable` / `InstallHint` interface members and import
+  `properties` option, and loggers that were never written to. No behaviour change.
 
 ### Fixed
 

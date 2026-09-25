@@ -2,7 +2,6 @@ using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Domain;
 using DnnManager.Infrastructure.Processes;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace DnnManager.Infrastructure.Sql;
@@ -14,11 +13,10 @@ public sealed class SqlServerService : ISqlServerService
 {
     private readonly ProcessRunner _proc;
     private readonly AppOptions _opts;
-    private readonly ILogger<SqlServerService> _log;
 
-    public SqlServerService(ProcessRunner proc, IOptions<AppOptions> opts, ILogger<SqlServerService> log)
+    public SqlServerService(ProcessRunner proc, IOptions<AppOptions> opts)
     {
-        _proc = proc; _opts = opts.Value; _log = log;
+        _proc = proc; _opts = opts.Value;
     }
 
     private string Container => _opts.Docker.ContainerName;

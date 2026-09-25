@@ -5,7 +5,7 @@
     <DockPanel Margin="28,24,28,20">
         <StackPanel DockPanel.Dock="Top">
             <TextBlock Style="{StaticResource PageTitle}" Text="Existing folder" />
-            <TextBlock Style="{StaticResource PageSubtitle}" x:Name="Subtitle"
+            <TextBlock Style="{StaticResource PageSubtitle}"
                        Text="Set up the IIS website and/or the local database for a project folder that already exists." />
         </StackPanel>
 

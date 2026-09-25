@@ -31,7 +31,7 @@ public partial class PasswordInput : UserControl
     public event RoutedEventHandler? PasswordChanged;
 
     /// <summary>Puts the keyboard focus in whichever box is showing.</summary>
-    public void FocusInput()
+    private void FocusInput()
     {
         if (Eye.IsChecked == true) Shown.Focus();
         else Hidden.Focus();

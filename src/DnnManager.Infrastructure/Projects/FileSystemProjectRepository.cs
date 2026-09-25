@@ -25,22 +25,6 @@ public sealed class FileSystemProjectRepository : IProjectRepository
     public bool ProjectExists(string projectName)
         => Directory.Exists(Path.Combine(_opts.BaseDirectory, projectName));
 
-    public IReadOnlyList<string> ListConfiguredProjects()
-    {
-        if (!Directory.Exists(_opts.BaseDirectory)) return Array.Empty<string>();
-        var list = new List<string>();
-        foreach (var dir in Directory.EnumerateDirectories(_opts.BaseDirectory))
-        {
-            // A managed project is a DNN site - identified by its web.config (there is no longer a
-            // per-project compose file to key off).
-            var webConfig = Path.Combine(dir, "web.config");
-            if (File.Exists(webConfig))
-                list.Add(Path.GetFileName(dir)!);
-        }
-        list.Sort(StringComparer.OrdinalIgnoreCase);
-        return list;
-    }
-
     public IReadOnlyList<string> ListAllProjectDirectories()
     {
         if (!Directory.Exists(_opts.BaseDirectory)) return Array.Empty<string>();

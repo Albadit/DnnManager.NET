@@ -2,31 +2,19 @@ using DnnManager.Application.Abstractions;
 using DnnManager.Domain;
 using DnnManager.Infrastructure.Files;
 using DnnManager.Infrastructure.Processes;
-using Microsoft.Extensions.Logging;
 
 namespace DnnManager.Infrastructure.Docker;
 
 public sealed class DockerService : IDockerService
 {
     private readonly ProcessRunner _proc;
-    private readonly ILogger<DockerService> _log;
 
-    public DockerService(ProcessRunner proc, ILogger<DockerService> log)
-    {
-        _proc = proc; _log = log;
-    }
+    public DockerService(ProcessRunner proc) => _proc = proc;
 
     public async Task<bool> IsContainerRunningAsync(string containerName, CancellationToken ct)
     {
         var r = await _proc.RunAsync("docker",
             new[] { "ps", "--filter", $"name=^{containerName}$", "--format", "{{.Names}}" }, ct);
-        return r.Success && r.StdOut.Trim() == containerName;
-    }
-
-    public async Task<bool> DoesContainerExistAsync(string containerName, CancellationToken ct)
-    {
-        var r = await _proc.RunAsync("docker",
-            new[] { "ps", "-a", "--filter", $"name=^{containerName}$", "--format", "{{.Names}}" }, ct);
         return r.Success && r.StdOut.Trim() == containerName;
     }
 
@@ -86,21 +74,4 @@ public sealed class DockerService : IDockerService
         return r.Success ? Result.Ok() : Result.Fail($"docker compose up failed: {r.StdErr}");
     }
 
-    public async Task<Result> ComposeDownAsync(bool removeVolumes, CancellationToken ct)
-    {
-        var compose = EnsureComposeFile();
-        if (!compose.Success) return compose;
-        var args = new List<string> { "compose", "-f", SharedComposeFile, "-p", ComposeProjectName, "down" };
-        if (removeVolumes) args.Add("-v");
-        var r = await _proc.RunAsync("docker", args, ct);
-        return r.Success ? Result.Ok() : Result.Fail($"docker compose down failed: {r.StdErr}");
-    }
-
-    public async Task<Result<string>> ExecAsync(string containerName, IReadOnlyList<string> args, CancellationToken ct)
-    {
-        var full = new List<string> { "exec", containerName };
-        full.AddRange(args);
-        var r = await _proc.RunAsync("docker", full, ct);
-        return r.Success ? Result<string>.Ok(r.StdOut) : Result<string>.Fail(r.StdErr.Length > 0 ? r.StdErr : r.StdOut);
-    }
 }

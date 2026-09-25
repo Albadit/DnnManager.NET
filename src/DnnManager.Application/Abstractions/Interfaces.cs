@@ -20,7 +20,6 @@ public interface IUserPrompt
 
 public interface IProjectRepository
 {
-    IReadOnlyList<string> ListConfiguredProjects();
     IReadOnlyList<string> ListAllProjectDirectories();
     DnnProject Build(string projectName);
     bool ProjectExists(string projectName);
@@ -75,7 +74,6 @@ public interface IPrerequisiteChecker
 public interface IDockerService
 {
     Task<bool> IsContainerRunningAsync(string containerName, CancellationToken ct);
-    Task<bool> DoesContainerExistAsync(string containerName, CancellationToken ct);
 
     /// <summary>
     /// The container's state as Docker reports it (<c>running</c>, <c>exited</c>, <c>created</c>…), or
@@ -88,11 +86,6 @@ public interface IDockerService
 
     /// <summary>Brings up the shared SQL container from the docker-compose.yml shipped next to the app.</summary>
     Task<Result> ComposeUpAsync(CancellationToken ct);
-
-    /// <summary>Tears down the shared SQL container (optionally removing its volume).</summary>
-    Task<Result> ComposeDownAsync(bool removeVolumes, CancellationToken ct);
-
-    Task<Result<string>> ExecAsync(string containerName, IReadOnlyList<string> args, CancellationToken ct);
 }
 
 public interface ISqlServerService
@@ -215,9 +208,6 @@ public interface IWebConfigService
 /// </summary>
 public interface IBacpacService
 {
-    /// <summary>True when the SqlPackage tool can be located on this machine.</summary>
-    bool IsAvailable();
-
     /// <summary>
     /// Ensures SqlPackage is available, installing it as a .NET global tool on demand the first time
     /// (requires the .NET SDK and <c>dotnet</c> on PATH). A no-op when SqlPackage is already present.
@@ -225,21 +215,15 @@ public interface IBacpacService
     /// </summary>
     Task<Result> EnsureAvailableAsync(IProgressReporter reporter, CancellationToken ct);
 
-    /// <summary>Install hint shown when SqlPackage is missing.</summary>
-    string InstallHint { get; }
-
     /// <summary>Exports <paramref name="source"/> to <paramref name="bacpacPath"/> on this host.</summary>
     Task<Result> ExportAsync(SiteSqlConnection source, string bacpacPath, IProgressReporter reporter, CancellationToken ct);
 
     /// <summary>
-    /// Imports a <c>.bacpac</c> into a SQL Server (local or remote/Azure), creating <paramref name="databaseName"/>.
-    /// SqlPackage always creates a fresh database and fails if one already exists. Optional
-    /// <paramref name="properties"/> are passed through as SqlPackage <c>/p:Key=Value</c> arguments
-    /// (e.g. DatabaseEdition / DatabaseServiceObjective to control the created Azure SQL tier).
+    /// Imports a <c>.bacpac</c> into a SQL Server, creating <paramref name="databaseName"/>.
+    /// SqlPackage always creates a fresh database and fails if one already exists.
     /// </summary>
     Task<Result> ImportAsync(string targetServer, string saUser, string saPassword,
-        string databaseName, string bacpacPath, IProgressReporter reporter, CancellationToken ct,
-        IReadOnlyDictionary<string, string>? properties = null);
+        string databaseName, string bacpacPath, IProgressReporter reporter, CancellationToken ct);
 }
 
 public interface IRemoteSqlBackupService

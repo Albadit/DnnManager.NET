@@ -12,8 +12,7 @@ public sealed record DatabaseConfig(
     string DatabaseName,
     string Collation,
     int Port,
-    string BackupDirectory,
-    string? RemoteBackupDirectory = null);
+    string BackupDirectory);
 
 public sealed record ProjectStatus(
     string Name,
@@ -23,16 +22,5 @@ public sealed record ProjectStatus(
     long DirectorySizeBytes,
     bool ContainerRunning,
     string? DatabaseName,
-    string? DatabaseUser,
     int? SqlPort,
     string SiteUrl);
-
-public sealed record DockerSettings(
-    string ContainerName,
-    string VolumeName,
-    string SaPassword,
-    int DefaultPort,
-    string Collation,
-    string MssqlPid);
-
-public sealed record IisFeature(string Name, string Label);

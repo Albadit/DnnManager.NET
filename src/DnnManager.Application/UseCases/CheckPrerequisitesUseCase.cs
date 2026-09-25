@@ -1,6 +1,5 @@
 using DnnManager.Application.Abstractions;
 using DnnManager.Domain;
-using Microsoft.Extensions.Logging;
 
 namespace DnnManager.Application.UseCases;
 
@@ -8,11 +7,10 @@ public sealed class CheckPrerequisitesUseCase
 {
     private readonly IPrerequisiteChecker _prereq;
     private readonly IUserPrompt _prompt;
-    private readonly ILogger<CheckPrerequisitesUseCase> _log;
 
-    public CheckPrerequisitesUseCase(IPrerequisiteChecker prereq, IUserPrompt prompt, ILogger<CheckPrerequisitesUseCase> log)
+    public CheckPrerequisitesUseCase(IPrerequisiteChecker prereq, IUserPrompt prompt)
     {
-        _prereq = prereq; _prompt = prompt; _log = log;
+        _prereq = prereq; _prompt = prompt;
     }
 
     public async Task<Result> ExecuteAsync(IProgressReporter reporter, CancellationToken ct)

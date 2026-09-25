@@ -64,8 +64,6 @@ public sealed class ListProjectsUseCase
                 size,
                 containerRunning,
                 webConfigDb ?? _opts.DatabaseNameFor(project.Name),
-                // The site always connects as the container sa.
-                "sa",
                 sqlPort,
                 _opts.SiteUrlFor(project.Name)));
         }

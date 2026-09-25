@@ -21,7 +21,7 @@ public sealed class SqlPackageService : IBacpacService
         _proc = proc; _log = log;
     }
 
-    public string InstallHint =>
+    private const string InstallHint =
         "SqlPackage was not found. Install it with:  dotnet tool install -g microsoft.sqlpackage";
 
     // The .NET (Core) build of SqlPackage throws "4096 (0x1000) is an invalid culture
@@ -32,8 +32,6 @@ public sealed class SqlPackageService : IBacpacService
     {
         ["DOTNET_SYSTEM_GLOBALIZATION_USENLS"] = "true"
     };
-
-    public bool IsAvailable() => ResolveExe() is not null;
 
     public async Task<Result> EnsureAvailableAsync(IProgressReporter reporter, CancellationToken ct)
     {
@@ -142,8 +140,7 @@ public sealed class SqlPackageService : IBacpacService
     }
 
     public async Task<Result> ImportAsync(string targetServer, string saUser, string saPassword,
-        string databaseName, string bacpacPath, IProgressReporter reporter, CancellationToken ct,
-        IReadOnlyDictionary<string, string>? properties = null)
+        string databaseName, string bacpacPath, IProgressReporter reporter, CancellationToken ct)
     {
         var exe = ResolveExe();
         if (exe is null) return Result.Fail(InstallHint);
@@ -165,9 +162,6 @@ public sealed class SqlPackageService : IBacpacService
             $"/TargetConnectionString:{cs}",
             $"/SourceFile:{bacpacPath}"
         };
-        if (properties is not null)
-            foreach (var kv in properties)
-                args.Add($"/p:{kv.Key}={kv.Value}");
 
         reporter.Step($"Importing BACPAC into [{databaseName}]");
         reporter.Info("This can take several minutes…");
