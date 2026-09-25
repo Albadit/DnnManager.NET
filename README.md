@@ -208,27 +208,41 @@ Environment variables prefixed with `DNNMGR_` override settings, e.g.
 
 For a DNN site whose files are **already** in a folder under `BaseDirectory`
 (copied over by hand, checked out from git, left behind by an earlier run),
-**Set up an existing project folder** creates only what is missing - the files
+**Setup an existing project folder** creates only what is missing - the files
 are never downloaded, copied or overwritten.
 
 Flow (handled by [`ExistingProjectView`](src/DnnManager.Presentation/Views/ExistingProjectView.cs)
 → [`HostExistingProjectUseCase`](src/DnnManager.Application/UseCases/HostExistingProjectUseCase.cs)):
 
 1. **Pick the folder** - each one shows whether it already has an IIS site.
-2. **Choose** `IIS website only` or `IIS website + local database`.
-3. **IIS website** - checks the IIS features, then creates (or recreates) the
-   site and app pool bound to `<folder>.<HostnameSuffix>`, grants the IIS
-   identities access to the folder and starts the site.
-4. **Database (optional)** - starts the shared SQL container, then:
-   - if `web.config` already points at the local container, keeps that
-     database (creating it only if it is missing) and leaves `web.config` alone;
-   - otherwise creates `<folder>_dnndev` if missing (existing data is never
-     dropped) and asks before pointing `web.config`'s `SiteSqlServer` at it.
-   A new database is empty: run the install wizard, or restore a backup with
-   **Database → Overwrite database**.
+2. **Choose** `IIS website only`, `IIS website + local database` or
+   `local database only`.
+3. **Pick a backup** (when the database is included) - a `.bacpac` or `.bak`
+   found in the project's `backups\` folder or its root (newest first), one at
+   a path you type, or none.
+4. **IIS website** (skipped for database only) - checks the IIS features, then
+   creates (or recreates) the site and app pool bound to
+   `<folder>.<HostnameSuffix>`, grants the IIS identities access to the folder
+   and starts the site.
+5. **Database** (unless IIS only) - starts the shared SQL container. The
+   database is the one `web.config` already uses on the local container, or
+   otherwise `<folder>_dnndev`. Then:
+   - **with a backup**, restores it (`.bacpac` via SqlPackage, `.bak` via
+     `RESTORE`) - asking first if the database already exists - and points
+     `dbo.PortalAlias` at the local hostname so the site answers there;
+   - **without one**, keeps an existing database as it is, or creates it empty
+     (run the install wizard, or restore later with **Database → Overwrite
+     database**).
+
+   Unless `web.config` already uses the local container, it then asks before
+   pointing `web.config`'s `SiteSqlServer` at the database.
+
+With the website, a database problem (e.g. Docker not running) is reported and
+skipped; with **database only** it fails the run, since the database is the
+whole job.
 
 Typing the name of an existing folder into **Setup a new DNN project** offers
-the same two choices, plus downloading DNN over the folder as before.
+the same three choices, plus downloading DNN over the folder as before.
 
 ## Clone existing project
 

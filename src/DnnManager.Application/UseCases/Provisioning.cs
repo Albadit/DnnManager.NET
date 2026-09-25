@@ -61,12 +61,47 @@ public sealed class LocalSqlContainer
     private readonly AppOptions _opts;
     private readonly IDockerService _docker;
     private readonly ISqlServerService _sql;
+    private readonly IBacpacService _bacpac;
 
-    public LocalSqlContainer(IOptions<AppOptions> opts, IDockerService docker, ISqlServerService sql)
+    public LocalSqlContainer(IOptions<AppOptions> opts, IDockerService docker, ISqlServerService sql, IBacpacService bacpac)
     {
         _opts = opts.Value;
         _docker = docker;
         _sql = sql;
+        _bacpac = bacpac;
+    }
+
+    /// <summary>True for a file <see cref="RestoreAsync"/> can restore: a <c>.bacpac</c> or a native <c>.bak</c>.</summary>
+    public static bool IsBackupFile(string path) =>
+        path.EndsWith(".bacpac", StringComparison.OrdinalIgnoreCase) ||
+        path.EndsWith(".bak", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Restores <paramref name="backupFile"/> into <paramref name="db"/>, replacing any existing database of
+    /// that name: a <c>.bak</c> via RESTORE, a <c>.bacpac</c> via a SqlPackage import (installing SqlPackage
+    /// on first use). Callers confirm the overwrite first.
+    /// </summary>
+    public async Task<Result> RestoreAsync(DatabaseConfig db, string backupFile, IProgressReporter reporter, CancellationToken ct)
+    {
+        // Native .bak -> RESTORE DATABASE (handles overwrite itself).
+        if (!backupFile.EndsWith(".bacpac", StringComparison.OrdinalIgnoreCase))
+            return await _sql.RestoreDatabaseLocalAsync(db, backupFile, ct);
+
+        var ensured = await _bacpac.EnsureAvailableAsync(reporter, ct);
+        if (!ensured.Success) return ensured;
+
+        // SqlPackage import always creates a fresh database, so drop any existing copy first.
+        var exists = await _sql.DatabaseExistsAsync(db.DatabaseName, ct);
+        if (exists.Success && exists.Value)
+        {
+            var drop = await _sql.DropDatabaseAsync(db.DatabaseName, ct);
+            if (!drop.Success) return drop;
+        }
+
+        // The import creates the database; the site connects as the container sa, so there is no
+        // login/user to remap afterwards.
+        return await _bacpac.ImportAsync(db.Server, "sa", _opts.Docker.SaPassword,
+            db.DatabaseName, backupFile, reporter, ct);
     }
 
     /// <summary>

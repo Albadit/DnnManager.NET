@@ -35,6 +35,10 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
+    <!-- Also compiled in, so either file can be recreated if it goes missing from next to the exe
+         (see src/DnnManager.Infrastructure/Files/BundledFiles.cs). -->
+    <EmbeddedResource Include="appsettings.json" LogicalName="defaults/appsettings.json" />
+    <EmbeddedResource Include="docker-compose.yml" LogicalName="defaults/docker-compose.yml" />
   </ItemGroup>
 
 </Project>

@@ -128,7 +128,7 @@ public sealed class ImportDatabaseUseCase
     private readonly IProjectRepository _projects;
     private readonly IWebConfigService _webConfig;
     private readonly IDockerService _docker;
-    private readonly ISqlServerService _sql;
+    private readonly LocalSqlContainer _sqlContainer;
     private readonly IBacpacService _bacpac;
     private readonly IRemoteSqlAdminService _remoteAdmin;
     private readonly IUserPrompt _prompt;
@@ -136,11 +136,11 @@ public sealed class ImportDatabaseUseCase
     private readonly ILogger<ImportDatabaseUseCase> _log;
 
     public ImportDatabaseUseCase(
-        IProjectRepository projects, IWebConfigService webConfig, IDockerService docker, ISqlServerService sql,
+        IProjectRepository projects, IWebConfigService webConfig, IDockerService docker, LocalSqlContainer sqlContainer,
         IBacpacService bacpac, IRemoteSqlAdminService remoteAdmin, IUserPrompt prompt,
         IOptions<AppOptions> opts, ILogger<ImportDatabaseUseCase> log)
     {
-        _projects = projects; _webConfig = webConfig; _docker = docker; _sql = sql; _bacpac = bacpac;
+        _projects = projects; _webConfig = webConfig; _docker = docker; _sqlContainer = sqlContainer; _bacpac = bacpac;
         _remoteAdmin = remoteAdmin; _prompt = prompt; _opts = opts.Value; _log = log;
     }
 
@@ -175,39 +175,14 @@ public sealed class ImportDatabaseUseCase
         var port = await _docker.GetPublishedPortAsync(_opts.Docker.ContainerName, ct);
         if (port is null)
             return Result.Fail($"The shared SQL Server container '{_opts.Docker.ContainerName}' isn't running - start it and retry.");
-        var db = new DatabaseConfig(
-            _opts.ServerFor(port.Value),
-            dbName,
-            _opts.Docker.Collation,
-            port.Value,
-            p.BackupDirectory);
+        var db = _sqlContainer.DatabaseFor(p, dbName, port.Value);
 
         if (!await _prompt.ConfirmAsync(
                 $"Restore [{db.DatabaseName}] from {Path.GetFileName(backupFilePath)} (overwrites the database)?", false, ct))
             return Result.Fail("Aborted by user.");
 
         reporter.Step($"Restoring [{db.DatabaseName}]");
-
-        // Native .bak → RESTORE DATABASE (handles overwrite itself).
-        if (!backupFilePath.EndsWith(".bacpac", StringComparison.OrdinalIgnoreCase))
-            return await _sql.RestoreDatabaseLocalAsync(db, backupFilePath, ct);
-
-        // .bacpac → SqlPackage import. Import always creates a fresh database, so drop any
-        // existing copy first (the user already confirmed overwriting).
-        var ensured = await _bacpac.EnsureAvailableAsync(reporter, ct);
-        if (!ensured.Success) return ensured;
-
-        var exists = await _sql.DatabaseExistsAsync(db.DatabaseName, ct);
-        if (exists.Success && exists.Value)
-        {
-            var drop = await _sql.DropDatabaseAsync(db.DatabaseName, ct);
-            if (!drop.Success) return drop;
-        }
-
-        // The import creates the database; the site connects as the container sa, so there is no
-        // login/user to remap afterwards.
-        return await _bacpac.ImportAsync(db.Server, "sa", _opts.Docker.SaPassword,
-            db.DatabaseName, backupFilePath, reporter, ct);
+        return await _sqlContainer.RestoreAsync(db, backupFilePath, reporter, ct);
     }
 
     /// <summary>

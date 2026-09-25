@@ -11,14 +11,23 @@ public sealed class HostExistingProjectRequest
     /// <summary>A folder that already exists under the base directory.</summary>
     public required string ProjectName { get; init; }
 
+    /// <summary>Create (or recreate) the IIS website. False for a database-only run.</summary>
+    public bool SetupIis { get; init; } = true;
+
     /// <summary>Also create a database in the local SQL container and point web.config at it.</summary>
     public bool SetupDatabase { get; init; }
+
+    /// <summary>
+    /// A <c>.bacpac</c> (or <c>.bak</c>) to restore into the database. Null leaves an existing database as
+    /// it is and creates a missing one empty.
+    /// </summary>
+    public string? BackupFilePath { get; init; }
 }
 
 /// <summary>
 /// Hosts a project folder that already holds a DNN site (copied by hand, checked out from git, left
-/// over from an earlier setup…): creates its IIS website and, optionally, its local database. The
-/// site's files are never downloaded, copied or overwritten.
+/// over from an earlier setup…): creates its IIS website, its local database, or both. The site's
+/// files are never downloaded, copied or overwritten.
 /// </summary>
 public sealed class HostExistingProjectUseCase
 {
@@ -64,6 +73,8 @@ public sealed class HostExistingProjectUseCase
     {
         var nameCheck = ProjectName.Validate(req.ProjectName);
         if (!nameCheck.Success) return nameCheck;
+        if (!req.SetupIis && !req.SetupDatabase)
+            return Result.Fail("Nothing to set up - choose the IIS website, the database, or both.");
 
         try
         {
@@ -75,27 +86,44 @@ public sealed class HostExistingProjectUseCase
             var hasWebConfig = File.Exists(webConfigPath);
             reporter.Info($"Using the existing files in {project.ProjectDirectory} - nothing is downloaded or overwritten.");
             if (!hasWebConfig)
-                reporter.Info("No web.config in the folder - it doesn't look like a DNN site yet. Creating the website anyway.");
+                reporter.Info("No web.config in the folder - it doesn't look like a DNN site yet. Continuing anyway.");
 
-            // IIS is the point of this flow, so offer to enable missing features before checking for it.
-            reporter.Step("Step 1: IIS website");
-            await _prereq.EnsureIisFeaturesAsync(reporter, _prompt, ct);
+            var step = 0;
             var siteCreated = false;
-            if (_iis.IsAvailable())
+            if (req.SetupIis)
             {
-                if (_iis.GetSiteStates().ContainsKey(req.ProjectName))
-                    reporter.Info($"IIS site '{req.ProjectName}' already exists - recreating it.");
-                siteCreated = _site.TryCreateSite(project, reporter);
-            }
-            else
-            {
-                reporter.Fail("IIS is not available on this machine - enable it (see 'Check prerequisites') and retry.");
+                // IIS is the point of this step, so offer to enable missing features before checking for it.
+                reporter.Step($"Step {++step}: IIS website");
+                await _prereq.EnsureIisFeaturesAsync(reporter, _prompt, ct);
+                if (_iis.IsAvailable())
+                {
+                    if (_iis.GetSiteStates().ContainsKey(req.ProjectName))
+                        reporter.Info($"IIS site '{req.ProjectName}' already exists - recreating it.");
+                    siteCreated = _site.TryCreateSite(project, reporter);
+                }
+                else
+                {
+                    reporter.Fail("IIS is not available on this machine - enable it (see 'Check prerequisites') and retry.");
+                }
             }
 
             if (req.SetupDatabase)
             {
-                reporter.Step("Step 2: Database");
-                await SetupDatabaseAsync(project, webConfigPath, hasWebConfig, reporter, ct);
+                reporter.Step($"Step {++step}: Database");
+                var db = await SetupDatabaseAsync(project, webConfigPath, hasWebConfig, req.BackupFilePath, reporter, ct);
+                if (!db.Success)
+                {
+                    // Alongside a website the database is a best-effort extra; on its own it is the whole job.
+                    if (!req.SetupIis) return db;
+                    reporter.Fail($"{db.Error} Skipping database setup.");
+                }
+            }
+
+            if (!req.SetupIis)
+            {
+                reporter.Step("Done");
+                reporter.Success("Database ready.");
+                return Result.Ok();
             }
 
             if (!siteCreated)
@@ -120,23 +148,26 @@ public sealed class HostExistingProjectUseCase
         }
     }
 
-    // Best-effort, like setup: every failure is reported and skipped, never thrown, because the website
-    // is already in place. Creates the database only when it's missing - existing data is never dropped.
-    private async Task SetupDatabaseAsync(
-        DnnProject project, string webConfigPath, bool hasWebConfig, IProgressReporter reporter, CancellationToken ct)
+    // Restores backupFile into the database when one is given (asking first if the database already
+    // exists); otherwise creates the database only when it's missing. Existing data is never dropped
+    // without a yes. Failures come back as a result for the caller to report, never thrown. A declined or
+    // failed web.config update is reported but not a failure: the database itself is ready and its
+    // connection details are shown.
+    private async Task<Result> SetupDatabaseAsync(DnnProject project, string webConfigPath, bool hasWebConfig,
+        string? backupFile, IProgressReporter reporter, CancellationToken ct)
     {
-        if (!(await _prereq.CheckDockerAsync(reporter, ct)).Success)
+        if (backupFile is not null)
         {
-            reporter.Info("Docker not available - skipping the database. Start Docker and run this again.");
-            return;
+            if (!File.Exists(backupFile)) return Result.Fail($"Backup file not found: {backupFile}");
+            if (!LocalSqlContainer.IsBackupFile(backupFile))
+                return Result.Fail($"Not a .bacpac or .bak file: {backupFile}");
         }
 
+        if (!(await _prereq.CheckDockerAsync(reporter, ct)).Success)
+            return Result.Fail("Docker not available - start Docker and run this again.");
+
         var ready = await _sqlContainer.EnsureReadyAsync(reporter, ct);
-        if (!ready.Success)
-        {
-            reporter.Fail($"{ready.Error} Skipping database setup.");
-            return;
-        }
+        if (!ready.Success) return Result.Fail(ready.Error ?? "The SQL container is not ready.");
         var port = ready.Value;
 
         // When web.config already points at the local container, keep the database it names (creating it
@@ -151,13 +182,39 @@ public sealed class HostExistingProjectUseCase
 
         var exists = await _sql.DatabaseExistsAsync(db.DatabaseName, ct);
         if (!exists.Success)
-        {
-            reporter.Fail($"Could not check for database [{db.DatabaseName}]: {exists.Error}");
-            return;
-        }
+            return Result.Fail($"Could not check for database [{db.DatabaseName}]: {exists.Error}");
 
         var created = false;
-        if (exists.Value)
+        if (backupFile is not null)
+        {
+            // Restoring replaces the database, so an existing one is only overwritten on an explicit yes.
+            var fileName = Path.GetFileName(backupFile);
+            if (exists.Value &&
+                !await _prompt.ConfirmAsync($"Database [{db.DatabaseName}] already exists - replace it with {fileName}?", false, ct))
+            {
+                reporter.Info($"Kept the existing database [{db.DatabaseName}] - {fileName} was not restored.");
+            }
+            else
+            {
+                reporter.Info($"Restoring [{db.DatabaseName}] from {fileName}…");
+                var restore = await _sqlContainer.RestoreAsync(db, backupFile, reporter, ct);
+                if (!restore.Success)
+                    return Result.Fail($"Restoring {fileName} failed: {restore.Error}");
+                reporter.Success($"Database [{db.DatabaseName}] restored from {fileName}.");
+
+                // A backup from another environment carries that site's portal aliases; without one for this
+                // hostname DNN can't match the request and the site fails to load. Not fatal - it can be
+                // added by hand - but the site won't answer at its local address until it is.
+                var hostname = _opts.HostnameFor(project.Name);
+                var alias = await _sql.RemapPortalAliasesAsync(db.DatabaseName, _opts.HostnameSuffix, hostname, ct);
+                if (alias.Success)
+                    reporter.Success($"PortalAlias set to {hostname}.");
+                else
+                    reporter.Fail($"Could not update PortalAlias: {alias.Error}. Add '{hostname}' as a site alias " +
+                                  "or the site will not load at that address.");
+            }
+        }
+        else if (exists.Value)
         {
             reporter.Success($"Database [{db.DatabaseName}] already exists on {db.Server} - keeping its data.");
         }
@@ -165,10 +222,7 @@ public sealed class HostExistingProjectUseCase
         {
             var create = await _sql.CreateDatabaseAsync(db, ct);
             if (!create.Success)
-            {
-                reporter.Fail($"Database creation reported an error: {create.Error}");
-                return;
-            }
+                return Result.Fail($"Database creation reported an error: {create.Error}");
             created = true;
             reporter.Success($"Created empty database [{db.DatabaseName}] on {db.Server}.");
         }
@@ -202,5 +256,6 @@ public sealed class HostExistingProjectUseCase
         if (created)
             reporter.Info("The database is empty: open the site to run the DNN install wizard, or restore a " +
                           "backup via 'Database (backup / overwrite)' > 'Overwrite database'.");
+        return Result.Ok();
     }
 }

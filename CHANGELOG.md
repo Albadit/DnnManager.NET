@@ -6,15 +6,24 @@ All notable changes to DnnManager.NET are documented here.
 
 ### Added
 
-- **Set up an existing project folder.** A new main-menu action for a DNN site
-  whose files are already under `BaseDirectory`: it creates the IIS website and,
-  optionally, a local database - without downloading, copying or overwriting
-  any files. When a database is requested it reuses the one `web.config`
-  already points at on the local container, or creates `<name>_dnndev` and asks
-  before repointing `web.config`. Existing databases are never dropped.
+- **Setup an existing project folder.** A new main-menu action for a DNN site
+  whose files are already under `BaseDirectory`: it creates the IIS website, a
+  local database, or both - without downloading, copying or overwriting any
+  files. When a database is included you pick a `.bacpac` (or `.bak`) to
+  restore - from the project's `backups\` folder or root, or any path - or none
+  for an empty database. It uses the database `web.config` already points at
+  on the local container, or `<name>_dnndev`, and asks before repointing
+  `web.config`. A restore remaps the portal alias to the local hostname, and
+  an existing database is only replaced after you confirm.
 - **Setup detects an existing folder up front.** Typing the name of a folder
-  that already exists now offers "IIS website only", "IIS website + database"
-  or downloading DNN over it, instead of asking to overwrite halfway through.
+  that already exists now offers "IIS website only", "IIS website + database",
+  "database only", or downloading DNN over it, instead of asking to overwrite
+  halfway through.
+- **Missing `appsettings.json` / `docker-compose.yml` are recreated.** Both
+  defaults are compiled into `dnnmgr.exe`; if either is missing from next to
+  the exe, the app writes the default at startup (and again before
+  `docker compose up`) instead of failing to start. Existing files are never
+  overwritten.
 
 ### Fixed
 

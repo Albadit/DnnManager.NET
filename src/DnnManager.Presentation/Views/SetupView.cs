@@ -53,7 +53,7 @@ internal sealed class SetupView
             if (action is null) return;
             if (action != ExistingFolderAction.Redownload)
             {
-                await _existing.RunForAsync(name, action == ExistingFolderAction.IisAndDatabase, ct);
+                await _existing.RunForAsync(name, action.Value, ct);
                 return;
             }
             overwrite = true;

@@ -1,6 +1,7 @@
 using DnnManager.Application;
 using DnnManager.Application.Configuration;
 using DnnManager.Infrastructure;
+using DnnManager.Infrastructure.Files;
 using DnnManager.Presentation;
 using DnnManager.Presentation.Tui;
 using DnnManager.Presentation.Views;
@@ -24,6 +25,27 @@ if (!AdminElevation.IsAdministrator())
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 Console.Title = "DNN Project Manager";
 Ansi.EnableVirtualTerminalProcessing();
+
+// Recreate the default config and compose file if either went missing from next to the exe - without
+// appsettings.json the app can't start at all.
+foreach (var file in new[] { BundledFiles.AppSettings, BundledFiles.DockerCompose })
+{
+    try
+    {
+        if (BundledFiles.EnsureExists(file))
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"{file} was missing - created the default one next to the app.");
+            Console.ResetColor();
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine($"{file} is missing and could not be recreated: {ex.Message}");
+        Console.ResetColor();
+    }
+}
 
 var builder = Host.CreateApplicationBuilder(args);
 

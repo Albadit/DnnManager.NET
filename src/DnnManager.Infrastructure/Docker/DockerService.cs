@@ -1,5 +1,6 @@
 using DnnManager.Application.Abstractions;
 using DnnManager.Domain;
+using DnnManager.Infrastructure.Files;
 using DnnManager.Infrastructure.Processes;
 using Microsoft.Extensions.Logging;
 
@@ -60,10 +61,25 @@ public sealed class DockerService : IDockerService
     private static string SharedComposeFile => Path.Combine(AppContext.BaseDirectory, "docker-compose.yml");
     private const string ComposeProjectName = "dnn-shared";
 
+    // Recreates the bundled compose file if it went missing while the app was running.
+    private static Result EnsureComposeFile()
+    {
+        try
+        {
+            BundledFiles.EnsureExists(BundledFiles.DockerCompose);
+            return Result.Ok();
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"docker-compose.yml was not found next to the app at {SharedComposeFile} " +
+                               $"and could not be recreated: {ex.Message}");
+        }
+    }
+
     public async Task<Result> ComposeUpAsync(CancellationToken ct)
     {
-        if (!File.Exists(SharedComposeFile))
-            return Result.Fail($"docker-compose.yml was not found next to the app at {SharedComposeFile}.");
+        var compose = EnsureComposeFile();
+        if (!compose.Success) return compose;
         // The compose file is fully self-contained (all values inlined), so no --env-file is needed.
         var r = await _proc.RunAsync("docker",
             new[] { "compose", "-f", SharedComposeFile, "-p", ComposeProjectName, "up", "-d" }, ct);
@@ -72,8 +88,8 @@ public sealed class DockerService : IDockerService
 
     public async Task<Result> ComposeDownAsync(bool removeVolumes, CancellationToken ct)
     {
-        if (!File.Exists(SharedComposeFile))
-            return Result.Fail($"docker-compose.yml was not found next to the app at {SharedComposeFile}.");
+        var compose = EnsureComposeFile();
+        if (!compose.Success) return compose;
         var args = new List<string> { "compose", "-f", SharedComposeFile, "-p", ComposeProjectName, "down" };
         if (removeVolumes) args.Add("-v");
         var r = await _proc.RunAsync("docker", args, ct);
