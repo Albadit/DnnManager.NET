@@ -127,6 +127,53 @@ public sealed class WebConfigService : IWebConfigService
         }
     }
 
+    /// <summary>Marks rules this app switched off, so they're easy to find before a production deploy.</summary>
+    public const string DisabledRuleComment =
+        " Disabled by DNN Manager for local development (no HTTPS locally). " +
+        "Re-enable (remove enabled=\"false\") before deploying to production. ";
+
+    public Result<IReadOnlyList<string>> DisableHttpsRedirectRules(string webConfigPath)
+    {
+        try
+        {
+            if (!File.Exists(webConfigPath)) return Result<IReadOnlyList<string>>.Ok(Array.Empty<string>());
+
+            var doc = XDocument.Load(webConfigPath, LoadOptions.PreserveWhitespace);
+            var rules = doc.Descendants("system.webServer")
+                .Elements("rewrite").Elements("rules").Elements("rule")
+                .Where(IsEnabledHttpsRedirect)
+                .ToList();
+            if (rules.Count == 0) return Result<IReadOnlyList<string>>.Ok(Array.Empty<string>());
+
+            var names = new List<string>();
+            foreach (var rule in rules)
+            {
+                rule.SetAttributeValue("enabled", "false");
+                rule.AddBeforeSelf(new XComment(DisabledRuleComment));
+                // Keep the rule on its own line, indented like it was.
+                if (rule.PreviousNode?.PreviousNode is XText indent) rule.AddBeforeSelf(new XText(indent.Value));
+                names.Add((string?)rule.Attribute("name") ?? "(unnamed)");
+            }
+            doc.Save(webConfigPath);
+            return Result<IReadOnlyList<string>>.Ok(names);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Failed to disable HTTPS redirect rules in web.config");
+            return Result<IReadOnlyList<string>>.Fail(ex.Message);
+        }
+    }
+
+    // A rule that is switched on and redirects to an https:// address (typically "HTTP to HTTPS redirect").
+    private static bool IsEnabledHttpsRedirect(XElement rule)
+    {
+        if (string.Equals((string?)rule.Attribute("enabled"), "false", StringComparison.OrdinalIgnoreCase)) return false;
+        var action = rule.Element("action");
+        return action is not null
+            && string.Equals((string?)action.Attribute("type"), "Redirect", StringComparison.OrdinalIgnoreCase)
+            && ((string?)action.Attribute("url"))?.TrimStart().StartsWith("https://", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
     // Looks up <connectionStrings>; if it uses configSource="…", loads the external file.
     private XElement? FindConnectionStringElement(XDocument doc, string webConfigPath, out string sourcePath)
     {

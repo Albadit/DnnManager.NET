@@ -159,6 +159,11 @@ Flow ([`ExistingFolderPage`](src/DnnManager.Presentation/Pages/ExistingFolderPag
 4. **IIS website** (unless database only) - checks the IIS features, then creates
    (or recreates) the site and app pool bound to `<folder>.<HostnameSuffix>`,
    grants the IIS identities access to the folder and starts the site.
+   A production `web.config` often has a URL Rewrite rule that redirects every
+   request to `https://`. The local site is HTTP-only, so such rules are
+   switched off (`enabled="false"`, with a *Disabled by DNN Manager* comment
+   above them) and the Activity log shows a **⚠ warning** to switch them back on
+   before the site is deployed to production.
 5. **Database** (unless IIS only) - starts the shared SQL container. The
    database is the one `web.config` already uses on the local container, or
    otherwise `<folder>_dnndev`. Then:

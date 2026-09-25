@@ -90,6 +90,7 @@ public sealed class HostExistingProjectUseCase
 
             var step = 0;
             var siteCreated = false;
+            IReadOnlyList<string> disabledRules = Array.Empty<string>();
             if (req.SetupIis)
             {
                 // IIS is the point of this step, so offer to enable missing features before checking for it.
@@ -100,6 +101,7 @@ public sealed class HostExistingProjectUseCase
                     if (_iis.GetSiteStates().ContainsKey(req.ProjectName))
                         reporter.Info($"IIS site '{req.ProjectName}' already exists - recreating it.");
                     siteCreated = _site.TryCreateSite(project, reporter);
+                    disabledRules = DisableHttpsRedirects(webConfigPath, reporter);
                 }
                 else
                 {
@@ -139,6 +141,8 @@ public sealed class HostExistingProjectUseCase
 
             reporter.Step("Done");
             reporter.Success($"Open {url} to use the site.");
+            if (disabledRules.Count > 0)
+                reporter.Warn(ProductionReminder(disabledRules));
             return Result.Ok();
         }
         catch (Exception ex)
@@ -147,6 +151,34 @@ public sealed class HostExistingProjectUseCase
             return Result.Fail(ex.Message);
         }
     }
+
+    /// <summary>
+    /// A production web.config often redirects every request to https://. The local site is HTTP-only
+    /// (and with IIS URL Rewrite installed the rule is live), so it would never load - switch such rules
+    /// off and say so loudly, since they must be back on before the site goes to production.
+    /// </summary>
+    private IReadOnlyList<string> DisableHttpsRedirects(string webConfigPath, IProgressReporter reporter)
+    {
+        var result = _webConfig.DisableHttpsRedirectRules(webConfigPath);
+        if (!result.Success)
+        {
+            reporter.Fail($"Could not check web.config for HTTPS redirects: {result.Error}");
+            return Array.Empty<string>();
+        }
+        var names = result.Value!;
+        if (names.Count == 0) return names;
+
+        reporter.Info($"Switched off the HTTPS redirect rule{(names.Count == 1 ? "" : "s")} {Quoted(names)} in web.config - " +
+                      "the local site has no HTTPS, so it would redirect to an address that doesn't answer.");
+        reporter.Warn(ProductionReminder(names));
+        return names;
+    }
+
+    private static string ProductionReminder(IReadOnlyList<string> names) =>
+        $"Before deploying this site to production, switch {Quoted(names)} in web.config back on " +
+        "(remove enabled=\"false\" - look for \"Disabled by DNN Manager\").";
+
+    private static string Quoted(IReadOnlyList<string> names) => string.Join(", ", names.Select(n => $"'{n}'"));
 
     // Restores backupFile into the database when one is given (asking first if the database already
     // exists); otherwise creates the database only when it's missing. Existing data is never dropped

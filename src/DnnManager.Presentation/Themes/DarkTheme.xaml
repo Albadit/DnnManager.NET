@@ -47,6 +47,7 @@
     <SolidColorBrush x:Key="LogStep"          Color="#7CC4FA" />
     <SolidColorBrush x:Key="LogSuccess"       Color="#6BD68A" />
     <SolidColorBrush x:Key="LogFail"          Color="#F28B82" />
+    <SolidColorBrush x:Key="LogWarn"          Color="#F2C94C" />
     <SolidColorBrush x:Key="LogProgress"      Color="#A6ADBB" />
     <SolidColorBrush x:Key="LogSelection"     Color="#2A3042" />
     <SolidColorBrush x:Key="LogTrack"         Color="#2E3445" />

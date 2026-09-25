@@ -12,6 +12,7 @@ public sealed class GuiProgressReporter : IProgressReporter
     public void Info(string message) => _log.Info(message);
     public void Success(string m)    => _log.Success(m);
     public void Fail(string m)       => _log.Fail(m);
+    public void Warn(string m)       => _log.Warn(m);
     public void Progress(string m)   => _log.Progress(m);
 }
 

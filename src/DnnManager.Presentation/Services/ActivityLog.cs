@@ -5,7 +5,7 @@ using System.Windows.Threading;
 
 namespace DnnManager.Presentation.Services;
 
-public enum LogKind { Header, Step, Info, Success, Fail, Progress }
+public enum LogKind { Header, Step, Info, Success, Fail, Warning, Progress }
 
 public sealed class LogEntry : INotifyPropertyChanged
 {
@@ -34,6 +34,7 @@ public sealed class LogEntry : INotifyPropertyChanged
         LogKind.Step    => $"── {Text} ──",
         LogKind.Success => $"✓ {Text}",
         LogKind.Fail    => $"✗ {Text}",
+        LogKind.Warning => $"⚠ {Text}",
         _               => $"• {Text}",
     };
 
@@ -60,6 +61,7 @@ public sealed class ActivityLog
     public void Info(string text)    => Add(LogKind.Info, text);
     public void Success(string text) => Add(LogKind.Success, text);
     public void Fail(string text)    => Add(LogKind.Fail, text);
+    public void Warn(string text)    => Add(LogKind.Warning, text);
 
     public void Progress(string text) => Post(() =>
     {

@@ -9,6 +9,8 @@ public interface IProgressReporter
     void Info(string message);
     void Success(string message);
     void Fail(string message);
+    /// <summary>Something the user must act on later, without failing the operation.</summary>
+    void Warn(string message);
     /// <summary>Updates a single status line in place (e.g. a running download percentage).</summary>
     void Progress(string message);
 }
@@ -203,6 +205,14 @@ public interface IWebConfigService
     /// which is usually absent locally - otherwise IIS returns HTTP 500.19. Safe no-op if absent.
     /// </summary>
     Result RemoveRewriteRules(string webConfigPath);
+
+    /// <summary>
+    /// Switches off (<c>enabled="false"</c>, with a comment) every enabled URL Rewrite rule that
+    /// redirects to an <c>https://</c> address. A local site has no HTTPS binding, so such a rule sends
+    /// every request to an address that doesn't answer. Returns the names of the rules it switched
+    /// off - empty when there were none (or no web.config).
+    /// </summary>
+    Result<IReadOnlyList<string>> DisableHttpsRedirectRules(string webConfigPath);
 }
 
 /// <summary>

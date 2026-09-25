@@ -134,6 +134,10 @@
                                 <DataTrigger Binding="{Binding Kind}" Value="{x:Static svc:LogKind.Fail}">
                                     <Setter TargetName="Line" Property="Foreground" Value="{DynamicResource LogFail}" />
                                 </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="{x:Static svc:LogKind.Warning}">
+                                    <Setter TargetName="Line" Property="Foreground" Value="{DynamicResource LogWarn}" />
+                                    <Setter TargetName="Line" Property="FontWeight" Value="SemiBold" />
+                                </DataTrigger>
                                 <DataTrigger Binding="{Binding Kind}" Value="{x:Static svc:LogKind.Progress}">
                                     <Setter TargetName="Line" Property="Foreground" Value="{DynamicResource LogProgress}" />
                                 </DataTrigger>
