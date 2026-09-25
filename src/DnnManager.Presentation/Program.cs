@@ -1,3 +1,4 @@
+using System.Text;
 using System.Windows;
 using DnnManager.Application;
 using DnnManager.Application.Abstractions;
@@ -27,8 +28,8 @@ internal static class Program
             return 1;
         }
 
-        // Recreate the default config and compose file if either went missing from next to the exe -
-        // without appsettings.json the app can't start at all. Reported in the activity log once it's up.
+        // Write the default config and compose file next to the exe if either is missing (first run,
+        // cleaned publish folder…). Reported in the activity log once the window is up.
         var startupNotices = new List<(bool Ok, string Message)>();
         foreach (var file in new[] { BundledFiles.AppSettings, BundledFiles.DockerCompose })
         {
@@ -45,10 +46,14 @@ internal static class Program
 
         var builder = Host.CreateApplicationBuilder(args);
 
-        builder.Configuration
-            .SetBasePath(AppContext.BaseDirectory)
-            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
-            .AddEnvironmentVariables("DNNMGR_");
+        // Settings come from appsettings.json next to the exe; if it couldn't be written (e.g. a read-only
+        // folder), the built-in default is used as-is so the app still starts.
+        builder.Configuration.SetBasePath(AppContext.BaseDirectory);
+        if (File.Exists(BundledFiles.PathOf(BundledFiles.AppSettings)))
+            builder.Configuration.AddJsonFile(BundledFiles.AppSettings, optional: false, reloadOnChange: false);
+        else
+            builder.Configuration.AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(BundledFiles.DefaultContent(BundledFiles.AppSettings))));
+        builder.Configuration.AddEnvironmentVariables("DNNMGR_");
 
         // No console in a WinExe - errors surface in the activity log and message boxes instead.
         builder.Logging.ClearProviders();

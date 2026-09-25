@@ -4,6 +4,8 @@
 bin/
 obj/
 publish/
+# Temporary project WPF creates during markup compilation (left behind if a build is interrupted)
+*_wpftmp.csproj
 *.user
 *.suo
 *.pidb

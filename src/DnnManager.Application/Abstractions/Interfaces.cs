@@ -84,7 +84,7 @@ public interface IDockerService
     Task<int?> GetPublishedPortAsync(string containerName, CancellationToken ct);
     Task<Result> StartContainerAsync(string containerName, CancellationToken ct);
 
-    /// <summary>Brings up the shared SQL container from the docker-compose.yml shipped next to the app.</summary>
+    /// <summary>Brings up the shared SQL container from the docker-compose.yml next to the app.</summary>
     Task<Result> ComposeUpAsync(CancellationToken ct);
 }
 

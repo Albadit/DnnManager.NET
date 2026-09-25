@@ -32,20 +32,7 @@
     <PackageReference Include="FluentFTP" Version="52.1.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="appsettings.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </None>
-    <!-- The shared SQL container's compose file ships next to the app (build output + publish). -->
-    <None Update="docker-compose.yml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </None>
-    <!-- Also compiled in, so either file can be recreated if it goes missing from next to the exe
-         (see src/DnnManager.Infrastructure/Files/BundledFiles.cs). -->
-    <EmbeddedResource Include="appsettings.json" LogicalName="defaults/appsettings.json" />
-    <EmbeddedResource Include="docker-compose.yml" LogicalName="defaults/docker-compose.yml" />
-  </ItemGroup>
+  <!-- The default appsettings.json and docker-compose.yml are defined in code and written next to
+       the exe on first run (src/DnnManager.Infrastructure/Files/BundledFiles.cs). -->
 
 </Project>

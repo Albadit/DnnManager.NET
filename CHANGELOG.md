@@ -43,11 +43,12 @@ All notable changes to DnnManager.NET are documented here.
   that already exists now offers "IIS website only", "IIS website + database",
   "database only", or downloading DNN over it, instead of asking to overwrite
   halfway through.
-- **Missing `appsettings.json` / `docker-compose.yml` are recreated.** Both
-  defaults are compiled into `dnnmgr.exe`; if either is missing from next to
-  the exe, the app writes the default at startup (and again before
-  `docker compose up`) instead of failing to start. Existing files are never
-  overwritten.
+- **`appsettings.json` / `docker-compose.yml` are generated.** Their defaults
+  are defined in code (`BundledFiles.cs`), so neither file is needed in the
+  source tree or the publish folder - the build no longer fails when they're
+  missing. The app writes them next to the exe on first start (and the compose
+  file again before `docker compose up`); existing files are never overwritten,
+  and if `appsettings.json` can't be written the built-in settings are used.
 
 ### Removed
 

@@ -12,7 +12,7 @@ namespace DnnManager.Infrastructure.Files;
 /// </summary>
 public static class AppSettingsFile
 {
-    public static string FullPath => Path.Combine(AppContext.BaseDirectory, BundledFiles.AppSettings);
+    public static string FullPath => BundledFiles.PathOf(BundledFiles.AppSettings);
 
     private static readonly JsonDocumentOptions ReadOptions = new()
     {

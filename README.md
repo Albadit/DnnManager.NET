@@ -72,9 +72,12 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 .\publish\dnnmgr.exe
 ```
 
-`appsettings.json` and `docker-compose.yml` are published next to the exe, and
-both are also compiled in: if either goes missing, the app writes the default
-one back at startup.
+`appsettings.json` and `docker-compose.yml` aren't part of the source or the
+publish output. Their defaults are defined in code
+([`BundledFiles.cs`](src/DnnManager.Infrastructure/Files/BundledFiles.cs)), and
+the app writes them next to the exe on first start, or whenever one is missing.
+Existing files are never overwritten, so your edits stick. If the folder is
+read-only, the app still starts with the built-in settings.
 
 > **"Access to the path '...\publish\dnnmgr.exe' is denied"** when publishing
 > means the app is still running from `publish\`. Close it and publish again.
@@ -267,8 +270,6 @@ compiled into a single assembly (`dnnmgr.exe`).
 DnnManager.NET/
 ├── DnnManager.csproj            ← single project (net10.0-windows, WPF WinExe)
 ├── app.manifest                 ← asInvoker; AdminElevation relaunches elevated
-├── appsettings.json             ← all tunables (no hardcoded constants in code)
-├── docker-compose.yml           ← the shared SQL Server container
 └── src/
     ├── DnnManager.Domain/
     │   ├── Models.cs            ← DnnProject, DnnRelease, DatabaseConfig, …
@@ -284,7 +285,7 @@ DnnManager.NET/
     │   ├── Docker/              ← docker compose / docker exec via ProcessRunner
     │   ├── Sql/                 ← sqlcmd in the container, remote backup, SqlPackage, connection test
     │   ├── Github/              ← GitHub API + DNN package downloader
-    │   ├── Files/               ← FTP, file copy, connections.json, appsettings.json, bundled defaults
+    │   ├── Files/               ← FTP, file copy, connections.json, appsettings.json, default files (BundledFiles)
     │   ├── Projects/            ← file-system project repository
     │   ├── Prereq/              ← Docker + IIS feature checks
     │   ├── WebConfigs/          ← web.config SiteSqlServer read / write
@@ -348,7 +349,8 @@ DnnManager.NET/
 | GitHub release lookup | [`Github/GitHubDnnReleaseService.cs`](src/DnnManager.Infrastructure/Github/GitHubDnnReleaseService.cs) |
 | IIS helpers | [`Iis/IisManager.cs`](src/DnnManager.Infrastructure/Iis/IisManager.cs) |
 | Docker / sqlcmd | [`Docker/DockerService.cs`](src/DnnManager.Infrastructure/Docker/DockerService.cs), [`Sql/SqlServerService.cs`](src/DnnManager.Infrastructure/Sql/SqlServerService.cs) |
-| Shared SQL container | [`docker-compose.yml`](docker-compose.yml) (ships next to the app), brought up via `DockerService.ComposeUpAsync` |
+| Default `appsettings.json` / `docker-compose.yml` | [`Files/BundledFiles.cs`](src/DnnManager.Infrastructure/Files/BundledFiles.cs) - written next to the exe when missing |
+| Shared SQL container | `docker-compose.yml` next to the exe, brought up via [`Docker/DockerService.cs`](src/DnnManager.Infrastructure/Docker/DockerService.cs) (`ComposeUpAsync`) |
 
 ## Notes / limitations
 

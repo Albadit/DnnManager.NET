@@ -13,7 +13,7 @@ public sealed class AppOptions
     // NOTE: Intentionally empty. Microsoft.Extensions.Configuration *appends* to
     // collection defaults when binding, so any items listed here would be
     // duplicated by the matching entries in appsettings.json. Defaults live in
-    // appsettings.json only.
+    // appsettings.json only (its built-in default is in Infrastructure/Files/BundledFiles.cs).
     public IReadOnlyList<string> GitHubReleaseApis { get; set; } = Array.Empty<string>();
     public IReadOnlyList<IisFeatureSetting> RequiredIisFeatures { get; set; } = Array.Empty<IisFeatureSetting>();
 

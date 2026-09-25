@@ -44,12 +44,12 @@ public sealed class DockerService : IDockerService
         return int.TryParse(line[(idx + 1)..].Trim(), out var port) ? port : null;
     }
 
-    // The single shared compose file ships next to the app (copied to the build output / publish
-    // folder). All projects share one SQL container, so there is one compose file and one project name.
-    private static string SharedComposeFile => Path.Combine(AppContext.BaseDirectory, "docker-compose.yml");
+    // The single shared compose file lives next to the app (written from the built-in default when
+    // missing). All projects share one SQL container, so there is one compose file and one project name.
+    private static string SharedComposeFile => BundledFiles.PathOf(BundledFiles.DockerCompose);
     private const string ComposeProjectName = "dnn-shared";
 
-    // Recreates the bundled compose file if it went missing while the app was running.
+    // Writes the compose file from the built-in default if it is missing (e.g. deleted while running).
     private static Result EnsureComposeFile()
     {
         try
