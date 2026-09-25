@@ -14,8 +14,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<RemoveProjectUseCase>();
         services.AddScoped<ListProjectsUseCase>();
         services.AddScoped<CheckPrerequisitesUseCase>();
-        services.AddScoped<ExportDatabaseUseCase>();
-        services.AddScoped<ImportDatabaseUseCase>();
         services.AddScoped<CloneProjectUseCase>();
         return services;
     }

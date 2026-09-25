@@ -7,6 +7,8 @@ public sealed class AppOptions
     public string BaseDirectory { get; set; } = @"C:\DNN";
     public int SitePort { get; set; } = 80;
     public string HostnameSuffix { get; set; } = "dnndev.me";
+    /// <summary>"Light", "Dark" or "System" (follow the Windows app theme). Set by the sidebar's theme button.</summary>
+    public string Theme { get; set; } = "System";
     public DockerOptions Docker { get; set; } = new();
     // NOTE: Intentionally empty. Microsoft.Extensions.Configuration *appends* to
     // collection defaults when binding, so any items listed here would be
@@ -14,7 +16,6 @@ public sealed class AppOptions
     // appsettings.json only.
     public IReadOnlyList<string> GitHubReleaseApis { get; set; } = Array.Empty<string>();
     public IReadOnlyList<IisFeatureSetting> RequiredIisFeatures { get; set; } = Array.Empty<IisFeatureSetting>();
-    public ConsoleOptions Console { get; set; } = new();
 
     /// <summary>The host header a project's IIS site is bound to: <c>{project}.{HostnameSuffix}</c>.</summary>
     public string HostnameFor(string projectName) => $"{projectName}.{HostnameSuffix}";
@@ -28,12 +29,6 @@ public sealed class AppOptions
 
     /// <summary>The SQL Server address (<c>ip,port</c>) of the shared container for a published port.</summary>
     public string ServerFor(int port) => $"{Docker.ContainerIp},{port}";
-}
-
-public sealed class ConsoleOptions
-{
-    public int WindowWidth { get; set; } = 100;
-    public int WindowHeight { get; set; } = 30;
 }
 
 public sealed class DockerOptions

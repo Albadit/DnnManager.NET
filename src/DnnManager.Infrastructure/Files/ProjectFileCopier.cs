@@ -164,7 +164,7 @@ public sealed class ProjectFileCopier : IProjectFileCopier
 
     /// <summary>
     /// Rate-limits status-line updates to roughly ten a second. Every
-    /// <see cref="IProgressReporter.Progress"/> call repaints a full-width console line, which on a
+    /// <see cref="IProgressReporter.Progress"/> call updates the activity log on the UI thread, which on a
     /// site with tens of thousands of small files costs considerably more than the copy itself.
     /// Check <see cref="Due"/> before building the message so skipped updates cost nothing at all.
     /// </summary>

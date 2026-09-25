@@ -1,0 +1,46 @@
+<UserControl x:Class="DnnManager.Presentation.Pages.ProjectsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <DockPanel Margin="28,24,28,20">
+        <DockPanel DockPanel.Dock="Top">
+            <Button DockPanel.Dock="Right" x:Name="RefreshButton" Content="Refresh" VerticalAlignment="Top" MinWidth="104" Click="Refresh_Click" />
+            <StackPanel>
+                <TextBlock Style="{StaticResource PageTitle}" Text="Projects" />
+                <TextBlock Style="{StaticResource PageSubtitle}" x:Name="Subtitle" Text="Every project folder, its IIS site and its database." />
+            </StackPanel>
+        </DockPanel>
+
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,10">
+            <Button x:Name="OpenSiteButton"   Content="Open site"   Style="{StaticResource Primary}" Click="OpenSite_Click" IsEnabled="False" />
+            <Button x:Name="OpenFolderButton" Content="Open folder" Margin="8,0,0,0" Click="OpenFolder_Click" IsEnabled="False" />
+            <Button x:Name="RemoveButton"     Content="Remove…"     Margin="8,0,0,0" Style="{StaticResource Danger}" Click="Remove_Click" IsEnabled="False" />
+        </StackPanel>
+
+        <Grid>
+            <!-- Pixel (not row-by-row) scrolling; the list is small enough that virtualization isn't needed. -->
+            <!-- Columns size to their content (nothing cut off); a wider table scrolls sideways - scrollbar or Shift + wheel. -->
+            <DataGrid x:Name="ProjectsGrid" SelectionChanged="Grid_SelectionChanged" MouseDoubleClick="Grid_MouseDoubleClick"
+                      PreviewMouseWheel="Grid_PreviewMouseWheel"
+                      ScrollViewer.CanContentScroll="False" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.PanningMode="Both">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Name"     Binding="{Binding Name}" FontWeight="SemiBold" Width="Auto" MinWidth="140" />
+                    <DataGridTextColumn Header="Site"     Binding="{Binding Url}" Width="Auto" MinWidth="180" />
+                    <DataGridTextColumn Header="IIS"      Binding="{Binding Iis}" Width="Auto" MinWidth="80" />
+                    <DataGridTextColumn Header="SQL"      Binding="{Binding Sql}" Width="Auto" MinWidth="100" />
+                    <DataGridTextColumn Header="Database" Binding="{Binding Database}" Width="Auto" MinWidth="150" />
+                    <DataGridTextColumn Header="Size"     Binding="{Binding Size}" Width="Auto" MinWidth="80" />
+                    <DataGridTextColumn Header="Path"     Binding="{Binding Path}" Width="Auto" MinWidth="200" />
+                </DataGrid.Columns>
+            </DataGrid>
+            <!-- Runs along the top edge of the table while the list is (re)loading. -->
+            <ProgressBar x:Name="LoadingBar" VerticalAlignment="Top" Height="3" Margin="1,1,1,0" IsIndeterminate="True"
+                         Foreground="{DynamicResource Accent}" Background="Transparent" BorderThickness="0" Visibility="Collapsed" />
+            <!-- Only shown while the table is empty (first load, no projects, or an error). -->
+            <Border x:Name="Overlay" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="16,10" CornerRadius="6"
+                    Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" Visibility="Collapsed">
+                <TextBlock x:Name="OverlayText" Foreground="{DynamicResource TextPrimary}" FontSize="14" TextWrapping="Wrap" MaxWidth="520" />
+            </Border>
+        </Grid>
+    </DockPanel>
+</UserControl>

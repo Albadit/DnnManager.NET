@@ -255,7 +255,7 @@ public sealed class HostExistingProjectUseCase
 
         if (created)
             reporter.Info("The database is empty: open the site to run the DNN install wizard, or restore a " +
-                          "backup via 'Database (backup / overwrite)' > 'Overwrite database'.");
+                          "backup by running 'Existing folder' again with 'local database only' and a backup file.");
         return Result.Ok();
     }
 }

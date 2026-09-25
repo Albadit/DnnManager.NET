@@ -1,7 +1,5 @@
 namespace DnnManager.Domain;
 
-public enum DnnEnvironment { Developer, Production }
-
 public sealed record DnnProject(
     string Name,
     string ProjectDirectory,

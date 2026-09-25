@@ -1,0 +1,53 @@
+<ResourceDictionary x:Class="DnnManager.Presentation.Themes.LightTheme"
+                    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Same keys as DarkTheme.xaml; everything references them with DynamicResource so a switch repaints live. -->
+    <SolidColorBrush x:Key="WindowBg"         Color="#F4F5F7" />
+    <SolidColorBrush x:Key="CardBg"           Color="#FFFFFF" />
+    <SolidColorBrush x:Key="CardBorder"       Color="#E1E4E8" />
+    <SolidColorBrush x:Key="InputBg"          Color="#FFFFFF" />
+    <SolidColorBrush x:Key="InputBorder"      Color="#C8CDD3" />
+    <SolidColorBrush x:Key="HoverBg"          Color="#EEF1F4" />
+    <SolidColorBrush x:Key="SelectionBg"      Color="#E3ECFD" />
+    <SolidColorBrush x:Key="HeaderBg"         Color="#F7F8FA" />
+    <SolidColorBrush x:Key="GridLine"         Color="#EEF0F2" />
+    <SolidColorBrush x:Key="ScrollThumb"      Color="#C1C7CF" />
+    <SolidColorBrush x:Key="ScrollThumbHover" Color="#9EA6B0" />
+
+    <SolidColorBrush x:Key="TextPrimary"      Color="#1F2328" />
+    <SolidColorBrush x:Key="TextMuted"        Color="#656D76" />
+    <SolidColorBrush x:Key="ErrorText"        Color="#C62828" />
+    <SolidColorBrush x:Key="SuccessText"      Color="#1A7F37" />
+
+    <SolidColorBrush x:Key="Accent"           Color="#2F6FEB" />
+    <SolidColorBrush x:Key="AccentHover"      Color="#2159C9" />
+    <SolidColorBrush x:Key="DangerBrush"      Color="#D13B3B" />
+    <SolidColorBrush x:Key="DangerHoverBrush" Color="#B02E2E" />
+
+    <SolidColorBrush x:Key="InfoBannerBg"     Color="#EAF2FF" />
+    <SolidColorBrush x:Key="InfoBannerBorder" Color="#B9D2FB" />
+    <SolidColorBrush x:Key="WarnBannerBg"     Color="#FFF8E1" />
+    <SolidColorBrush x:Key="WarnBannerBorder" Color="#F0D68A" />
+
+    <SolidColorBrush x:Key="SidebarBg"        Color="#FFFFFF" />
+    <SolidColorBrush x:Key="SidebarBorder"    Color="#E1E4E8" />
+    <SolidColorBrush x:Key="SidebarTitle"     Color="#1F2328" />
+    <SolidColorBrush x:Key="SidebarFg"        Color="#454C57" />
+    <SolidColorBrush x:Key="SidebarActiveFg"  Color="#1F2328" />
+    <SolidColorBrush x:Key="SidebarHover"     Color="#F1F3F6" />
+    <SolidColorBrush x:Key="SidebarSelected"  Color="#E8EFFD" />
+    <SolidColorBrush x:Key="SidebarMuted"     Color="#7A828F" />
+    <SolidColorBrush x:Key="SidebarDivider"   Color="#E6E8EC" />
+
+    <SolidColorBrush x:Key="LogBg"            Color="#FFFFFF" />
+    <SolidColorBrush x:Key="LogHeaderBg"      Color="#F7F8FA" />
+    <SolidColorBrush x:Key="LogHeaderFg"      Color="#1F2328" />
+    <SolidColorBrush x:Key="LogFg"            Color="#2D333B" />
+    <SolidColorBrush x:Key="LogMuted"         Color="#656D76" />
+    <SolidColorBrush x:Key="LogStep"          Color="#1F63C6" />
+    <SolidColorBrush x:Key="LogSuccess"       Color="#1A7F37" />
+    <SolidColorBrush x:Key="LogFail"          Color="#C62828" />
+    <SolidColorBrush x:Key="LogProgress"      Color="#6B7280" />
+    <SolidColorBrush x:Key="LogSelection"     Color="#E8EFFD" />
+    <SolidColorBrush x:Key="LogTrack"         Color="#E1E4E8" />
+</ResourceDictionary>

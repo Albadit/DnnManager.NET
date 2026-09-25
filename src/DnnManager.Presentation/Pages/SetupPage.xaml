@@ -1,0 +1,45 @@
+<UserControl x:Class="DnnManager.Presentation.Pages.SetupPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:DnnManager.Presentation.Controls">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="28,24,28,20" MaxWidth="760" HorizontalAlignment="Left">
+            <TextBlock Style="{StaticResource PageTitle}" Text="New project" />
+            <TextBlock Style="{StaticResource PageSubtitle}"
+                       Text="Downloads DNN into a new folder, creates its IIS website and hostname, and an empty database in the shared SQL Server container." />
+
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource CardTitle}" Text="Project" />
+                    <TextBlock Style="{StaticResource FieldLabel}" Text="Project name" Margin="0,0,0,4" />
+                    <TextBox x:Name="NameBox" TextChanged="NameBox_TextChanged" />
+                    <TextBlock x:Name="NameError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
+                    <TextBlock x:Name="NameHint" Style="{StaticResource Hint}"
+                               Text="Letters, digits, '-', '_' or '.' - the name becomes the folder, the IIS site, the hostname and the database name." />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="ExistingCard" Style="{StaticResource Card}" Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource CardTitle}" x:Name="ExistingTitle" Text="Folder already exists" />
+                    <c:ExistingFolderOptions x:Name="ExistingOptions" OfferRedownload="True" ActionChanged="ExistingOptions_ActionChanged" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="PackageCard" Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource CardTitle}" Text="DNN package" />
+                    <TextBlock Style="{StaticResource FieldLabel}" Text="Source" Margin="0,0,0,4" />
+                    <ComboBox x:Name="SourceCombo" />
+                    <TextBlock Style="{StaticResource FieldLabel}" Text="Version" />
+                    <TextBox x:Name="VersionBox" />
+                    <TextBlock Style="{StaticResource Hint}" Text="Leave blank for the latest release, or enter a version such as 10.0.1." />
+                </StackPanel>
+            </Border>
+
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="RunButton" Style="{StaticResource Primary}" Content="Set up project" IsEnabled="False" Click="Run_Click" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

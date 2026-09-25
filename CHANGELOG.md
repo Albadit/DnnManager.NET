@@ -6,7 +6,31 @@ All notable changes to DnnManager.NET are documented here.
 
 ### Added
 
-- **Setup an existing project folder.** A new main-menu action for a DNN site
+- **Desktop GUI replaces the terminal UI.** `dnnmgr.exe` is now a WPF app:
+  a sidebar with every former menu action - projects overview (open site /
+  folder, remove), new project, existing folder, clone (local or FTP with a
+  folder browser), database backup / overwrite, saved connections and
+  prerequisites - and a live activity log with Cancel. Use-case questions open
+  as dialogs. The use cases themselves are unchanged. The app is now called
+  **DNN Manager** (window title, sidebar and dialogs).
+- **Settings page.** The gear icon at the bottom of the sidebar edits
+  `appsettings.json` (projects folder, site port, hostname suffix, DNN release
+  sources, SQL container settings), validates the values and offers to restart
+  so they apply. Other keys in the file are kept as they are.
+- **Live sites (was "Saved connections").** The page is renamed and has a **Test
+  connection** button for FTP (logs in and lists the remote path) and SQL
+  (logs in to the database itself, so contained users work too). **+ Add**
+  creates connections for another project ahead of cloning it. The saved
+  password now loads into the (masked) box instead of "blank = keep current".
+- **Light and dark theme.** A sun / moon button next to "Projects folder" in
+  the sidebar switches the whole app live, including the sidebar, the activity
+  log, inputs, lists, the projects table, scrollbars and the window title bar. The choice is saved as
+  `Theme` in `appsettings.json`; by default the app follows the Windows app theme.
+- **Show / hide passwords.** Every password field has an eye button.
+- **Hideable activity log.** The chevron in the Activity header collapses the
+  log to its header bar (still showing the running operation and Cancel), and
+  brings it back at its previous height.
+- **Setup an existing project folder.** A new action for a DNN site
   whose files are already under `BaseDirectory`: it creates the IIS website, a
   local database, or both - without downloading, copying or overwriting any
   files. When a database is included you pick a `.bacpac` (or `.bak`) to
@@ -24,6 +48,15 @@ All notable changes to DnnManager.NET are documented here.
   the exe, the app writes the default at startup (and again before
   `docker compose up`) instead of failing to start. Existing files are never
   overwritten.
+
+### Removed
+
+- **The terminal UI** and its `DnnManager:Console` window-size settings
+  (ignored if still present in an existing `appsettings.json`).
+- **Database (backup / overwrite).** The action and the code behind it
+  (`ExportDatabaseUseCase`, `ImportDatabaseUseCase`, `IRemoteSqlAdminService`)
+  are gone. To load a backup into a local project's database, use **Existing
+  folder** with **local database only**.
 
 ### Fixed
 

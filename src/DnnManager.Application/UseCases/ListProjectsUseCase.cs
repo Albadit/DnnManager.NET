@@ -39,7 +39,7 @@ public sealed class ListProjectsUseCase
 
         // Sizing a DNN site walks tens of thousands of files, and each project also parses a
         // web.config. Run that per-project work on the thread pool so the projects overlap and the
-        // console isn't blocked by a serial scan.
+        // UI isn't blocked by a serial scan.
         var scanned = await Task.WhenAll(_projects.ListAllProjectDirectories().Select(name => Task.Run(() =>
         {
             var project = _projects.Build(name);

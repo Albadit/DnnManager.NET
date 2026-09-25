@@ -16,9 +16,6 @@ public interface IProgressReporter
 public interface IUserPrompt
 {
     Task<bool> ConfirmAsync(string question, bool defaultYes = false, CancellationToken ct = default);
-
-    /// <summary>Prompts for a line of text. Returns null if the user cancels (Esc) or enters nothing.</summary>
-    Task<string?> PromptTextAsync(string question, CancellationToken ct = default);
 }
 
 public interface IProjectRepository
@@ -184,6 +181,15 @@ public interface ISqlProfileStore
 
 public sealed record SiteSqlConnection(string Server, string Database, string User, string Password);
 
+public interface ISqlConnectionTester
+{
+    /// <summary>
+    /// Logs in to <paramref name="connection"/>'s database (not [master] - contained users only exist in
+    /// their own database) and describes what it reached, e.g. "[db] on Azure SQL Database 12.0.2000.8".
+    /// </summary>
+    Task<Result<string>> TestAsync(SiteSqlConnection connection, CancellationToken ct);
+}
+
 public interface IWebConfigService
 {
     /// <summary>Reads the SiteSqlServer connection string from the project's web.config.</summary>
@@ -234,32 +240,6 @@ public interface IBacpacService
     Task<Result> ImportAsync(string targetServer, string saUser, string saPassword,
         string databaseName, string bacpacPath, IProgressReporter reporter, CancellationToken ct,
         IReadOnlyDictionary<string, string>? properties = null);
-}
-
-public sealed record RemoteDbInfo(bool IsAzure, bool Exists, string? Edition, string? ServiceObjective);
-
-/// <summary>
-/// Administrative operations against a remote (possibly Azure) SQL Server, used when overwriting a
-/// production database: inspecting the target and dropping the existing database before a BACPAC import.
-/// </summary>
-public interface IRemoteSqlAdminService
-{
-    /// <summary>
-    /// Connects to <paramref name="target"/> via [master] and reports whether it is Azure SQL Database,
-    /// whether the named database exists, and - for Azure - its current edition and service
-    /// objective so a recreated database can keep the same tier.
-    /// </summary>
-    Task<Result<RemoteDbInfo>> InspectAsync(SiteSqlConnection target, CancellationToken ct);
-
-    /// <summary>Drops <paramref name="target"/>'s database if it exists.</summary>
-    Task<Result> DropDatabaseAsync(SiteSqlConnection target, bool isAzure, IProgressReporter reporter, CancellationToken ct);
-
-    /// <summary>
-    /// Renames a database on <paramref name="target"/>'s server from <paramref name="fromName"/> to
-    /// <paramref name="toName"/> (<c>ALTER DATABASE … MODIFY NAME</c>). Used to swap a freshly imported
-    /// copy into place after the old database has been dropped.
-    /// </summary>
-    Task<Result> RenameDatabaseAsync(SiteSqlConnection target, string fromName, string toName, IProgressReporter reporter, CancellationToken ct);
 }
 
 public interface IRemoteSqlBackupService
