@@ -21,7 +21,7 @@ internal static class Program
         if (!AdminElevation.IsAdministrator())
         {
             if (AdminElevation.TryRelaunchElevated(args)) return 0;
-            MessageBox.Show("DNN Manager needs Administrator rights (IIS, hosts and SQL setup).\n\n" +
+            MessageBox.Show("DNN Manager needs Administrator rights to manage IIS.\n\n" +
                             "Could not elevate - please run it as Administrator.",
                 "DNN Manager", MessageBoxButton.OK, MessageBoxImage.Error);
             return 1;
