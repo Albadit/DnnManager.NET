@@ -4,7 +4,26 @@
              xmlns:c="clr-namespace:DnnManager.Presentation.Controls">
     <DockPanel Margin="28,24,28,20">
         <StackPanel DockPanel.Dock="Top">
-            <TextBlock Style="{StaticResource PageTitle}" Text="Existing folder" />
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource PageTitle}" Text="Existing folder" />
+                <!-- Explains what setting up the website does to HTTPS redirect rules in web.config. -->
+                <TextBlock Text="&#xE946;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16"
+                           Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="10,4,0,0"
+                           Cursor="Help" Background="Transparent" ToolTipService.InitialShowDelay="200"
+                           ToolTipService.ShowDuration="60000">
+                    <TextBlock.ToolTip>
+                        <StackPanel MaxWidth="440">
+                            <TextBlock Text="HTTPS redirects in web.config" FontWeight="SemiBold" Margin="0,0,0,6" />
+                            <TextBlock TextWrapping="Wrap" Margin="0,0,0,6"
+                                       Text="Setting up the IIS website also checks web.config for URL Rewrite rules that redirect every request to https:// - common on a production site. The local site has no HTTPS, so such a rule would make it unreachable." />
+                            <TextBlock TextWrapping="Wrap" Margin="0,0,0,6"
+                                       Text="Those rules are switched off (enabled=&quot;false&quot;), not deleted, with a &quot;Disabled by DNN Manager&quot; comment above each one in web.config." />
+                            <TextBlock TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource LogWarn}"
+                                       Text="&#x26A0; The Activity log then warns you: switch them back on before deploying the site to production." />
+                        </StackPanel>
+                    </TextBlock.ToolTip>
+                </TextBlock>
+            </StackPanel>
             <TextBlock Style="{StaticResource PageSubtitle}"
                        Text="Set up the IIS website and/or the local database for a project folder that already exists." />
         </StackPanel>

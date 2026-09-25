@@ -165,14 +165,20 @@ public sealed class HostExistingProjectUseCase
             reporter.Fail($"Could not check web.config for HTTPS redirects: {result.Error}");
             return Array.Empty<string>();
         }
-        var names = result.Value!;
-        if (names.Count == 0) return names;
+        var rules = result.Value!;
+        if (rules.SwitchedOff.Count > 0)
+            reporter.Info($"Switched off the HTTPS redirect rule{Plural(rules.SwitchedOff)} {Quoted(rules.SwitchedOff)} in web.config - " +
+                          "the local site has no HTTPS, so it would redirect to an address that doesn't answer.");
+        if (rules.AlreadyOff.Count > 0)
+            reporter.Info($"The HTTPS redirect rule{Plural(rules.AlreadyOff)} {Quoted(rules.AlreadyOff)} in web.config " +
+                          $"{(rules.AlreadyOff.Count == 1 ? "was" : "were")} already switched off for local development.");
 
-        reporter.Info($"Switched off the HTTPS redirect rule{(names.Count == 1 ? "" : "s")} {Quoted(names)} in web.config - " +
-                      "the local site has no HTTPS, so it would redirect to an address that doesn't answer.");
-        reporter.Warn(ProductionReminder(names));
-        return names;
+        var all = rules.All;
+        if (all.Count > 0) reporter.Warn(ProductionReminder(all));
+        return all;
     }
+
+    private static string Plural(IReadOnlyList<string> names) => names.Count == 1 ? "" : "s";
 
     private static string ProductionReminder(IReadOnlyList<string> names) =>
         $"Before deploying this site to production, switch {Quoted(names)} in web.config back on " +

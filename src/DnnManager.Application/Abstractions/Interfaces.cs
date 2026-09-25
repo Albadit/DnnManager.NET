@@ -188,6 +188,14 @@ public interface ISqlConnectionTester
     Task<Result<string>> TestAsync(SiteSqlConnection connection, CancellationToken ct);
 }
 
+/// <param name="SwitchedOff">Rules switched off just now.</param>
+/// <param name="AlreadyOff">Rules DNN Manager had switched off before.</param>
+public sealed record HttpsRedirectRules(IReadOnlyList<string> SwitchedOff, IReadOnlyList<string> AlreadyOff)
+{
+    public static readonly HttpsRedirectRules None = new(Array.Empty<string>(), Array.Empty<string>());
+    public IReadOnlyList<string> All => SwitchedOff.Concat(AlreadyOff).ToList();
+}
+
 public interface IWebConfigService
 {
     /// <summary>Reads the SiteSqlServer connection string from the project's web.config.</summary>
@@ -209,10 +217,11 @@ public interface IWebConfigService
     /// <summary>
     /// Switches off (<c>enabled="false"</c>, with a comment) every enabled URL Rewrite rule that
     /// redirects to an <c>https://</c> address. A local site has no HTTPS binding, so such a rule sends
-    /// every request to an address that doesn't answer. Returns the names of the rules it switched
-    /// off - empty when there were none (or no web.config).
+    /// every request to an address that doesn't answer. Also reports rules switched off by an earlier
+    /// run (recognised by that comment), since those still have to go back on for production.
+    /// Both lists are empty when there are none (or no web.config).
     /// </summary>
-    Result<IReadOnlyList<string>> DisableHttpsRedirectRules(string webConfigPath);
+    Result<HttpsRedirectRules> DisableHttpsRedirectRules(string webConfigPath);
 }
 
 /// <summary>

@@ -14,6 +14,9 @@ All notable changes to DnnManager.NET are documented here.
   (the local site is HTTP-only, so it would never load), marks them with a
   *Disabled by DNN Manager* comment, and shows a ⚠ warning in the Activity log -
   a new warning style - to switch them back on before deploying to production.
+- **Selectable activity log.** Text in the Activity log can be selected and
+  copied, across lines too (mouse, Ctrl+A / Ctrl+C, right-click Copy). The
+  **Copy** button copies the selection, or the whole log when nothing is selected.
 
 ## v1.0.3 - 2026-09-25
 

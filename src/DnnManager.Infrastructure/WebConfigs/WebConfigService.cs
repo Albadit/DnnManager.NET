@@ -132,47 +132,65 @@ public sealed class WebConfigService : IWebConfigService
         " Disabled by DNN Manager for local development (no HTTPS locally). " +
         "Re-enable (remove enabled=\"false\") before deploying to production. ";
 
-    public Result<IReadOnlyList<string>> DisableHttpsRedirectRules(string webConfigPath)
+    public Result<HttpsRedirectRules> DisableHttpsRedirectRules(string webConfigPath)
     {
         try
         {
-            if (!File.Exists(webConfigPath)) return Result<IReadOnlyList<string>>.Ok(Array.Empty<string>());
+            if (!File.Exists(webConfigPath)) return Result<HttpsRedirectRules>.Ok(HttpsRedirectRules.None);
 
             var doc = XDocument.Load(webConfigPath, LoadOptions.PreserveWhitespace);
-            var rules = doc.Descendants("system.webServer")
+            var redirects = doc.Descendants("system.webServer")
                 .Elements("rewrite").Elements("rules").Elements("rule")
-                .Where(IsEnabledHttpsRedirect)
+                .Where(IsHttpsRedirect)
                 .ToList();
-            if (rules.Count == 0) return Result<IReadOnlyList<string>>.Ok(Array.Empty<string>());
 
-            var names = new List<string>();
-            foreach (var rule in rules)
+            var switchedOff = new List<string>();
+            var alreadyOff = new List<string>();
+            foreach (var rule in redirects)
             {
+                if (IsDisabled(rule))
+                {
+                    // Only ours: a rule that is off in the site's own config isn't this app's to report.
+                    if (HasDisabledComment(rule)) alreadyOff.Add(NameOf(rule));
+                    continue;
+                }
                 rule.SetAttributeValue("enabled", "false");
                 rule.AddBeforeSelf(new XComment(DisabledRuleComment));
                 // Keep the rule on its own line, indented like it was.
                 if (rule.PreviousNode?.PreviousNode is XText indent) rule.AddBeforeSelf(new XText(indent.Value));
-                names.Add((string?)rule.Attribute("name") ?? "(unnamed)");
+                switchedOff.Add(NameOf(rule));
             }
-            doc.Save(webConfigPath);
-            return Result<IReadOnlyList<string>>.Ok(names);
+            if (switchedOff.Count > 0) doc.Save(webConfigPath);
+            return Result<HttpsRedirectRules>.Ok(new HttpsRedirectRules(switchedOff, alreadyOff));
         }
         catch (Exception ex)
         {
             _log.LogError(ex, "Failed to disable HTTPS redirect rules in web.config");
-            return Result<IReadOnlyList<string>>.Fail(ex.Message);
+            return Result<HttpsRedirectRules>.Fail(ex.Message);
         }
     }
 
-    // A rule that is switched on and redirects to an https:// address (typically "HTTP to HTTPS redirect").
-    private static bool IsEnabledHttpsRedirect(XElement rule)
+    // A rule that redirects to an https:// address (typically "HTTP to HTTPS redirect").
+    private static bool IsHttpsRedirect(XElement rule)
     {
-        if (string.Equals((string?)rule.Attribute("enabled"), "false", StringComparison.OrdinalIgnoreCase)) return false;
         var action = rule.Element("action");
         return action is not null
             && string.Equals((string?)action.Attribute("type"), "Redirect", StringComparison.OrdinalIgnoreCase)
             && ((string?)action.Attribute("url"))?.TrimStart().StartsWith("https://", StringComparison.OrdinalIgnoreCase) == true;
     }
+
+    private static bool IsDisabled(XElement rule) =>
+        string.Equals((string?)rule.Attribute("enabled"), "false", StringComparison.OrdinalIgnoreCase);
+
+    // The nearest non-whitespace node before the rule is our "Disabled by DNN Manager" comment.
+    private static bool HasDisabledComment(XElement rule)
+    {
+        var node = rule.PreviousNode;
+        while (node is XText text && string.IsNullOrWhiteSpace(text.Value)) node = node.PreviousNode;
+        return node is XComment comment && comment.Value.Contains("Disabled by DNN Manager", StringComparison.Ordinal);
+    }
+
+    private static string NameOf(XElement rule) => (string?)rule.Attribute("name") ?? "(unnamed)";
 
     // Looks up <connectionStrings>; if it uses configSource="…", loads the external file.
     private XElement? FindConnectionStringElement(XDocument doc, string webConfigPath, out string sourcePath)

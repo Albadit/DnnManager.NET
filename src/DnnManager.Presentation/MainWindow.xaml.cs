@@ -1,4 +1,3 @@
-using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Reflection;
 using System.Windows;
@@ -41,8 +40,7 @@ public partial class MainWindow : Window
         BaseDirText.Text = options.Value.BaseDirectory;
         BaseDirText.ToolTip = options.Value.BaseDirectory;
 
-        LogList.ItemsSource = _log.Entries;
-        _log.Entries.CollectionChanged += OnLogChanged;
+        LogList.Attach(_log.Entries);
         ThemeManager.Track(this);
         ThemeManager.Changed += (_, _) => UpdateThemeButton();
         UpdateThemeButton();
@@ -70,12 +68,6 @@ public partial class MainWindow : Window
 
         // Let the page refresh whatever the operation changed (new folder, removed site…).
         if (!busy && PageHost.Content is IRefreshable page) page.Refresh();
-    }
-
-    private void OnLogChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        if (e.Action == NotifyCollectionChangedAction.Add && LogList.Items.Count > 0)
-            LogList.ScrollIntoView(LogList.Items[^1]);
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => _runner.Cancel();
@@ -117,7 +109,7 @@ public partial class MainWindow : Window
             SplitterRow.Height = new GridLength(5);
             LogRow.MinHeight = 90;
             LogRow.Height = _logHeight;
-            if (LogList.Items.Count > 0) LogList.ScrollIntoView(LogList.Items[^1]);
+            LogList.ScrollToEnd();
         }
         else
         {
@@ -136,9 +128,10 @@ public partial class MainWindow : Window
         ToggleLogButton.ToolTip = open ? "Hide activity" : "Show activity";
     }
 
+    // Copies the selected part of the log, or - with nothing selected - the whole log with timestamps.
     private void CopyLog_Click(object sender, RoutedEventArgs e)
     {
-        var text = _log.ToText();
+        var text = LogList.Selection.IsEmpty ? _log.ToText() : LogList.Selection.Text.TrimEnd();
         if (text.Length > 0) Clipboard.SetText(text);
     }
 
