@@ -32,7 +32,7 @@ public sealed class ListProjectsUseCase
     {
         // One shared SQL Server, so whether it answers (and on which port) applies to every project.
         // Started now so the login overlaps the folder scan below.
-        var sqlCheck = _sqlContainer.IsReachableAsync(ct);
+        var sqlCheck = _sqlContainer.DatabasesAsync(ct);
 
         // One applicationHost.config read for all sites instead of two ServerManager instances per project.
         var siteStates = _iis.GetSiteStates();
@@ -52,13 +52,15 @@ public sealed class ListProjectsUseCase
                 DnnVersion: DnnInstall.Version(project.ProjectDirectory));
         }, ct)));
 
-        var sqlReachable = await sqlCheck;
+        var databases = await sqlCheck;
+        var sqlReachable = databases is not null;
         int? sqlPort = sqlReachable ? _opts.Docker.DefaultPort : null;
 
         var list = new List<ProjectStatus>(scanned.Length);
         foreach (var (project, size, webConfigDb, dnnVersion) in scanned)
         {
             var siteExists = siteStates.TryGetValue(project.Name, out var siteState);
+            var databaseName = webConfigDb ?? _opts.DatabaseNameFor(project.Name);
 
             list.Add(new ProjectStatus(
                 project.Name,
@@ -67,10 +69,11 @@ public sealed class ListProjectsUseCase
                 siteExists ? siteState : null,
                 size,
                 sqlReachable,
-                webConfigDb ?? _opts.DatabaseNameFor(project.Name),
+                databaseName,
                 sqlPort,
                 _opts.SiteUrlFor(project.Name),
-                dnnVersion));
+                dnnVersion,
+                databases?.Contains(databaseName) == true));
         }
         return list;
     }

@@ -25,7 +25,7 @@ public partial class MainWindow : Window
         ["Setup"]         = typeof(SetupPage),
         ["Existing"]      = typeof(ExistingFolderPage),
         ["Clone"]         = typeof(ClonePage),
-        ["Prerequisites"] = typeof(PrerequisitesPage),
+        ["Environment"]   = typeof(EnvironmentPage),
         ["Settings"]      = typeof(SettingsPage),
     };
 

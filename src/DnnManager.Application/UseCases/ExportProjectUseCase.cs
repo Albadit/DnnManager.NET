@@ -1,8 +1,6 @@
 using DnnManager.Application.Abstractions;
-using DnnManager.Application.Configuration;
 using DnnManager.Domain;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace DnnManager.Application.UseCases;
 
@@ -23,30 +21,24 @@ public sealed class ExportProjectRequest
 /// </summary>
 public sealed class ExportProjectUseCase
 {
-    // Not part of the site: DNN Manager's own backups folder, and source control.
-    private static readonly string[] ExcludedFolders = { "backups", ".git" };
+    // Not part of the site: DNN Manager's own backups folders (so backups never end up inside backups), and source control.
+    private static readonly string[] ExcludedFolders = { ProjectBackups.FolderName, ProjectBackups.LegacyFolderName, ".git" };
 
-    private readonly AppOptions _opts;
     private readonly IProjectRepository _projects;
     private readonly IProjectFileCopier _copier;
-    private readonly IWebConfigService _webConfig;
     private readonly IBacpacService _bacpac;
     private readonly LocalSqlContainer _sqlContainer;
     private readonly ILogger<ExportProjectUseCase> _log;
 
     public ExportProjectUseCase(
-        IOptions<AppOptions> opts,
         IProjectRepository projects,
         IProjectFileCopier copier,
-        IWebConfigService webConfig,
         IBacpacService bacpac,
         LocalSqlContainer sqlContainer,
         ILogger<ExportProjectUseCase> log)
     {
-        _opts = opts.Value;
         _projects = projects;
         _copier = copier;
-        _webConfig = webConfig;
         _bacpac = bacpac;
         _sqlContainer = sqlContainer;
         _log = log;
@@ -62,9 +54,18 @@ public sealed class ExportProjectUseCase
             return Result.Fail("Nothing to export - choose the site files, the database, or both.");
         var zipPath = req.ZipPath is null ? null : Path.GetFullPath(req.ZipPath);
         var bacpacPath = req.BacpacPath is null ? null : Path.GetFullPath(req.BacpacPath);
+        // Inside the site is only allowed in its backups folder, which the zip leaves out.
         var inside = Path.GetFullPath(project.ProjectDirectory).TrimEnd('\\') + "\\";
-        if (new[] { zipPath, bacpacPath }.Any(p => p is not null && p.StartsWith(inside, StringComparison.OrdinalIgnoreCase)))
-            return Result.Fail("Choose a location outside the project folder - the export would end up inside the site.");
+        var backups = Path.GetFullPath(project.BackupDirectory).TrimEnd('\\') + "\\";
+        if (new[] { zipPath, bacpacPath }.Any(p => p is not null && p.StartsWith(inside, StringComparison.OrdinalIgnoreCase)
+                                                && !p.StartsWith(backups, StringComparison.OrdinalIgnoreCase)))
+            return Result.Fail($"Choose a location outside the project folder (or in its {ProjectBackups.FolderName} folder) - " +
+                               "the export would end up inside the site.");
+        foreach (var path in new[] { zipPath, bacpacPath }.OfType<string>())
+        {
+            if (path.StartsWith(backups, StringComparison.OrdinalIgnoreCase)) ProjectBackups.EnsureFolder(project);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        }
 
         try
         {
@@ -72,18 +73,25 @@ public sealed class ExportProjectUseCase
             {
                 reporter.Step("Zipping the website files");
                 var zip = await _copier.CreateZipAsync(project.ProjectDirectory, zipPath, ExcludedFolders, reporter, ct);
-                if (!zip.Success) return zip;
+                if (!zip.Success)
+                {
+                    RemoveIfEmpty(zipPath);
+                    return zip;
+                }
             }
 
             if (bacpacPath is not null)
             {
                 reporter.Step("Exporting the database");
-                var source = DatabaseOf(project);
+                var source = _sqlContainer.ConnectionOf(project);
                 var ensured = await _bacpac.EnsureAvailableAsync(reporter, ct);
                 var export = ensured.Success ? await _bacpac.ExportAsync(source, bacpacPath, reporter, ct) : ensured;
                 if (!export.Success)
+                {
+                    RemoveIfEmpty(bacpacPath);
                     return Result.Fail((zipPath is null ? "" : $"The site files are in {zipPath}, but ") +
                                        $"exporting database [{source.Database}] failed: {export.Error}");
+                }
                 reporter.Success($"Database [{source.Database}] exported to {bacpacPath}");
             }
 
@@ -100,21 +108,20 @@ public sealed class ExportProjectUseCase
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _log.LogError(ex, "Exporting {Project} failed", req.ProjectName);
+            RemoveIfEmpty(zipPath ?? bacpacPath);
             return Result.Fail(ex.Message);
         }
     }
 
-    /// <summary>
-    /// The database the site uses: its web.config connection when that has a SQL login, otherwise the site's
-    /// database on the local SQL Server as sa.
-    /// </summary>
-    private SiteSqlConnection DatabaseOf(DnnProject project)
+    /// <summary>A backup folder left empty by a failed export is removed again.</summary>
+    private static void RemoveIfEmpty(string? file)
     {
-        var conn = _webConfig.ReadSiteSqlServer(Path.Combine(project.ProjectDirectory, "web.config"));
-        if (conn is { Success: true, Value: { } c } && c.User.Length > 0 && c.Database.Length > 0)
-            return c;
-
-        var database = DeveloperDb.FromWebConfig(project, _webConfig) ?? _opts.DatabaseNameFor(project.Name);
-        return new SiteSqlConnection(_sqlContainer.Server, database, "sa", _opts.Docker.SaPassword);
+        try
+        {
+            var folder = file is null ? null : Path.GetDirectoryName(file);
+            if (folder is not null && Directory.Exists(folder) && !Directory.EnumerateFileSystemEntries(folder).Any())
+                Directory.Delete(folder);
+        }
+        catch { /* best effort */ }
     }
 }

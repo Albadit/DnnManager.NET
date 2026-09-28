@@ -3,10 +3,16 @@ using DnnManager.Presentation.Services;
 
 namespace DnnManager.Presentation.Controls;
 
-/// <summary>A read-only list of label / value pairs, e.g. a project's details.</summary>
+/// <summary>How a detail row looks: a section heading, or a value in the normal, good (green), bad (red) or warning colour.</summary>
+public enum DetailKind { Normal, Section, Good, Bad, Warning }
+
+/// <summary>A read-only list of label / value pairs in sections, e.g. a project's details.</summary>
 public partial class DetailsDialog : Window
 {
-    public sealed record Detail(string Label, string Value);
+    public sealed record Detail(string Label, string Value, DetailKind Kind = DetailKind.Normal)
+    {
+        public static Detail Section(string title) => new(title, "", DetailKind.Section);
+    }
 
     private readonly IReadOnlyList<Detail> _details;
 
@@ -31,8 +37,8 @@ public partial class DetailsDialog : Window
 
     private void Copy_Click(object sender, RoutedEventArgs e)
     {
-        var text = Heading.Text + Environment.NewLine +
-                   string.Join(Environment.NewLine, _details.Select(d => $"{d.Label}: {d.Value}"));
+        var text = Heading.Text + Environment.NewLine + string.Join(Environment.NewLine, _details.Select(d =>
+            d.Kind == DetailKind.Section ? Environment.NewLine + "[" + d.Label + "]" : $"{d.Label}: {d.Value}"));
         try { Clipboard.SetText(text); }
         catch (Exception ex) { Dialogs.Error($"Could not copy to the clipboard: {ex.Message}"); }
     }

@@ -19,8 +19,9 @@ solution.
   that's already there, optionally restoring a `.bacpac` / `.bak`.
 - **Clone project** - copy a site (files + database) from a local folder,
   including Azure SQL sources.
-- **Prerequisites** - check the SQL Server connection and the IIS Windows
-  features, and enable missing ones.
+- **Environment** - see whether Docker Desktop, its engine, the SQL Server
+  container, the SQL Server connection and the IIS Windows features are active,
+  and install / start / set up / enable what's missing.
 - **Settings** - edit `appsettings.json` from the app, test the SQL Server
   connection and set up its Docker container.
 - **Light and dark theme**, a live **activity log** with Cancel, and an eye
@@ -31,7 +32,7 @@ solution.
 - Windows 10/11 or Windows Server (IIS available)
 - **.NET 10 SDK** - <https://dotnet.microsoft.com/download/dotnet/10.0>
 - Docker Desktop (Linux containers) for the shared SQL Server - set it up once
-  with **Settings → Set up Docker container** (or point the SQL Server settings
+  on the **Environment** page (or point the SQL Server settings
   at a SQL Server you already run)
 - A user account that can elevate to Administrator (UAC prompt will appear)
 
@@ -110,12 +111,12 @@ VS Code tasks for build, publish and zip are in `.vscode/tasks.json`.
 
 | Page | What it does |
 |---|---|
-| **Projects** | Table of every project folder: name, site URL, DNN version (from `bin\DotNetNuke.dll`), IIS state, database, size and path. **Refresh** shows it's working (button reads *Refreshing…*, a bar runs along the table) and the subtitle shows when it last updated. The table scrolls both ways - **Shift + mouse wheel** scrolls sideways. **Open site** (or double-click a row) and **Remove…** act on the selected project; **right-click** a project for everything else (see [Project menu](#project-menu)). **Reset IIS** restarts IIS (`iisreset`, after a confirmation) - e.g. after installing the URL Rewrite module when a site shows *HTTP Error 500.19*. |
+| **Projects** | Table of every project folder: name, site URL, DNN version (from `bin\DotNetNuke.dll`), database, **SQL** (**Live** in green when the database is on the SQL Server, **Offline** in red when the server doesn't answer, *(none)* when the database doesn't exist), **IIS** (**Live** in green when the site is started, **Offline** in red when it isn't, *(none)* without a site), size and path. **Refresh** shows it's working (button reads *Refreshing…*, a bar runs along the table) and the subtitle shows when it last updated. The table scrolls both ways - **Shift + mouse wheel** scrolls sideways. **Open site** (or double-click a row) and **Remove…** act on the selected project; **right-click** a project for everything else (see [Project menu](#project-menu)). |
 | **New project** | Enter a name (validated as you type), then **Start from**: *a new site* - pick the DNN release source and optionally a version (blank = latest) - or *an existing site* - pick the site `.zip` and its database `.bacpac` (see [Import a site .zip](#import-a-site-zip)). If a folder with that name already exists, it offers the **Host project** choices instead, plus downloading DNN over the folder. |
 | **Host project** | Pick a folder, then *IIS website + database* (the default), *database only* or *IIS website only*, and optionally a backup to restore. See [Host a project](#host-a-project). |
 | **Clone project** | Copy a site from a local folder into a new project. See [Clone a project](#clone-a-project). |
-| **Prerequisites** | Shows what's checked - the SQL Server connection, and the IIS Windows features as a table - and **Run checks** checks them, offering to enable missing IIS features. |
-| **Settings** | Edit `appsettings.json`. Under **SQL Server**, **Test connection** logs in with the values in the form (saved or not), **Set up Docker container** writes `docker-compose.yml` from those values, runs `docker compose up -d` (image download progress in the Activity log) and waits until SQL Server accepts the sa login, and **Show docker-compose.yml** shows the file those values produce and whether the one next to the app matches. See [Configuration](#configuration). |
+| **Environment** | Checks what DNN Manager needs when you press a card's **Test** button (nothing runs on opening the page; an action re-tests its card), each with a green / red status and a button to fix it: **Docker Desktop** (**Install Docker Desktop** via winget), the **Docker engine** (**Start Docker Desktop**, then waits for the engine), the **SQL Server container** (**Set up container** / **Start container** - writes `docker-compose.yml` from the SQL Server settings, runs `docker compose up -d` and waits for the sa login; **Show docker-compose.yml** shows the file and whether the one next to the app matches), the **SQL Server connection**, and the **IIS Windows features** as a table with their status (**Enable missing features**). **Reset IIS** restarts IIS (`iisreset`, after a confirmation) - e.g. after installing the URL Rewrite module when a site shows *HTTP Error 500.19*. |
+| **Settings** | Edit `appsettings.json`, including the SQL Server connection and container values. Testing the connection and setting up the Docker container happen on the **Environment** page. See [Configuration](#configuration). |
 
 ### Project menu
 
@@ -124,11 +125,12 @@ Menu key):
 
 | Item | What it does |
 |---|---|
-| **Details…** | Folder, site, IIS state, SQL Server status, database, `web.config` connection (without the password), DNN version, size, solution file(s), git branch and backups - selectable, with **Copy all**. |
+| **Details…** | In sections, selectable, with **Copy all**: *Project* (folder, created, size, DNN version, git branch, solution, backups); *Website (IIS)* (Live/Offline status, URL, bindings, physical path - flagged when it isn't the project folder -, app pool and its state, .NET version, pipeline, identity); *Database* (Live/Offline, whether the database exists, server and login, size, the DNN version recorded in the database - flagged when it differs from the files -, portals and portal aliases); *web.config* (connection without the password, target framework, debug, custom errors, HTTPS redirects DNN Manager switched off). |
 | **Open site** / **Open folder** | The site in the browser / the folder in Explorer. |
 | **Copy path** | Puts the project folder on the clipboard. |
 | **Open in …** | One entry per IDE found on the PC: Visual Studio (via `vswhere`; opens the project's `.sln` when it has exactly one), VS Code, VS Code Insiders, Cursor, Windsurf, Rider and Sublime Text. |
-| **Export** ▸ | *Site and database* - a `.zip` of the site files (without `backups` and `.git`) plus a `.bacpac` of its database next to it, the pair **New project** imports - or just the *site files* (`.zip`) or the *database* (`.bacpac`). |
+| **Open in SQL Server Management Studio &lt;version&gt;** ▸ | One submenu per installed SSMS (21+ found via `vswhere`, 18-20 by their install folder): *Default* signs in to the local SQL Server from Settings as `sa`; *Project* signs in to the project's database - the one its `web.config` uses, or its local database as `sa`. SSMS only remembers the password when **Remember the password in SQL Server Management Studio** is on in Settings (off by default). When that SSMS is already open, the connection is added to it (via its *Connect Object Explorer...*) instead of starting another window. For the local container it also trusts the self-signed server certificate (`-C`, SSMS 21+). SSMS takes no password on its command line - and any connection switch makes it connect at once and fail - so for SSMS 21+ DNN Manager starts it without switches and fills in its Connect dialog through UI Automation (server, SQL Server Authentication, login, password with *Remember Password*, database, trust certificate, name) and clicks Connect - only in the SSMS it just started. Older SSMS gets the switches, and the password is left on the clipboard. A missing database opens the server instead. |
+| **Export** ▸ | A backup into the project's `01_backup` folder (see [Backups](#backups)): *Site and database* (`<project>.zip` + `<project>.bacpac`, the pair **New project** imports), *Site files* or *Database*. **Export to another folder…** saves the `.zip` + `.bacpac` anywhere; **Open 01_backup folder** opens it in Explorer. |
 | **Remove…** | After a confirmation, removes the IIS site and deletes the project folder - and drops its database if you say so. If files in the folder are still in use, it finds the programs holding them (open files, or a terminal / editor whose working folder is inside), lists them and - after you confirm - closes them and deletes the folder. Windows itself, services and Explorer are never closed; anything still locked is deleted at the next Windows restart. |
 
 ## Configuration
@@ -145,19 +147,47 @@ appsettings.json** opens the file for those.
 | `DnnManager:BaseDirectory` | Where projects live (`C:\DNN` by default). |
 | `DnnManager:SitePort`, `DnnManager:HostnameSuffix` | Sites answer at `http://<project>.<HostnameSuffix>[:SitePort]`. |
 | `DnnManager:Theme` | `Light`, `Dark` or `System` (follow the Windows app theme). Set by the sidebar's theme button. |
+| `DnnManager:SsmsRememberPassword` | `false` by default. When `true`, signing SSMS in from the project menu ticks its *Remember Password*, so SSMS keeps the password. On the Settings page under **SQL Server**. |
 | `DnnManager:GitHubReleaseApis` | GitHub releases API URLs offered as DNN sources. |
-| `DnnManager:Docker:*` | Shared SQL Server: IP, port and SA password to connect with; container name, volume, collation and edition for the Docker container; database name suffix. `docker-compose.yml` is generated from these by **Set up Docker container**. An existing data volume keeps the sa password it was created with. |
+| `DnnManager:Docker:*` | Shared SQL Server: host (`ContainerIp`, `localhost` by default), port and SA password to connect with; container name, volume, collation and edition for the Docker container; database name suffix. `docker-compose.yml` is generated from these by **Environment → Set up container**. An existing data volume keeps the sa password it was created with. |
 | `DnnManager:RequiredIisFeatures` | IIS Windows features checked (and optionally enabled). |
 
 Environment variables prefixed with `DNNMGR_` override settings, e.g.
 `DNNMGR_DnnManager__Docker__SaPassword=...`. The Settings page lists any that
 are set, since they win over what it saves.
 
+## Backups
+
+Each project keeps its backups in `<project>\01_backup\` (the `01_` keeps it at the
+top of the folder), one folder per backup:
+
+```
+C:\DNN\ceesboer\01_backup\
+├── web.config                        ← makes IIS refuse to serve anything in here
+├── ceesboer_20260928_154210\
+│   ├── ceesboer.zip                  ← the site files
+│   └── ceesboer.bacpac               ← the database
+└── ceesboer_20260930_091500\
+    └── ceesboer.bacpac               ← a database-only backup
+```
+
+- **Projects → right-click → Export** writes a new dated folder (site, database
+  or both). The site `.zip` leaves out `01_backup`, the old `backups` folder and
+  `.git`, so backups never end up inside backups.
+- **Clone** keeps the source database backup it restored in a dated folder too.
+- **New project → An existing site** lists every project with a complete backup
+  (site + database) and its backups by date - pick one, or choose files anywhere
+  on the PC.
+- **Host project** offers the `.bacpac` / `.bak` files in `01_backup` (and the old
+  `backups` folder and the project root) to restore.
+
 ## Import a site .zip
 
 **New project → Start from: an existing site** creates a project from a zipped
 DNN site and its database backup - both required
-([`ImportProjectUseCase`](src/DnnManager.Application/UseCases/ImportProjectUseCase.cs)):
+([`ImportProjectUseCase`](src/DnnManager.Application/UseCases/ImportProjectUseCase.cs)).
+**From a project backup** picks a project and one of its dated backups in
+`01_backup`; the **Browse…** buttons take a `.zip` and `.bacpac` from anywhere:
 
 1. **Extract** the zip into a new folder `<BaseDirectory>\<name>`. The site root
    is the zip's shallowest folder with a `web.config`, so a zip with everything
@@ -222,8 +252,8 @@ Flow ([`ClonePage`](src/DnnManager.Presentation/Pages/ClonePage.xaml.cs)
 
 1. **Project and source** - name the new project and pick the source folder
    under `BaseDirectory`.
-2. **Source database credentials** - the source's `web.config`, or another SQL
-   connection entered for this clone (not saved).
+2. **Source database** - always the `SiteSqlServer` connection in the source's
+   `web.config`.
 3. **Copy the website files** into the project folder.
 4. **Check the local SQL Server** - log in as `sa` at `ContainerIp,DefaultPort`.
    If it doesn't answer, the database steps are skipped and the files are kept.
@@ -328,7 +358,8 @@ DnnManager.NET/
         ├── App.xaml             ← styles (buttons, inputs, lists, table, scrollbars, sidebar)
         ├── MainWindow.xaml      ← sidebar navigation + page host + activity log
         ├── Pages/               ← one page per sidebar item (incl. Settings)
-        ├── Controls/            ← InputDialog, DetailsDialog, ExistingFolderOptions, PasswordInput
+        ├── Assets/              ← dnn.ico - the exe and window icon (DNN logo mark)
+        ├── Controls/            ← InputDialog, DetailsDialog, MessageDialog, ExistingFolderOptions, PasswordInput
         ├── Themes/              ← LightTheme / DarkTheme colour palettes
         └── Services/            ← ActivityLog, OperationRunner, ThemeManager, IdeLocator, GUI adapters
 ```
@@ -374,7 +405,7 @@ DnnManager.NET/
 | Clone project | [`ClonePage`](src/DnnManager.Presentation/Pages/ClonePage.xaml.cs) + [`UseCases/CloneProjectUseCase.cs`](src/DnnManager.Application/UseCases/CloneProjectUseCase.cs) |
 | SQL connection test | [`Sql/SqlConnectionTester.cs`](src/DnnManager.Infrastructure/Sql/SqlConnectionTester.cs) |
 | Projects right-click menu / IDE detection | [`ProjectsPage`](src/DnnManager.Presentation/Pages/ProjectsPage.xaml.cs), [`Services/IdeLocator.cs`](src/DnnManager.Presentation/Services/IdeLocator.cs) |
-| Prerequisites | [`PrerequisitesPage`](src/DnnManager.Presentation/Pages/PrerequisitesPage.xaml.cs) + [`UseCases/CheckPrerequisitesUseCase.cs`](src/DnnManager.Application/UseCases/CheckPrerequisitesUseCase.cs) |
+| Environment (Docker, SQL Server, IIS features) | [`EnvironmentPage`](src/DnnManager.Presentation/Pages/EnvironmentPage.xaml.cs) + [`Prereq/WindowsPrerequisiteChecker.cs`](src/DnnManager.Infrastructure/Prereq/WindowsPrerequisiteChecker.cs) |
 | Settings (incl. SQL test, Docker setup) | [`SettingsPage`](src/DnnManager.Presentation/Pages/SettingsPage.xaml.cs) + [`Files/AppSettingsFile.cs`](src/DnnManager.Infrastructure/Files/AppSettingsFile.cs) |
 | Themes | [`Themes/`](src/DnnManager.Presentation/Themes/), [`Services/ThemeManager.cs`](src/DnnManager.Presentation/Services/ThemeManager.cs) |
 | File copy, zip extract / create | [`Files/ProjectFileCopier.cs`](src/DnnManager.Infrastructure/Files/ProjectFileCopier.cs) |
@@ -387,8 +418,8 @@ DnnManager.NET/
 ## Notes / limitations
 
 - The dark title bar needs Windows 10 20H1 or later; older versions keep a light one.
-- Yes / No confirmation boxes and file pickers are standard Windows dialogs and
-  follow the Windows theme, not the app's.
+- File pickers (Browse… / Save as) are standard Windows dialogs and follow the
+  Windows theme, not the app's. Questions and warnings use the app's own dialog.
 - The app runs as Administrator, so an IDE opened from the project menu does too
   (VS Code shows *[Administrator]* in its title).
 - The SQL Server keeps the sa password its data volume was created with -

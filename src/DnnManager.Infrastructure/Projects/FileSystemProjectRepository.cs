@@ -1,5 +1,6 @@
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
+using DnnManager.Application.UseCases;
 using DnnManager.Domain;
 using Microsoft.Extensions.Options;
 
@@ -13,13 +14,13 @@ public sealed class FileSystemProjectRepository : IProjectRepository
 
     public DnnProject Build(string projectName)
     {
-        // The project directory IS the published/served DNN site; the backups folder lives at its
-        // root. There is no per-project docker-compose - one shared compose file ships with the app.
+        // The project directory IS the published/served DNN site; its dated backups live in 01_backup at
+        // its root (see ProjectBackups). There is no per-project docker-compose - one shared compose file ships with the app.
         var projectDir = Path.Combine(_opts.BaseDirectory, projectName);
         return new DnnProject(
             projectName,
             projectDir,
-            Path.Combine(projectDir, "backups"));
+            Path.Combine(projectDir, ProjectBackups.FolderName));
     }
 
     public bool ProjectExists(string projectName)

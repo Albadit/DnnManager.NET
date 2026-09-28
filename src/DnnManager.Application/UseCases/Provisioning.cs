@@ -65,17 +65,37 @@ public sealed class LocalSqlContainer
     private readonly ISqlServerService _sql;
     private readonly ISqlConnectionTester _tester;
     private readonly IBacpacService _bacpac;
+    private readonly IWebConfigService _webConfig;
 
-    public LocalSqlContainer(IOptions<AppOptions> opts, ISqlServerService sql, ISqlConnectionTester tester, IBacpacService bacpac)
+    public LocalSqlContainer(IOptions<AppOptions> opts, ISqlServerService sql, ISqlConnectionTester tester,
+        IBacpacService bacpac, IWebConfigService webConfig)
     {
         _opts = opts.Value;
         _sql = sql;
         _tester = tester;
         _bacpac = bacpac;
+        _webConfig = webConfig;
     }
 
     /// <summary>The local SQL Server's address (<c>ip,port</c>) from the settings.</summary>
     public string Server => _opts.ServerFor(_opts.Docker.DefaultPort);
+
+    /// <summary>The local SQL Server itself (no particular database), as sa.</summary>
+    public SiteSqlConnection DefaultConnection => new(Server, "", "sa", _opts.Docker.SaPassword);
+
+    /// <summary>
+    /// How to reach the database <paramref name="project"/>'s site uses: its web.config connection when that has
+    /// a SQL login, otherwise the site's database on the local SQL Server as sa.
+    /// </summary>
+    public SiteSqlConnection ConnectionOf(DnnProject project)
+    {
+        var conn = _webConfig.ReadSiteSqlServer(Path.Combine(project.ProjectDirectory, "web.config"));
+        if (conn is { Success: true, Value: { } c } && c.User.Length > 0 && c.Database.Length > 0)
+            return c;
+
+        var database = DeveloperDb.FromWebConfig(project, _webConfig) ?? _opts.DatabaseNameFor(project.Name);
+        return new SiteSqlConnection(Server, database, "sa", _opts.Docker.SaPassword);
+    }
 
     /// <summary>True for a file <see cref="RestoreAsync"/> can restore: a <c>.bacpac</c> or a native <c>.bak</c>.</summary>
     public static bool IsBackupFile(string path)
@@ -121,8 +141,15 @@ public sealed class LocalSqlContainer
             db.DatabaseName, backupFile, reporter, ct);
     }
 
-    /// <summary>Logs in to the local SQL Server as sa - true when it accepts the connection.</summary>
-    public async Task<bool> IsReachableAsync(CancellationToken ct) => (await TestAsync(ct)).Success;
+    /// <summary>
+    /// The databases on the local SQL Server (case-insensitive), or null when it doesn't answer - one query for
+    /// the whole projects list.
+    /// </summary>
+    public async Task<IReadOnlySet<string>?> DatabasesAsync(CancellationToken ct)
+    {
+        var list = await _tester.ListDatabasesAsync(DefaultConnection, ct, ConnectTimeoutSeconds);
+        return list.Success ? new HashSet<string>(list.Value!, StringComparer.OrdinalIgnoreCase) : null;
+    }
 
     /// <summary>
     /// Checks that the local SQL Server accepts the configured sa login, reporting the outcome, and returns
@@ -135,7 +162,7 @@ public sealed class LocalSqlContainer
         {
             reporter.Fail($"Cannot connect to SQL Server at {Server}: {test.Error}");
             return Result<int>.Fail($"SQL Server at {Server} is not reachable - start the SQL Server container " +
-                                    "(Settings → Set up Docker container) and check the SQL Server settings.");
+                                    "(Environment → Set up container) and check the SQL Server settings.");
         }
         reporter.Success($"Connected to SQL Server at {Server} ({test.Value}).");
         return Result<int>.Ok(_opts.Docker.DefaultPort);
@@ -152,6 +179,17 @@ public sealed class LocalSqlContainer
             Collation: _opts.Docker.Collation,
             Port: port,
             BackupDirectory: project.BackupDirectory);
+
+    /// <summary>
+    /// True when <paramref name="server"/> (<c>host[,port]</c>) is this machine - the local container, whose
+    /// certificate is self-signed - on whatever port.
+    /// </summary>
+    public bool IsOnThisMachine(string server)
+    {
+        var commaIdx = server.IndexOf(',');
+        var host = (commaIdx > 0 ? server[..commaIdx] : server).Trim();
+        return IsLocalContainer(host, _opts.Docker.DefaultPort);
+    }
 
     /// <summary>
     /// True when a connection string's <paramref name="server"/> (<c>host[,port]</c>) is this machine's

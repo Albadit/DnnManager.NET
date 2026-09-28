@@ -4,6 +4,64 @@ All notable changes to DnnManager.NET are documented here.
 
 ## Unreleased
 
+### Added
+
+- **Environment page** (was *Prerequisites*). Shows whether Docker Desktop, the
+  Docker engine, the SQL Server container, the SQL Server connection and each
+  IIS Windows feature are active - green / red - and fixes what isn't:
+  **Install Docker Desktop** (winget), **Start Docker Desktop** (then waits for
+  the engine), **Set up container** / **Start container** and **Show
+  docker-compose.yml** (moved here from Settings), and **Enable missing
+  features**. Each card has its own **Test** button - nothing is checked just by
+  opening the page - and an action re-tests its card. The **Test connection**
+  button in Settings is gone; the Environment page tests the connection.
+  **Reset IIS** moved here from the Projects page, into the IIS card.
+
+- **Dated backups in `01_backup`.** A project's backups now live in
+  `<project>\01_backup\<project>_<yyyyMMdd_HHmmss>\` with `<project>.zip` (site)
+  and / or `<project>.bacpac` (database). **Export** in the project menu writes
+  such a backup (site and database, site files or database) - **Export to
+  another folder…** still saves anywhere, and **Open 01_backup folder** opens it.
+  Clone keeps its source backup there too. A `web.config` in `01_backup` makes
+  IIS refuse to serve the backups, and the site zip leaves `01_backup` out.
+- **Import from a project backup.** New project → An existing site has a
+  **From a project backup** picker: choose a project and one of its complete
+  backups by date - or browse to a `.zip` and `.bacpac` anywhere on the PC.
+  Picking one suggests `<project>_copy` as the name.
+- **Open a project's database in SSMS.** The project menu has an **Open in SQL
+  Server Management Studio &lt;version&gt;** submenu per installed SSMS (21 and
+  later via `vswhere`, 18-20 by their install folders): *Default* signs in to
+  the local SQL Server as `sa`, *Project* to the database the site uses. SSMS
+  only remembers the password when the new **Remember the password in SQL
+  Server Management Studio** setting (`DnnManager:SsmsRememberPassword`, off by
+  default) is on. An SSMS that's already open is reused - the connection is
+  added to its Object Explorer instead of opening another window. The server,
+  database and login are filled in, and - for
+  the local container - trusts its self-signed certificate (`-C`), so SSMS 21+
+  doesn't refuse it. SSMS takes no password on its command line (and ignores
+  remembered ones for such a start), and any connection switch makes it connect
+  at once - failing with an error first. So for SSMS 21+ DNN Manager starts it
+  without switches and fills in its Connect dialog through UI Automation
+  (server, SQL Server Authentication, login, password with *Remember Password*,
+  database, trust certificate, name), then clicks Connect - only in the SSMS it
+  just started. SSMS 18-20 get the switches and the password is left on the
+  clipboard. It checks the
+  database first: SQL Server reports a missing database as the same *Login
+  failed for user 'sa'* as a wrong password, so when only the database is
+  missing SSMS opens the server instead, and the Activity log says which of the
+  two it was.
+
+### Changed
+
+- **SQL Server host defaults to `localhost`** (was `127.0.0.1`), and the Settings
+  field is now called **Server host**.
+- **DNN icon.** `dnnmgr.exe` (Explorer, taskbar, Alt+Tab) and every window's
+  title bar show the DNN logo mark instead of the default window icon - drawn
+  from DNN's own vector logo at all Windows icon sizes (16-256 px).
+- **Questions and warnings use the app's own dialog** instead of the plain
+  Windows message box: themed (light / dark), with an icon, selectable text and
+  the default answer as the primary button (Enter picks it, Esc answers No).
+
 ### Fixed
 
 - **Removing a project deletes the folder even when something still uses it.**
@@ -85,6 +143,22 @@ removed, and the app checks the SQL Server connection instead of Docker.
 - **`docker-compose.yml` is generated from the settings** and no longer defines
   a fixed network / subnet, which clashed with other compose projects ("Pool
   overlaps with other one on this address space").
+- **Richer project details.** **Details…** is split into Project, Website
+  (IIS), Database and web.config sections with Live / Offline in the table's
+  colours, and adds: IIS bindings, physical path, app pool state, .NET version,
+  pipeline and identity; the database's size, the DNN version recorded in it,
+  portals and portal aliases; the web.config's target framework, debug and
+  custom errors; and the HTTPS redirects DNN Manager switched off. A folder that
+  doesn't match the IIS path, a database that's missing or a DNN version that
+  differs between files and database is shown in amber.
+- **Projects table: Database, SQL and IIS status.** The columns are now Name,
+  Site, DNN, Database, **SQL**, **IIS**, Size, Path. SQL shows **Live** (green)
+  when the project's database is on the SQL Server, **Offline** (red) when the
+  server doesn't answer and *(none)* when the database doesn't exist; IIS shows
+  **Live** (green) for a started site, **Offline** (red) otherwise and *(none)*
+  without one. The databases are read with one query per refresh.
+  The Host project folder list shows its IIS state the same way: **IIS: Live**
+  (green), **IIS: Offline** (red) or *no IIS site*.
 - **Projects table shows the DNN version** (from `bin\DotNetNuke.dll`, e.g.
   `9.13.4`) in place of the SQL column.
 - **"Existing folder" is now "Host project".** Its options say *database*
@@ -103,8 +177,10 @@ removed, and the app checks the SQL Server connection instead of Docker.
 - **FTP.** Cloning over FTP and the FTP folder browser are gone (along with the
   FluentFTP package). Clone copies from a local folder.
 - **Live sites page and saved connections.** The page and `connections.json`
-  are no longer used. Clone takes the source database from the site's
-  `web.config`, or from a connection entered for that clone (not saved).
+  are no longer used.
+- **Source database credentials on the Clone page.** Clone always takes the
+  source database from the `SiteSqlServer` connection in the source's
+  `web.config`.
 
 ## v1.0.3 - 2026-09-25
 

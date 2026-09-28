@@ -6,7 +6,7 @@
         <StackPanel Margin="28,24,28,20">
             <TextBlock Style="{StaticResource PageTitle}" Text="Clone project" />
             <TextBlock Style="{StaticResource PageSubtitle}"
-                       Text="Copies a DNN site from a local folder into a new project, restores its database into the local SQL Server container and creates the IIS website." />
+                       Text="Copies a DNN site from a local folder into a new project, restores its database - the one in its web.config - into the local SQL Server and creates the IIS website." />
 
             <!-- Target project -->
             <Border Style="{StaticResource Card}">
@@ -25,50 +25,6 @@
                     <TextBlock Style="{StaticResource CardTitle}" Text="Source project" />
                     <ComboBox x:Name="LocalSourceCombo" SelectionChanged="Changed" />
                     <TextBlock x:Name="LocalHint" Style="{StaticResource Hint}" />
-                </StackPanel>
-            </Border>
-
-            <!-- Source database -->
-            <Border Style="{StaticResource Card}">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource CardTitle}" Text="Source database credentials" />
-                    <RadioButton x:Name="SqlWebConfig" GroupName="Sql" Content="Use the credentials from the source's web.config" IsChecked="True" Checked="Changed" />
-                    <RadioButton x:Name="SqlNew"       GroupName="Sql" Content="Other SQL connection" Checked="Changed" />
-
-                    <StackPanel x:Name="SqlNewPanel" Visibility="Collapsed" Margin="22,4,0,0">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="12" />
-                                <ColumnDefinition Width="110" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource FieldLabel}" Text="SQL server" />
-                                <TextBox x:Name="SqlServer" TextChanged="Changed" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Style="{StaticResource FieldLabel}" Text="Port" />
-                                <TextBox x:Name="SqlPort" Text="1433" />
-                            </StackPanel>
-                        </Grid>
-                        <TextBlock Style="{StaticResource FieldLabel}" Text="Database name" />
-                        <TextBox x:Name="SqlDatabase" TextChanged="Changed" />
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="12" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource FieldLabel}" Text="User" />
-                                <TextBox x:Name="SqlUser" TextChanged="Changed" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Style="{StaticResource FieldLabel}" Text="Password" />
-                                <c:PasswordInput x:Name="SqlPassword" />
-                            </StackPanel>
-                        </Grid>
-                    </StackPanel>
                 </StackPanel>
             </Border>
 

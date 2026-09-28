@@ -1,5 +1,5 @@
-using System.Windows;
 using DnnManager.Application.Abstractions;
+using DnnManager.Presentation.Controls;
 
 namespace DnnManager.Presentation.Services;
 
@@ -32,25 +32,10 @@ public sealed class GuiUserPrompt : IUserPrompt
     }
 }
 
+/// <summary>Questions and warnings, shown in the app's own themed <see cref="MessageDialog"/>.</summary>
 internal static class Dialogs
 {
-    private const string Caption = "DNN Manager";
+    public static bool Confirm(string question, bool defaultYes = false) => MessageDialog.Ask(question, defaultYes);
 
-    private static Window? Owner => System.Windows.Application.Current.MainWindow is { IsVisible: true } w ? w : null;
-
-    public static bool Confirm(string question, bool defaultYes = false)
-    {
-        var result = Owner is { } owner
-            ? MessageBox.Show(owner, question, Caption, MessageBoxButton.YesNo, MessageBoxImage.Question,
-                defaultYes ? MessageBoxResult.Yes : MessageBoxResult.No)
-            : MessageBox.Show(question, Caption, MessageBoxButton.YesNo, MessageBoxImage.Question,
-                defaultYes ? MessageBoxResult.Yes : MessageBoxResult.No);
-        return result == MessageBoxResult.Yes;
-    }
-
-    public static void Error(string message)
-    {
-        if (Owner is { } owner) MessageBox.Show(owner, message, Caption, MessageBoxButton.OK, MessageBoxImage.Warning);
-        else MessageBox.Show(message, Caption, MessageBoxButton.OK, MessageBoxImage.Warning);
-    }
+    public static void Error(string message) => MessageDialog.Warn(message);
 }

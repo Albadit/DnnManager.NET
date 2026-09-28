@@ -59,6 +59,9 @@ public interface IIisManager
     /// </summary>
     IReadOnlyDictionary<string, string> GetSiteStates();
 
+    /// <summary>A site's details for the project details view, or null when there is no such site.</summary>
+    IisSiteInfo? GetSiteInfo(string siteName);
+
     Result GrantPermissions(string path, IEnumerable<string> identities);
 
     /// <summary>
@@ -71,9 +74,39 @@ public interface IIisManager
     Task<Result> RemoveAppPoolProfileAsync(string poolName, CancellationToken ct);
 }
 
+/// <param name="Bindings">e.g. <c>http://site.dnndev.me:80</c>.</param>
+/// <param name="ClrVersion">The app pool's .NET CLR version, or "No Managed Code".</param>
+public sealed record IisSiteInfo(
+    string State,
+    string PhysicalPath,
+    IReadOnlyList<string> Bindings,
+    string AppPool,
+    string? AppPoolState,
+    string? ClrVersion,
+    string? PipelineMode,
+    string? Identity);
+
+/// <param name="DesktopInstalled">Docker Desktop (or at least the docker CLI) is on this PC.</param>
+/// <param name="ContainerState">Docker's state of the container ("running", "exited"…); null when it doesn't exist or the engine is down.</param>
+/// <param name="ContainerStatus">Docker's description, e.g. "Up 2 hours (healthy)".</param>
+public sealed record DockerStatus(bool DesktopInstalled, string? ClientVersion, bool EngineRunning, string? EngineVersion,
+    string? ContainerState, string? ContainerStatus);
+
 public interface IPrerequisiteChecker
 {
     Task<Result> EnsureIisFeaturesAsync(IProgressReporter reporter, IUserPrompt prompt, CancellationToken ct);
+
+    /// <summary>Which of the required IIS features are enabled: feature name -> enabled.</summary>
+    Task<IReadOnlyDictionary<string, bool>> GetIisFeatureStatesAsync(CancellationToken ct);
+
+    /// <summary>Docker Desktop, its engine, and the state of the container <paramref name="containerName"/>.</summary>
+    Task<DockerStatus> GetDockerStatusAsync(string containerName, CancellationToken ct);
+
+    /// <summary>Installs Docker Desktop with winget.</summary>
+    Task<Result> InstallDockerDesktopAsync(IProgressReporter reporter, CancellationToken ct);
+
+    /// <summary>Starts Docker Desktop as the signed-in user (not elevated, like DNN Manager itself).</summary>
+    Result StartDockerDesktop();
 }
 
 /// <summary>The shared SQL Server's <c>docker-compose.yml</c> next to the app, and bringing it up.</summary>
@@ -170,6 +203,13 @@ public interface IProjectScaffolder
     Result EnsureGitignore(string projectDirectory);
 }
 
+/// <param name="DnnVersion">The newest row of DNN's Version table, e.g. "9.13.9"; null when it isn't a DNN database.</param>
+public sealed record DatabaseFacts(double SizeMb, string? DnnVersion, int? Portals, IReadOnlyList<string> PortalAliases);
+
+/// <param name="Debug">&lt;compilation debug&gt;; null when not set.</param>
+/// <param name="DisabledHttpsRules">HTTPS redirect rules DNN Manager switched off for local development.</param>
+public sealed record WebConfigFacts(bool? Debug, string? TargetFramework, string? CustomErrors, IReadOnlyList<string> DisabledHttpsRules);
+
 public sealed record SiteSqlConnection(string Server, string Database, string User, string Password);
 
 public interface ISqlConnectionTester
@@ -179,6 +219,15 @@ public interface ISqlConnectionTester
     /// their own database) and describes what it reached, e.g. "[db] on Azure SQL Database 12.0.2000.8".
     /// </summary>
     Task<Result<string>> TestAsync(SiteSqlConnection connection, CancellationToken ct, int timeoutSeconds = 15);
+
+    /// <summary>
+    /// Size of <paramref name="database"/>'s database and, when it holds a DNN site, the DNN version recorded in it,
+    /// its portals and their aliases.
+    /// </summary>
+    Task<Result<DatabaseFacts>> DescribeDatabaseAsync(SiteSqlConnection database, CancellationToken ct, int timeoutSeconds = 15);
+
+    /// <summary>The names of all databases on <paramref name="server"/>'s SQL Server.</summary>
+    Task<Result<IReadOnlyList<string>>> ListDatabasesAsync(SiteSqlConnection server, CancellationToken ct, int timeoutSeconds = 15);
 }
 
 /// <param name="SwitchedOff">Rules switched off just now.</param>
@@ -215,6 +264,9 @@ public interface IWebConfigService
     /// Both lists are empty when there are none (or no web.config).
     /// </summary>
     Result<HttpsRedirectRules> DisableHttpsRedirectRules(string webConfigPath);
+
+    /// <summary>A few settings worth knowing about a site's web.config, for the project details view.</summary>
+    Result<WebConfigFacts> ReadFacts(string webConfigPath);
 }
 
 /// <summary>

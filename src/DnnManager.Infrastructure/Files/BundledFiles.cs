@@ -54,13 +54,14 @@ public static class BundledFiles
             "SitePort": 80,
             "HostnameSuffix": "dnndev.me",
             "Theme": "System",
+            "SsmsRememberPassword": false,
             "GitHubReleaseApis": [
               "https://api.github.com/repos/dnnsoftware/Dnn.Platform/releases",
               "https://api.github.com/repos/DNN-Connect/Dnn.Platform/releases"
             ],
             "Docker": {
               "ContainerName": "dnn-sqlserver",
-              "ContainerIp": "127.0.0.1",
+              "ContainerIp": "localhost",
               "VolumeName": "dnn_sqlserver_data",
               "SaPassword": "Admin@123",
               "DefaultPort": 1433,
@@ -105,7 +106,7 @@ public static class BundledFiles
 
         return $"""
             # Shared SQL Server for all DNN Manager projects - one container for every project.
-            # Generated from the SQL Server settings (Settings page -> Set up Docker container); changing
+            # Generated from the SQL Server settings (Environment page -> Set up container); changing
             # those settings and setting the container up again rewrites this file.
             services:
               sqlserver:

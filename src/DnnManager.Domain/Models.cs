@@ -24,4 +24,5 @@ public sealed record ProjectStatus(
     string? DatabaseName,
     int? SqlPort,
     string SiteUrl,
-    string? DnnVersion);
+    string? DnnVersion,
+    bool DatabaseExists);

@@ -1,13 +1,10 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
-using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
-using DnnManager.Application.UseCases;
 using DnnManager.Infrastructure.Files;
 using DnnManager.Presentation.Services;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Win32;
 
@@ -24,16 +21,10 @@ public partial class SettingsPage : UserControl
     // What the running app was started with - to tell whether the file has changes still to apply.
     private readonly AppOptions _running;
     private readonly OperationRunner _runner;
-    private readonly ISqlConnectionTester _sqlTester;
-    private readonly IDockerComposeService _compose;
-
-    public SettingsPage(IOptions<AppOptions> running, OperationRunner runner, ISqlConnectionTester sqlTester,
-        IDockerComposeService compose)
+    public SettingsPage(IOptions<AppOptions> running, OperationRunner runner)
     {
         _running = running.Value;
         _runner = runner;
-        _sqlTester = sqlTester;
-        _compose = compose;
         InitializeComponent();
         Subtitle.Text = $"Stored in {AppSettingsFile.FullPath}.";
         ShowEnvironmentOverrides();
@@ -66,6 +57,7 @@ public partial class SettingsPage : UserControl
         Collation.Text = o.Docker.Collation;
         MssqlPid.Text = o.Docker.MssqlPid;
         DbNameSuffix.Text = o.Docker.DefaultDbNameSuffix;
+        SsmsRememberPassword.IsChecked = o.SsmsRememberPassword;
 
         ShowError(null);
         RestartBanner.Visibility = Snapshot(o) == Snapshot(_running) ? Visibility.Collapsed : Visibility.Visible;
@@ -94,7 +86,7 @@ public partial class SettingsPage : UserControl
 
         if (!TryPort(DefaultPort.Text, out var sqlPort))
             return (null, "Default SQL port must be a number between 1 and 65535.");
-        var required = new[] { (ContainerName, "Container name"), (ContainerIp, "Container IP"), (VolumeName, "Volume name"),
+        var required = new[] { (ContainerName, "Container name"), (ContainerIp, "Server host"), (VolumeName, "Volume name"),
                                (Collation, "Collation"), (MssqlPid, "Edition") };
         foreach (var (box, label) in required)
             if (box.Text.Trim().Length == 0) return (null, $"{label} is required.");
@@ -104,6 +96,7 @@ public partial class SettingsPage : UserControl
         return (new AppOptions
         {
             BaseDirectory = baseDir,
+            SsmsRememberPassword = SsmsRememberPassword.IsChecked == true,
             SitePort = sitePort,
             HostnameSuffix = suffix,
             GitHubReleaseApis = apis,
@@ -146,102 +139,6 @@ public partial class SettingsPage : UserControl
     }
 
     private void Revert_Click(object sender, RoutedEventArgs e) => Show(LoadFromFile());
-
-    // Tests what is in the form, saved or not, so the values can be checked before saving.
-    private async void TestSql_Click(object sender, RoutedEventArgs e)
-    {
-        var ip = ContainerIp.Text.Trim();
-        if (ip.Length == 0) { SqlResult("Container IP is required.", success: false); return; }
-        if (!TryPort(DefaultPort.Text, out var port)) { SqlResult("Default port must be a number between 1 and 65535.", success: false); return; }
-        if (SaPassword.Password.Length == 0) { SqlResult("SA password is required.", success: false); return; }
-
-        var server = $"{ip},{port}";
-        TestSqlButton.IsEnabled = false;
-        SqlStatus.Text = $"Connecting to {server} …";
-        SqlStatus.SetResourceReference(TextBlock.ForegroundProperty, "TextMuted");
-        try
-        {
-            var result = await _sqlTester.TestAsync(new SiteSqlConnection(server, "master", "sa", SaPassword.Password),
-                CancellationToken.None, timeoutSeconds: 5);
-            if (result.Success)
-                SqlResult($"✓ Connected to {server} - {result.Value}.", success: true);
-            else
-                SqlResult($"✗ {result.Error}", success: false);
-        }
-        finally
-        {
-            TestSqlButton.IsEnabled = true;
-        }
-    }
-
-    // ─── Docker container ─────────────────────────────────────────────────
-
-    private void SqlField_Changed(object sender, RoutedEventArgs e)
-    {
-        if (YamlPanel is { Visibility: Visibility.Visible }) ShowYaml(); // raised during InitializeComponent too
-    }
-
-    private void ShowYaml_Click(object sender, RoutedEventArgs e)
-    {
-        var show = YamlPanel.Visibility != Visibility.Visible;
-        YamlPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-        ShowYamlButton.Content = show ? "Hide docker-compose.yml" : "Show docker-compose.yml";
-        if (show) ShowYaml();
-    }
-
-    /// <summary>Shows the compose file the values in the form produce, and whether the file on disk matches.</summary>
-    private void ShowYaml()
-    {
-        var (options, error) = Read();
-        if (options is null)
-        {
-            YamlNote.Text = error ?? "";
-            YamlBox.Text = "";
-            return;
-        }
-
-        var yaml = _compose.Render(options.Docker);
-        var current = _compose.ReadCurrent();
-        YamlNote.Text = current is null
-            ? $"Generated from the values above - no docker-compose.yml next to the app yet ({_compose.ComposeFilePath})."
-            : SameText(current, yaml)
-                ? $"Generated from the values above - the same as {_compose.ComposeFilePath}."
-                : $"Generated from the values above - {_compose.ComposeFilePath} is different; setting up the container replaces it.";
-        YamlBox.Text = yaml;
-    }
-
-    private static bool SameText(string a, string b) =>
-        a.Replace("\r\n", "\n").TrimEnd() == b.Replace("\r\n", "\n").TrimEnd();
-
-    private async void SetupDocker_Click(object sender, RoutedEventArgs e)
-    {
-        var (options, error) = Read();
-        if (options is null) { ShowError(error); return; }
-        ShowError(null);
-
-        var docker = options.Docker;
-        var current = _compose.ReadCurrent();
-        if (current is not null && !SameText(current, _compose.Render(docker)) &&
-            !Dialogs.Confirm($"{_compose.ComposeFilePath} is different from these settings. Replace it and set up the container?", defaultYes: true))
-            return;
-
-        // The container is set up from the form; DNN Manager itself connects with the saved settings.
-        var unsaved = Snapshot(options) != Snapshot(LoadFromFile());
-        await _runner.RunAsync("Set up Docker container", async (sp, reporter, ct) =>
-        {
-            var result = await sp.GetRequiredService<SetupSqlContainerUseCase>().ExecuteAsync(docker, reporter, ct);
-            if (result.Success && unsaved)
-                reporter.Warn("These SQL Server values aren't saved yet - Save them so DNN Manager connects with them.");
-            return result;
-        });
-        if (YamlPanel.Visibility == Visibility.Visible) ShowYaml();
-    }
-
-    private void SqlResult(string text, bool success)
-    {
-        SqlStatus.Text = text;
-        SqlStatus.SetResourceReference(TextBlock.ForegroundProperty, success ? "SuccessText" : "ErrorText");
-    }
 
     private void Restart_Click(object sender, RoutedEventArgs e) => Restart();
 
@@ -287,7 +184,7 @@ public partial class SettingsPage : UserControl
     private static string Snapshot(AppOptions o) => string.Join("|",
         o.BaseDirectory, o.SitePort, o.HostnameSuffix, string.Join(",", o.GitHubReleaseApis),
         o.Docker.ContainerName, o.Docker.ContainerIp, o.Docker.VolumeName, o.Docker.SaPassword,
-        o.Docker.DefaultPort, o.Docker.Collation, o.Docker.MssqlPid, o.Docker.DefaultDbNameSuffix);
+        o.Docker.DefaultPort, o.Docker.Collation, o.Docker.MssqlPid, o.Docker.DefaultDbNameSuffix, o.SsmsRememberPassword);
 
     private void Restart()
     {

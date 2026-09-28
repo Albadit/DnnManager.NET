@@ -16,7 +16,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<RemoveProjectUseCase>();
         services.AddScoped<ResetIisUseCase>();
         services.AddScoped<ListProjectsUseCase>();
-        services.AddScoped<CheckPrerequisitesUseCase>();
         services.AddScoped<SetupSqlContainerUseCase>();
         services.AddScoped<CloneProjectUseCase>();
         return services;

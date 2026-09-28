@@ -212,6 +212,44 @@ public sealed class IisManager : IIisManager
         return map;
     }
 
+    public IisSiteInfo? GetSiteInfo(string siteName)
+    {
+        try
+        {
+            using var sm = new ServerManager();
+            var site = sm.Sites[siteName];
+            if (site is null) return null;
+
+            string state;
+            try { state = site.State.ToString(); } catch { state = "Unknown"; }
+            var root = site.Applications["/"];
+            var physicalPath = Environment.ExpandEnvironmentVariables(root?.VirtualDirectories["/"]?.PhysicalPath ?? "");
+            // BindingInformation is "ip:port:host"; the IP can hold colons (IPv6), so read from the end.
+            var bindings = site.Bindings.Select(b =>
+            {
+                var parts = b.BindingInformation.Split(':');
+                var host = parts.Length >= 3 && parts[^1].Length > 0 ? parts[^1] : "*";
+                return parts.Length >= 2 ? $"{b.Protocol}://{host}:{parts[^2]}" : $"{b.Protocol} {b.BindingInformation}";
+            }).ToList();
+
+            var poolName = root?.ApplicationPoolName ?? "";
+            var pool = sm.ApplicationPools[poolName];
+            string? poolState = null;
+            try { poolState = pool?.State.ToString(); } catch { /* unknown */ }
+            var clr = pool is null ? null : string.IsNullOrEmpty(pool.ManagedRuntimeVersion) ? "No Managed Code" : pool.ManagedRuntimeVersion;
+            var identity = pool is null ? null
+                : pool.ProcessModel.IdentityType == ProcessModelIdentityType.SpecificUser ? pool.ProcessModel.UserName
+                : pool.ProcessModel.IdentityType.ToString();
+            return new IisSiteInfo(state, physicalPath, bindings, poolName, poolState, clr,
+                pool?.ManagedPipelineMode.ToString(), identity);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Could not read IIS site {Site}", siteName);
+            return null;
+        }
+    }
+
     public Result GrantPermissions(string path, IEnumerable<string> identities)
     {
         try

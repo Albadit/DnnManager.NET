@@ -43,8 +43,19 @@
                             <DataTemplate>
                                 <StackPanel Margin="6,4">
                                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-                                    <TextBlock Text="{Binding Iis}" Foreground="{DynamicResource TextMuted}" FontSize="12" />
+                                    <TextBlock x:Name="IisText" Text="{Binding Iis}" Foreground="{DynamicResource TextMuted}" FontSize="12" />
                                 </StackPanel>
+                                <!-- Same colours as the Projects table: Live green, Offline red, no site muted. -->
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding State}" Value="Live">
+                                        <Setter TargetName="IisText" Property="Foreground" Value="{DynamicResource SuccessText}" />
+                                        <Setter TargetName="IisText" Property="FontWeight" Value="SemiBold" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding State}" Value="Offline">
+                                        <Setter TargetName="IisText" Property="Foreground" Value="{DynamicResource ErrorText}" />
+                                        <Setter TargetName="IisText" Property="FontWeight" Value="SemiBold" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>

@@ -15,13 +15,6 @@ public sealed class CloneProjectRequest
     public required string SourceBackupServerPath { get; init; }
     public bool CreateIisSite { get; init; } = true;
 
-    /// <summary>
-    /// Optional SQL credentials for the source database. Used to fill in / override what is read
-    /// from the cloned site's web.config when that connection string lacks usable credentials.
-    /// Blank Server/Database fall back to the web.config values.
-    /// </summary>
-    public SiteSqlConnection? SourceDbOverride { get; init; }
-
     /// <summary>Copy/overwrite the website files. When false, existing files are kept as-is.</summary>
     public bool CopyFiles { get; init; } = true;
 
@@ -141,42 +134,13 @@ public sealed class CloneProjectUseCase
             else
             {
 
-            // 3) Read source connection string from web.config, optionally overlaying
-            //    the SQL credentials the user supplied (web.config often has no usable
-            //    user/password, e.g. trusted-connection or stripped Azure strings).
+            // 3) The source database is the one in the source's web.config (SiteSqlServer).
             reporter.Step("Reading SiteSqlServer from web.config");
             var webConfigPath = Path.Combine(project.ProjectDirectory, "web.config");
             var srcConn = _webConfig.ReadSiteSqlServer(webConfigPath);
-
-            SiteSqlConnection src;
-            if (srcConn.Success && srcConn.Value is not null)
-            {
-                src = srcConn.Value;
-                if (req.SourceDbOverride is not null)
-                {
-                    var o = req.SourceDbOverride;
-                    src = src with
-                    {
-                        Server   = string.IsNullOrWhiteSpace(o.Server)   ? src.Server   : o.Server,
-                        Database = string.IsNullOrWhiteSpace(o.Database) ? src.Database : o.Database,
-                        User     = o.User,
-                        Password = o.Password
-                    };
-                    reporter.Info("Using supplied SQL credentials for the source database.");
-                }
-            }
-            else if (req.SourceDbOverride is not null &&
-                     !string.IsNullOrWhiteSpace(req.SourceDbOverride.Server) &&
-                     !string.IsNullOrWhiteSpace(req.SourceDbOverride.Database))
-            {
-                // web.config unreadable, but the user gave us a full connection.
-                src = req.SourceDbOverride;
-                reporter.Info("web.config had no usable connection - using supplied SQL connection.");
-            }
-            else
-            {
-                return Result.Fail(srcConn.Error ?? "Could not read web.config, and no SQL credentials were supplied.");
-            }
+            if (!srcConn.Success || srcConn.Value is null)
+                return Result.Fail(srcConn.Error ?? "Could not read the SiteSqlServer connection from the source's web.config.");
+            var src = srcConn.Value;
             reporter.Success($"Source DB: [{src.Database}] on {src.Server} (user: {src.User})");
 
             // Azure SQL Database can't produce a .bak, so it is cloned via a BACPAC
@@ -202,7 +166,9 @@ public sealed class CloneProjectUseCase
                 if (!drop.Success) return drop;
             }
 
-            Directory.CreateDirectory(project.BackupDirectory);
+            ProjectBackups.EnsureFolder(project);
+            var backupFolder = ProjectBackups.NewFolder(project, DateTime.Now);
+            Directory.CreateDirectory(backupFolder);
             var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
 
             if (sourceIsAzure)
@@ -214,7 +180,7 @@ public sealed class CloneProjectUseCase
                 if (!export.Success) return export;
 
                 // Cache a copy under the project for traceability.
-                var cached = Path.Combine(project.BackupDirectory, $"clone_{stamp}_{req.TargetProjectName}.bacpac");
+                var cached = Path.Combine(backupFolder, ProjectBackups.DatabaseName(project, ".bacpac"));
                 try { File.Copy(bacpacTmp, cached, overwrite: true); reporter.Info($"Cached BACPAC at {cached}"); } catch { }
 
                 var import = await _bacpac.ImportAsync(db.Server, "sa", _opts.Docker.SaPassword,
@@ -253,8 +219,7 @@ public sealed class CloneProjectUseCase
                     srcBakHostPath = bak.Value!;
                 }
 
-                var projectBak = Path.Combine(project.BackupDirectory,
-                    $"clone_{stamp}_{Path.GetFileName(srcBakHostPath)}");
+                var projectBak = Path.Combine(backupFolder, ProjectBackups.DatabaseName(project, ".bak"));
                 File.Copy(srcBakHostPath, projectBak, overwrite: true);
                 reporter.Info($"Cached backup at {projectBak}");
                 try { File.Delete(srcBakHostPath); } catch { /* best effort */ }

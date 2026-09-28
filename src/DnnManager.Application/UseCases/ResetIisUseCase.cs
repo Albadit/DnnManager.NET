@@ -20,7 +20,7 @@ public sealed class ResetIisUseCase
     public async Task<Result> ExecuteAsync(IProgressReporter reporter, CancellationToken ct)
     {
         if (!_iis.IsAvailable())
-            return Result.Fail("IIS isn't installed or its configuration can't be read - check Prerequisites.");
+            return Result.Fail("IIS isn't installed or its configuration can't be read - check the Environment page.");
 
         // Every site on this machine goes down for a moment, not just the DNN projects.
         if (!await _prompt.ConfirmAsync("Restart IIS? Every website on this machine stops for a few seconds.", false, ct))
