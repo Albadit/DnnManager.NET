@@ -135,7 +135,7 @@ public sealed class LocalSqlContainer
         {
             reporter.Fail($"Cannot connect to SQL Server at {Server}: {test.Error}");
             return Result<int>.Fail($"SQL Server at {Server} is not reachable - start the SQL Server container " +
-                                    "and check the SQL Server settings.");
+                                    "(Settings → Set up Docker container) and check the SQL Server settings.");
         }
         reporter.Success($"Connected to SQL Server at {Server} ({test.Value}).");
         return Result<int>.Ok(_opts.Docker.DefaultPort);

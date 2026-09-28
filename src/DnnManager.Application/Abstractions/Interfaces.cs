@@ -1,3 +1,4 @@
+using DnnManager.Application.Configuration;
 using DnnManager.Domain;
 
 namespace DnnManager.Application.Abstractions;
@@ -75,6 +76,21 @@ public interface IPrerequisiteChecker
     Task<Result> EnsureIisFeaturesAsync(IProgressReporter reporter, IUserPrompt prompt, CancellationToken ct);
 }
 
+/// <summary>The shared SQL Server's <c>docker-compose.yml</c> next to the app, and bringing it up.</summary>
+public interface IDockerComposeService
+{
+    string ComposeFilePath { get; }
+
+    /// <summary>The compose file for these SQL Server settings.</summary>
+    string Render(DockerOptions docker);
+
+    /// <summary>The compose file as it is on disk, or null when there is none.</summary>
+    string? ReadCurrent();
+
+    /// <summary>Writes <paramref name="yaml"/> as the compose file and runs <c>docker compose up -d</c> with it.</summary>
+    Task<Result> UpAsync(string yaml, IProgressReporter reporter, CancellationToken ct);
+}
+
 public interface ISqlServerService
 {
     Task<Result<bool>> DatabaseExistsAsync(string database, CancellationToken ct);
@@ -106,6 +122,13 @@ public interface IProjectFileCopier
     /// shallowest folder holding a <c>web.config</c>, so a zip with everything under one top folder works too.
     /// </summary>
     Task<Result> ExtractZipAsync(string zipPath, string destinationDirectory, IProgressReporter reporter, CancellationToken ct);
+
+    /// <summary>
+    /// Zips every file under <paramref name="sourceDirectory"/> into <paramref name="zipPath"/>, leaving out the
+    /// top-level folders named in <paramref name="excludedFolders"/>. Files that can't be read are skipped and reported.
+    /// </summary>
+    Task<Result> CreateZipAsync(string sourceDirectory, string zipPath, IReadOnlyCollection<string> excludedFolders,
+        IProgressReporter reporter, CancellationToken ct);
 }
 
 /// <summary>Lays down supporting source-control files in a managed DNN project directory.</summary>

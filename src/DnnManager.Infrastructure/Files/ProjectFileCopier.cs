@@ -108,6 +108,78 @@ public sealed class ProjectFileCopier : IProjectFileCopier
         }
     }
 
+    public Task<Result> CreateZipAsync(string sourceDirectory, string zipPath, IReadOnlyCollection<string> excludedFolders,
+        IProgressReporter reporter, CancellationToken ct)
+        => Task.Run(() => CreateZip(sourceDirectory, zipPath, excludedFolders, reporter, ct), ct);
+
+    private static Result CreateZip(string src, string zipPath, IReadOnlyCollection<string> excludedFolders,
+        IProgressReporter reporter, CancellationToken ct)
+    {
+        if (!Directory.Exists(src)) return Result.Fail($"Folder not found: {src}");
+
+        var excluded = new HashSet<string>(excludedFolders, StringComparer.OrdinalIgnoreCase);
+        var tmp = zipPath + ".tmp";
+        var options = new EnumerationOptions
+        {
+            RecurseSubdirectories = true,
+            IgnoreInaccessible = true,
+            AttributesToSkip = FileAttributes.ReparsePoint, // a junction would zip its target or loop
+        };
+        var files = new DirectoryInfo(src).EnumerateFiles("*", options)
+            .Select(f => (File: f, Rel: Path.GetRelativePath(src, f.FullName)))
+            .Where(f => !excluded.Contains(f.Rel.Split(Path.DirectorySeparatorChar)[0]))
+            // Never zip the zip itself when it is being written inside the folder.
+            .Where(f => !f.File.FullName.Equals(Path.GetFullPath(tmp), StringComparison.OrdinalIgnoreCase)
+                     && !f.File.FullName.Equals(Path.GetFullPath(zipPath), StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var progress = new ProgressThrottle();
+        var skipped = new List<string>();
+        var count = 0;
+        var bytes = 0L;
+        try
+        {
+            // Written beside the target and moved into place, so a failed or cancelled export leaves no half zip.
+            using (var zip = ZipFile.Open(tmp, ZipArchiveMode.Create))
+            {
+                foreach (var (file, rel) in files)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    try
+                    {
+                        // Shared read: the running site keeps some files (logs, caches) open.
+                        using var input = new FileStream(file.FullName, FileMode.Open, FileAccess.Read,
+                            FileShare.ReadWrite | FileShare.Delete);
+                        var entry = zip.CreateEntry(rel.Replace('\\', '/'), CompressionLevel.Optimal);
+                        entry.LastWriteTime = file.LastWriteTime;
+                        using var output = entry.Open();
+                        input.CopyTo(output);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        skipped.Add(rel);
+                        continue;
+                    }
+                    count++;
+                    bytes += file.Length;
+                    if (progress.Due()) reporter.Progress($"{count}/{files.Count}  {rel}");
+                }
+            }
+            File.Move(tmp, zipPath, overwrite: true);
+        }
+        catch
+        {
+            try { File.Delete(tmp); } catch { /* best effort */ }
+            throw;
+        }
+
+        if (skipped.Count > 0)
+            reporter.Warn($"Skipped {skipped.Count} file(s) that couldn't be read: " +
+                          string.Join(", ", skipped.Take(5)) + (skipped.Count > 5 ? ", …" : ""));
+        reporter.Success($"Zipped {count} files ({bytes / 1024d / 1024d:N1} MB) into {zipPath}");
+        return Result.Ok();
+    }
+
     /// <summary>
     /// Rate-limits status-line updates to roughly ten a second. Every
     /// <see cref="IProgressReporter.Progress"/> call updates the activity log on the UI thread, which on a

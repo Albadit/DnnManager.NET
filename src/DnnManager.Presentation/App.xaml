@@ -350,12 +350,31 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="MenuItem">
-                            <Border x:Name="Bd" Background="Transparent" CornerRadius="3" Padding="{TemplateBinding Padding}">
-                                <ContentPresenter ContentSource="Header" VerticalAlignment="Center" />
-                            </Border>
+                            <Grid>
+                                <Border x:Name="Bd" Background="Transparent" CornerRadius="3" Padding="{TemplateBinding Padding}">
+                                    <DockPanel>
+                                        <!-- Only for an item with a submenu. -->
+                                        <TextBlock x:Name="Arrow" DockPanel.Dock="Right" Text="&#xE76C;" Visibility="Collapsed"
+                                                   FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10"
+                                                   Margin="16,0,0,0" VerticalAlignment="Center" />
+                                        <ContentPresenter ContentSource="Header" VerticalAlignment="Center" />
+                                    </DockPanel>
+                                </Border>
+                                <Popup x:Name="PART_Popup" Placement="Right" HorizontalOffset="4" VerticalOffset="-5"
+                                       IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                                       AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
+                                    <Border Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource InputBorder}"
+                                            BorderThickness="1" Padding="4" MinWidth="200">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+                                    </Border>
+                                </Popup>
+                            </Grid>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsHighlighted" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}" />
+                                </Trigger>
+                                <Trigger Property="HasItems" Value="True">
+                                    <Setter TargetName="Arrow" Property="Visibility" Value="Visible" />
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />

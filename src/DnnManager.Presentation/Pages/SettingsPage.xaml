@@ -58,9 +58,9 @@
 
             <Border Style="{StaticResource Card}">
                 <StackPanel>
-                    <TextBlock Style="{StaticResource CardTitle}" Text="SQL Server container" />
+                    <TextBlock Style="{StaticResource CardTitle}" Text="SQL Server" />
                     <TextBlock Style="{StaticResource Hint}" Margin="0,-4,0,4"
-                               Text="Container name, IP, volume, SA password and port must match the docker-compose.yml next to the app." />
+                               Text="The IP, port and SA password DNN Manager connects with. Name, volume, edition and collation are used when setting up the Docker container below." />
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -75,31 +75,31 @@
                         </Grid.RowDefinitions>
                         <StackPanel>
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Container name" />
-                            <TextBox x:Name="ContainerName" />
+                            <TextBox x:Name="ContainerName" TextChanged="SqlField_Changed" />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Container IP" />
-                            <TextBox x:Name="ContainerIp" />
+                            <TextBox x:Name="ContainerIp" TextChanged="SqlField_Changed" />
                         </StackPanel>
                         <StackPanel Grid.Row="1">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Volume name" />
-                            <TextBox x:Name="VolumeName" />
+                            <TextBox x:Name="VolumeName" TextChanged="SqlField_Changed" />
                         </StackPanel>
                         <StackPanel Grid.Row="1" Grid.Column="2">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="SA password" />
-                            <c:PasswordInput x:Name="SaPassword" />
+                            <c:PasswordInput x:Name="SaPassword" PasswordChanged="SqlField_Changed" />
                         </StackPanel>
                         <StackPanel Grid.Row="2">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Default port" />
-                            <TextBox x:Name="DefaultPort" />
+                            <TextBox x:Name="DefaultPort" TextChanged="SqlField_Changed" />
                         </StackPanel>
                         <StackPanel Grid.Row="2" Grid.Column="2">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Collation" />
-                            <TextBox x:Name="Collation" />
+                            <TextBox x:Name="Collation" TextChanged="SqlField_Changed" />
                         </StackPanel>
                         <StackPanel Grid.Row="3">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Edition (MSSQL_PID)" />
-                            <TextBox x:Name="MssqlPid" />
+                            <TextBox x:Name="MssqlPid" TextChanged="SqlField_Changed" />
                         </StackPanel>
                         <StackPanel Grid.Row="3" Grid.Column="2">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Database name suffix" />
@@ -111,6 +111,21 @@
                                 Click="TestSql_Click" ToolTip="Log in as sa to Container IP, Default port with the SA password above (unsaved values too)" />
                         <TextBlock x:Name="SqlStatus" VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap" />
                     </DockPanel>
+
+                    <Border Height="1" Background="{DynamicResource CardBorder}" Margin="0,16,0,12" />
+                    <TextBlock Text="Docker container" FontWeight="SemiBold" />
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,8"
+                               Text="Runs this SQL Server in Docker Desktop: writes docker-compose.yml next to the app from the values above and starts it with docker compose up -d." />
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="SetupDockerButton" Content="Set up Docker container" Click="SetupDocker_Click" />
+                        <Button x:Name="ShowYamlButton" Content="Show docker-compose.yml" Margin="8,0,0,0" Click="ShowYaml_Click" />
+                    </StackPanel>
+                    <StackPanel x:Name="YamlPanel" Visibility="Collapsed" Margin="0,10,0,0">
+                        <TextBlock x:Name="YamlNote" Style="{StaticResource Hint}" Margin="0,0,0,6" />
+                        <TextBox x:Name="YamlBox" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                                 FontFamily="Cascadia Mono, Consolas" FontSize="12" MaxHeight="380" Padding="8"
+                                 VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
 

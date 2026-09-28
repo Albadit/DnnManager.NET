@@ -1,3 +1,5 @@
+using DnnManager.Application.Configuration;
+
 namespace DnnManager.Infrastructure.Files;
 
 /// <summary>
@@ -34,7 +36,7 @@ public static class BundledFiles
     public static string DefaultContent(string fileName) => fileName switch
     {
         AppSettings => DefaultAppSettings,
-        DockerCompose => DefaultDockerCompose,
+        DockerCompose => ComposeFor(new DockerOptions()),
         _ => throw new ArgumentException($"No built-in default for {fileName}.", nameof(fileName))
     };
 
@@ -89,50 +91,48 @@ public static class BundledFiles
 
         """;
 
-    private const string DefaultDockerCompose = """
-        # Shared SQL Server for all DnnManager projects.
-        # Written next to the app by DNN Manager when missing, and the single compose file the tool runs -
-        # there is no per-project compose. One shared container, fixed port 1433.
-        # Keep these values in sync with the "Docker" section of appsettings.json (the tool connects using
-        # those settings).
-        services:
-          sqlserver:
-            image: mcr.microsoft.com/mssql/server:2022-latest
-            container_name: dnn-sqlserver
-            hostname: dnn-sqlserver
-            environment:
-              - ACCEPT_EULA=Y
-              - SA_PASSWORD=Admin@123
-              - MSSQL_SA_PASSWORD=Admin@123
-              - MSSQL_PID=Developer
-              - MSSQL_COLLATION=Latin1_General_CI_AS
-            ports:
-              - "1433:1433"
+    /// <summary>
+    /// The shared SQL Server's <c>docker-compose.yml</c> for <paramref name="docker"/>: container name, sa
+    /// password, edition, collation, published port and data volume all come from the settings.
+    /// </summary>
+    public static string ComposeFor(DockerOptions docker)
+    {
+        // No custom network or static IP: DNN Manager connects through the published port on the host, and a
+        // fixed subnet clashes with whatever other compose projects on the machine already use.
+        // Double-quoted YAML scalars; compose also interpolates "$", so a literal one is written "$$".
+        static string Q(string value) =>
+            "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("$", "$$") + "\"";
+
+        return $"""
+            # Shared SQL Server for all DNN Manager projects - one container for every project.
+            # Generated from the SQL Server settings (Settings page -> Set up Docker container); changing
+            # those settings and setting the container up again rewrites this file.
+            services:
+              sqlserver:
+                image: mcr.microsoft.com/mssql/server:2022-latest
+                container_name: {Q(docker.ContainerName)}
+                hostname: {Q(docker.ContainerName)}
+                environment:
+                  ACCEPT_EULA: "Y"
+                  MSSQL_SA_PASSWORD: {Q(docker.SaPassword)}
+                  MSSQL_PID: {Q(docker.MssqlPid)}
+                  MSSQL_COLLATION: {Q(docker.Collation)}
+                ports:
+                  - "{docker.DefaultPort}:1433"
+                volumes:
+                  - {Q(docker.VolumeName + ":/var/opt/mssql")}
+                restart: unless-stopped
+                healthcheck:
+                  test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", {Q(docker.SaPassword)}, "-C", "-No", "-Q", "SELECT 1"]
+                  interval: 30s
+                  timeout: 10s
+                  retries: 5
+                  start_period: 60s
+
             volumes:
-              - dnn_sqlserver_data:/var/opt/mssql
-            restart: unless-stopped
-            networks:
-              dnn_network:
-                # Static IP - keep in sync with Docker.ContainerIp in appsettings.json.
-                ipv4_address: 172.20.0.10
-            healthcheck:
-              test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Admin@123 -C -No -Q "SELECT 1"
-              interval: 30s
-              timeout: 10s
-              retries: 5
-              start_period: 60s
+              {Q(docker.VolumeName)}:
+                name: {Q(docker.VolumeName)}
 
-        volumes:
-          dnn_sqlserver_data:
-            name: dnn_sqlserver_data
-
-        networks:
-          dnn_network:
-            driver: bridge
-            name: dnn_network
-            ipam:
-              config:
-                - subnet: 172.20.0.0/16
-
-        """;
+            """;
+    }
 }

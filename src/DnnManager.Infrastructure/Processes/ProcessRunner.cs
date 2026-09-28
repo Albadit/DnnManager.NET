@@ -14,8 +14,9 @@ public sealed class ProcessResult
 
 public sealed class ProcessRunner
 {
+    /// <param name="onOutput">Called with each stdout / stderr line as it arrives, e.g. to show progress.</param>
     public async Task<ProcessResult> RunAsync(string fileName, IReadOnlyList<string> args, CancellationToken ct = default,
-        IDictionary<string, string?>? env = null)
+        IDictionary<string, string?>? env = null, Action<string>? onOutput = null)
     {
         var psi = new ProcessStartInfo
         {
@@ -32,8 +33,8 @@ public sealed class ProcessRunner
         using var p = new Process { StartInfo = psi, EnableRaisingEvents = true };
         var stdout = new StringBuilder();
         var stderr = new StringBuilder();
-        p.OutputDataReceived += (_, e) => { if (e.Data != null) stdout.AppendLine(e.Data); };
-        p.ErrorDataReceived += (_, e) => { if (e.Data != null) stderr.AppendLine(e.Data); };
+        p.OutputDataReceived += (_, e) => { if (e.Data != null) { stdout.AppendLine(e.Data); onOutput?.Invoke(e.Data); } };
+        p.ErrorDataReceived += (_, e) => { if (e.Data != null) { stderr.AppendLine(e.Data); onOutput?.Invoke(e.Data); } };
         try
         {
             p.Start();

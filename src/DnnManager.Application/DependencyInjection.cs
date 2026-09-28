@@ -12,10 +12,12 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<SetupProjectUseCase>();
         services.AddScoped<HostExistingProjectUseCase>();
         services.AddScoped<ImportProjectUseCase>();
+        services.AddScoped<ExportProjectUseCase>();
         services.AddScoped<RemoveProjectUseCase>();
         services.AddScoped<ResetIisUseCase>();
         services.AddScoped<ListProjectsUseCase>();
         services.AddScoped<CheckPrerequisitesUseCase>();
+        services.AddScoped<SetupSqlContainerUseCase>();
         services.AddScoped<CloneProjectUseCase>();
         return services;
     }
