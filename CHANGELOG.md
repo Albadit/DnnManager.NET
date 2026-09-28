@@ -2,7 +2,22 @@
 
 All notable changes to DnnManager.NET are documented here.
 
-## Unreleased
+## v2.0.0 - 2026-09-28
+
+A major release: projects can be imported from and exported to a `.zip` +
+`.bacpac`, the shared SQL Server's Docker container is set up from Settings,
+and the Projects table gets a right-click menu. FTP and the Live sites page are
+removed, and the app checks the SQL Server connection instead of Docker.
+
+### Upgrading from v1.0.x
+
+- `connections.json` (saved FTP / SQL connections of live sites) is no longer
+  used and can be deleted.
+- DNN Manager no longer starts the SQL container when a project needs it. If it
+  isn't running, start it with **Settings → Set up Docker container** - that
+  also rewrites `docker-compose.yml` next to the app from the settings (without
+  the old fixed `dnn_network` subnet). An existing data volume keeps its data
+  and its sa password.
 
 ### Added
 
@@ -15,25 +30,45 @@ All notable changes to DnnManager.NET are documented here.
 - **Reset IIS.** A button on the Projects page restarts IIS (`iisreset`) after
   a confirmation - for stuck sites, or to pick up IIS changes such as a newly
   installed URL Rewrite module behind a 500.19 error.
-- **HTTPS redirects are switched off for local sites.** Setting up an existing
-  folder switches off `web.config` rewrite rules that redirect to `https://`
+- **HTTPS redirects are switched off for local sites.** Host project switches
+  off `web.config` rewrite rules that redirect to `https://`
   (the local site is HTTP-only, so it would never load), marks them with a
   *Disabled by DNN Manager* comment, and shows a ⚠ warning in the Activity log -
   a new warning style - to switch them back on before deploying to production.
 - **Selectable activity log.** Text in the Activity log can be selected and
   copied, across lines too (mouse, Ctrl+A / Ctrl+C, right-click Copy). The
   **Copy** button copies the selection, or the whole log when nothing is selected.
+- **Copy path and Export in the project menu.** **Copy path** puts the project
+  folder on the clipboard. **Export** saves the project as the pair New project
+  imports: a `.zip` of the site files (without `backups` and `.git`; files the
+  running site holds open are read too) and a `.bacpac` of its database next to
+  it - or only the site files, or only the database (a submenu with the three
+  choices).
 - **Project right-click menu.** Right-click a project on the Projects page for
   **Details…** (folder, site, IIS, SQL, database, `web.config` connection, DNN
   version, size, solution, git branch, backups) and **Open in …** for each IDE
   installed on the PC - Visual Studio (found with `vswhere`; opens the project's
   `.sln` when there is exactly one), VS Code, VS Code Insiders, Cursor,
   Windsurf, Rider and Sublime Text - next to Open site / Open folder / Remove.
+  A right-click selects the row under the mouse; the menu follows the theme.
+- **Set up the Docker container from Settings.** **Set up Docker container**
+  writes `docker-compose.yml` from the SQL Server settings (container name, sa
+  password, edition, collation, port, volume), runs `docker compose up -d` with
+  live progress in the Activity log and waits until SQL Server accepts the sa
+  login. **Show docker-compose.yml** shows the generated file and whether the one
+  next to the app matches; replacing a different one asks first. The card is
+  now called **SQL Server**.
 - **Test the SQL Server connection in Settings.** **Test connection** logs in as
   `sa` with the IP, port and password in the form, before saving them.
 
 ### Changed
 
+- **Open folder moved to the right-click menu** - the Projects toolbar keeps
+  Open site, Remove, Reset IIS and Refresh.
+- **Settings uses the full window width.**
+- **`docker-compose.yml` is generated from the settings** and no longer defines
+  a fixed network / subnet, which clashed with other compose projects ("Pool
+  overlaps with other one on this address space").
 - **Projects table shows the DNN version** (from `bin\DotNetNuke.dll`, e.g.
   `9.13.4`) in place of the SQL column.
 - **"Existing folder" is now "Host project".** Its options say *database*
@@ -42,9 +77,10 @@ All notable changes to DnnManager.NET are documented here.
 - **SQL Server connection check replaces the Docker check.** Prerequisites,
   new project, host project, clone and the Projects page now log in to the
   SQL Server from Settings (`ContainerIp,DefaultPort` as `sa`, 5s timeout)
-  instead of querying Docker. DNN Manager no longer starts the container
-  (`docker compose up` / `docker start`) - start it yourself; when it isn't
-  reachable the database steps are skipped or fail with a clear message.
+  instead of querying Docker. The project flows no longer start the container
+  (`docker compose up` / `docker start`) - start it once with **Set up Docker
+  container** in Settings; when it isn't reachable the database steps are
+  skipped or fail with a clear message.
 
 ### Removed
 

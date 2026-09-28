@@ -3,9 +3,11 @@ using System.Windows;
 using System.Windows.Controls;
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
+using DnnManager.Application.UseCases;
 using DnnManager.Infrastructure.Files;
 using DnnManager.Presentation.Services;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Win32;
 
@@ -23,12 +25,15 @@ public partial class SettingsPage : UserControl
     private readonly AppOptions _running;
     private readonly OperationRunner _runner;
     private readonly ISqlConnectionTester _sqlTester;
+    private readonly IDockerComposeService _compose;
 
-    public SettingsPage(IOptions<AppOptions> running, OperationRunner runner, ISqlConnectionTester sqlTester)
+    public SettingsPage(IOptions<AppOptions> running, OperationRunner runner, ISqlConnectionTester sqlTester,
+        IDockerComposeService compose)
     {
         _running = running.Value;
         _runner = runner;
         _sqlTester = sqlTester;
+        _compose = compose;
         InitializeComponent();
         Subtitle.Text = $"Stored in {AppSettingsFile.FullPath}.";
         ShowEnvironmentOverrides();
@@ -167,6 +172,69 @@ public partial class SettingsPage : UserControl
         {
             TestSqlButton.IsEnabled = true;
         }
+    }
+
+    // ─── Docker container ─────────────────────────────────────────────────
+
+    private void SqlField_Changed(object sender, RoutedEventArgs e)
+    {
+        if (YamlPanel is { Visibility: Visibility.Visible }) ShowYaml(); // raised during InitializeComponent too
+    }
+
+    private void ShowYaml_Click(object sender, RoutedEventArgs e)
+    {
+        var show = YamlPanel.Visibility != Visibility.Visible;
+        YamlPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        ShowYamlButton.Content = show ? "Hide docker-compose.yml" : "Show docker-compose.yml";
+        if (show) ShowYaml();
+    }
+
+    /// <summary>Shows the compose file the values in the form produce, and whether the file on disk matches.</summary>
+    private void ShowYaml()
+    {
+        var (options, error) = Read();
+        if (options is null)
+        {
+            YamlNote.Text = error ?? "";
+            YamlBox.Text = "";
+            return;
+        }
+
+        var yaml = _compose.Render(options.Docker);
+        var current = _compose.ReadCurrent();
+        YamlNote.Text = current is null
+            ? $"Generated from the values above - no docker-compose.yml next to the app yet ({_compose.ComposeFilePath})."
+            : SameText(current, yaml)
+                ? $"Generated from the values above - the same as {_compose.ComposeFilePath}."
+                : $"Generated from the values above - {_compose.ComposeFilePath} is different; setting up the container replaces it.";
+        YamlBox.Text = yaml;
+    }
+
+    private static bool SameText(string a, string b) =>
+        a.Replace("\r\n", "\n").TrimEnd() == b.Replace("\r\n", "\n").TrimEnd();
+
+    private async void SetupDocker_Click(object sender, RoutedEventArgs e)
+    {
+        var (options, error) = Read();
+        if (options is null) { ShowError(error); return; }
+        ShowError(null);
+
+        var docker = options.Docker;
+        var current = _compose.ReadCurrent();
+        if (current is not null && !SameText(current, _compose.Render(docker)) &&
+            !Dialogs.Confirm($"{_compose.ComposeFilePath} is different from these settings. Replace it and set up the container?", defaultYes: true))
+            return;
+
+        // The container is set up from the form; DNN Manager itself connects with the saved settings.
+        var unsaved = Snapshot(options) != Snapshot(LoadFromFile());
+        await _runner.RunAsync("Set up Docker container", async (sp, reporter, ct) =>
+        {
+            var result = await sp.GetRequiredService<SetupSqlContainerUseCase>().ExecuteAsync(docker, reporter, ct);
+            if (result.Success && unsaved)
+                reporter.Warn("These SQL Server values aren't saved yet - Save them so DNN Manager connects with them.");
+            return result;
+        });
+        if (YamlPanel.Visibility == Visibility.Visible) ShowYaml();
     }
 
     private void SqlResult(string text, bool success)

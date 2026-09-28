@@ -10,6 +10,7 @@ using DnnManager.Domain;
 using DnnManager.Presentation.Controls;
 using DnnManager.Presentation.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Win32;
 
 namespace DnnManager.Presentation.Pages;
 
@@ -162,6 +163,7 @@ public partial class ProjectsPage : UserControl, IRefreshable
         menu.Items.Add(details);
         menu.Items.Add(NewMenuItem("Open site", (_, _) => Shell(row.Url)));
         menu.Items.Add(NewMenuItem("Open folder", (_, _) => OpenFolder(row)));
+        menu.Items.Add(NewMenuItem("Copy path", (_, _) => CopyPath(row)));
         menu.Items.Add(new Separator());
 
         var ides = IdeLocator.Installed;
@@ -178,7 +180,59 @@ public partial class ProjectsPage : UserControl, IRefreshable
         }
 
         menu.Items.Add(new Separator());
+        menu.Items.Add(ExportMenu(row));
         menu.Items.Add(NewMenuItem("Remove…", (_, _) => Remove(row)));
+    }
+
+    private static void CopyPath(Row row)
+    {
+        try { Clipboard.SetText(row.Path); }
+        catch (Exception ex) { Dialogs.Error($"Could not copy to the clipboard: {ex.Message}"); }
+    }
+
+    private enum ExportParts { Both, Site, Database }
+
+    /// <summary>"Export": a submenu to export the site and database, or just one of them.</summary>
+    private MenuItem ExportMenu(Row row)
+    {
+        var export = new MenuItem { Header = "Export" };
+        export.Items.Add(NewMenuItem("Site and database  (.zip + .bacpac)", (_, _) => Export(row, ExportParts.Both)));
+        export.Items.Add(NewMenuItem("Site files  (.zip)", (_, _) => Export(row, ExportParts.Site)));
+        export.Items.Add(NewMenuItem("Database  (.bacpac)", (_, _) => Export(row, ExportParts.Database)));
+        return export;
+    }
+
+    private async void Export(Row row, ExportParts parts)
+    {
+        var database = parts == ExportParts.Database;
+        var dialog = new SaveFileDialog
+        {
+            Title = parts switch
+            {
+                ExportParts.Both => $"Export '{row.Name}' - the database is saved next to the .zip as a .bacpac",
+                ExportParts.Site => $"Export the site files of '{row.Name}'",
+                _ => $"Export the database of '{row.Name}'"
+            },
+            Filter = database ? "BACPAC files (*.bacpac)|*.bacpac" : "Zip files (*.zip)|*.zip",
+            FileName = $"{row.Name}_{DateTime.Now:yyyyMMdd}{(database ? ".bacpac" : ".zip")}",
+            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) is { Length: > 0 } home
+                ? System.IO.Path.Combine(home, "Downloads") : null
+        };
+        if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
+
+        var request = new ExportProjectRequest
+        {
+            ProjectName = row.Name,
+            ZipPath = database ? null : dialog.FileName,
+            BacpacPath = parts switch
+            {
+                ExportParts.Both => System.IO.Path.ChangeExtension(dialog.FileName, ".bacpac"),
+                ExportParts.Database => dialog.FileName,
+                _ => null
+            }
+        };
+        await _runner.RunAsync($"Export '{row.Name}'",
+            (sp, reporter, ct) => sp.GetRequiredService<ExportProjectUseCase>().ExecuteAsync(request, reporter, ct));
     }
 
     private static MenuItem NewMenuItem(string header, RoutedEventHandler click)

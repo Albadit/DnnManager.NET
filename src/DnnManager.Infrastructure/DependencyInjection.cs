@@ -1,4 +1,5 @@
 using DnnManager.Application.Abstractions;
+using DnnManager.Infrastructure.Docker;
 using DnnManager.Infrastructure.Files;
 using DnnManager.Infrastructure.Github;
 using DnnManager.Infrastructure.Iis;
@@ -19,6 +20,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IProjectRepository, FileSystemProjectRepository>();
         services.AddSingleton<IIisManager, IisManager>();
         services.AddSingleton<ISqlServerService, SqlServerService>();
+        services.AddSingleton<IDockerComposeService, DockerComposeService>();
         services.AddSingleton<IPrerequisiteChecker, WindowsPrerequisiteChecker>();
         services.AddSingleton<IHttpConnectivityChecker, HttpConnectivityChecker>();
         services.AddSingleton<IProjectFileCopier, ProjectFileCopier>();
