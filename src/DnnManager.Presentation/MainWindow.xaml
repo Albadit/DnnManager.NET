@@ -44,13 +44,10 @@
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE710;" /><TextBlock Text="New project" /></StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" Tag="Existing" Checked="Nav_Checked">
-                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE838;" /><TextBlock Text="Existing folder" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE838;" /><TextBlock Text="Host project" /></StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" Tag="Clone" Checked="Nav_Checked">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE8C8;" /><TextBlock Text="Clone project" /></StackPanel>
-                </RadioButton>
-                <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" Tag="Connections" Checked="Nav_Checked">
-                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE774;" /><TextBlock Text="Live sites" /></StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" Tag="Prerequisites" Checked="Nav_Checked">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE9D9;" /><TextBlock Text="Prerequisites" /></StackPanel>

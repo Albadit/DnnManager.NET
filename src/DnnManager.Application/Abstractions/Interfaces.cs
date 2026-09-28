@@ -72,30 +72,11 @@ public interface IIisManager
 
 public interface IPrerequisiteChecker
 {
-    Task<Result> CheckDockerAsync(IProgressReporter reporter, CancellationToken ct);
     Task<Result> EnsureIisFeaturesAsync(IProgressReporter reporter, IUserPrompt prompt, CancellationToken ct);
-}
-
-public interface IDockerService
-{
-    Task<bool> IsContainerRunningAsync(string containerName, CancellationToken ct);
-
-    /// <summary>
-    /// The container's state as Docker reports it (<c>running</c>, <c>exited</c>, <c>created</c>…), or
-    /// null when no such container exists. One CLI call answers both "exists?" and "running?".
-    /// </summary>
-    Task<string?> GetContainerStateAsync(string containerName, CancellationToken ct);
-
-    Task<int?> GetPublishedPortAsync(string containerName, CancellationToken ct);
-    Task<Result> StartContainerAsync(string containerName, CancellationToken ct);
-
-    /// <summary>Brings up the shared SQL container from the docker-compose.yml next to the app.</summary>
-    Task<Result> ComposeUpAsync(CancellationToken ct);
 }
 
 public interface ISqlServerService
 {
-    Task<Result> WaitReadyAsync(int timeoutSeconds, IProgressReporter reporter, CancellationToken ct);
     Task<Result<bool>> DatabaseExistsAsync(string database, CancellationToken ct);
     Task<Result> CreateDatabaseAsync(DatabaseConfig db, CancellationToken ct);
     Task<Result> DropDatabaseAsync(string database, CancellationToken ct);
@@ -115,21 +96,10 @@ public interface IHttpConnectivityChecker
     Task<Result<int>> CheckAsync(string url, int timeoutSeconds, CancellationToken ct);
 }
 
-public enum CloneSourceKind { LocalFolder, Ftp }
-
-public sealed record CloneSource(
-    CloneSourceKind Kind,
-    string? LocalPath,
-    string? FtpHost,
-    int FtpPort,
-    string? FtpUser,
-    string? FtpPassword,
-    string? FtpRemotePath);
-
 public interface IProjectFileCopier
 {
-    /// <summary>Copies a DNN project's website files from the given source into <paramref name="destinationDirectory"/>.</summary>
-    Task<Result> CopyAsync(CloneSource source, string destinationDirectory, IProgressReporter reporter, CancellationToken ct);
+    /// <summary>Copies a DNN project's website files from <paramref name="sourceDirectory"/> into <paramref name="destinationDirectory"/>.</summary>
+    Task<Result> CopyAsync(string sourceDirectory, string destinationDirectory, IProgressReporter reporter, CancellationToken ct);
 }
 
 /// <summary>Lays down supporting source-control files in a managed DNN project directory.</summary>
@@ -144,39 +114,6 @@ public interface IProjectScaffolder
     Result EnsureGitignore(string projectDirectory);
 }
 
-public interface IFtpBrowser
-{
-    /// <summary>Connects to the FTP server and returns immediate subdirectories of <paramref name="remotePath"/>.</summary>
-    Task<Result<IReadOnlyList<string>>> ListDirectoriesAsync(
-        string host, int port, string user, string password, string remotePath, CancellationToken ct);
-}
-
-public sealed record FtpProfile(string Name, string Host, int Port, string User, string EncryptedPassword, string RemotePath = "/");
-
-/// <summary>Stores a single FTP connection per project (keyed by project name).</summary>
-public interface IFtpProfileStore
-{
-    FtpProfile? Get(string project);
-    void Save(string project, FtpProfile profile);
-    /// <summary>Project names that have a saved FTP connection.</summary>
-    IReadOnlyList<string> ListProjects();
-    string Protect(string plain);
-    string Unprotect(string encrypted);
-}
-
-public sealed record SqlProfile(string Name, string Server, string Database, string User, string EncryptedPassword);
-
-/// <summary>Stores a single SQL connection per project (keyed by project name).</summary>
-public interface ISqlProfileStore
-{
-    SqlProfile? Get(string project);
-    void Save(string project, SqlProfile profile);
-    /// <summary>Project names that have a saved SQL connection.</summary>
-    IReadOnlyList<string> ListProjects();
-    string Protect(string plain);
-    string Unprotect(string encrypted);
-}
-
 public sealed record SiteSqlConnection(string Server, string Database, string User, string Password);
 
 public interface ISqlConnectionTester
@@ -185,7 +122,7 @@ public interface ISqlConnectionTester
     /// Logs in to <paramref name="connection"/>'s database (not [master] - contained users only exist in
     /// their own database) and describes what it reached, e.g. "[db] on Azure SQL Database 12.0.2000.8".
     /// </summary>
-    Task<Result<string>> TestAsync(SiteSqlConnection connection, CancellationToken ct);
+    Task<Result<string>> TestAsync(SiteSqlConnection connection, CancellationToken ct, int timeoutSeconds = 15);
 }
 
 /// <param name="SwitchedOff">Rules switched off just now.</param>

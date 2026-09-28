@@ -18,24 +18,6 @@ public sealed class WindowsPrerequisiteChecker : IPrerequisiteChecker
         _proc = proc; _opts = opts.Value; _log = log;
     }
 
-    public async Task<Result> CheckDockerAsync(IProgressReporter reporter, CancellationToken ct)
-    {
-        // One call answers both questions: `docker version` prints the client version even when the
-        // daemon is down, and exits non-zero unless it could also reach the engine. (It replaces
-        // `docker --version` + `docker info`; `info` alone is the slowest docker command we ran.)
-        var v = await _proc.RunAsync("docker",
-            new[] { "version", "--format", "{{.Client.Version}}|{{.Server.Version}}" }, ct);
-        var parts = v.StdOut.Trim().Split('|');
-        var client = parts[0].Trim();
-        var server = parts.Length > 1 ? parts[1].Trim() : "";
-
-        if (client.Length == 0) { reporter.Fail("Docker CLI not found or failed."); return Result.Fail("Docker missing"); }
-        reporter.Success($"Docker version {client}");
-        if (!v.Success || server.Length == 0) { reporter.Fail("Docker daemon not running."); return Result.Fail("Docker daemon offline"); }
-        reporter.Success($"Docker daemon is running (engine {server}).");
-        return Result.Ok();
-    }
-
     public async Task<Result> EnsureIisFeaturesAsync(IProgressReporter reporter, IUserPrompt prompt, CancellationToken ct)
     {
         if (_opts.RequiredIisFeatures.Count == 0)

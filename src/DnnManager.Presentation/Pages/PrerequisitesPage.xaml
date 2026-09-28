@@ -5,12 +5,12 @@
         <StackPanel Margin="28,24,28,20">
             <TextBlock Style="{StaticResource PageTitle}" Text="Prerequisites" />
             <TextBlock Style="{StaticResource PageSubtitle}"
-                       Text="Checks that Docker is available and that the Windows features IIS needs to host DNN are enabled - and offers to enable the missing ones." />
+                       Text="Checks that the local SQL Server accepts a connection and that the Windows features IIS needs to host DNN are enabled - and offers to enable the missing ones." />
 
             <Border Style="{StaticResource Card}">
                 <StackPanel>
                     <TextBlock Style="{StaticResource CardTitle}" Text="What gets checked" />
-                    <TextBlock Text="Docker - runs the shared SQL Server container." Margin="0,0,0,12" />
+                    <TextBlock Text="SQL Server - logs in as sa to the address, port and password from Settings." Margin="0,0,0,12" />
                     <TextBlock Text="IIS Windows features" FontWeight="SemiBold" Margin="0,0,0,6" />
 
                     <!-- A plain two-column table (a DataGrid here would swallow the page's mouse-wheel scrolling). -->

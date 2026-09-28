@@ -17,6 +17,34 @@ All notable changes to DnnManager.NET are documented here.
 - **Selectable activity log.** Text in the Activity log can be selected and
   copied, across lines too (mouse, Ctrl+A / Ctrl+C, right-click Copy). The
   **Copy** button copies the selection, or the whole log when nothing is selected.
+- **Project right-click menu.** Right-click a project on the Projects page for
+  **Details…** (folder, site, IIS, SQL, database, `web.config` connection, DNN
+  version, size, solution, git branch, backups) and **Open in …** for each IDE
+  installed on the PC - Visual Studio (found with `vswhere`; opens the project's
+  `.sln` when there is exactly one), VS Code, VS Code Insiders, Cursor,
+  Windsurf, Rider and Sublime Text - next to Open site / Open folder / Remove.
+- **Test the SQL Server connection in Settings.** **Test connection** logs in as
+  `sa` with the IP, port and password in the form, before saving them.
+
+### Changed
+
+- **"Existing folder" is now "Host project".** Its options say *database*
+  instead of *local database* - the database can be on any SQL Server, and the
+  prompts name the actual server.
+- **SQL Server connection check replaces the Docker check.** Prerequisites,
+  new project, host project, clone and the Projects page now log in to the
+  SQL Server from Settings (`ContainerIp,DefaultPort` as `sa`, 5s timeout)
+  instead of querying Docker. DNN Manager no longer starts the container
+  (`docker compose up` / `docker start`) - start it yourself; when it isn't
+  reachable the database steps are skipped or fail with a clear message.
+
+### Removed
+
+- **FTP.** Cloning over FTP and the FTP folder browser are gone (along with the
+  FluentFTP package). Clone copies from a local folder.
+- **Live sites page and saved connections.** The page and `connections.json`
+  are no longer used. Clone takes the source database from the site's
+  `web.config`, or from a connection entered for that clone (not saved).
 
 ## v1.0.3 - 2026-09-25
 

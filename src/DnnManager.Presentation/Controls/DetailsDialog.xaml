@@ -1,0 +1,36 @@
+<Window x:Class="DnnManager.Presentation.Controls.DetailsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="DNN Manager" Width="640" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
+        Background="{DynamicResource WindowBg}" Foreground="{DynamicResource TextPrimary}">
+    <StackPanel Margin="20">
+        <TextBlock x:Name="Heading" Style="{StaticResource CardTitle}" FontSize="17" Margin="0,0,0,12" />
+
+        <Border Style="{StaticResource Card}" Margin="0" Padding="14,8">
+            <ItemsControl x:Name="Rows" Grid.IsSharedSizeScope="True">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="Label" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding Label}" Foreground="{DynamicResource TextMuted}" />
+                            <!-- Read-only text box so a value (a path, a database name…) can be selected and copied. -->
+                            <TextBox Grid.Column="2" Text="{Binding Value, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
+                                     BorderThickness="0" Background="Transparent" Padding="0" MinHeight="0"
+                                     VerticalContentAlignment="Top" />
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Copy all" MinWidth="80" Click="Copy_Click" />
+            <Button Content="Close" Style="{StaticResource Primary}" MinWidth="80" Margin="8,0,0,0" IsDefault="True" IsCancel="True" />
+        </StackPanel>
+    </StackPanel>
+</Window>

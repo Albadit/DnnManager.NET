@@ -54,22 +54,28 @@ public sealed class IisSiteProvisioner
 
 /// <summary>
 /// The shared local SQL Server container every project's database lives in. Shared by setup, clone and
-/// hosting an existing folder.
+/// hosting an existing folder. The container is never started from here - it must already be running.
 /// </summary>
 public sealed class LocalSqlContainer
 {
+    // A local server either answers straight away or isn't running - no point waiting the default 15s.
+    private const int ConnectTimeoutSeconds = 5;
+
     private readonly AppOptions _opts;
-    private readonly IDockerService _docker;
     private readonly ISqlServerService _sql;
+    private readonly ISqlConnectionTester _tester;
     private readonly IBacpacService _bacpac;
 
-    public LocalSqlContainer(IOptions<AppOptions> opts, IDockerService docker, ISqlServerService sql, IBacpacService bacpac)
+    public LocalSqlContainer(IOptions<AppOptions> opts, ISqlServerService sql, ISqlConnectionTester tester, IBacpacService bacpac)
     {
         _opts = opts.Value;
-        _docker = docker;
         _sql = sql;
+        _tester = tester;
         _bacpac = bacpac;
     }
+
+    /// <summary>The local SQL Server's address (<c>ip,port</c>) from the settings.</summary>
+    public string Server => _opts.ServerFor(_opts.Docker.DefaultPort);
 
     /// <summary>True for a file <see cref="RestoreAsync"/> can restore: a <c>.bacpac</c> or a native <c>.bak</c>.</summary>
     public static bool IsBackupFile(string path)
@@ -115,38 +121,28 @@ public sealed class LocalSqlContainer
             db.DatabaseName, backupFile, reporter, ct);
     }
 
+    /// <summary>Logs in to the local SQL Server as sa - true when it accepts the connection.</summary>
+    public async Task<bool> IsReachableAsync(CancellationToken ct) => (await TestAsync(ct)).Success;
+
     /// <summary>
-    /// Starts the shared container (bringing it up from the bundled docker-compose.yml the first time),
-    /// waits until SQL Server accepts connections and returns the container's published port.
+    /// Checks that the local SQL Server accepts the configured sa login, reporting the outcome, and returns
+    /// the port it listens on.
     /// </summary>
-    public async Task<Result<int>> EnsureReadyAsync(IProgressReporter reporter, CancellationToken ct)
+    public async Task<Result<int>> CheckAsync(IProgressReporter reporter, CancellationToken ct)
     {
-        var name = _opts.Docker.ContainerName;
-        var state = await _docker.GetContainerStateAsync(name, ct);
-        if (state is null)
+        var test = await TestAsync(ct);
+        if (!test.Success)
         {
-            var up = await _docker.ComposeUpAsync(ct);
-            if (!up.Success) return Result<int>.Fail(up.Error ?? "docker compose up failed.");
+            reporter.Fail($"Cannot connect to SQL Server at {Server}: {test.Error}");
+            return Result<int>.Fail($"SQL Server at {Server} is not reachable - start the SQL Server container " +
+                                    "and check the SQL Server settings.");
         }
-        else if (!state.Equals("running", StringComparison.OrdinalIgnoreCase))
-        {
-            reporter.Info($"Container '{name}' exists but is {state} - starting it.");
-            var start = await _docker.StartContainerAsync(name, ct);
-            if (!start.Success) return Result<int>.Fail($"Could not start container '{name}': {start.Error}");
-        }
-        else
-        {
-            reporter.Info($"Reusing running SQL Server container '{name}'.");
-        }
-
-        // The shared container publishes a fixed port (1433); read it back to be certain.
-        var port = await _docker.GetPublishedPortAsync(name, ct);
-        if (port is null) return Result<int>.Fail($"Could not determine published port for '{name}'.");
-
-        var ready = await _sql.WaitReadyAsync(180, reporter, ct);
-        if (!ready.Success) return Result<int>.Fail(ready.Error ?? "SQL Server did not become ready.");
-        return Result<int>.Ok(port.Value);
+        reporter.Success($"Connected to SQL Server at {Server} ({test.Value}).");
+        return Result<int>.Ok(_opts.Docker.DefaultPort);
     }
+
+    private Task<Result<string>> TestAsync(CancellationToken ct) =>
+        _tester.TestAsync(new SiteSqlConnection(Server, "master", "sa", _opts.Docker.SaPassword), ct, ConnectTimeoutSeconds);
 
     /// <summary>A database in the shared container for <paramref name="project"/>.</summary>
     public DatabaseConfig DatabaseFor(DnnProject project, string databaseName, int port) =>
