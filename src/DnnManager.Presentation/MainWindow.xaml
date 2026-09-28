@@ -18,13 +18,13 @@
                 <TextBlock x:Name="VersionText" Foreground="{DynamicResource SidebarMuted}" FontSize="12" Margin="0,2,0,0" />
             </StackPanel>
             <StackPanel DockPanel.Dock="Bottom" Margin="0,0,0,14">
-                <Border Height="1" Background="{DynamicResource SidebarDivider}" Margin="18,0,18,8" />
                 <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" Tag="Settings" Checked="Nav_Checked" ToolTip="Edit appsettings.json">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE713;" />
                         <TextBlock Text="Settings" />
                     </StackPanel>
                 </RadioButton>
+                <Border Height="1" Background="{DynamicResource SidebarDivider}" Margin="18,8,18,0" />
                 <DockPanel Margin="20,10,12,0">
                     <Button DockPanel.Dock="Right" x:Name="ThemeButton" Style="{StaticResource SidebarIconButton}"
                             VerticalAlignment="Center" Margin="8,0,0,0" Click="Theme_Click">
