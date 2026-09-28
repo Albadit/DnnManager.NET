@@ -131,6 +131,33 @@ public interface IProjectFileCopier
         IProgressReporter reporter, CancellationToken ct);
 }
 
+/// <param name="Name">A readable name, e.g. "Visual Studio Code".</param>
+/// <param name="Reason">Why it blocks the folder, e.g. "has files open" or "working folder is inside it".</param>
+/// <param name="CanClose">False for Windows itself, services and DNN Manager - those are never closed.</param>
+public sealed record LockingProcess(int Id, string Name, string ExeName, string Reason, bool CanClose)
+{
+    public override string ToString() => $"{Name} ({ExeName}, pid {Id}) - {Reason}";
+}
+
+/// <summary>Finds and closes the programs that keep a folder from being deleted.</summary>
+public interface IFileLockService
+{
+    /// <summary>
+    /// Processes with files under <paramref name="directory"/> open, or with their working folder inside it.
+    /// A helper process is reported as the app that owns it (e.g. a VS Code helper as VS Code).
+    /// </summary>
+    IReadOnlyList<LockingProcess> FindLockers(string directory);
+
+    /// <summary>
+    /// Asks each process to close, then force-closes it (with its child processes) if it doesn't within a few
+    /// seconds. Returns the ones that are still running.
+    /// </summary>
+    Task<IReadOnlyList<LockingProcess>> CloseAsync(IReadOnlyList<LockingProcess> processes, CancellationToken ct);
+
+    /// <summary>Has Windows delete whatever is left of <paramref name="directory"/> at the next restart.</summary>
+    Result ScheduleDeleteOnRestart(string directory);
+}
+
 /// <summary>Lays down supporting source-control files in a managed DNN project directory.</summary>
 public interface IProjectScaffolder
 {

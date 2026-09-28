@@ -129,7 +129,7 @@ Menu key):
 | **Copy path** | Puts the project folder on the clipboard. |
 | **Open in …** | One entry per IDE found on the PC: Visual Studio (via `vswhere`; opens the project's `.sln` when it has exactly one), VS Code, VS Code Insiders, Cursor, Windsurf, Rider and Sublime Text. |
 | **Export** ▸ | *Site and database* - a `.zip` of the site files (without `backups` and `.git`) plus a `.bacpac` of its database next to it, the pair **New project** imports - or just the *site files* (`.zip`) or the *database* (`.bacpac`). |
-| **Remove…** | After a confirmation, removes the IIS site and deletes the project folder - and drops its database if you say so. |
+| **Remove…** | After a confirmation, removes the IIS site and deletes the project folder - and drops its database if you say so. If files in the folder are still in use, it finds the programs holding them (open files, or a terminal / editor whose working folder is inside), lists them and - after you confirm - closes them and deletes the folder. Windows itself, services and Explorer are never closed; anything still locked is deleted at the next Windows restart. |
 
 ## Configuration
 
