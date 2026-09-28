@@ -25,6 +25,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IHttpConnectivityChecker, HttpConnectivityChecker>();
         services.AddSingleton<IProjectFileCopier, ProjectFileCopier>();
         services.AddSingleton<IProjectScaffolder, ProjectScaffolder>();
+        services.AddSingleton<IFileLockService, FileLockService>();
         services.AddSingleton<IWebConfigService, WebConfigService>();
         services.AddSingleton<IRemoteSqlBackupService, RemoteSqlBackupService>();
         services.AddSingleton<ISqlConnectionTester, SqlConnectionTester>();

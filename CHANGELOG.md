@@ -2,6 +2,22 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## Unreleased
+
+### Fixed
+
+- **Removing a project deletes the folder even when something still uses it.**
+  When files are in use, Remove now finds the programs holding them - with the
+  Windows Restart Manager (open files) and each process's working folder (a
+  terminal or editor opened in the project) - lists them, and after a
+  confirmation closes them (politely first, then forced, helpers included) and
+  deletes the folder. Windows itself, services and Explorer are never closed;
+  whatever is still locked is deleted at the next Windows restart. Before, it
+  gave up with "A file is still locked" and still reported the removal as
+  finished.
+- **Remove reports every step.** The IIS and database steps now say what they
+  did, and a failed database drop is reported instead of passing silently.
+
 ## v2.0.0 - 2026-09-28
 
 A major release: projects can be imported from and exported to a `.zip` +
