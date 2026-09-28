@@ -19,7 +19,8 @@ public partial class ExistingFolderPage : UserControl, IRefreshable
     private readonly IIisManager _iis;
     private readonly AppOptions _opts;
 
-    public sealed record Folder(string Name, string Iis);
+    /// <param name="State">"Live" (site started), "Offline" (site not started) or "None" (no site) - colours the line.</param>
+    public sealed record Folder(string Name, string Iis, string State);
 
     public ExistingFolderPage(OperationRunner runner, IProjectRepository repo, IIisManager iis, IOptions<AppOptions> opts)
     {
@@ -37,7 +38,9 @@ public partial class ExistingFolderPage : UserControl, IRefreshable
         // Show which folders already have a website, so the ones still needing one stand out.
         var sites = _iis.GetSiteStates();
         var folders = _repo.ListAllProjectDirectories()
-            .Select(n => new Folder(n, sites.TryGetValue(n, out var state) ? $"IIS: {state}" : "no IIS site"))
+            .Select(n => !sites.TryGetValue(n, out var state) ? new Folder(n, "no IIS site", "None")
+                : string.Equals(state, "Started", StringComparison.OrdinalIgnoreCase) ? new Folder(n, "IIS: Live", "Live")
+                : new Folder(n, "IIS: Offline", "Offline"))
             .ToList();
 
         FolderList.ItemsSource = folders;

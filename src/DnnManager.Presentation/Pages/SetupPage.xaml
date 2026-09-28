@@ -37,7 +37,19 @@
             <Border x:Name="ImportCard" Style="{StaticResource Card}" Visibility="Collapsed">
                 <StackPanel>
                     <TextBlock Style="{StaticResource CardTitle}" Text="Import" />
-                    <TextBlock Style="{StaticResource FieldLabel}" Text="Site .zip" Margin="0,0,0,4" />
+                    <TextBlock Style="{StaticResource FieldLabel}" Text="From a project backup" Margin="0,0,0,4" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="BackupProjectCombo" SelectionChanged="BackupProject_Changed" />
+                        <ComboBox x:Name="ProjectBackupCombo" Grid.Column="2" DisplayMemberPath="Label" SelectionChanged="ProjectBackup_Changed" />
+                    </Grid>
+                    <TextBlock x:Name="BackupPickHint" Style="{StaticResource Hint}"
+                               Text="A project and one of its backups (01_backup) - or choose the files anywhere on this PC below." />
+                    <TextBlock Style="{StaticResource FieldLabel}" Text="Site .zip" />
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="BrowseZip_Click" />
                         <TextBox x:Name="ZipBox" TextChanged="ImportField_Changed" />

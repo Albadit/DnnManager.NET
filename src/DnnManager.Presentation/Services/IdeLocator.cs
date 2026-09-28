@@ -1,21 +1,88 @@
 using System.Diagnostics;
 using System.Text.Json;
+using DnnManager.Application.Abstractions;
 
 namespace DnnManager.Presentation.Services;
 
 /// <param name="OpensSolution">Opens a project's <c>.sln</c> rather than its folder when there is exactly one.</param>
-internal sealed record Ide(string Name, string ExePath, bool OpensSolution);
+/// <param name="MajorVersion">The product's major version (e.g. 22 for SSMS 22), or 0 when unknown.</param>
+internal sealed record Ide(string Name, string ExePath, bool OpensSolution, int MajorVersion = 0);
 
 /// <summary>
 /// Finds the code editors / IDEs installed on this PC: Visual Studio (through vswhere), VS Code and its
-/// forks, JetBrains Rider and Sublime Text, from their default install folders.
+/// forks, JetBrains Rider and Sublime Text, from their default install folders - and SQL Server Management
+/// Studio, for a project's database.
 /// </summary>
 internal static class IdeLocator
 {
+    private const string SsmsProduct = "Microsoft.VisualStudio.Product.Ssms";
+
     private static IReadOnlyList<Ide>? _cache;
+    private static IReadOnlyList<Ide>? _ssmsCache;
 
     /// <summary>The installed IDEs. Looked up once per run - vswhere takes a moment.</summary>
     public static IReadOnlyList<Ide> Installed => _cache ??= Find();
+
+    /// <summary>The installed SQL Server Management Studio versions, newest first.</summary>
+    public static IReadOnlyList<Ide> ManagementStudios => _ssmsCache ??= FindManagementStudios();
+
+    /// <summary>
+    /// Opens <paramref name="database"/> in SSMS: server, database and login filled in. SSMS takes no password
+    /// on its command line, so it asks for one (and can remember it); no user means Windows authentication.
+    /// </summary>
+    /// <param name="trustServerCertificate">
+    /// Trust the server's certificate without validating it - for the local container, whose certificate is
+    /// self-signed. SSMS 20+ encrypts by default and refuses such a certificate otherwise.
+    /// </param>
+    /// <summary>A running instance of exactly this SSMS (same exe) with a main window, or null.</summary>
+    public static Process? FindRunning(Ide ssms)
+    {
+        foreach (var process in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(ssms.ExePath)))
+        {
+            try
+            {
+                if (process.MainWindowHandle != IntPtr.Zero &&
+                    string.Equals(process.MainModule?.FileName, ssms.ExePath, StringComparison.OrdinalIgnoreCase))
+                    return process;
+            }
+            catch { /* exited, or no access to its modules */ }
+            process.Dispose();
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Starts SSMS with no connection switches, so it just shows its Connect dialog (any connection switch makes
+    /// it connect at once - without a password, failing with an error first).
+    /// </summary>
+    public static Process? StartManagementStudio(Ide ssms)
+    {
+        var psi = new ProcessStartInfo(ssms.ExePath) { UseShellExecute = false };
+        psi.ArgumentList.Add("-nosplash");
+        return Process.Start(psi);
+    }
+
+    /// <returns>The started SSMS process.</returns>
+    public static Process? OpenDatabase(Ide ssms, SiteSqlConnection database, bool trustServerCertificate, string displayName)
+    {
+        // SSMS 21+ switches: -S -d -U -A -C -N -i -dn -nosplash -log; no user = Windows authentication.
+        // SSMS 18-20 have no -C / -dn and take -E for Windows authentication.
+        var modern = ssms.MajorVersion >= 21;
+        var psi = new ProcessStartInfo(ssms.ExePath) { UseShellExecute = false };
+        void Add(params string[] args) { foreach (var a in args) psi.ArgumentList.Add(a); }
+
+        Add("-S", database.Server);
+        if (database.Database.Length > 0) Add("-d", database.Database);
+        if (database.User.Length > 0) Add("-U", database.User);
+        else if (!modern) Add("-E");
+        if (modern)
+        {
+            if (trustServerCertificate) Add("-C");
+            Add("-dn", displayName);
+        }
+        Add("-nosplash");
+        return Process.Start(psi);
+    }
 
     /// <summary>Opens <paramref name="projectDirectory"/> (or its only solution file) in <paramref name="ide"/>.</summary>
     public static void Open(Ide ide, string projectDirectory)
@@ -43,7 +110,8 @@ internal static class IdeLocator
     private static IReadOnlyList<Ide> Find()
     {
         var found = new List<Ide>();
-        try { found.AddRange(FindVisualStudio()); } catch { /* vswhere missing or unreadable */ }
+        try { found.AddRange(FromVsWhere(products: null, fallbackName: "Visual Studio", opensSolution: true)); }
+        catch { /* vswhere missing or unreadable */ }
 
         var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
@@ -101,8 +169,41 @@ internal static class IdeLocator
             yield return Path.Combine(dir, "bin", "rider64.exe");
     }
 
-    /// <summary>Every Visual Studio install vswhere knows about, newest first.</summary>
-    private static IEnumerable<Ide> FindVisualStudio()
+    /// <summary>
+    /// SSMS 21 and later are Visual Studio Installer products, so vswhere lists them with their real name;
+    /// SSMS 18-20 are found by their default install folders.
+    /// </summary>
+    private static IReadOnlyList<Ide> FindManagementStudios()
+    {
+        var found = new List<Ide>();
+        try { found.AddRange(FromVsWhere(SsmsProduct, "SQL Server Management Studio", opensSolution: false)); }
+        catch { /* vswhere missing or unreadable */ }
+
+        var programFiles = new[]
+        {
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles)
+        };
+        foreach (var root in programFiles.Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            foreach (var dir in Directory.EnumerateDirectories(root, "Microsoft SQL Server Management Studio *"))
+            {
+                var exe = new[] { Path.Combine(dir, "Common7", "IDE", "Ssms.exe"), Path.Combine(dir, "Release", "Common7", "IDE", "SSMS.exe") }
+                    .FirstOrDefault(File.Exists);
+                if (exe is null || found.Any(f => f.ExePath.Equals(exe, StringComparison.OrdinalIgnoreCase))) continue;
+                var name = Path.GetFileName(dir)["Microsoft ".Length..];
+                found.Add(new Ide(name, exe, OpensSolution: false,
+                    int.TryParse(name.Split(' ').Last(), out var major) ? major : 0));
+            }
+        }
+        return found.OrderByDescending(f => f.MajorVersion).ToList();
+    }
+
+    /// <summary>
+    /// Every install vswhere knows about, newest first: Visual Studio itself when <paramref name="products"/> is
+    /// null (vswhere's default: Community, Professional, Enterprise), otherwise that product.
+    /// </summary>
+    private static IEnumerable<Ide> FromVsWhere(string? products, string fallbackName, bool opensSolution)
     {
         var vswhere = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
             "Microsoft Visual Studio", "Installer", "vswhere.exe");
@@ -115,6 +216,11 @@ internal static class IdeLocator
             CreateNoWindow = true
         };
         foreach (var arg in new[] { "-all", "-prerelease", "-sort", "-format", "json", "-utf8" }) psi.ArgumentList.Add(arg);
+        if (products is not null)
+        {
+            psi.ArgumentList.Add("-products");
+            psi.ArgumentList.Add(products);
+        }
 
         using var process = Process.Start(psi);
         if (process is null) return Array.Empty<Ide>();
@@ -127,7 +233,9 @@ internal static class IdeLocator
         {
             if (!vs.TryGetProperty("productPath", out var path) || path.GetString() is not { } exe || !File.Exists(exe)) continue;
             var name = vs.TryGetProperty("displayName", out var display) ? display.GetString() : null;
-            list.Add(new Ide(name ?? "Visual Studio", exe, OpensSolution: true));
+            var version = vs.TryGetProperty("installationVersion", out var v) && v.GetString() is { } text &&
+                          int.TryParse(text.Split('.')[0], out var major) ? major : 0;
+            list.Add(new Ide(name ?? fallbackName, exe, opensSolution, version));
         }
         return list;
     }

@@ -34,6 +34,7 @@ public static class AppSettingsFile
         section["BaseDirectory"] = options.BaseDirectory;
         section["SitePort"] = options.SitePort;
         section["HostnameSuffix"] = options.HostnameSuffix;
+        section["SsmsRememberPassword"] = options.SsmsRememberPassword;
         section["GitHubReleaseApis"] = new JsonArray(options.GitHubReleaseApis.Select(a => (JsonNode?)JsonValue.Create(a)).ToArray());
 
         var docker = Child(section, "Docker");

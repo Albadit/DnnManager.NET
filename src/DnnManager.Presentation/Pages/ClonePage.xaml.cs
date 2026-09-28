@@ -65,7 +65,6 @@ public partial class ClonePage : UserControl, IRefreshable
         NameError.Text = name.Length > 0 && !nameCheck.Success ? nameCheck.Error ?? "" : "";
         NameError.Visibility = NameError.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 
-        SqlNewPanel.Visibility = SqlNew.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
 
         var missing = MissingInput(nameCheck.Success);
         RunButton.IsEnabled = missing is null;
@@ -77,9 +76,6 @@ public partial class ClonePage : UserControl, IRefreshable
     {
         if (!nameValid) return TargetName.Length == 0 ? "Enter a project name." : null;
         if (LocalSourceCombo.SelectedItem is not string) return "Choose the source project.";
-        if (SqlNew.IsChecked == true &&
-            (SqlServer.Text.Trim().Length == 0 || SqlDatabase.Text.Trim().Length == 0 || SqlUser.Text.Trim().Length == 0))
-            return "Fill in the SQL server, database and user.";
         return null;
     }
 
@@ -92,27 +88,18 @@ public partial class ClonePage : UserControl, IRefreshable
 
         // Everything the operation needs is read from the controls here, on the UI thread.
         var local = Path.Combine(_options.BaseDirectory, (string)LocalSourceCombo.SelectedItem);
-        var useNewSql = SqlNew.IsChecked == true;
-        var newSql = (Host: SqlServer.Text.Trim(), Port: int.TryParse(SqlPort.Text, out var sp) ? sp : 1433,
-                      Database: SqlDatabase.Text.Trim(), User: SqlUser.Text.Trim(), Password: SqlPassword.Password);
 
         // Backup destination for the source DB (always auto-generated).
         var bakPath = Path.Combine(Path.GetTempPath(), $"dnnmgr_clone_{target}_{DateTime.Now:yyyyMMddHHmmss}.bak");
 
         await _runner.RunAsync($"Clone → '{target}'", async (services, reporter, ct) =>
         {
-            // Null uses whatever the source's web.config already has.
-            var dbOverride = useNewSql
-                ? new SiteSqlConnection($"{newSql.Host},{newSql.Port}", newSql.Database, newSql.User, newSql.Password)
-                : null;
-
             var req = new CloneProjectRequest
             {
                 TargetProjectName = target,
                 SourceDirectory = local,
                 SourceBackupServerPath = bakPath,
-                CreateIisSite = true,
-                SourceDbOverride = dbOverride
+                CreateIisSite = true
             };
             return await services.GetRequiredService<CloneProjectUseCase>().ExecuteAsync(req, reporter, ct);
         });

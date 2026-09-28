@@ -170,6 +170,32 @@ public sealed class WebConfigService : IWebConfigService
         }
     }
 
+    public Result<WebConfigFacts> ReadFacts(string webConfigPath)
+    {
+        try
+        {
+            var doc = XDocument.Load(webConfigPath);
+            var web = doc.Root?.Element("system.web");
+            var debug = (string?)web?.Element("compilation")?.Attribute("debug");
+            var framework = (string?)web?.Element("httpRuntime")?.Attribute("targetFramework")
+                            ?? (string?)web?.Element("compilation")?.Attribute("targetFramework");
+            var disabled = doc.Descendants("system.webServer")
+                .Elements("rewrite").Elements("rules").Elements("rule")
+                .Where(r => IsDisabled(r) && HasDisabledComment(r))
+                .Select(NameOf)
+                .ToList();
+            return Result<WebConfigFacts>.Ok(new WebConfigFacts(
+                bool.TryParse(debug, out var d) ? d : null,
+                framework,
+                (string?)web?.Element("customErrors")?.Attribute("mode"),
+                disabled));
+        }
+        catch (Exception ex)
+        {
+            return Result<WebConfigFacts>.Fail(ex.Message);
+        }
+    }
+
     // A rule that redirects to an https:// address (typically "HTTP to HTTPS redirect").
     private static bool IsHttpsRedirect(XElement rule)
     {

@@ -7,6 +7,7 @@
     <RootNamespace>DnnManager</RootNamespace>
     <AssemblyName>dnnmgr</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>src\DnnManager.Presentation\Assets\dnn.ico</ApplicationIcon>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
@@ -20,6 +21,11 @@
     <!-- WPF drops these two from the implicit usings (name clashes with WPF types); the other layers rely on them. -->
     <Using Include="System.IO" />
     <Using Include="System.Net.Http" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The DNN mark: the exe's icon (ApplicationIcon above) and every window's title-bar icon. -->
+    <Resource Include="src\DnnManager.Presentation\Assets\dnn.ico" />
   </ItemGroup>
 
   <ItemGroup>

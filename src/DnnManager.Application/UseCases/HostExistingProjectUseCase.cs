@@ -105,7 +105,7 @@ public sealed class HostExistingProjectUseCase
                 }
                 else
                 {
-                    reporter.Fail("IIS is not available on this machine - enable it (see 'Check prerequisites') and retry.");
+                    reporter.Fail("IIS is not available on this machine - enable it on the Environment page and retry.");
                 }
             }
 

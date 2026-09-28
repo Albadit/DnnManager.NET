@@ -1,0 +1,197 @@
+<UserControl x:Class="DnnManager.Presentation.Pages.EnvironmentPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <!-- A status line: name | status (coloured from code) | detail | action button. -->
+        <Style x:Key="StatusRow" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{DynamicResource GridLine}" />
+            <Setter Property="BorderThickness" Value="0,1,0,0" />
+            <Setter Property="Padding" Value="0,8" />
+        </Style>
+        <Style x:Key="StatusName" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="StatusValue" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+        </Style>
+        <Style x:Key="StatusDetail" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="StatusAction" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="12,0,0,0" />
+            <Setter Property="Visibility" Value="Collapsed" />
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="28,24,28,20">
+            <DockPanel>
+                <StackPanel>
+                    <TextBlock Style="{StaticResource PageTitle}" Text="Environment" />
+                    <TextBlock Style="{StaticResource PageSubtitle}" x:Name="Subtitle"
+                               Text="Everything DNN Manager needs on this PC - Docker and the SQL Server container, and the IIS Windows features. Test a part to see what's active and set up what's missing." />
+                </StackPanel>
+            </DockPanel>
+
+            <!-- Docker and SQL Server -->
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,8">
+                        <Button DockPanel.Dock="Right" x:Name="DockerTestButton" Content="Test" MinWidth="80" Click="DockerTest_Click" />
+                        <TextBlock Style="{StaticResource CardTitle}" Text="Docker and SQL Server" Margin="0" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <Grid Grid.IsSharedSizeScope="True">
+                        <StackPanel>
+                            <Border Style="{StaticResource StatusRow}" BorderThickness="0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Status" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Style="{StaticResource StatusName}" Text="Docker Desktop" Margin="0,0,24,0" />
+                                    <TextBlock Style="{StaticResource StatusValue}" Grid.Column="1" x:Name="DockerStatus" Text="Not tested" Margin="0,0,16,0" />
+                                    <TextBlock Style="{StaticResource StatusDetail}" Grid.Column="2" x:Name="DockerDetail" />
+                                    <Button Style="{StaticResource StatusAction}" Grid.Column="3" x:Name="InstallDockerButton" Content="Install Docker Desktop" Click="InstallDocker_Click" />
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource StatusRow}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Status" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Style="{StaticResource StatusName}" Text="Docker engine" Margin="0,0,24,0" />
+                                    <TextBlock Style="{StaticResource StatusValue}" Grid.Column="1" x:Name="EngineStatus" Text="Not tested" Margin="0,0,16,0" />
+                                    <TextBlock Style="{StaticResource StatusDetail}" Grid.Column="2" x:Name="EngineDetail" />
+                                    <Button Style="{StaticResource StatusAction}" Grid.Column="3" x:Name="StartDockerButton" Content="Start Docker Desktop" Click="StartDocker_Click" />
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource StatusRow}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Status" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Style="{StaticResource StatusName}" Text="SQL Server container" Margin="0,0,24,0" />
+                                    <TextBlock Style="{StaticResource StatusValue}" Grid.Column="1" x:Name="ContainerStatus" Text="Not tested" Margin="0,0,16,0" />
+                                    <TextBlock Style="{StaticResource StatusDetail}" Grid.Column="2" x:Name="ContainerDetail" />
+                                    <Button Style="{StaticResource StatusAction}" Grid.Column="3" x:Name="SetupContainerButton" Content="Set up container" Click="SetupContainer_Click" />
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource StatusRow}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Status" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Style="{StaticResource StatusName}" Text="SQL Server connection" Margin="0,0,24,0" />
+                                    <TextBlock Style="{StaticResource StatusValue}" Grid.Column="1" x:Name="SqlStatus" Text="Not tested" Margin="0,0,16,0" />
+                                    <TextBlock Style="{StaticResource StatusDetail}" Grid.Column="2" x:Name="SqlDetail" />
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,10,0,8"
+                               Text="Set up container writes docker-compose.yml next to the app from the SQL Server settings (Settings → SQL Server), runs docker compose up -d and waits until SQL Server accepts the sa login." />
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="ShowYamlButton" Content="Show docker-compose.yml" Click="ShowYaml_Click" />
+                    </StackPanel>
+                    <StackPanel x:Name="YamlPanel" Visibility="Collapsed" Margin="0,10,0,0">
+                        <TextBlock x:Name="YamlNote" Style="{StaticResource Hint}" Margin="0,0,0,6" />
+                        <TextBox x:Name="YamlBox" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                                 FontFamily="Cascadia Mono, Consolas" FontSize="12" MaxHeight="380" Padding="8"
+                                 VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- IIS Windows features -->
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,8">
+                        <Button DockPanel.Dock="Right" x:Name="FeaturesTestButton" Content="Test" MinWidth="80" Margin="8,0,0,0"
+                                VerticalAlignment="Center" Click="FeaturesTest_Click" />
+                        <Button DockPanel.Dock="Right" Content="Reset IIS" Margin="8,0,0,0" VerticalAlignment="Center" Click="ResetIis_Click"
+                                ToolTip="Restart IIS (iisreset) - clears stuck sites and picks up IIS changes, e.g. a newly installed URL Rewrite module" />
+                        <Button DockPanel.Dock="Right" x:Name="EnableFeaturesButton" Style="{StaticResource Primary}" Content="Enable missing features"
+                                VerticalAlignment="Center" Visibility="Collapsed" Click="EnableFeatures_Click" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Style="{StaticResource CardTitle}" Text="IIS" Margin="0" />
+                            <TextBlock x:Name="FeaturesSummary" Style="{StaticResource Hint}" Margin="0,2,0,0" Text="Windows features: not tested yet - press Test." />
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- A plain table (a DataGrid here would swallow the page's mouse-wheel scrolling). -->
+                    <Border BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="4" Grid.IsSharedSizeScope="True">
+                        <StackPanel>
+                            <Border Background="{DynamicResource HeaderBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1"
+                                    CornerRadius="4,4,0,0" Padding="12,7">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Feature" />
+                                        <ColumnDefinition Width="24" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="FeatureStatus" />
+                                        <ColumnDefinition Width="24" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Feature" FontWeight="SemiBold" Foreground="{DynamicResource TextMuted}" />
+                                    <TextBlock Grid.Column="2" Text="Status" FontWeight="SemiBold" Foreground="{DynamicResource TextMuted}" />
+                                    <TextBlock Grid.Column="4" Text="Windows feature name" FontWeight="SemiBold" Foreground="{DynamicResource TextMuted}" />
+                                </Grid>
+                            </Border>
+                            <ItemsControl x:Name="FeatureList" AlternationCount="100000">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border x:Name="Row" BorderBrush="{DynamicResource GridLine}" BorderThickness="0,1,0,0" Padding="12,6">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="Feature" />
+                                                    <ColumnDefinition Width="24" />
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="FeatureStatus" />
+                                                    <ColumnDefinition Width="24" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Label}" />
+                                                <TextBlock x:Name="State" Grid.Column="2" Text="{Binding Status}" Foreground="{DynamicResource TextMuted}" />
+                                                <TextBlock Grid.Column="4" Text="{Binding Name}" Foreground="{DynamicResource TextMuted}"
+                                                           FontFamily="Cascadia Mono, Consolas" FontSize="12" VerticalAlignment="Center" />
+                                            </Grid>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <!-- No divider above the first row - the header already has one. -->
+                                            <DataTrigger Binding="{Binding (ItemsControl.AlternationIndex), RelativeSource={RelativeSource TemplatedParent}}" Value="0">
+                                                <Setter TargetName="Row" Property="BorderThickness" Value="0" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Status}" Value="Enabled">
+                                                <Setter TargetName="State" Property="Foreground" Value="{DynamicResource SuccessText}" />
+                                                <Setter TargetName="State" Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Status}" Value="Missing">
+                                                <Setter TargetName="State" Property="Foreground" Value="{DynamicResource ErrorText}" />
+                                                <Setter TargetName="State" Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

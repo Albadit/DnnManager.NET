@@ -26,6 +26,7 @@ public partial class SetupPage : UserControl, IRefreshable
 
         SourceCombo.ItemsSource = releases.KnownReleaseApis;
         SourceCombo.SelectedIndex = 0;
+        LoadBackupProjects();
     }
 
     private string EnteredName => NameBox.Text.Trim();
@@ -37,8 +38,56 @@ public partial class SetupPage : UserControl, IRefreshable
     // The project whose backups the existing-folder options currently list.
     private string? _optionsLoadedFor;
 
+    /// <summary>A dated backup in the "From a project backup" list.</summary>
+    public sealed record BackupPick(ProjectBackup Backup, string Label);
+
+    /// <summary>Fills the project list with the projects that have a complete backup (site zip + database).</summary>
+    private void LoadBackupProjects()
+    {
+        var selected = BackupProjectCombo.SelectedItem as string;
+        var projects = _repo.ListAllProjectDirectories()
+            .Where(p => ProjectBackups.List(_repo.Build(p)).Any(b => b.IsComplete))
+            .ToList();
+        BackupProjectCombo.ItemsSource = projects;
+        BackupProjectCombo.SelectedItem = projects.FirstOrDefault(p => p == selected);
+        BackupProjectCombo.IsEnabled = projects.Count > 0;
+        BackupPickHint.Text = projects.Count > 0
+            ? $"A project and one of its backups ({ProjectBackups.FolderName}) - or choose the files anywhere on this PC below."
+            : $"No project has a backup with site and database yet (Projects → right-click → Export) - choose the files below.";
+    }
+
+    private void BackupProject_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (BackupProjectCombo.SelectedItem is not string project)
+        {
+            ProjectBackupCombo.ItemsSource = null;
+            return;
+        }
+        var backups = ProjectBackups.List(_repo.Build(project))
+            .Where(b => b.IsComplete)
+            .Select(b => new BackupPick(b, $"{b.Created:yyyy-MM-dd HH:mm:ss}  ({SizeMb(b.SiteZip!) + SizeMb(b.Database!):N1} MB)"))
+            .ToList();
+        ProjectBackupCombo.ItemsSource = backups;
+        ProjectBackupCombo.SelectedIndex = backups.Count > 0 ? 0 : -1; // newest first
+    }
+
+    private void ProjectBackup_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (ProjectBackupCombo.SelectedItem is not BackupPick pick) return;
+        ZipBox.Text = pick.Backup.SiteZip!;
+        BackupBox.Text = pick.Backup.Database!;
+
+        // A copy of an existing project needs a name of its own.
+        var suggested = pick.Backup.Project + "_copy";
+        if (EnteredName.Length == 0 && ProjectName.Validate(suggested).Success && !_repo.ProjectExists(suggested))
+            NameBox.Text = suggested;
+    }
+
+    private static double SizeMb(string file) => File.Exists(file) ? new FileInfo(file).Length / 1024d / 1024d : 0;
+
     public void Refresh()
     {
+        LoadBackupProjects();
         _optionsLoadedFor = null; // the operation may have created the folder or a backup
         UpdateState();
     }

@@ -51,13 +51,23 @@ public partial class ExistingFolderOptions : UserControl
     /// <summary>Raised when the chosen action changes (setup hides its DNN-package fields unless redownloading).</summary>
     public event EventHandler? ActionChanged;
 
-    /// <summary>Loads the backups found in <paramref name="project"/>: its backups folder or its root, newest first.</summary>
+    /// <summary>
+    /// Loads the backups found in <paramref name="project"/>, newest first: its 01_backup folder (the dated backup
+    /// folders in it too), the old "backups" folder, and its root.
+    /// </summary>
     public void Load(DnnProject project)
     {
         _project = project;
-        var found = new[] { project.BackupDirectory, project.ProjectDirectory }
-            .Where(Directory.Exists)
-            .SelectMany(Directory.EnumerateFiles)
+        var legacy = Path.Combine(project.ProjectDirectory, ProjectBackups.LegacyFolderName);
+        var found = new[]
+            {
+                (Folder: project.BackupDirectory, Deep: true),
+                (Folder: legacy, Deep: false),
+                (Folder: project.ProjectDirectory, Deep: false)
+            }
+            .Where(f => Directory.Exists(f.Folder))
+            .SelectMany(f => Directory.EnumerateFiles(f.Folder, "*",
+                f.Deep ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
             .Where(LocalSqlContainer.IsBackupFile)
             .Select(f => new FileInfo(f))
             .OrderByDescending(f => f.LastWriteTime)
