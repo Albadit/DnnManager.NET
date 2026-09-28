@@ -65,7 +65,6 @@ public partial class ClonePage : UserControl, IRefreshable
         NameError.Text = name.Length > 0 && !nameCheck.Success ? nameCheck.Error ?? "" : "";
         NameError.Visibility = NameError.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 
-
         var missing = MissingInput(nameCheck.Success);
         RunButton.IsEnabled = missing is null;
         RunHint.Text = missing ?? "";
@@ -79,8 +78,6 @@ public partial class ClonePage : UserControl, IRefreshable
         return null;
     }
 
-    // ─── RUN ──────────────────────────────────────────────────────────────
-
     private async void Run_Click(object sender, RoutedEventArgs e)
     {
         var target = TargetName;
@@ -88,8 +85,6 @@ public partial class ClonePage : UserControl, IRefreshable
 
         // Everything the operation needs is read from the controls here, on the UI thread.
         var local = Path.Combine(_options.BaseDirectory, (string)LocalSourceCombo.SelectedItem);
-
-        // Backup destination for the source DB (always auto-generated).
         var bakPath = Path.Combine(Path.GetTempPath(), $"dnnmgr_clone_{target}_{DateTime.Now:yyyyMMddHHmmss}.bak");
 
         await _runner.RunAsync($"Clone → '{target}'", async (services, reporter, ct) =>

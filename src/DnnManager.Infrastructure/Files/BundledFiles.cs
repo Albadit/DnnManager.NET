@@ -32,7 +32,6 @@ public static class BundledFiles
         return true;
     }
 
-    /// <summary>The built-in default content of <paramref name="fileName"/>.</summary>
     public static string DefaultContent(string fileName) => fileName switch
     {
         AppSettings => DefaultAppSettings,

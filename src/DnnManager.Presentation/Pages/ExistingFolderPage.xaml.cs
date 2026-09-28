@@ -31,17 +31,21 @@ public partial class ExistingFolderPage : UserControl, IRefreshable
 
     private Folder? Selected => FolderList.SelectedItem as Folder;
 
-    public void Refresh()
+    public async void Refresh()
     {
         var selected = Selected?.Name;
 
-        // Show which folders already have a website, so the ones still needing one stand out.
-        var sites = _iis.GetSiteStates();
-        var folders = _repo.ListAllProjectDirectories()
-            .Select(n => !sites.TryGetValue(n, out var state) ? new Folder(n, "no IIS site", "None")
-                : string.Equals(state, "Started", StringComparison.OrdinalIgnoreCase) ? new Folder(n, "IIS: Live", "Live")
-                : new Folder(n, "IIS: Offline", "Offline"))
-            .ToList();
+        // Show which folders already have a website, so the ones still needing one stand out. Reading IIS's
+        // configuration takes a moment - off the UI thread, so the page opens at once.
+        var folders = await Task.Run(() =>
+        {
+            var sites = _iis.GetSiteStates();
+            return _repo.ListAllProjectDirectories()
+                .Select(n => !sites.TryGetValue(n, out var state) ? new Folder(n, "no IIS site", "None")
+                    : string.Equals(state, "Started", StringComparison.OrdinalIgnoreCase) ? new Folder(n, "IIS: Live", "Live")
+                    : new Folder(n, "IIS: Offline", "Offline"))
+                .ToList();
+        });
 
         FolderList.ItemsSource = folders;
         FolderList.SelectedItem = folders.FirstOrDefault(f => f.Name == selected);

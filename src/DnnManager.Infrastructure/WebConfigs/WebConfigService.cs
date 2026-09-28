@@ -114,7 +114,7 @@ public sealed class WebConfigService : IWebConfigService
             var rewrites = doc.Descendants("system.webServer")
                               .Elements("rewrite")
                               .ToList();
-            if (rewrites.Count == 0) return Result.Ok(); // nothing to do
+            if (rewrites.Count == 0) return Result.Ok();
 
             foreach (var r in rewrites) r.Remove();
             doc.Save(webConfigPath);

@@ -15,7 +15,7 @@ public sealed class FileSystemProjectRepository : IProjectRepository
     public DnnProject Build(string projectName)
     {
         // The project directory IS the published/served DNN site; its dated backups live in 01_backup at
-        // its root (see ProjectBackups). There is no per-project docker-compose - one shared compose file ships with the app.
+        // its root (see ProjectBackups). There is no per-project docker-compose - one shared compose file lives next to the app.
         var projectDir = Path.Combine(_opts.BaseDirectory, projectName);
         return new DnnProject(
             projectName,

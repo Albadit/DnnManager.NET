@@ -47,7 +47,6 @@
         <Grid>
             <!-- Pixel (not row-by-row) scrolling; the list is small enough that virtualization isn't needed. -->
             <!-- Columns size to their content (nothing cut off); a wider table scrolls sideways - scrollbar or Shift + wheel. -->
-            <!-- Right-click a project for its details and to open it in an installed IDE. -->
             <DataGrid x:Name="ProjectsGrid" SelectionChanged="Grid_SelectionChanged" MouseDoubleClick="Grid_MouseDoubleClick"
                       PreviewMouseWheel="Grid_PreviewMouseWheel" PreviewMouseRightButtonDown="Grid_PreviewMouseRightButtonDown"
                       ContextMenuOpening="Grid_ContextMenuOpening"

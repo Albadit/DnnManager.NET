@@ -45,7 +45,6 @@ public sealed class RemoteSqlBackupService : IRemoteSqlBackupService
                     "Source is Azure SQL Database, which does not support BACKUP DATABASE TO DISK. " +
                     "Cloning from Azure SQL needs a BACPAC export (SqlPackage) instead \u2014 not yet supported.");
 
-            // Sanity: database exists?
             using (var existsCmd = new SqlCommand(
                 "SELECT COUNT(*) FROM sys.databases WHERE name = @n", conn))
             {

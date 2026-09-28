@@ -109,7 +109,6 @@ public partial class SetupPage : UserControl, IRefreshable
         if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
         ZipBox.Text = dialog.FileName;
 
-        // Name the project after the zip when no name has been typed yet.
         var suggested = Path.GetFileNameWithoutExtension(dialog.FileName).Replace(' ', '_');
         if (EnteredName.Length == 0 && ProjectName.Validate(suggested).Success) NameBox.Text = suggested;
     }

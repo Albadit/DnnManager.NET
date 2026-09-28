@@ -240,7 +240,6 @@ public sealed record HttpsRedirectRules(IReadOnlyList<string> SwitchedOff, IRead
 
 public interface IWebConfigService
 {
-    /// <summary>Reads the SiteSqlServer connection string from the project's web.config.</summary>
     Result<SiteSqlConnection> ReadSiteSqlServer(string webConfigPath);
 
     /// <summary>
@@ -271,7 +270,8 @@ public interface IWebConfigService
 
 /// <summary>
 /// Exports a (possibly Azure) SQL database to a <c>.bacpac</c> and imports it into a local SQL Server,
-/// using Microsoft's SqlPackage tool. Used to clone Azure SQL sources, which do not support BACKUP DATABASE.
+/// using Microsoft's SqlPackage tool. Used for project export/import, and to clone Azure SQL sources, which do
+/// not support BACKUP DATABASE.
 /// </summary>
 public interface IBacpacService
 {
@@ -298,7 +298,7 @@ public interface IRemoteSqlBackupService
     /// <summary>
     /// Issues BACKUP DATABASE against the given (possibly external) SQL Server using SQL auth.
     /// Returns the host-side path of the resulting <c>.bak</c> when it can be read by this process.
-    /// The caller supplies <paramref name="backupServerPath"/> \u2014 a path the SQL Server service can write to.
+    /// The caller supplies <paramref name="backupServerPath"/> - a path the SQL Server service can write to.
     /// For sources whose Data Source resolves to this machine that's a normal local path; for remote
     /// servers it must be a UNC share readable from here.
     /// </summary>

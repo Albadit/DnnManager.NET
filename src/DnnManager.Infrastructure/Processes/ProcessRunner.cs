@@ -41,9 +41,9 @@ public sealed class ProcessRunner
         }
         catch (Win32Exception ex)
         {
-            // The executable isn't installed / on PATH (e.g. no Docker). Report it as an ordinary
-            // failed run so callers take their "tool missing" path instead of unwinding the whole
-            // operation - setup is meant to skip the database step when Docker is absent, not abort.
+            // The executable isn't installed / on PATH (e.g. no Docker or winget). Report it as an
+            // ordinary failed run (exit code -1) so callers can show a "tool missing" message instead
+            // of the exception unwinding the whole operation.
             return new ProcessResult { ExitCode = -1, StdErr = $"Could not start '{fileName}': {ex.Message}" };
         }
         p.BeginOutputReadLine();

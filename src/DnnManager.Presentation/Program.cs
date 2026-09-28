@@ -62,7 +62,6 @@ internal static class Program
         builder.Services.AddApplication();
         builder.Services.AddInfrastructure();
 
-        // GUI services
         builder.Services.AddSingleton<ActivityLog>();
         builder.Services.AddSingleton<GuiProgressReporter>();
         builder.Services.AddSingleton<IProgressReporter>(sp => sp.GetRequiredService<GuiProgressReporter>());
