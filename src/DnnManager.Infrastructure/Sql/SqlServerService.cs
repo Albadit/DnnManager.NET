@@ -85,7 +85,7 @@ END";
         var r = await SqlcmdAsync(null, null, null, sql, ct);
         if (!r.Success) return Result<string>.Fail(r.StdErr);
 
-        // copy out to a temp file we can return; caller can move it to backupDir.
+        // Copy out to a host temp file; the caller moves it into the project's backup folder.
         var hostTmp = Path.Combine(Path.GetTempPath(), backupFileName);
         var cp = await _proc.RunAsync("docker", new[] { "cp", $"{Container}:{containerPath}", hostTmp }, ct);
         if (!cp.Success) return Result<string>.Fail(cp.StdErr);
@@ -103,7 +103,6 @@ END";
         var cp = await _proc.RunAsync("docker", new[] { "cp", backupFilePath, $"{Container}:{containerPath}" }, ct);
         if (!cp.Success) return Result.Fail(cp.StdErr);
 
-        // Enumerate logical files
         var listSql = $@"
 SET NOCOUNT ON;
 DECLARE @t TABLE (LogicalName nvarchar(128), PhysicalName nvarchar(260), Type char(1),

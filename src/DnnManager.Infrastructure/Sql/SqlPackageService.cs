@@ -74,7 +74,6 @@ public sealed class SqlPackageService : IBacpacService
         var toolPath = Path.Combine(home, ".dotnet", "tools", "sqlpackage.exe");
         if (File.Exists(toolPath)) return toolPath;
 
-        // Fall back to PATH lookup via `where`.
         try
         {
             var psi = new System.Diagnostics.ProcessStartInfo("where", "sqlpackage")

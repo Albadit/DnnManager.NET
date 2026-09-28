@@ -8,7 +8,6 @@
             <TextBlock Style="{StaticResource PageSubtitle}"
                        Text="Copies a DNN site from a local folder into a new project, restores its database - the one in its web.config - into the local SQL Server and creates the IIS website." />
 
-            <!-- Target project -->
             <Border Style="{StaticResource Card}">
                 <StackPanel>
                     <TextBlock Style="{StaticResource CardTitle}" Text="Project" />
@@ -19,7 +18,6 @@
                 </StackPanel>
             </Border>
 
-            <!-- Local source -->
             <Border Style="{StaticResource Card}">
                 <StackPanel>
                     <TextBlock Style="{StaticResource CardTitle}" Text="Source project" />

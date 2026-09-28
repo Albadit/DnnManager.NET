@@ -18,7 +18,7 @@ public partial class MainWindow : Window
     private readonly OperationRunner _runner;
 
     // One entry per sidebar item. Pages are rebuilt on every visit so their lists (folders,
-    // backups…) are always fresh - the same as re-entering a TUI menu.
+    // backups…) are always fresh.
     private static readonly Dictionary<string, Type> Pages = new()
     {
         ["Projects"]      = typeof(ProjectsPage),

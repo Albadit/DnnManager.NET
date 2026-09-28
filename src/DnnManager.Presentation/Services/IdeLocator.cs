@@ -17,23 +17,17 @@ internal static class IdeLocator
 {
     private const string SsmsProduct = "Microsoft.VisualStudio.Product.Ssms";
 
-    private static IReadOnlyList<Ide>? _cache;
-    private static IReadOnlyList<Ide>? _ssmsCache;
+    // Looked up once per run (vswhere takes a moment). Lazy so the background warm-up and a right-click that
+    // arrives before it finishes share one lookup instead of running vswhere twice.
+    private static readonly Lazy<IReadOnlyList<Ide>> _installed = new(Find);
+    private static readonly Lazy<IReadOnlyList<Ide>> _managementStudios = new(FindManagementStudios);
 
-    /// <summary>The installed IDEs. Looked up once per run - vswhere takes a moment.</summary>
-    public static IReadOnlyList<Ide> Installed => _cache ??= Find();
+    /// <summary>The installed IDEs.</summary>
+    public static IReadOnlyList<Ide> Installed => _installed.Value;
 
     /// <summary>The installed SQL Server Management Studio versions, newest first.</summary>
-    public static IReadOnlyList<Ide> ManagementStudios => _ssmsCache ??= FindManagementStudios();
+    public static IReadOnlyList<Ide> ManagementStudios => _managementStudios.Value;
 
-    /// <summary>
-    /// Opens <paramref name="database"/> in SSMS: server, database and login filled in. SSMS takes no password
-    /// on its command line, so it asks for one (and can remember it); no user means Windows authentication.
-    /// </summary>
-    /// <param name="trustServerCertificate">
-    /// Trust the server's certificate without validating it - for the local container, whose certificate is
-    /// self-signed. SSMS 20+ encrypts by default and refuses such a certificate otherwise.
-    /// </param>
     /// <summary>A running instance of exactly this SSMS (same exe) with a main window, or null.</summary>
     public static Process? FindRunning(Ide ssms)
     {
@@ -62,6 +56,14 @@ internal static class IdeLocator
         return Process.Start(psi);
     }
 
+    /// <summary>
+    /// Opens <paramref name="database"/> in SSMS: server, database and login filled in. SSMS takes no password
+    /// on its command line, so it asks for one (and can remember it); no user means Windows authentication.
+    /// </summary>
+    /// <param name="trustServerCertificate">
+    /// Trust the server's certificate without validating it - for the local container, whose certificate is
+    /// self-signed. SSMS 20+ encrypts by default and refuses such a certificate otherwise.
+    /// </param>
     /// <returns>The started SSMS process.</returns>
     public static Process? OpenDatabase(Ide ssms, SiteSqlConnection database, bool trustServerCertificate, string displayName)
     {

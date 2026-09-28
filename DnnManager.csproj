@@ -13,6 +13,9 @@
     <LangVersion>latest</LangVersion>
     <DebugType>embedded</DebugType>
     <Version>2.0.0</Version>
+    <!-- Publishing for a runtime (e.g. -r win-x64) precompiles the code (ReadyToRun), so the app starts without
+         JIT-compiling everything first. Plain builds and dotnet run are unaffected. -->
+    <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
     <!-- Program.Main builds the DI host before starting WPF, so App.xaml is a plain Page. -->
     <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
   </PropertyGroup>

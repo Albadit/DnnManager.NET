@@ -22,6 +22,8 @@ public partial class ProjectsPage : UserControl, IRefreshable
     private readonly IServiceProvider _services;
     private readonly OperationRunner _runner;
     private int _loadVersion;
+    // Pages are rebuilt on every visit: the last list is kept so a revisit shows it at once while it refreshes.
+    private static (IReadOnlyList<ProjectStatus> List, DateTime Loaded)? _last;
     // The row under the mouse at the last right-click (null: empty space) - what the context menu is for.
     private Row? _menuRow;
 
@@ -45,6 +47,7 @@ public partial class ProjectsPage : UserControl, IRefreshable
     {
         _services = services; _runner = runner;
         InitializeComponent();
+        if (_last is { } last) Show(last.List, last.Loaded);
         Loaded += (_, _) => Refresh();
         // Look for installed IDEs now (vswhere takes a moment) so the first right-click opens at once.
         _ = Task.Run(() => (IdeLocator.Installed, IdeLocator.ManagementStudios));
@@ -66,12 +69,8 @@ public partial class ProjectsPage : UserControl, IRefreshable
             });
             if (version != _loadVersion) return;
 
-            var selected = Selected?.Name;
-            ProjectsGrid.ItemsSource = list.Select(p => new Row(p)).ToList();
-            ProjectsGrid.SelectedItem = ProjectsGrid.Items.OfType<Row>().FirstOrDefault(r => r.Name == selected);
-            Subtitle.Text = $"{list.Count} project folder{(list.Count == 1 ? "" : "s")} - their IIS site and database. " +
-                            $"Updated {DateTime.Now:HH:mm:ss}.";
-            ShowOverlay(list.Count == 0 ? "No projects found." : null);
+            _last = (list, DateTime.Now);
+            Show(list, DateTime.Now);
         }
         catch (Exception ex)
         {
@@ -82,6 +81,16 @@ public partial class ProjectsPage : UserControl, IRefreshable
         {
             if (version == _loadVersion) SetLoading(false);
         }
+    }
+
+    private void Show(IReadOnlyList<ProjectStatus> list, DateTime loaded)
+    {
+        var selected = Selected?.Name;
+        ProjectsGrid.ItemsSource = list.Select(p => new Row(p)).ToList();
+        ProjectsGrid.SelectedItem = ProjectsGrid.Items.OfType<Row>().FirstOrDefault(r => r.Name == selected);
+        Subtitle.Text = $"{list.Count} project folder{(list.Count == 1 ? "" : "s")} - their IIS site and database. " +
+                        $"Updated {loaded:HH:mm:ss}.";
+        ShowOverlay(list.Count == 0 ? "No projects found." : null);
     }
 
     /// <summary>
@@ -441,7 +450,6 @@ public partial class ProjectsPage : UserControl, IRefreshable
 
             var details = new List<DetailsDialog.Detail>();
 
-            // ─── Project ───
             details.Add(DetailsDialog.Detail.Section("Project"));
             details.Add(new("Folder", dir));
             if (Directory.Exists(dir)) details.Add(new("Created", Directory.GetCreationTime(dir).ToString("g")));
@@ -453,7 +461,6 @@ public partial class ProjectsPage : UserControl, IRefreshable
             details.Add(new("Backups", projectBackups.Count == 0 ? $"none in {ProjectBackups.FolderName}"
                 : $"{projectBackups.Count} in {project.BackupDirectory} - newest {projectBackups[0].Created:yyyy-MM-dd HH:mm}"));
 
-            // ─── Website ───
             details.Add(DetailsDialog.Detail.Section("Website (IIS)"));
             details.Add(new("Status", row.Iis, row.Iis switch { "Live" => DetailKind.Good, "Offline" => DetailKind.Bad, _ => DetailKind.Normal }));
             details.Add(new("URL", s.SiteUrl));
@@ -472,7 +479,6 @@ public partial class ProjectsPage : UserControl, IRefreshable
                 if (site.Identity is { } identity) details.Add(new("Identity", identity));
             }
 
-            // ─── Database ───
             details.Add(DetailsDialog.Detail.Section("Database"));
             details.Add(new("SQL", row.Sql, row.Sql switch { "Live" => DetailKind.Good, "Offline" => DetailKind.Bad, _ => DetailKind.Warning }));
             details.Add(new("Database", s.DatabaseExists ? row.Database : $"{row.Database}  (doesn't exist on {database.Server})",
@@ -495,7 +501,6 @@ public partial class ProjectsPage : UserControl, IRefreshable
                 details.Add(new("Details", $"couldn't be read: {facts.Error}", DetailKind.Warning));
             }
 
-            // ─── web.config ───
             details.Add(DetailsDialog.Detail.Section("web.config"));
             if (!hasWebConfig)
             {

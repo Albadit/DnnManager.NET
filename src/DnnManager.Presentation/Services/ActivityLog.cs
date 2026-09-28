@@ -27,7 +27,7 @@ public sealed class LogEntry : INotifyPropertyChanged
         set { _text = value; OnPropertyChanged(); OnPropertyChanged(nameof(Display)); }
     }
 
-    /// <summary>The line as shown in the log pane, with the same markers the TUI prints.</summary>
+    /// <summary>The line as shown in the log pane, with a marker for its kind.</summary>
     public string Display => Kind switch
     {
         LogKind.Header  => $"▌ {Text}",

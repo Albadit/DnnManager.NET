@@ -38,7 +38,6 @@
                 </StackPanel>
             </DockPanel>
 
-            <!-- Docker and SQL Server -->
             <Border Style="{StaticResource Card}">
                 <StackPanel>
                     <DockPanel Margin="0,0,0,8">
@@ -119,7 +118,6 @@
                 </StackPanel>
             </Border>
 
-            <!-- IIS Windows features -->
             <Border Style="{StaticResource Card}">
                 <StackPanel>
                     <DockPanel Margin="0,0,0,8">

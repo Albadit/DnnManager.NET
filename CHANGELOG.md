@@ -4,6 +4,18 @@ All notable changes to DnnManager.NET are documented here.
 
 ## Unreleased
 
+### Performance
+
+- **Faster start.** Publishing for a runtime (`-r win-x64`, as the publish task
+  does) now precompiles the app (ReadyToRun), so it starts without
+  JIT-compiling everything first. The exe grows by about 9 MB.
+- **Projects shows at once when you come back to it.** The last list is kept
+  between visits and shown immediately while it refreshes in the background.
+- **Host project opens without a pause** - IIS's configuration is read off the
+  UI thread.
+- **The first right-click on a project no longer can freeze the window** - the
+  installed IDEs / SSMS are looked up once, shared with the background warm-up.
+
 ### Added
 
 - **Environment page** (was *Prerequisites*). Shows whether Docker Desktop, the
@@ -53,6 +65,8 @@ All notable changes to DnnManager.NET are documented here.
 
 ### Changed
 
+- **Code comments cleaned up** - comments that only repeated the code, and
+  stale ones about removed features (FTP, Live sites, Docker checks), are gone.
 - **SQL Server host defaults to `localhost`** (was `127.0.0.1`), and the Settings
   field is now called **Server host**.
 - **DNN icon.** `dnnmgr.exe` (Explorer, taskbar, Alt+Tab) and every window's
