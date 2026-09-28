@@ -6,7 +6,7 @@ namespace DnnManager.Infrastructure.Sql;
 
 public sealed class SqlConnectionTester : ISqlConnectionTester
 {
-    public async Task<Result<string>> TestAsync(SiteSqlConnection connection, CancellationToken ct)
+    public async Task<Result<string>> TestAsync(SiteSqlConnection connection, CancellationToken ct, int timeoutSeconds = 15)
     {
         if (string.IsNullOrWhiteSpace(connection.Server)) return Result<string>.Fail("SQL server is empty.");
         try
@@ -19,7 +19,7 @@ public sealed class SqlConnectionTester : ISqlConnectionTester
                 Password = connection.Password,
                 Encrypt = true,                  // Azure SQL requires TLS.
                 TrustServerCertificate = true,
-                ConnectTimeout = 15
+                ConnectTimeout = timeoutSeconds
             }.ConnectionString);
             await conn.OpenAsync(ct);
 

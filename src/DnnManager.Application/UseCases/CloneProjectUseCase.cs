@@ -9,7 +9,8 @@ namespace DnnManager.Application.UseCases;
 public sealed class CloneProjectRequest
 {
     public required string TargetProjectName { get; init; }
-    public required CloneSource Source { get; init; }
+    /// <summary>The folder holding the DNN site to copy.</summary>
+    public required string SourceDirectory { get; init; }
     /// <summary>Path where the source SQL Server should write the .bak (must be readable from this host too).</summary>
     public required string SourceBackupServerPath { get; init; }
     public bool CreateIisSite { get; init; } = true;
@@ -41,7 +42,6 @@ public sealed class CloneProjectUseCase
     private readonly ISqlServerService _sql;
     private readonly IIisManager _iis;
     private readonly IisSiteProvisioner _site;
-    private readonly IPrerequisiteChecker _prereq;
     private readonly ILogger<CloneProjectUseCase> _log;
 
     public CloneProjectUseCase(
@@ -56,7 +56,6 @@ public sealed class CloneProjectUseCase
         ISqlServerService sql,
         IIisManager iis,
         IisSiteProvisioner site,
-        IPrerequisiteChecker prereq,
         ILogger<CloneProjectUseCase> log)
     {
         _opts = opts.Value;
@@ -70,7 +69,6 @@ public sealed class CloneProjectUseCase
         _sql = sql;
         _iis = iis;
         _site = site;
-        _prereq = prereq;
         _log = log;
     }
 
@@ -92,7 +90,7 @@ public sealed class CloneProjectUseCase
             if (req.CopyFiles)
             {
                 reporter.Step("Copying website files");
-                var copy = await _copier.CopyAsync(req.Source, project.ProjectDirectory, reporter, ct);
+                var copy = await _copier.CopyAsync(req.SourceDirectory, project.ProjectDirectory, reporter, ct);
                 if (!copy.Success) return copy;
             }
             else
@@ -119,23 +117,25 @@ public sealed class CloneProjectUseCase
             else
                 reporter.Info($"Could not write .gitignore: {gitignore.Error}");
 
-            // Seeding restores the source DB into the local Docker SQL container, so it needs Docker.
-            // If Docker is absent we skip seeding (like a files-only clone) instead of hard-failing.
-            var dockerAvailable = false;
+            // Seeding restores the source DB into the local SQL Server, so it needs that server to be
+            // reachable. If it isn't we skip seeding (like a files-only clone) instead of hard-failing.
+            var port = _opts.Docker.DefaultPort;
+            var sqlAvailable = false;
             if (req.SeedDatabase)
             {
-                dockerAvailable = (await _prereq.CheckDockerAsync(reporter, ct)).Success;
-                if (!dockerAvailable)
-                    reporter.Info("Docker not found - skipping database seeding. The cloned files are kept; " +
-                                  "configure a database and point the site's web.config at it yourself.");
+                reporter.Step("Checking local SQL Server");
+                var ready = await _sqlContainer.CheckAsync(reporter, ct);
+                sqlAvailable = ready.Success;
+                if (ready.Success) port = ready.Value;
             }
 
-            if (!req.SeedDatabase || !dockerAvailable)
+            if (!req.SeedDatabase || !sqlAvailable)
             {
                 if (!req.SeedDatabase)
                     reporter.Info("Skipping database - website files only.");
                 else
-                    reporter.Info("Docker unavailable - the cloned files are kept; point the site's " +
+                    reporter.Info("SQL Server not reachable - skipping database seeding. The cloned files are kept; " +
+                                  "start the SQL Server container and clone again, or point the site's " +
                                   "web.config at a database yourself.");
             }
             else
@@ -181,19 +181,13 @@ public sealed class CloneProjectUseCase
 
             // Azure SQL Database can't produce a .bak, so it is cloned via a BACPAC
             // (SqlPackage export+import) instead of BACKUP/RESTORE. Detect it up front and
-            // provision SqlPackage now - failing fast before any Docker setup if it can't be installed.
+            // provision SqlPackage now - failing fast before any local database work if it can't be installed.
             var sourceIsAzure = src.Server.Contains("database.windows.net", StringComparison.OrdinalIgnoreCase);
             if (sourceIsAzure)
             {
                 var ensuredEarly = await _bacpac.EnsureAvailableAsync(reporter, ct);
                 if (!ensuredEarly.Success) return ensuredEarly;
             }
-
-            // 4) Ensure shared docker SQL container is up, write compose, get port
-            reporter.Step("Preparing local SQL Server (Docker)");
-            var ready = await _sqlContainer.EnsureReadyAsync(reporter, ct);
-            if (!ready.Success) return Result.Fail(ready.Error!);
-            var port = ready.Value;
 
             // 6) Create the local database (by name only; the site connects as the container sa)
             var db = _sqlContainer.DatabaseFor(project, _opts.DatabaseNameFor(req.TargetProjectName), port);
@@ -238,18 +232,18 @@ public sealed class CloneProjectUseCase
                 if (!create.Success) return create;
                 reporter.Success($"Local database [{db.DatabaseName}] ready.");
 
-                // 6) Back up the source DB. If the source is our local Docker container,
+                // 6) Back up the source DB. If the source is our local SQL container,
                 //    route the backup through the container instead of a Windows path it can't see.
                 reporter.Step("Backing up source database");
                 string srcBakHostPath;
                 if (_sqlContainer.IsLocalContainer(src.Server, port))
                 {
-                    reporter.Info("Source DB is on the local Docker SQL container - using container backup path.");
+                    reporter.Info("Source DB is on the local SQL container - using container backup path.");
                     var fileName = Path.GetFileName(req.SourceBackupServerPath);
-                    var dockerBak = await _sql.BackupDatabaseLocalAsync(src.Database, fileName, ct);
-                    if (!dockerBak.Success || dockerBak.Value is null)
-                        return Result.Fail(dockerBak.Error ?? "Source backup via Docker failed.");
-                    srcBakHostPath = dockerBak.Value;
+                    var localBak = await _sql.BackupDatabaseLocalAsync(src.Database, fileName, ct);
+                    if (!localBak.Success || localBak.Value is null)
+                        return Result.Fail(localBak.Error ?? "Source backup on the local SQL container failed.");
+                    srcBakHostPath = localBak.Value;
                     reporter.Success($"Source backup written to {srcBakHostPath}");
                 }
                 else

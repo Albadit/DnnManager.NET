@@ -83,12 +83,12 @@ public sealed class SetupProjectUseCase
             }
 
             reporter.Step("Step 1: Prerequisites");
-            // Docker and IIS are optional. If either is missing we skip the steps that need it
+            // SQL Server and IIS are optional. If either is missing we skip the steps that need it
             // and still lay down the project files + env, instead of aborting the whole setup.
-            var dockerAvailable = (await _prereq.CheckDockerAsync(reporter, ct)).Success;
-            if (!dockerAvailable)
-                reporter.Info("Docker not found - skipping SQL Server/database provisioning. " +
-                              "Start Docker and re-run setup, or point the site's web.config at your own database.");
+            var sqlAvailable = (await _sqlContainer.CheckAsync(reporter, ct)).Success;
+            if (!sqlAvailable)
+                reporter.Info("Skipping database provisioning. Start the SQL Server container and re-run " +
+                              "setup, or point the site's web.config at your own database.");
 
             var iisAvailable = _iis.IsAvailable();
             if (iisAvailable)
@@ -128,7 +128,7 @@ public sealed class SetupProjectUseCase
                 reporter.Info("Skipped - IIS not available.");
 
             reporter.Step("Step 6: Database");
-            if (dockerAvailable)
+            if (sqlAvailable)
             {
                 var db = await TryProvisionDatabaseAsync(project, reporter, ct);
                 reporter.Info($"In the DNN install wizard, connect to: server '{db.Server}', " +
@@ -136,8 +136,8 @@ public sealed class SetupProjectUseCase
             }
             else
             {
-                reporter.Info("Skipped database provisioning - Docker not available. Start Docker and " +
-                              "re-run setup to create the database.");
+                reporter.Info("Skipped database provisioning - SQL Server not reachable. Start the SQL Server " +
+                              "container and re-run setup to create the database.");
             }
 
             var url = _opts.SiteUrlFor(req.ProjectName);
@@ -166,23 +166,15 @@ public sealed class SetupProjectUseCase
         }
     }
 
-    // Best-effort SQL provisioning: starts/reuses the shared container, waits for SQL, and creates
-    // the project's database (by name only; the site connects as sa). Any sub-step failure is
-    // reported and skipped (not fatal) so the overall setup can still finish. Returns the database
-    // the install wizard should connect to (on the default port if the container never came up).
+    // Best-effort SQL provisioning on the (already checked) local SQL Server: creates the project's
+    // database (by name only; the site connects as sa). Any sub-step failure is reported and skipped
+    // (not fatal) so the overall setup can still finish. Returns the database the install wizard
+    // should connect to.
     private async Task<DatabaseConfig> TryProvisionDatabaseAsync(DnnProject project, IProgressReporter reporter, CancellationToken ct)
     {
         var db = _sqlContainer.DatabaseFor(project, _opts.DatabaseNameFor(project.Name), _opts.Docker.DefaultPort);
         try
         {
-            var ready = await _sqlContainer.EnsureReadyAsync(reporter, ct);
-            if (!ready.Success)
-            {
-                reporter.Fail($"{ready.Error} Skipping database setup.");
-                return db;
-            }
-            db = _sqlContainer.DatabaseFor(project, db.DatabaseName, ready.Value);
-
             var exists = await _sql.DatabaseExistsAsync(db.DatabaseName, ct);
             if (exists.Success && exists.Value &&
                 await _prompt.ConfirmAsync($"Database '{db.DatabaseName}' exists. Drop and recreate?", false, ct))

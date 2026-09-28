@@ -1,5 +1,4 @@
 using DnnManager.Application.Abstractions;
-using DnnManager.Infrastructure.Docker;
 using DnnManager.Infrastructure.Files;
 using DnnManager.Infrastructure.Github;
 using DnnManager.Infrastructure.Iis;
@@ -19,17 +18,11 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ProcessRunner>();
         services.AddSingleton<IProjectRepository, FileSystemProjectRepository>();
         services.AddSingleton<IIisManager, IisManager>();
-        services.AddSingleton<IDockerService, DockerService>();
         services.AddSingleton<ISqlServerService, SqlServerService>();
         services.AddSingleton<IPrerequisiteChecker, WindowsPrerequisiteChecker>();
         services.AddSingleton<IHttpConnectivityChecker, HttpConnectivityChecker>();
         services.AddSingleton<IProjectFileCopier, ProjectFileCopier>();
         services.AddSingleton<IProjectScaffolder, ProjectScaffolder>();
-        services.AddSingleton<IFtpBrowser, FtpBrowser>();
-        // One combined store (connections.json) backs both FTP and SQL profiles.
-        services.AddSingleton<ConnectionProfileStore>();
-        services.AddSingleton<IFtpProfileStore>(sp => sp.GetRequiredService<ConnectionProfileStore>());
-        services.AddSingleton<ISqlProfileStore>(sp => sp.GetRequiredService<ConnectionProfileStore>());
         services.AddSingleton<IWebConfigService, WebConfigService>();
         services.AddSingleton<IRemoteSqlBackupService, RemoteSqlBackupService>();
         services.AddSingleton<ISqlConnectionTester, SqlConnectionTester>();

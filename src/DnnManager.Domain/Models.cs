@@ -20,7 +20,7 @@ public sealed record ProjectStatus(
     bool IisSiteExists,
     string? IisSiteState,
     long DirectorySizeBytes,
-    bool ContainerRunning,
+    bool SqlReachable,
     string? DatabaseName,
     int? SqlPort,
     string SiteUrl);

@@ -201,11 +201,8 @@ public sealed class HostExistingProjectUseCase
                 return Result.Fail($"Not a .bacpac or .bak file: {backupFile}");
         }
 
-        if (!(await _prereq.CheckDockerAsync(reporter, ct)).Success)
-            return Result.Fail("Docker not available - start Docker and run this again.");
-
-        var ready = await _sqlContainer.EnsureReadyAsync(reporter, ct);
-        if (!ready.Success) return Result.Fail(ready.Error ?? "The SQL container is not ready.");
+        var ready = await _sqlContainer.CheckAsync(reporter, ct);
+        if (!ready.Success) return Result.Fail(ready.Error ?? "The local SQL Server is not reachable.");
         var port = ready.Value;
 
         // When web.config already points at the local container, keep the database it names (creating it
@@ -267,7 +264,7 @@ public sealed class HostExistingProjectUseCase
 
         if (alreadyLocal)
         {
-            reporter.Info("web.config already uses the local SQL container - left unchanged.");
+            reporter.Info($"web.config already uses [{db.DatabaseName}] on {db.Server} - left unchanged.");
         }
         else if (hasWebConfig)
         {
@@ -275,7 +272,7 @@ public sealed class HostExistingProjectUseCase
                 ? $"web.config currently connects to [{currentConn.Database}] on {currentConn.Server}."
                 : "web.config has no usable SiteSqlServer connection yet.");
 
-            if (await _prompt.ConfirmAsync($"Point web.config at [{db.DatabaseName}] on the local SQL container?", true, ct))
+            if (await _prompt.ConfirmAsync($"Point web.config at [{db.DatabaseName}] on {db.Server}?", true, ct))
             {
                 var write = _webConfig.WriteSiteSqlServer(webConfigPath,
                     new SiteSqlConnection(db.Server, db.DatabaseName, "sa", _opts.Docker.SaPassword));
@@ -293,7 +290,7 @@ public sealed class HostExistingProjectUseCase
 
         if (created)
             reporter.Info("The database is empty: open the site to run the DNN install wizard, or restore a " +
-                          "backup by running 'Existing folder' again with 'local database only' and a backup file.");
+                          "backup by running 'Host project' again with 'database only' and a backup file.");
         return Result.Ok();
     }
 }

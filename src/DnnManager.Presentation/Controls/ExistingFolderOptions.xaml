@@ -3,8 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <StackPanel>
         <!-- Website + database first and pre-selected: the usual case for a folder that's already there. -->
-        <RadioButton x:Name="IisAndDatabase" GroupName="ExistingAction" Content="Keep the files - set up the IIS website + local database" IsChecked="True" Checked="Action_Checked" />
-        <RadioButton x:Name="DatabaseOnly"   GroupName="ExistingAction" Content="Keep the files - set up the local database only" Checked="Action_Checked" />
+        <RadioButton x:Name="IisAndDatabase" GroupName="ExistingAction" Content="Keep the files - set up the IIS website + database" IsChecked="True" Checked="Action_Checked" />
+        <RadioButton x:Name="DatabaseOnly"   GroupName="ExistingAction" Content="Keep the files - set up the database only" Checked="Action_Checked" />
         <RadioButton x:Name="IisOnly"        GroupName="ExistingAction" Content="Keep the files - set up the IIS website only" Checked="Action_Checked" />
         <RadioButton x:Name="Redownload"     GroupName="ExistingAction" Content="Download DNN into the folder (overwrites files)" Checked="Action_Checked" Visibility="Collapsed" />
 

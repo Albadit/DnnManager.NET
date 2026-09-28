@@ -11,28 +11,28 @@ public sealed class ListProjectsUseCase
     private readonly AppOptions _opts;
     private readonly IProjectRepository _projects;
     private readonly IIisManager _iis;
-    private readonly IDockerService _docker;
+    private readonly LocalSqlContainer _sqlContainer;
     private readonly IWebConfigService _webConfig;
 
     public ListProjectsUseCase(
         IOptions<AppOptions> opts,
         IProjectRepository projects,
         IIisManager iis,
-        IDockerService docker,
+        LocalSqlContainer sqlContainer,
         IWebConfigService webConfig)
     {
         _opts = opts.Value;
         _projects = projects;
         _iis = iis;
-        _docker = docker;
+        _sqlContainer = sqlContainer;
         _webConfig = webConfig;
     }
 
     public async Task<IReadOnlyList<ProjectStatus>> ExecuteAsync(CancellationToken ct)
     {
-        var containerRunning = await _docker.IsContainerRunningAsync(_opts.Docker.ContainerName, ct);
-        // One shared SQL container, so its published port (when up) applies to every project.
-        int? sqlPort = containerRunning ? await _docker.GetPublishedPortAsync(_opts.Docker.ContainerName, ct) : null;
+        // One shared SQL Server, so whether it answers (and on which port) applies to every project.
+        // Started now so the login overlaps the folder scan below.
+        var sqlCheck = _sqlContainer.IsReachableAsync(ct);
 
         // One applicationHost.config read for all sites instead of two ServerManager instances per project.
         var siteStates = _iis.GetSiteStates();
@@ -51,6 +51,9 @@ public sealed class ListProjectsUseCase
                 WebConfigDb: DeveloperDb.FromWebConfig(project, _webConfig));
         }, ct)));
 
+        var sqlReachable = await sqlCheck;
+        int? sqlPort = sqlReachable ? _opts.Docker.DefaultPort : null;
+
         var list = new List<ProjectStatus>(scanned.Length);
         foreach (var (project, size, webConfigDb) in scanned)
         {
@@ -62,7 +65,7 @@ public sealed class ListProjectsUseCase
                 siteExists,
                 siteExists ? siteState : null,
                 size,
-                containerRunning,
+                sqlReachable,
                 webConfigDb ?? _opts.DatabaseNameFor(project.Name),
                 sqlPort,
                 _opts.SiteUrlFor(project.Name)));

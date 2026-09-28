@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Infrastructure.Files;
 using DnnManager.Presentation.Services;
@@ -21,11 +22,13 @@ public partial class SettingsPage : UserControl
     // What the running app was started with - to tell whether the file has changes still to apply.
     private readonly AppOptions _running;
     private readonly OperationRunner _runner;
+    private readonly ISqlConnectionTester _sqlTester;
 
-    public SettingsPage(IOptions<AppOptions> running, OperationRunner runner)
+    public SettingsPage(IOptions<AppOptions> running, OperationRunner runner, ISqlConnectionTester sqlTester)
     {
         _running = running.Value;
         _runner = runner;
+        _sqlTester = sqlTester;
         InitializeComponent();
         Subtitle.Text = $"Stored in {AppSettingsFile.FullPath}.";
         ShowEnvironmentOverrides();
@@ -138,6 +141,39 @@ public partial class SettingsPage : UserControl
     }
 
     private void Revert_Click(object sender, RoutedEventArgs e) => Show(LoadFromFile());
+
+    // Tests what is in the form, saved or not, so the values can be checked before saving.
+    private async void TestSql_Click(object sender, RoutedEventArgs e)
+    {
+        var ip = ContainerIp.Text.Trim();
+        if (ip.Length == 0) { SqlResult("Container IP is required.", success: false); return; }
+        if (!TryPort(DefaultPort.Text, out var port)) { SqlResult("Default port must be a number between 1 and 65535.", success: false); return; }
+        if (SaPassword.Password.Length == 0) { SqlResult("SA password is required.", success: false); return; }
+
+        var server = $"{ip},{port}";
+        TestSqlButton.IsEnabled = false;
+        SqlStatus.Text = $"Connecting to {server} …";
+        SqlStatus.SetResourceReference(TextBlock.ForegroundProperty, "TextMuted");
+        try
+        {
+            var result = await _sqlTester.TestAsync(new SiteSqlConnection(server, "master", "sa", SaPassword.Password),
+                CancellationToken.None, timeoutSeconds: 5);
+            if (result.Success)
+                SqlResult($"✓ Connected to {server} - {result.Value}.", success: true);
+            else
+                SqlResult($"✗ {result.Error}", success: false);
+        }
+        finally
+        {
+            TestSqlButton.IsEnabled = true;
+        }
+    }
+
+    private void SqlResult(string text, bool success)
+    {
+        SqlStatus.Text = text;
+        SqlStatus.SetResourceReference(TextBlock.ForegroundProperty, success ? "SuccessText" : "ErrorText");
+    }
 
     private void Restart_Click(object sender, RoutedEventArgs e) => Restart();
 

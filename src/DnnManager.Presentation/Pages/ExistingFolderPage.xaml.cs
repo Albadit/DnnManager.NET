@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 
 namespace DnnManager.Presentation.Pages;
 
-/// <summary>"Setup an existing project folder": its IIS website, its local database, or both.</summary>
+/// <summary>"Host project": an existing project folder's IIS website, its database, or both.</summary>
 public partial class ExistingFolderPage : UserControl, IRefreshable
 {
     private readonly OperationRunner _runner;

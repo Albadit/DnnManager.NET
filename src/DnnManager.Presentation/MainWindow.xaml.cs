@@ -17,15 +17,14 @@ public partial class MainWindow : Window
     private readonly ActivityLog _log;
     private readonly OperationRunner _runner;
 
-    // One entry per sidebar item. Pages are rebuilt on every visit so their lists (folders, saved
-    // connections, backups…) are always fresh - the same as re-entering a TUI menu.
+    // One entry per sidebar item. Pages are rebuilt on every visit so their lists (folders,
+    // backups…) are always fresh - the same as re-entering a TUI menu.
     private static readonly Dictionary<string, Type> Pages = new()
     {
         ["Projects"]      = typeof(ProjectsPage),
         ["Setup"]         = typeof(SetupPage),
         ["Existing"]      = typeof(ExistingFolderPage),
         ["Clone"]         = typeof(ClonePage),
-        ["Connections"]   = typeof(ConnectionsPage),
         ["Prerequisites"] = typeof(PrerequisitesPage),
         ["Settings"]      = typeof(SettingsPage),
     };

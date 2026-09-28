@@ -21,10 +21,16 @@
         <Grid>
             <!-- Pixel (not row-by-row) scrolling; the list is small enough that virtualization isn't needed. -->
             <!-- Columns size to their content (nothing cut off); a wider table scrolls sideways - scrollbar or Shift + wheel. -->
+            <!-- Right-click a project for its details and to open it in an installed IDE. -->
             <DataGrid x:Name="ProjectsGrid" SelectionChanged="Grid_SelectionChanged" MouseDoubleClick="Grid_MouseDoubleClick"
-                      PreviewMouseWheel="Grid_PreviewMouseWheel"
+                      PreviewMouseWheel="Grid_PreviewMouseWheel" PreviewMouseRightButtonDown="Grid_PreviewMouseRightButtonDown"
+                      ContextMenuOpening="Grid_ContextMenuOpening"
                       ScrollViewer.CanContentScroll="False" ScrollViewer.VerticalScrollBarVisibility="Auto"
                       ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.PanningMode="Both">
+                <DataGrid.ContextMenu>
+                    <!-- Filled in Grid_ContextMenuOpening: the IDE entries depend on what is installed. -->
+                    <ContextMenu />
+                </DataGrid.ContextMenu>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Name"     Binding="{Binding Name}" FontWeight="SemiBold" Width="Auto" MinWidth="140" />
                     <DataGridTextColumn Header="Site"     Binding="{Binding Url}" Width="Auto" MinWidth="180" />

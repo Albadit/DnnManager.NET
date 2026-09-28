@@ -44,19 +44,6 @@ public sealed class SqlServerService : ISqlServerService
     private static string Quoted(string identifier) => "[" + identifier.Replace("]", "]]") + "]";
     private static string Literal(string value) => value.Replace("'", "''");
 
-    public async Task<Result> WaitReadyAsync(int timeoutSeconds, IProgressReporter reporter, CancellationToken ct)
-    {
-        reporter.Info($"Waiting for SQL Server (up to {timeoutSeconds}s)…");
-        var deadline = DateTime.UtcNow.AddSeconds(timeoutSeconds);
-        while (DateTime.UtcNow < deadline)
-        {
-            var r = await SqlcmdAsync(null, null, null, "SELECT 1", ct);
-            if (r.Success) { reporter.Success("SQL Server is ready."); return Result.Ok(); }
-            await Task.Delay(2000, ct);
-        }
-        return Result.Fail("SQL Server did not become ready in time.");
-    }
-
     public async Task<Result<bool>> DatabaseExistsAsync(string database, CancellationToken ct)
     {
         var q = $"SET NOCOUNT ON; IF EXISTS (SELECT 1 FROM sys.databases WHERE name = N'{Literal(database)}') PRINT 'EXISTS'";

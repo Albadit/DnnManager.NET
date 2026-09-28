@@ -10,9 +10,9 @@ namespace DnnManager.Presentation.Controls;
 public enum ExistingFolderAction { IisOnly, IisAndDatabase, DatabaseOnly, Redownload }
 
 /// <summary>
-/// Asks how to set up an existing project folder - IIS site, local database, or both - and which
+/// Asks how to set up an existing project folder - IIS site, database, or both - and which
 /// backup (if any) to restore into the database. Shared by "New project" (when the folder is already
-/// there) and "Existing folder".
+/// there) and "Host project".
 /// </summary>
 public partial class ExistingFolderOptions : UserControl
 {
