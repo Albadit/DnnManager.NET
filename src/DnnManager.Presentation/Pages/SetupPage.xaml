@@ -6,7 +6,7 @@
         <StackPanel Margin="28,24,28,20">
             <TextBlock Style="{StaticResource PageTitle}" Text="New project" />
             <TextBlock Style="{StaticResource PageSubtitle}"
-                       Text="Downloads DNN into a new folder, creates its IIS website and hostname, and an empty database in the shared SQL Server container." />
+                       Text="Creates a project from a fresh DNN download or from a .zip of an existing site (with its .bacpac / .bak), with its IIS website, hostname and database." />
 
             <Border Style="{StaticResource Card}">
                 <StackPanel>
@@ -23,6 +23,35 @@
                 <StackPanel>
                     <TextBlock Style="{StaticResource CardTitle}" x:Name="ExistingTitle" Text="Folder already exists" />
                     <c:ExistingFolderOptions x:Name="ExistingOptions" OfferRedownload="True" ActionChanged="ExistingOptions_ActionChanged" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="StartCard" Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource CardTitle}" Text="Start from" />
+                    <RadioButton x:Name="FromScratch" GroupName="Start" Content="A new site - download a DNN release" IsChecked="True" Checked="Start_Checked" />
+                    <RadioButton x:Name="FromZip"     GroupName="Start" Content="An existing site - import a .zip of its files and its .bacpac" Checked="Start_Checked" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="ImportCard" Style="{StaticResource Card}" Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource CardTitle}" Text="Import" />
+                    <TextBlock Style="{StaticResource FieldLabel}" Text="Site .zip" Margin="0,0,0,4" />
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="BrowseZip_Click" />
+                        <TextBox x:Name="ZipBox" TextChanged="ImportField_Changed" />
+                    </DockPanel>
+                    <TextBlock Style="{StaticResource Hint}"
+                               Text="The site's files - web.config at the top of the zip or in one folder inside it." />
+                    <TextBlock Style="{StaticResource FieldLabel}" Text="Database .bacpac" />
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="BrowseBackup_Click" />
+                        <TextBox x:Name="BackupBox" TextChanged="ImportField_Changed" />
+                    </DockPanel>
+                    <TextBlock Style="{StaticResource Hint}"
+                               Text="The site's database - restored into the project's database. A .bak works too." />
+                    <TextBlock x:Name="ImportError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
                 </StackPanel>
             </Border>
 

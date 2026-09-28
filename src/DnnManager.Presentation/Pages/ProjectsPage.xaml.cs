@@ -27,7 +27,7 @@ public partial class ProjectsPage : UserControl, IRefreshable
         public string Name => Status.Name;
         public string Url => Status.SiteUrl;
         public string Iis => Status.IisSiteExists ? Status.IisSiteState ?? "present" : "(none)";
-        public string Sql => Status.SqlReachable ? $"connected :{Status.SqlPort}" : "not reachable";
+        public string Dnn => Status.DnnVersion ?? "(none)";
         public string Database => Status.DatabaseName ?? "(unknown)";
         public string Size => $"{Status.DirectorySizeBytes / 1024d / 1024d:N1} MB";
         public string Path => Status.ProjectDirectory;
@@ -101,7 +101,6 @@ public partial class ProjectsPage : UserControl, IRefreshable
     {
         var any = Selected is not null;
         OpenSiteButton.IsEnabled = any;
-        OpenFolderButton.IsEnabled = any;
         RemoveButton.IsEnabled = any;
     }
 
@@ -132,11 +131,6 @@ public partial class ProjectsPage : UserControl, IRefreshable
     private void OpenSite_Click(object sender, RoutedEventArgs e)
     {
         if (Selected is { } row) Shell(row.Url);
-    }
-
-    private void OpenFolder_Click(object sender, RoutedEventArgs e)
-    {
-        if (Selected is { } row) OpenFolder(row);
     }
 
     // ─── Context menu ─────────────────────────────────────────────────────
@@ -237,7 +231,7 @@ public partial class ProjectsPage : UserControl, IRefreshable
             details.Add(new("web.config", "not found"));
         }
 
-        details.Add(new("DNN version", DnnVersion(dir) ?? "unknown"));
+        details.Add(new("DNN version", s.DnnVersion ?? @"unknown (no bin\DotNetNuke.dll)"));
         details.Add(new("Size", row.Size));
         if (Solutions(dir) is { Count: > 0 } solutions)
             details.Add(new("Solution", string.Join(", ", solutions)));
@@ -249,15 +243,6 @@ public partial class ProjectsPage : UserControl, IRefreshable
         details.Add(new("Backups", backupCount == 0 ? "none" : $"{backupCount} file{(backupCount == 1 ? "" : "s")} in {backups}"));
 
         DetailsDialog.Show(s.Name, details);
-    }
-
-    /// <summary>The DNN version from <c>bin\DotNetNuke.dll</c>, or null when it isn't there.</summary>
-    private static string? DnnVersion(string dir)
-    {
-        var dll = System.IO.Path.Combine(dir, "bin", "DotNetNuke.dll");
-        if (!File.Exists(dll)) return null;
-        var info = FileVersionInfo.GetVersionInfo(dll);
-        return info.ProductVersion ?? info.FileVersion;
     }
 
     private static IReadOnlyList<string> Solutions(string dir) =>

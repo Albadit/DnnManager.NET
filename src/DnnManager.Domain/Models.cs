@@ -23,4 +23,5 @@ public sealed record ProjectStatus(
     bool SqlReachable,
     string? DatabaseName,
     int? SqlPort,
-    string SiteUrl);
+    string SiteUrl,
+    string? DnnVersion);

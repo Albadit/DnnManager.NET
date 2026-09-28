@@ -14,7 +14,6 @@
 
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,10">
             <Button x:Name="OpenSiteButton"   Content="Open site"   Style="{StaticResource Primary}" Click="OpenSite_Click" IsEnabled="False" />
-            <Button x:Name="OpenFolderButton" Content="Open folder" Margin="8,0,0,0" Click="OpenFolder_Click" IsEnabled="False" />
             <Button x:Name="RemoveButton"     Content="Remove…"     Margin="8,0,0,0" Style="{StaticResource Danger}" Click="Remove_Click" IsEnabled="False" />
         </StackPanel>
 
@@ -34,8 +33,8 @@
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Name"     Binding="{Binding Name}" FontWeight="SemiBold" Width="Auto" MinWidth="140" />
                     <DataGridTextColumn Header="Site"     Binding="{Binding Url}" Width="Auto" MinWidth="180" />
+                    <DataGridTextColumn Header="DNN"      Binding="{Binding Dnn}" Width="Auto" MinWidth="70" />
                     <DataGridTextColumn Header="IIS"      Binding="{Binding Iis}" Width="Auto" MinWidth="80" />
-                    <DataGridTextColumn Header="SQL"      Binding="{Binding Sql}" Width="Auto" MinWidth="100" />
                     <DataGridTextColumn Header="Database" Binding="{Binding Database}" Width="Auto" MinWidth="150" />
                     <DataGridTextColumn Header="Size"     Binding="{Binding Size}" Width="Auto" MinWidth="80" />
                     <DataGridTextColumn Header="Path"     Binding="{Binding Path}" Width="Auto" MinWidth="200" />

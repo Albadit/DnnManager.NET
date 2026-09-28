@@ -7,11 +7,12 @@ Server container. It's a **WPF** app built on a **Clean Architecture** solution.
 
 ## Features
 
-- **Projects** - every project folder with its site URL, IIS state, SQL status,
+- **Projects** - every project folder with its site URL, IIS state, DNN version,
   database and size; open the site or folder, or remove the project. Right-click
   a project for its details or to open it in an installed IDE.
-- **New project** - download a DNN release into a new folder, with its IIS site,
-  hostname and database.
+- **New project** - download a DNN release into a new folder, or import a `.zip`
+  of an existing site plus its `.bacpac`, with its IIS site, hostname and
+  database.
 - **Host project** - create the IIS site and/or database for a folder
   that's already there, optionally restoring a `.bacpac` / `.bak`.
 - **Clone project** - copy a site (files + database) from a local folder,
@@ -106,8 +107,8 @@ VS Code tasks for build, publish and zip are in `.vscode/tasks.json`.
 
 | Page | What it does |
 |---|---|
-| **Projects** | Table of every project folder: name, site URL, IIS state, SQL status, database, size and path. **Refresh** shows it's working (button reads *Refreshing…*, a bar runs along the table) and the subtitle shows when it last updated. The table scrolls both ways - **Shift + mouse wheel** scrolls sideways. **Open site** (or double-click a row), **Open folder** and **Remove…** act on the selected project. **Right-click** a project for a menu with the same actions plus **Details…** (folder, site, IIS, SQL, database, `web.config` connection, DNN version, size, solution, git branch, backups - copyable) and **Open in …** for every IDE found on the PC: Visual Studio (via `vswhere`, opening the project's `.sln` when it has exactly one), VS Code, VS Code Insiders, Cursor, Windsurf, Rider and Sublime Text. **Reset IIS** restarts IIS (`iisreset`, after a confirmation) - e.g. after installing the URL Rewrite module when a site shows *HTTP Error 500.19*. |
-| **New project** | Enter a name (validated as you type), pick the DNN release source and optionally a version (blank = latest). If a folder with that name already exists, it offers the **Host project** choices instead, plus downloading DNN over the folder. |
+| **Projects** | Table of every project folder: name, site URL, DNN version (from `bin\DotNetNuke.dll`), IIS state, database, size and path. **Refresh** shows it's working (button reads *Refreshing…*, a bar runs along the table) and the subtitle shows when it last updated. The table scrolls both ways - **Shift + mouse wheel** scrolls sideways. **Open site** (or double-click a row) and **Remove…** act on the selected project. **Right-click** a project for a menu with the same actions plus **Open folder**, **Details…** (folder, site, IIS, SQL, database, `web.config` connection, DNN version, size, solution, git branch, backups - copyable) and **Open in …** for every IDE found on the PC: Visual Studio (via `vswhere`, opening the project's `.sln` when it has exactly one), VS Code, VS Code Insiders, Cursor, Windsurf, Rider and Sublime Text. **Reset IIS** restarts IIS (`iisreset`, after a confirmation) - e.g. after installing the URL Rewrite module when a site shows *HTTP Error 500.19*. |
+| **New project** | Enter a name (validated as you type), then **Start from**: *a new site* - pick the DNN release source and optionally a version (blank = latest) - or *an existing site* - pick the site `.zip` and its database `.bacpac` (see [Import a site .zip](#import-a-site-zip)). If a folder with that name already exists, it offers the **Host project** choices instead, plus downloading DNN over the folder. |
 | **Host project** | Pick a folder, then *IIS website + database* (the default), *database only* or *IIS website only*, and optionally a backup to restore. See [Host a project](#host-a-project). |
 | **Clone project** | Copy a site from a local folder into a new project. See [Clone a project](#clone-a-project). |
 | **Prerequisites** | Shows what's checked - the SQL Server connection, and the IIS Windows features as a table - and **Run checks** checks them, offering to enable missing IIS features. |
@@ -134,6 +135,23 @@ appsettings.json** opens the file for those.
 Environment variables prefixed with `DNNMGR_` override settings, e.g.
 `DNNMGR_DnnManager__Docker__SaPassword=...`. The Settings page lists any that
 are set, since they win over what it saves.
+
+## Import a site .zip
+
+**New project → Start from: an existing site** creates a project from a zipped
+DNN site and its database backup - both required
+([`ImportProjectUseCase`](src/DnnManager.Application/UseCases/ImportProjectUseCase.cs)):
+
+1. **Extract** the zip into a new folder `<BaseDirectory>\<name>`. The site root
+   is the zip's shallowest folder with a `web.config`, so a zip with everything
+   under one top folder works too; files outside it are skipped. Entries that
+   would land outside the folder are refused, and a failed or cancelled
+   extraction removes the folder again. The zip isn't searched for a database.
+2. **Host it** exactly like [Host a project](#host-a-project) with *IIS website +
+   database*: IIS site, HTTPS redirects switched off, the `.bacpac` (a `.bak`
+   works too) restored,
+   `dbo.PortalAlias` pointed at the local hostname and `web.config` pointed at the
+   database (after asking).
 
 ## Host a project
 
@@ -331,7 +349,7 @@ DnnManager.NET/
 |---|---|
 | Main window / navigation / activity log | [`MainWindow.xaml`](src/DnnManager.Presentation/MainWindow.xaml) |
 | Projects list + remove | [`ProjectsPage`](src/DnnManager.Presentation/Pages/ProjectsPage.xaml.cs), [`UseCases/ListProjectsUseCase.cs`](src/DnnManager.Application/UseCases/ListProjectsUseCase.cs), [`UseCases/RemoveProjectUseCase.cs`](src/DnnManager.Application/UseCases/RemoveProjectUseCase.cs) |
-| New project | [`SetupPage`](src/DnnManager.Presentation/Pages/SetupPage.xaml.cs) + [`UseCases/SetupProjectUseCase.cs`](src/DnnManager.Application/UseCases/SetupProjectUseCase.cs) |
+| New project | [`SetupPage`](src/DnnManager.Presentation/Pages/SetupPage.xaml.cs) + [`UseCases/SetupProjectUseCase.cs`](src/DnnManager.Application/UseCases/SetupProjectUseCase.cs), [`UseCases/ImportProjectUseCase.cs`](src/DnnManager.Application/UseCases/ImportProjectUseCase.cs) |
 | Host project (IIS / DB) | [`ExistingFolderPage`](src/DnnManager.Presentation/Pages/ExistingFolderPage.xaml.cs) + [`UseCases/HostExistingProjectUseCase.cs`](src/DnnManager.Application/UseCases/HostExistingProjectUseCase.cs) |
 | Shared IIS site / SQL container steps | [`UseCases/Provisioning.cs`](src/DnnManager.Application/UseCases/Provisioning.cs) |
 | Clone project | [`ClonePage`](src/DnnManager.Presentation/Pages/ClonePage.xaml.cs) + [`UseCases/CloneProjectUseCase.cs`](src/DnnManager.Application/UseCases/CloneProjectUseCase.cs) |

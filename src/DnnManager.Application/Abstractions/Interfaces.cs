@@ -100,6 +100,12 @@ public interface IProjectFileCopier
 {
     /// <summary>Copies a DNN project's website files from <paramref name="sourceDirectory"/> into <paramref name="destinationDirectory"/>.</summary>
     Task<Result> CopyAsync(string sourceDirectory, string destinationDirectory, IProgressReporter reporter, CancellationToken ct);
+
+    /// <summary>
+    /// Extracts a zipped DNN site into <paramref name="destinationDirectory"/>. The site root is the zip's
+    /// shallowest folder holding a <c>web.config</c>, so a zip with everything under one top folder works too.
+    /// </summary>
+    Task<Result> ExtractZipAsync(string zipPath, string destinationDirectory, IProgressReporter reporter, CancellationToken ct);
 }
 
 /// <summary>Lays down supporting source-control files in a managed DNN project directory.</summary>
