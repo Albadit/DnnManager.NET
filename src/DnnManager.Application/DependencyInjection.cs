@@ -11,6 +11,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<LocalSqlContainer>();
         services.AddScoped<SetupProjectUseCase>();
         services.AddScoped<HostExistingProjectUseCase>();
+        services.AddScoped<ImportProjectUseCase>();
         services.AddScoped<RemoveProjectUseCase>();
         services.AddScoped<ResetIisUseCase>();
         services.AddScoped<ListProjectsUseCase>();

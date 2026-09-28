@@ -6,6 +6,12 @@ All notable changes to DnnManager.NET are documented here.
 
 ### Added
 
+- **Import a site .zip as a new project.** New project has a **Start from**
+  choice: a new site (download a DNN release, as before) or an existing site -
+  a `.zip` of its files plus its database `.bacpac` (required; a `.bak` works
+  too). The zip is extracted into the new folder (the site root is found by its
+  `web.config`), then the site is hosted like Host project: IIS website,
+  restored database, portal alias and `web.config`.
 - **Reset IIS.** A button on the Projects page restarts IIS (`iisreset`) after
   a confirmation - for stuck sites, or to pick up IIS changes such as a newly
   installed URL Rewrite module behind a 500.19 error.
@@ -28,6 +34,8 @@ All notable changes to DnnManager.NET are documented here.
 
 ### Changed
 
+- **Projects table shows the DNN version** (from `bin\DotNetNuke.dll`, e.g.
+  `9.13.4`) in place of the SQL column.
 - **"Existing folder" is now "Host project".** Its options say *database*
   instead of *local database* - the database can be on any SQL Server, and the
   prompts name the actual server.

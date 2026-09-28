@@ -48,14 +48,15 @@ public sealed class ListProjectsUseCase
                 Size: DirectorySize(project.ProjectDirectory),
                 // The database the site uses comes from its web.config; before the DNN wizard wires
                 // that up, fall back to the conventional {project}_dnndev name setup creates.
-                WebConfigDb: DeveloperDb.FromWebConfig(project, _webConfig));
+                WebConfigDb: DeveloperDb.FromWebConfig(project, _webConfig),
+                DnnVersion: DnnInstall.Version(project.ProjectDirectory));
         }, ct)));
 
         var sqlReachable = await sqlCheck;
         int? sqlPort = sqlReachable ? _opts.Docker.DefaultPort : null;
 
         var list = new List<ProjectStatus>(scanned.Length);
-        foreach (var (project, size, webConfigDb) in scanned)
+        foreach (var (project, size, webConfigDb, dnnVersion) in scanned)
         {
             var siteExists = siteStates.TryGetValue(project.Name, out var siteState);
 
@@ -68,7 +69,8 @@ public sealed class ListProjectsUseCase
                 sqlReachable,
                 webConfigDb ?? _opts.DatabaseNameFor(project.Name),
                 sqlPort,
-                _opts.SiteUrlFor(project.Name)));
+                _opts.SiteUrlFor(project.Name),
+                dnnVersion));
         }
         return list;
     }
