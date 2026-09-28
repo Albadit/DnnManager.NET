@@ -2,84 +2,146 @@
 
 All notable changes to DnnManager.NET are documented here.
 
-## Unreleased
+## v2.0.0 - 2026-09-28
+
+A major release: projects can be imported from and exported to a `.zip` +
+`.bacpac`, with dated backups in each project's `01_backup` folder; a new
+**Environment** page checks and sets up Docker, the SQL Server container and
+IIS; the Projects table gets live status columns and a right-click menu
+(details, IDEs, SQL Server Management Studio, export); and the app is faster and
+fully themed. FTP and the Live sites page are removed, and the app checks the
+SQL Server connection instead of Docker.
+
+### Upgrading from v1.0.x
+
+- `connections.json` (saved FTP / SQL connections of live sites) is no longer
+  used and can be deleted.
+- DNN Manager no longer starts the SQL container when a project needs it. If it
+  isn't running, start it on the **Environment** page (**Start Docker Desktop**,
+  **Set up container** / **Start container**) - setting it up also rewrites
+  `docker-compose.yml` next to the app from the settings, without the old fixed
+  `dnn_network` subnet. An existing data volume keeps its data and its sa
+  password.
+- New backups go to `<project>\01_backup\`. An existing `backups` folder is not
+  moved - it is still read when restoring.
+- The SQL Server host now defaults to `localhost`. An existing `appsettings.json`
+  keeps its value (e.g. `127.0.0.1`); both work.
+
+### Added
+
+- **Environment page** (replaces *Prerequisites*). Shows whether Docker Desktop,
+  the Docker engine, the SQL Server container, the SQL Server connection and
+  each IIS Windows feature are active - green / red - and fixes what isn't:
+  **Install Docker Desktop** (winget), **Start Docker Desktop** (then waits for
+  the engine), **Set up container** / **Start container** (writes
+  `docker-compose.yml` from the SQL Server settings, runs `docker compose up -d`
+  with live progress and waits for the sa login), **Show docker-compose.yml**,
+  **Enable missing features** and **Reset IIS** (`iisreset`, after a
+  confirmation). Each card has its own **Test** button - nothing is checked just
+  by opening the page - and an action re-tests its card.
+- **Import a site .zip as a new project.** New project has a **Start from**
+  choice: a new site (download a DNN release, as before) or an existing site -
+  a `.zip` of its files plus its database `.bacpac` (a `.bak` works too), picked
+  **From a project backup** (a project and one of its dated backups) or from
+  anywhere on the PC. The zip is extracted into the new folder (the site root is
+  found by its `web.config`), then the site is hosted like Host project: IIS
+  website, restored database, portal alias and `web.config`.
+- **Dated backups in `01_backup`.** A project's backups live in
+  `<project>\01_backup\<project>_<yyyyMMdd_HHmmss>\` with `<project>.zip` (site)
+  and / or `<project>.bacpac` (database). The project menu's **Export** writes
+  such a backup (site and database, site files or database), **Export to another
+  folder…** saves a `.zip` + `.bacpac` anywhere, and **Open 01_backup folder**
+  opens it. Clone keeps its source backup there too. The site zip leaves
+  `01_backup`, the old `backups` folder and `.git` out (files the running site
+  holds open are read too), and a `web.config` in `01_backup` makes IIS refuse
+  to serve the backups.
+- **Project right-click menu.** Right-click a project on the Projects page for
+  **Details…**, **Open site**, **Open folder**, **Copy path**, **Open in …** for
+  each IDE installed on the PC (Visual Studio via `vswhere`, opening the
+  project's `.sln` when there is exactly one; VS Code, VS Code Insiders, Cursor,
+  Windsurf, Rider, Sublime Text), **Open in SQL Server Management Studio** ▸,
+  **Export** ▸ and **Remove…**. A right-click selects the row under the mouse.
+- **Project details.** **Details…** shows the project in sections - Project
+  (folder, created, size, DNN version, git branch, solution, backups), Website
+  (Live / Offline, URL, bindings, physical path, app pool, .NET version,
+  pipeline, identity), Database (Live / Offline, size, the DNN version recorded
+  in it, portals, portal aliases) and web.config (connection, target framework,
+  debug, custom errors, switched-off HTTPS redirects). A folder that doesn't
+  match the IIS path, a missing database or a DNN version that differs between
+  files and database is shown in amber. Everything is selectable, with **Copy all**.
+- **Open a project's database in SQL Server Management Studio.** One submenu per
+  installed SSMS (21 and later via `vswhere`, 18-20 by their install folders):
+  *Default* signs in to the local SQL Server as `sa`, *Project* to the database
+  the site uses. For SSMS 21+ DNN Manager fills in its Connect dialog (server,
+  SQL Server Authentication, login, password, database, trust server
+  certificate, name) and connects - SSMS takes no password on its command line.
+  An SSMS that's already open gets the new connection instead of a new window.
+  A missing database opens the server instead, and the Activity log says so.
+  SSMS 18-20 get command-line switches and the password on the clipboard.
+- **Remember the password in SQL Server Management Studio** - a setting
+  (`DnnManager:SsmsRememberPassword`, off by default) that ticks SSMS's
+  *Remember Password* when DNN Manager signs it in.
+- **HTTPS redirects are switched off for local sites.** Host project switches
+  off `web.config` rewrite rules that redirect to `https://` (the local site is
+  HTTP-only, so it would never load), marks them with a *Disabled by DNN
+  Manager* comment, and shows a ⚠ warning in the Activity log - a new warning
+  style - to switch them back on before deploying to production.
+- **Selectable activity log.** Text in the Activity log can be selected and
+  copied, across lines too (mouse, Ctrl+A / Ctrl+C, right-click Copy). The
+  **Copy** button copies the selection, or the whole log when nothing is selected.
+
+### Changed
+
+- **Projects table.** The columns are Name, Site, DNN (version from
+  `bin\DotNetNuke.dll`), Database, **SQL**, **IIS**, Size and Path. SQL shows
+  **Live** (green) when the project's database is on the SQL Server, **Offline**
+  (red) when the server doesn't answer and *(none)* when the database doesn't
+  exist; IIS shows **Live** for a started site, **Offline** otherwise and
+  *(none)* without one. The toolbar is **Open site** and **Remove…** on the left
+  and **Refresh** on the right; Open folder is in the right-click menu. The Host
+  project folder list shows the IIS state the same way.
+- **"Existing folder" is now "Host project".** Its options say *database*
+  instead of *local database* - the database can be on any SQL Server, and the
+  prompts name the actual server.
+- **SQL Server connection check replaces the Docker check.** New project, Host
+  project, Clone, the Projects page and the Environment page log in to the SQL
+  Server from Settings (host, port and sa password, 5 s timeout) instead of
+  querying Docker. The project flows no longer start the container; when it
+  isn't reachable the database steps are skipped or fail with a clear message.
+- **Clone always uses the source's `web.config`** for the source database (its
+  `SiteSqlServer` connection).
+- **`docker-compose.yml` is generated from the settings** (container name, sa
+  password, edition, collation, port, volume) and no longer defines a fixed
+  network / subnet, which clashed with other compose projects ("Pool overlaps
+  with other one on this address space").
+- **Settings.** The SQL Server card (was *SQL Server container*) holds the host -
+  now **Server host**, `localhost` by default - port, sa password and the
+  container values; the page uses the full window width.
+- **DNN icon.** `dnnmgr.exe` (Explorer, taskbar, Alt+Tab) and every window's
+  title bar show the DNN logo mark, drawn from DNN's own vector logo at all
+  Windows icon sizes (16-256 px).
+- **Questions and warnings use the app's own dialog** instead of the plain
+  Windows message box: themed (light / dark), with an icon, selectable text and
+  the default answer as the primary button (Enter picks it, Esc answers No).
+- **Code comments cleaned up** - comments that only repeated the code, and
+  stale ones about removed features, are gone.
 
 ### Performance
 
 - **Faster start.** Publishing for a runtime (`-r win-x64`, as the publish task
-  does) now precompiles the app (ReadyToRun), so it starts without
-  JIT-compiling everything first. The exe grows by about 9 MB.
+  does) precompiles the app (ReadyToRun), so it starts without JIT-compiling
+  everything first. The exe grows by about 9 MB.
 - **Projects shows at once when you come back to it.** The last list is kept
   between visits and shown immediately while it refreshes in the background.
 - **Host project opens without a pause** - IIS's configuration is read off the
   UI thread.
-- **The first right-click on a project no longer can freeze the window** - the
+- **The first right-click on a project can't freeze the window** - the
   installed IDEs / SSMS are looked up once, shared with the background warm-up.
-
-### Added
-
-- **Environment page** (was *Prerequisites*). Shows whether Docker Desktop, the
-  Docker engine, the SQL Server container, the SQL Server connection and each
-  IIS Windows feature are active - green / red - and fixes what isn't:
-  **Install Docker Desktop** (winget), **Start Docker Desktop** (then waits for
-  the engine), **Set up container** / **Start container** and **Show
-  docker-compose.yml** (moved here from Settings), and **Enable missing
-  features**. Each card has its own **Test** button - nothing is checked just by
-  opening the page - and an action re-tests its card. The **Test connection**
-  button in Settings is gone; the Environment page tests the connection.
-  **Reset IIS** moved here from the Projects page, into the IIS card.
-
-- **Dated backups in `01_backup`.** A project's backups now live in
-  `<project>\01_backup\<project>_<yyyyMMdd_HHmmss>\` with `<project>.zip` (site)
-  and / or `<project>.bacpac` (database). **Export** in the project menu writes
-  such a backup (site and database, site files or database) - **Export to
-  another folder…** still saves anywhere, and **Open 01_backup folder** opens it.
-  Clone keeps its source backup there too. A `web.config` in `01_backup` makes
-  IIS refuse to serve the backups, and the site zip leaves `01_backup` out.
-- **Import from a project backup.** New project → An existing site has a
-  **From a project backup** picker: choose a project and one of its complete
-  backups by date - or browse to a `.zip` and `.bacpac` anywhere on the PC.
-  Picking one suggests `<project>_copy` as the name.
-- **Open a project's database in SSMS.** The project menu has an **Open in SQL
-  Server Management Studio &lt;version&gt;** submenu per installed SSMS (21 and
-  later via `vswhere`, 18-20 by their install folders): *Default* signs in to
-  the local SQL Server as `sa`, *Project* to the database the site uses. SSMS
-  only remembers the password when the new **Remember the password in SQL
-  Server Management Studio** setting (`DnnManager:SsmsRememberPassword`, off by
-  default) is on. An SSMS that's already open is reused - the connection is
-  added to its Object Explorer instead of opening another window. The server,
-  database and login are filled in, and - for
-  the local container - trusts its self-signed certificate (`-C`), so SSMS 21+
-  doesn't refuse it. SSMS takes no password on its command line (and ignores
-  remembered ones for such a start), and any connection switch makes it connect
-  at once - failing with an error first. So for SSMS 21+ DNN Manager starts it
-  without switches and fills in its Connect dialog through UI Automation
-  (server, SQL Server Authentication, login, password with *Remember Password*,
-  database, trust certificate, name), then clicks Connect - only in the SSMS it
-  just started. SSMS 18-20 get the switches and the password is left on the
-  clipboard. It checks the
-  database first: SQL Server reports a missing database as the same *Login
-  failed for user 'sa'* as a wrong password, so when only the database is
-  missing SSMS opens the server instead, and the Activity log says which of the
-  two it was.
-
-### Changed
-
-- **Code comments cleaned up** - comments that only repeated the code, and
-  stale ones about removed features (FTP, Live sites, Docker checks), are gone.
-- **SQL Server host defaults to `localhost`** (was `127.0.0.1`), and the Settings
-  field is now called **Server host**.
-- **DNN icon.** `dnnmgr.exe` (Explorer, taskbar, Alt+Tab) and every window's
-  title bar show the DNN logo mark instead of the default window icon - drawn
-  from DNN's own vector logo at all Windows icon sizes (16-256 px).
-- **Questions and warnings use the app's own dialog** instead of the plain
-  Windows message box: themed (light / dark), with an icon, selectable text and
-  the default answer as the primary button (Enter picks it, Esc answers No).
 
 ### Fixed
 
 - **Removing a project deletes the folder even when something still uses it.**
-  When files are in use, Remove now finds the programs holding them - with the
+  When files are in use, Remove finds the programs holding them - with the
   Windows Restart Manager (open files) and each process's working folder (a
   terminal or editor opened in the project) - lists them, and after a
   confirmation closes them (politely first, then forced, helpers included) and
@@ -87,104 +149,8 @@ All notable changes to DnnManager.NET are documented here.
   whatever is still locked is deleted at the next Windows restart. Before, it
   gave up with "A file is still locked" and still reported the removal as
   finished.
-- **Remove reports every step.** The IIS and database steps now say what they
-  did, and a failed database drop is reported instead of passing silently.
-
-## v2.0.0 - 2026-09-28
-
-A major release: projects can be imported from and exported to a `.zip` +
-`.bacpac`, the shared SQL Server's Docker container is set up from Settings,
-and the Projects table gets a right-click menu. FTP and the Live sites page are
-removed, and the app checks the SQL Server connection instead of Docker.
-
-### Upgrading from v1.0.x
-
-- `connections.json` (saved FTP / SQL connections of live sites) is no longer
-  used and can be deleted.
-- DNN Manager no longer starts the SQL container when a project needs it. If it
-  isn't running, start it with **Settings → Set up Docker container** - that
-  also rewrites `docker-compose.yml` next to the app from the settings (without
-  the old fixed `dnn_network` subnet). An existing data volume keeps its data
-  and its sa password.
-
-### Added
-
-- **Import a site .zip as a new project.** New project has a **Start from**
-  choice: a new site (download a DNN release, as before) or an existing site -
-  a `.zip` of its files plus its database `.bacpac` (required; a `.bak` works
-  too). The zip is extracted into the new folder (the site root is found by its
-  `web.config`), then the site is hosted like Host project: IIS website,
-  restored database, portal alias and `web.config`.
-- **Reset IIS.** A button on the Projects page restarts IIS (`iisreset`) after
-  a confirmation - for stuck sites, or to pick up IIS changes such as a newly
-  installed URL Rewrite module behind a 500.19 error.
-- **HTTPS redirects are switched off for local sites.** Host project switches
-  off `web.config` rewrite rules that redirect to `https://`
-  (the local site is HTTP-only, so it would never load), marks them with a
-  *Disabled by DNN Manager* comment, and shows a ⚠ warning in the Activity log -
-  a new warning style - to switch them back on before deploying to production.
-- **Selectable activity log.** Text in the Activity log can be selected and
-  copied, across lines too (mouse, Ctrl+A / Ctrl+C, right-click Copy). The
-  **Copy** button copies the selection, or the whole log when nothing is selected.
-- **Copy path and Export in the project menu.** **Copy path** puts the project
-  folder on the clipboard. **Export** saves the project as the pair New project
-  imports: a `.zip` of the site files (without `backups` and `.git`; files the
-  running site holds open are read too) and a `.bacpac` of its database next to
-  it - or only the site files, or only the database (a submenu with the three
-  choices).
-- **Project right-click menu.** Right-click a project on the Projects page for
-  **Details…** (folder, site, IIS, SQL, database, `web.config` connection, DNN
-  version, size, solution, git branch, backups) and **Open in …** for each IDE
-  installed on the PC - Visual Studio (found with `vswhere`; opens the project's
-  `.sln` when there is exactly one), VS Code, VS Code Insiders, Cursor,
-  Windsurf, Rider and Sublime Text - next to Open site / Open folder / Remove.
-  A right-click selects the row under the mouse; the menu follows the theme.
-- **Set up the Docker container from Settings.** **Set up Docker container**
-  writes `docker-compose.yml` from the SQL Server settings (container name, sa
-  password, edition, collation, port, volume), runs `docker compose up -d` with
-  live progress in the Activity log and waits until SQL Server accepts the sa
-  login. **Show docker-compose.yml** shows the generated file and whether the one
-  next to the app matches; replacing a different one asks first. The card is
-  now called **SQL Server**.
-- **Test the SQL Server connection in Settings.** **Test connection** logs in as
-  `sa` with the IP, port and password in the form, before saving them.
-
-### Changed
-
-- **Open folder moved to the right-click menu** - the Projects toolbar keeps
-  Open site, Remove, Reset IIS and Refresh.
-- **Settings uses the full window width.**
-- **`docker-compose.yml` is generated from the settings** and no longer defines
-  a fixed network / subnet, which clashed with other compose projects ("Pool
-  overlaps with other one on this address space").
-- **Richer project details.** **Details…** is split into Project, Website
-  (IIS), Database and web.config sections with Live / Offline in the table's
-  colours, and adds: IIS bindings, physical path, app pool state, .NET version,
-  pipeline and identity; the database's size, the DNN version recorded in it,
-  portals and portal aliases; the web.config's target framework, debug and
-  custom errors; and the HTTPS redirects DNN Manager switched off. A folder that
-  doesn't match the IIS path, a database that's missing or a DNN version that
-  differs between files and database is shown in amber.
-- **Projects table: Database, SQL and IIS status.** The columns are now Name,
-  Site, DNN, Database, **SQL**, **IIS**, Size, Path. SQL shows **Live** (green)
-  when the project's database is on the SQL Server, **Offline** (red) when the
-  server doesn't answer and *(none)* when the database doesn't exist; IIS shows
-  **Live** (green) for a started site, **Offline** (red) otherwise and *(none)*
-  without one. The databases are read with one query per refresh.
-  The Host project folder list shows its IIS state the same way: **IIS: Live**
-  (green), **IIS: Offline** (red) or *no IIS site*.
-- **Projects table shows the DNN version** (from `bin\DotNetNuke.dll`, e.g.
-  `9.13.4`) in place of the SQL column.
-- **"Existing folder" is now "Host project".** Its options say *database*
-  instead of *local database* - the database can be on any SQL Server, and the
-  prompts name the actual server.
-- **SQL Server connection check replaces the Docker check.** Prerequisites,
-  new project, host project, clone and the Projects page now log in to the
-  SQL Server from Settings (`ContainerIp,DefaultPort` as `sa`, 5s timeout)
-  instead of querying Docker. The project flows no longer start the container
-  (`docker compose up` / `docker start`) - start it once with **Set up Docker
-  container** in Settings; when it isn't reachable the database steps are
-  skipped or fail with a clear message.
+- **Remove reports every step.** The IIS and database steps say what they did,
+  and a failed database drop is reported instead of passing silently.
 
 ### Removed
 
@@ -192,9 +158,8 @@ removed, and the app checks the SQL Server connection instead of Docker.
   FluentFTP package). Clone copies from a local folder.
 - **Live sites page and saved connections.** The page and `connections.json`
   are no longer used.
-- **Source database credentials on the Clone page.** Clone always takes the
-  source database from the `SiteSqlServer` connection in the source's
-  `web.config`.
+- **Source database credentials on the Clone page** - the source database always
+  comes from the source's `web.config`.
 
 ## v1.0.3 - 2026-09-25
 
