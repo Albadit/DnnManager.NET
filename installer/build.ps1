@@ -138,7 +138,7 @@ $version = Get-AppVersion
 Write-Host "DNN Manager $version"
 
 if (-not $SkipPublish) { Invoke-Publish }
-if (-not (Test-Path (Join-Path $publishDir 'dnnmgr.exe'))) { throw "No dnnmgr.exe in $publishDir - run without -SkipPublish." }
+if (-not (Test-Path (Join-Path $publishDir 'dnnmanager.exe'))) { throw "No dnnmanager.exe in $publishDir - run without -SkipPublish." }
 
 New-WizardImages
 $compiler = Find-Iscc

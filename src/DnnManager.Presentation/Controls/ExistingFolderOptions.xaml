@@ -6,7 +6,6 @@
         <RadioButton x:Name="IisAndDatabase" GroupName="ExistingAction" Content="Keep the files - set up the IIS website + database" IsChecked="True" Checked="Action_Checked" />
         <RadioButton x:Name="DatabaseOnly"   GroupName="ExistingAction" Content="Keep the files - set up the database only" Checked="Action_Checked" />
         <RadioButton x:Name="IisOnly"        GroupName="ExistingAction" Content="Keep the files - set up the IIS website only" Checked="Action_Checked" />
-        <RadioButton x:Name="Redownload"     GroupName="ExistingAction" Content="Download DNN into the folder (overwrites files)" Checked="Action_Checked" Visibility="Collapsed" />
 
         <!-- Visible from the start because the default choice includes the database. -->
         <StackPanel x:Name="BackupPanel" Margin="0,8,0,0">

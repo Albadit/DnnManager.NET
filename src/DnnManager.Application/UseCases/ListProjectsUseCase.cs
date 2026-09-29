@@ -47,7 +47,7 @@ public sealed class ListProjectsUseCase
                 Project: project,
                 Size: DirectorySize(project.ProjectDirectory),
                 // The database the site uses comes from its web.config; before the DNN wizard wires
-                // that up, fall back to the conventional {project}_dnndev name setup creates.
+                // that up, fall back to the database named like the project, as setup creates it.
                 WebConfigDb: DeveloperDb.FromWebConfig(project, _webConfig),
                 DnnVersion: DnnInstall.Version(project.ProjectDirectory));
         }, ct)));

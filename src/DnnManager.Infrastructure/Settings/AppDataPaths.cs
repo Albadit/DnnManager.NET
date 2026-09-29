@@ -1,17 +1,16 @@
 namespace DnnManager.Infrastructure.Settings;
 
 /// <summary>
-/// Where DNN Manager keeps the user's own files - settings, the SQL Server compose file, backups and
-/// logs - apart from the installed program, so updating, reinstalling or uninstalling the app never
-/// touches them:
+/// Where DNN Manager keeps the user's own files - settings, backups, logs and kept DNN packages - apart from the
+/// installed program, so updating, reinstalling or uninstalling the app never touches them:
 /// <code>
 /// Documents\DnnManager\
 ///   settings.json
-///   docker-compose.yml
 ///   backups\
 ///     &lt;project&gt;\&lt;project&gt;_&lt;yyyyMMdd_HHmmss&gt;\   a project backup: &lt;project&gt;.zip and / or &lt;project&gt;.bacpac
 ///     settings.*.json                          settings.json copies made before a migration or a reset
 ///   logs\        the activity log, one file per day
+///   packages\    downloaded DNN install packages, when they are kept for reuse
 /// </code>
 /// </summary>
 public sealed class AppDataPaths
@@ -34,16 +33,17 @@ public sealed class AppDataPaths
 
     public string Root { get; }
     public string SettingsFile => Path.Combine(Root, "settings.json");
-    public string ComposeFile => Path.Combine(Root, "docker-compose.yml");
     /// <summary>Project backups (one folder per project) and the settings.json copies.</summary>
     public string BackupsDirectory => Path.Combine(Root, "backups");
     public string LogsDirectory => Path.Combine(Root, "logs");
+    /// <summary>Downloaded DNN install packages kept for reuse (setting <c>projects.keepDnnPackages</c>), one folder per repository.</summary>
+    public string PackagesDirectory => Path.Combine(Root, "packages");
 
     /// <summary>The same folder under its old name (<c>Documents\DNN Manager</c>).</summary>
     public string OldRoot => Path.Combine(Path.GetDirectoryName(Root)!, OldFolderName);
 
     /// <summary>
-    /// Where versions before 2.1 kept <c>appsettings.json</c> and <c>docker-compose.yml</c>: next to the exe.
+    /// Where versions before 2.1 kept <c>appsettings.json</c>: next to the exe.
     /// Read once, to carry them over when the Documents folder doesn't have its own yet.
     /// </summary>
     public static string LegacyDirectory => AppContext.BaseDirectory;

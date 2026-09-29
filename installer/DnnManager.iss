@@ -22,7 +22,7 @@
 #endif
 
 #define AppName "DNN Manager"
-#define AppExe "dnnmgr.exe"
+#define AppExe "dnnmanager.exe"
 #define AppPublisher "Bond for web solutions"
 #define AppUrl "https://github.com/Bond-for-web-solutions/DnnManager.NET"
 ; Identifies the installation for upgrades and uninstall - never change it.
@@ -85,7 +85,7 @@ UninstalledAll=%1 was successfully removed from your computer.%n%nYour settings 
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-; The app is a self-contained single-file publish (dnnmgr.exe plus a few native DLLs) - no .NET install needed.
+; The app is a self-contained single-file publish (dnnmanager.exe plus a few native DLLs) - no .NET install needed.
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]

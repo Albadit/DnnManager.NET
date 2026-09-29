@@ -13,11 +13,12 @@ namespace DnnManager.Application.Configuration;
 public sealed class UserSettings
 {
     /// <summary>The settings layout this build reads and writes.</summary>
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
     public int Version { get; set; } = CurrentVersion;
     public ProjectSettings Projects { get; set; } = new();
     public SqlServerSettings SqlServer { get; set; } = new();
+    public DockerSettings Docker { get; set; } = new();
     public SsmsSettings Ssms { get; set; } = new();
     public IisSettings Iis { get; set; } = new();
     public AppearanceSettings Appearance { get; set; } = new();
@@ -46,10 +47,10 @@ public sealed class UserSettings
         Check(Has(SqlServer.Host), "sqlServer.host", "is required.");
         Check(IsPort(SqlServer.Port), "sqlServer.port", "must be a number between 1 and 65535.");
         Check(!string.IsNullOrEmpty(SqlServer.SaPassword), "sqlServer.saPassword", "is required.");
-        Check(Has(SqlServer.ContainerName), "sqlServer.containerName", "is required.");
-        Check(Has(SqlServer.VolumeName), "sqlServer.volumeName", "is required.");
-        Check(Has(SqlServer.Edition), "sqlServer.edition", "is required.");
-        Check(Has(SqlServer.Collation), "sqlServer.collation", "is required.");
+        Check(Has(Docker.ContainerName), "docker.containerName", "is required.");
+        Check(Has(Docker.VolumeName), "docker.volumeName", "is required.");
+        Check(Has(Docker.Edition), "docker.edition", "is required.");
+        Check(Has(Docker.Collation), "docker.collation", "is required.");
 
         foreach (var feature in Iis.RequiredFeatures)
             Check(Has(feature?.Name), "iis.requiredFeatures", "has a feature without a name.");
@@ -65,18 +66,18 @@ public sealed class UserSettings
         SitePort = Projects.SitePort,
         HostnameSuffix = Projects.HostnameSuffix.Trim().Trim('.'),
         GitHubReleaseApis = Projects.DnnReleaseSources.ToList(),
+        KeepDnnPackages = Projects.KeepDnnPackages,
         Theme = Appearance.Theme,
         SsmsRememberPassword = Ssms.RememberPassword,
         Docker = new DockerOptions
         {
-            ContainerName = SqlServer.ContainerName,
+            ContainerName = Docker.ContainerName,
             ContainerIp = SqlServer.Host,
-            VolumeName = SqlServer.VolumeName,
+            VolumeName = Docker.VolumeName,
             SaPassword = SqlServer.SaPassword,
             DefaultPort = SqlServer.Port,
-            Collation = SqlServer.Collation,
-            MssqlPid = SqlServer.Edition,
-            DefaultDbNameSuffix = SqlServer.DatabaseNameSuffix
+            Collation = Docker.Collation,
+            MssqlPid = Docker.Edition
         },
         RequiredIisFeatures = Iis.RequiredFeatures.ToList()
     };
@@ -95,16 +96,27 @@ public sealed class ProjectSettings
         "https://api.github.com/repos/dnnsoftware/Dnn.Platform/releases",
         "https://api.github.com/repos/DNN-Connect/Dnn.Platform/releases"
     ];
+    /// <summary>
+    /// Keep each downloaded DNN install package in <c>Documents\DnnManager\packages</c> and use it again for the
+    /// next project with that version, instead of downloading it again.
+    /// </summary>
+    public bool KeepDnnPackages { get; set; }
 }
 
-/// <summary>The shared SQL Server: how DNN Manager connects to it, and how its Docker container is set up.</summary>
+/// <summary>
+/// The shared SQL Server DNN Manager connects to. The Docker container (see <see cref="DockerSettings"/>) publishes it
+/// on <see cref="Port"/> with <see cref="SaPassword"/>.
+/// </summary>
 public sealed class SqlServerSettings
 {
     public string Host { get; set; } = "localhost";
     public int Port { get; set; } = 1433;
     public string SaPassword { get; set; } = "Admin@123";
-    /// <summary>A project's local database is <c>{project}{DatabaseNameSuffix}</c>.</summary>
-    public string DatabaseNameSuffix { get; set; } = "_dnndev";
+}
+
+/// <summary>The Docker container the Environment page sets up for the shared SQL Server.</summary>
+public sealed class DockerSettings
+{
     public string ContainerName { get; set; } = "dnn-sqlserver";
     public string VolumeName { get; set; } = "dnn_sqlserver_data";
     /// <summary>The container's <c>MSSQL_PID</c>.</summary>

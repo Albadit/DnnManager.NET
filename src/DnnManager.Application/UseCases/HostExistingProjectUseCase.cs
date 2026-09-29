@@ -247,6 +247,8 @@ public sealed class HostExistingProjectUseCase
                 else
                     reporter.Fail($"Could not update PortalAlias: {alias.Error}. Add '{hostname}' as a site alias " +
                                   "or the site will not load at that address.");
+
+                await DisableSslAsync(_sql, db.DatabaseName, reporter, ct);
             }
         }
         else if (exists.Value)
@@ -284,7 +286,7 @@ public sealed class HostExistingProjectUseCase
             else
             {
                 reporter.Info($"web.config left unchanged. Connect with: server '{db.Server}', " +
-                              $"database '{db.DatabaseName}', user 'sa', password '{_opts.Docker.SaPassword}'.");
+                              $"database '{db.DatabaseName}', user 'sa' and the SA password from Settings → SQL Server.");
             }
         }
 
@@ -292,5 +294,21 @@ public sealed class HostExistingProjectUseCase
             reporter.Info("The database is empty: open the site to run the DNN install wizard, or restore a " +
                           "backup by running 'Host project' again with 'database only' and a backup file.");
         return Result.Ok();
+    }
+
+    /// <summary>
+    /// A database from a live site often has DNN's SSL on (the whole site, or pages marked secure): DNN would then
+    /// redirect every http:// request to https://, which the local site doesn't answer. Turns it off in the local
+    /// copy. Not fatal when it fails - it can be switched off in Settings → Site Settings instead.
+    /// </summary>
+    internal static async Task DisableSslAsync(ISqlServerService sql, string database, IProgressReporter reporter, CancellationToken ct)
+    {
+        var ssl = await sql.DisableSslAsync(database, ct);
+        if (!ssl.Success)
+            reporter.Fail($"Could not turn off DNN's SSL setting: {ssl.Error}. If the site redirects to https://, " +
+                          "switch SSL off in its Site Settings.");
+        else if (ssl.Value > 0)
+            reporter.Warn($"Turned off DNN's SSL in [{database}] ({ssl.Value} setting{(ssl.Value == 1 ? "" : "s")} and " +
+                          "secure pages) - the local site has no https. Switch it back on before this database goes live again.");
     }
 }

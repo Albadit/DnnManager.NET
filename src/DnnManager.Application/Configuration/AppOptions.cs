@@ -2,7 +2,7 @@ namespace DnnManager.Application.Configuration;
 
 /// <summary>
 /// The settings the running app works with, made from the user's <c>settings.json</c>
-/// (<see cref="UserSettings.ToAppOptions"/>) at startup, with any <c>DNNMGR_DnnManager__*</c>
+/// (<see cref="UserSettings.ToAppOptions"/>) at startup, with any <c>DNNMANAGER_DnnManager__*</c>
 /// environment variables applied on top. Read once: saved changes apply after a restart.
 /// </summary>
 public sealed class AppOptions
@@ -19,6 +19,8 @@ public sealed class AppOptions
     /// SSMS then keeps no copy of the password.
     /// </summary>
     public bool SsmsRememberPassword { get; set; }
+    /// <summary>Keep downloaded DNN install packages in the user's packages folder and reuse them.</summary>
+    public bool KeepDnnPackages { get; set; }
     public DockerOptions Docker { get; set; } = new();
     // Empty here: the defaults live in UserSettings, which fills these in.
     public IReadOnlyList<string> GitHubReleaseApis { get; set; } = Array.Empty<string>();
@@ -31,8 +33,11 @@ public sealed class AppOptions
     public string SiteUrlFor(string projectName) =>
         SitePort == 80 ? $"http://{HostnameFor(projectName)}" : $"http://{HostnameFor(projectName)}:{SitePort}";
 
-    /// <summary>The conventional local database name for a project: <c>{project}{DefaultDbNameSuffix}</c>.</summary>
-    public string DatabaseNameFor(string projectName) => projectName + Docker.DefaultDbNameSuffix;
+    /// <summary>
+    /// The local database a new project gets: named like the project (project <c>ceesboer</c> has database
+    /// <c>ceesboer</c>). An existing site keeps the database its web.config names.
+    /// </summary>
+    public string DatabaseNameFor(string projectName) => projectName;
 
     /// <summary>The SQL Server address (<c>ip,port</c>) of the shared container for a published port.</summary>
     public string ServerFor(int port) => $"{Docker.ContainerIp},{port}";
@@ -48,7 +53,6 @@ public sealed class DockerOptions
     public int DefaultPort { get; set; } = 1433;
     public string Collation { get; set; } = "Latin1_General_CI_AS";
     public string MssqlPid { get; set; } = "Developer";
-    public string DefaultDbNameSuffix { get; set; } = "_dnndev";
 }
 
 public sealed class IisFeatureSetting

@@ -4,7 +4,7 @@ using DnnManager.Infrastructure.Settings;
 namespace DnnManager.Infrastructure.Files;
 
 /// <summary>
-/// Appends lines to <c>logs\dnnmgr-yyyy-MM-dd.log</c> in the user's DNN Manager folder, a new file each day,
+/// Appends lines to <c>logs\dnnmanager-yyyy-MM-dd.log</c> in the user's DNN Manager folder, a new file each day,
 /// deleting files older than <see cref="DaysKept"/> days. Logging is best effort: once a write fails, the
 /// file is left alone for the rest of the run instead of disturbing the app.
 /// </summary>
@@ -53,7 +53,7 @@ public sealed class DailyLogFile : IDisposable
         _writer?.Dispose();
         Directory.CreateDirectory(_directory);
         // Shared, so the log can be opened (or copied) while the app is running.
-        var stream = new FileStream(Path.Combine(_directory, $"dnnmgr-{day:yyyy-MM-dd}.log"),
+        var stream = new FileStream(Path.Combine(_directory, $"dnnmanager-{day:yyyy-MM-dd}.log"),
             FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
         _writer = new StreamWriter(stream, new UTF8Encoding(false)) { AutoFlush = true };
         _day = day;
@@ -66,7 +66,7 @@ public sealed class DailyLogFile : IDisposable
         {
             if (!Directory.Exists(_directory)) return;
             var cutoff = DateTime.Now.AddDays(-DaysKept);
-            foreach (var file in new DirectoryInfo(_directory).GetFiles("dnnmgr-*.log"))
+            foreach (var file in new DirectoryInfo(_directory).GetFiles("*.log"))
                 if (file.LastWriteTime < cutoff) file.Delete();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }

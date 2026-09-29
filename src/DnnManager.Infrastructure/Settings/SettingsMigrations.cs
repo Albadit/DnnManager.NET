@@ -21,7 +21,8 @@ public static class SettingsMigrations
 {
     public static readonly IReadOnlyList<ISettingsMigration> All =
     [
-        new V0ToV1()
+        new V0ToV1(),
+        new V1ToV2()
     ];
 
     /// <summary>Runs the migrations that take <paramref name="root"/> from <paramref name="version"/> to the current one.</summary>
@@ -94,7 +95,7 @@ public static class SettingsMigrations
                 Section(root, "appearance")["theme"] = name.ToLowerInvariant();
         }
 
-        private static JsonObject Section(JsonObject root, string key)
+        internal static JsonObject Section(JsonObject root, string key)
         {
             if (root[key] is JsonObject existing) return existing;
             var created = new JsonObject();
@@ -102,9 +103,32 @@ public static class SettingsMigrations
             return created;
         }
 
-        private static void Move(JsonObject from, string fromKey, JsonObject to, string toKey)
+        internal static void Move(JsonObject from, string fromKey, JsonObject to, string toKey)
         {
             if (from[fromKey] is { } value) to[toKey] = value.DeepClone();
+        }
+    }
+
+    /// <summary>
+    /// Version 2 puts the Docker container's values in a <c>docker</c> section of their own, apart from the SQL
+    /// Server connection: <c>sqlServer.containerName</c>, <c>volumeName</c>, <c>edition</c> and <c>collation</c> move
+    /// to <c>docker</c>. <c>sqlServer.databaseNameSuffix</c> is dropped - a new project's
+    /// database is named like the project.
+    /// </summary>
+    private sealed class V1ToV2 : ISettingsMigration
+    {
+        public int FromVersion => 1;
+
+        public void Apply(JsonObject root)
+        {
+            if (root["sqlServer"] is not JsonObject sql) return;
+            sql.Remove("databaseNameSuffix");
+            var docker = V0ToV1.Section(root, "docker");
+            foreach (var key in new[] { "containerName", "volumeName", "edition", "collation" })
+            {
+                V0ToV1.Move(sql, key, docker, key);
+                sql.Remove(key);
+            }
         }
     }
 }

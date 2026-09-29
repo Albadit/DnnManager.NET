@@ -12,11 +12,6 @@ public sealed class SetupProjectRequest
     public required string ReleaseApiUrl { get; init; }
     public string? Version { get; init; }
 
-    /// <summary>
-    /// The caller already confirmed extracting DNN over an existing project folder. When false, an
-    /// existing folder is confirmed with the user before anything else runs.
-    /// </summary>
-    public bool AllowOverwrite { get; init; }
 }
 
 public sealed class SetupProjectUseCase
@@ -74,13 +69,10 @@ public sealed class SetupProjectUseCase
         {
             var project = _projects.Build(req.ProjectName);
 
-            // Settle an existing folder before the (slow) prerequisite checks, not halfway through.
-            if (Directory.Exists(project.ProjectDirectory) && !req.AllowOverwrite)
-            {
-                reporter.Info($"Project directory already exists: {project.ProjectDirectory}");
-                if (!await _prompt.ConfirmAsync("Directory exists. Continue and overwrite?", false, ct))
-                    return Result.Fail("Aborted by user.");
-            }
+            // A new project gets a folder of its own - an existing one is set up with Host project instead.
+            if (Directory.Exists(project.ProjectDirectory))
+                return Result.Fail($"A project named '{req.ProjectName}' already exists ({project.ProjectDirectory}). " +
+                                   "Choose another name, or set it up on Host project.");
 
             reporter.Step("Step 1: Prerequisites");
             // SQL Server and IIS are optional. If either is missing we skip the steps that need it
@@ -132,7 +124,7 @@ public sealed class SetupProjectUseCase
             {
                 var db = await TryProvisionDatabaseAsync(project, reporter, ct);
                 reporter.Info($"In the DNN install wizard, connect to: server '{db.Server}', " +
-                              $"database '{db.DatabaseName}', user 'sa', password '{_opts.Docker.SaPassword}'.");
+                              $"database '{db.DatabaseName}', user 'sa' and the SA password from Settings → SQL Server.");
             }
             else
             {

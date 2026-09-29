@@ -10,9 +10,9 @@ using Microsoft.Extensions.Options;
 namespace DnnManager.Presentation.Pages;
 
 /// <summary>
-/// "Environment": what DNN Manager needs on this PC - Docker Desktop, its engine, the SQL Server container and the
-/// connection to it, and the IIS Windows features - with what's active and the actions to set up what's missing.
-/// Nothing is checked until a Test button is pressed; an action re-tests its own part afterwards.
+/// "Environment": what DNN Manager needs on this PC - Docker (Desktop, its engine and the SQL Server container, made
+/// from the settings), the SQL Server connection, and the IIS Windows features - with what's active and the
+/// actions to set up what's missing. Nothing is checked until a Test button is pressed; an action re-tests what it changed.
 /// </summary>
 public partial class EnvironmentPage : UserControl
 {
@@ -26,6 +26,7 @@ public partial class EnvironmentPage : UserControl
     private readonly IPrerequisiteChecker _prereq;
     private readonly IDockerComposeService _compose;
     private int _dockerVersion;
+    private int _sqlVersion;
     private int _featuresVersion;
 
     public EnvironmentPage(OperationRunner runner, IServiceProvider services, IOptions<AppOptions> options,
@@ -38,28 +39,26 @@ public partial class EnvironmentPage : UserControl
 
     private void DockerTest_Click(object sender, RoutedEventArgs e) => TestDocker();
 
+    private void SqlTest_Click(object sender, RoutedEventArgs e) => TestSql();
+
     private void FeaturesTest_Click(object sender, RoutedEventArgs e) => TestFeatures();
 
-    /// <summary>Tests Docker Desktop, its engine, the SQL Server container and the connection - at once.</summary>
+    /// <summary>Tests Docker Desktop, its engine and the SQL Server container.</summary>
     private async void TestDocker()
     {
         var version = ++_dockerVersion;
         DockerTestButton.IsEnabled = false;
         DockerTestButton.Content = "Testing…";
-        foreach (var status in new[] { DockerStatus, EngineStatus, ContainerStatus, SqlStatus })
+        foreach (var status in new[] { DockerStatus, EngineStatus, ContainerStatus })
             status.SetResourceReference(TextBlock.ForegroundProperty, "TextMuted");
         try
         {
-            var docker = _prereq.GetDockerStatusAsync(_options.Docker.ContainerName, CancellationToken.None);
-            var sql = TestSqlAsync();
-            var d = await docker;
+            var d = await _prereq.GetDockerStatusAsync(_options.Docker.ContainerName, CancellationToken.None);
             if (version == _dockerVersion) ShowDocker(d);
-            var s = await sql;
-            if (version == _dockerVersion) ShowSql(s);
         }
         catch (Exception ex)
         {
-            if (version == _dockerVersion) Dialogs.Error($"Could not test Docker and SQL Server: {ex.Message}");
+            if (version == _dockerVersion) Dialogs.Error($"Could not test Docker: {ex.Message}");
         }
         finally
         {
@@ -67,6 +66,32 @@ public partial class EnvironmentPage : UserControl
             {
                 DockerTestButton.IsEnabled = true;
                 DockerTestButton.Content = "Test";
+            }
+        }
+    }
+
+    /// <summary>Tests the sa login to the SQL Server in the settings.</summary>
+    private async void TestSql()
+    {
+        var version = ++_sqlVersion;
+        SqlTestButton.IsEnabled = false;
+        SqlTestButton.Content = "Testing…";
+        SqlStatus.SetResourceReference(TextBlock.ForegroundProperty, "TextMuted");
+        try
+        {
+            var s = await TestSqlAsync();
+            if (version == _sqlVersion) ShowSql(s);
+        }
+        catch (Exception ex)
+        {
+            if (version == _sqlVersion) Dialogs.Error($"Could not test the SQL Server connection: {ex.Message}");
+        }
+        finally
+        {
+            if (version == _sqlVersion)
+            {
+                SqlTestButton.IsEnabled = true;
+                SqlTestButton.Content = "Test";
             }
         }
     }
@@ -126,27 +151,16 @@ public partial class EnvironmentPage : UserControl
             Set(EngineStatus, EngineDetail, "—", Tone.Muted, "");
         StartDockerButton.Visibility = d.DesktopInstalled && !d.EngineRunning ? Visibility.Visible : Visibility.Collapsed;
 
-        SetupContainerButton.Visibility = Visibility.Collapsed;
         if (!d.EngineRunning)
-        {
             Set(ContainerStatus, ContainerDetail, "—", Tone.Muted, $"'{container}' - needs the Docker engine.");
-        }
         else if (d.ContainerState is null)
-        {
-            Set(ContainerStatus, ContainerDetail, "Not created", Tone.Bad, $"No container named '{container}' yet.");
-            SetupContainerButton.Content = "Set up container";
-            SetupContainerButton.Visibility = Visibility.Visible;
-        }
+            Set(ContainerStatus, ContainerDetail, "Not created", Tone.Bad,
+                $"No container named '{container}' - create it with Set up docker-compose below.");
         else if (d.ContainerState.Equals("running", StringComparison.OrdinalIgnoreCase))
-        {
             Set(ContainerStatus, ContainerDetail, "Running", Tone.Good, $"'{container}' - {d.ContainerStatus}");
-        }
         else
-        {
-            Set(ContainerStatus, ContainerDetail, "Stopped", Tone.Bad, $"'{container}' - {d.ContainerStatus ?? d.ContainerState}");
-            SetupContainerButton.Content = "Start container";
-            SetupContainerButton.Visibility = Visibility.Visible;
-        }
+            Set(ContainerStatus, ContainerDetail, "Stopped", Tone.Bad,
+                $"'{container}' - {d.ContainerStatus ?? d.ContainerState}. Start it with Set up docker-compose below.");
     }
 
     private void ShowSql((string Server, Domain.Result<string> Result) sql)
@@ -219,6 +233,7 @@ public partial class EnvironmentPage : UserControl
                 var status = await _prereq.GetDockerStatusAsync(_options.Docker.ContainerName, CancellationToken.None);
                 if (!status.EngineRunning) continue;
                 TestDocker();
+                TestSql();
                 return;
             }
             Set(EngineStatus, EngineDetail, "Stopped", Tone.Bad, "The engine didn't start within two minutes - check Docker Desktop.");
@@ -229,19 +244,14 @@ public partial class EnvironmentPage : UserControl
         }
     }
 
-    private async void SetupContainer_Click(object sender, RoutedEventArgs e)
+    /// <summary>Runs the settings' docker-compose.yml (with the SA password) and waits for SQL Server, then re-tests both cards.</summary>
+    private async void SetupCompose_Click(object sender, RoutedEventArgs e)
     {
         var docker = _options.Docker;
-        var current = _compose.ReadCurrent();
-        if (current is not null && !SameText(current, _compose.Render(docker)) &&
-            !Dialogs.Confirm($"{_compose.ComposeFilePath} is different from the SQL Server settings. Replace it and set up the container?",
-                defaultYes: true))
-            return;
-
-        await _runner.RunAsync("Set up Docker container",
+        await _runner.RunAsync("Set up docker-compose",
             (sp, reporter, ct) => sp.GetRequiredService<SetupSqlContainerUseCase>().ExecuteAsync(docker, reporter, ct));
-        if (YamlPanel.Visibility == Visibility.Visible) ShowYaml();
         TestDocker();
+        TestSql();
     }
 
     private async void EnableFeatures_Click(object sender, RoutedEventArgs e)
@@ -265,22 +275,25 @@ public partial class EnvironmentPage : UserControl
         var show = YamlPanel.Visibility != Visibility.Visible;
         YamlPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         ShowYamlButton.Content = show ? "Hide docker-compose.yml" : "Show docker-compose.yml";
-        if (show) ShowYaml();
+        if (show) YamlBox.Text = _compose.Render(_options.Docker);
     }
 
-    /// <summary>The compose file the saved SQL Server settings produce, and whether the file on disk matches.</summary>
-    private void ShowYaml()
+    private void CopyYaml_Click(object sender, RoutedEventArgs e)
     {
-        var yaml = _compose.Render(_options.Docker);
-        var current = _compose.ReadCurrent();
-        YamlNote.Text = current is null
-            ? $"From the SQL Server settings - no docker-compose.yml yet ({_compose.ComposeFilePath})."
-            : SameText(current, yaml)
-                ? $"From the SQL Server settings - the same as {_compose.ComposeFilePath}."
-                : $"From the SQL Server settings - {_compose.ComposeFilePath} is different; setting up the container replaces it.";
-        YamlBox.Text = yaml;
+        try
+        {
+            Clipboard.SetText(YamlBox.Text);
+        }
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException)
+        {
+            // Another program has the clipboard open - rare, and trying again works.
+            Toast.Show($"Could not copy to the clipboard: {ex.Message}", ToastKind.Warning);
+            return;
+        }
+        CopyYamlText.Text = "Copied";
+        Toast.Show("docker-compose.yml copied to the clipboard.", ToastKind.Success);
+        var reset = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        reset.Tick += (_, _) => { reset.Stop(); CopyYamlText.Text = "Copy"; };
+        reset.Start();
     }
-
-    private static bool SameText(string a, string b) =>
-        a.Replace("\r\n", "\n").TrimEnd() == b.Replace("\r\n", "\n").TrimEnd();
 }

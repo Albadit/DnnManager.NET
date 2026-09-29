@@ -4,7 +4,6 @@ using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Presentation.Services;
 using DnnManager.Infrastructure;
-using DnnManager.Infrastructure.Files;
 using DnnManager.Infrastructure.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,8 +15,8 @@ namespace DnnManager.Presentation;
 
 internal static class Program
 {
-    /// <summary>Prefix of the environment variables that override settings, e.g. <c>DNNMGR_DnnManager__SitePort</c>.</summary>
-    public const string EnvironmentPrefix = "DNNMGR_";
+    /// <summary>Prefix of the environment variables that override settings, e.g. <c>DNNMANAGER_DnnManager__SitePort</c>.</summary>
+    public const string EnvironmentPrefix = "DNNMANAGER_";
 
     [STAThread]
     private static int Main(string[] args)
@@ -48,17 +47,8 @@ internal static class Program
         var startupNotices = loaded.Notices.ToList();
         ThemeManager.Initialize(loaded.Settings.Appearance.Theme);
 
-        try
-        {
-            if (BundledFiles.EnsureDockerCompose(paths) is { } created) startupNotices.Add(new(false, created));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            startupNotices.Add(new(true, $"{paths.ComposeFile} is missing and could not be created: {ex.Message}"));
-        }
-
         // No default configuration sources: the settings come from settings.json above, with only the
-        // DNNMGR_* environment variables on top.
+        // DNNMANAGER_* environment variables on top.
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { Args = args, DisableDefaults = true });
         builder.Configuration.AddEnvironmentVariables(EnvironmentPrefix);
         var options = loaded.Settings.ToAppOptions();
@@ -77,6 +67,7 @@ internal static class Program
         builder.Services.AddSingleton<GuiUserPrompt>();
         builder.Services.AddSingleton<IUserPrompt>(sp => sp.GetRequiredService<GuiUserPrompt>());
         builder.Services.AddSingleton<OperationRunner>();
+        builder.Services.AddSingleton<DnnReleaseCatalog>();
         builder.Services.AddSingleton<MainWindow>();
 
         using var host = builder.Build();

@@ -18,8 +18,9 @@ public partial class MainWindow : Window
     private readonly OperationRunner _runner;
     private readonly SettingsStore _settings;
 
-    // One entry per sidebar item. Pages are rebuilt on every visit so their lists (folders,
-    // backups…) are always fresh.
+    // One entry per sidebar item. A page is created on its first visit and kept, so its lists (projects, folders,
+    // DNN versions…) load once instead of on every visit; its Refresh button, or a finished operation, reloads them.
+    // Settings is the exception - it is read from settings.json on every visit.
     private static readonly Dictionary<string, Type> Pages = new()
     {
         ["Projects"]      = typeof(ProjectsPage),
@@ -30,11 +31,18 @@ public partial class MainWindow : Window
         ["Settings"]      = typeof(SettingsPage),
     };
 
+    private readonly Dictionary<string, UserControl> _pages = new();
+    // Kept pages an operation may have changed since they were last shown - refreshed on their next visit.
+    private readonly HashSet<UserControl> _stale = new();
+
     public MainWindow(IServiceProvider services, ActivityLog log, OperationRunner runner, SettingsStore settings,
-        IOptions<AppOptions> options)
+        IOptions<AppOptions> options, DnnReleaseCatalog releases)
     {
         _services = services; _log = log; _runner = runner; _settings = settings;
         InitializeComponent();
+        Toast.Attach(ToastHost);
+        // Ask GitHub for the DNN versions now, in the background, so New project has them when it's opened.
+        releases.Preload();
 
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         VersionText.Text = version is null ? "" : $"v{version.Major}.{version.Minor}.{version.Build}";
@@ -42,6 +50,9 @@ public partial class MainWindow : Window
         BaseDirText.ToolTip = options.Value.BaseDirectory;
 
         LogList.Attach(_log.Entries);
+        // Collapsed to its header bar at first - it still shows the running operation, its progress and Cancel;
+        // the chevron opens the full log.
+        SetLogOpen(false);
         ThemeManager.Track(this);
         ThemeManager.Changed += (_, _) => UpdateThemeButton();
         UpdateThemeButton();
@@ -56,7 +67,28 @@ public partial class MainWindow : Window
     private void Nav_Checked(object sender, RoutedEventArgs e)
     {
         if (sender is not RadioButton { Tag: string key } || !Pages.TryGetValue(key, out var type)) return;
-        PageHost.Content = ActivatorUtilities.CreateInstance(_services, type);
+
+        // Settings saves only on Save - leaving with edits would lose them, so ask first.
+        if (PageHost.Content is SettingsPage { HasUnsavedChanges: true })
+        {
+            if (type == typeof(SettingsPage)) return; // back on Settings after "No" below - keep the page and its edits
+            if (!Dialogs.Confirm("The settings have unsaved changes. Leave the page and lose them?"))
+            {
+                Dispatcher.BeginInvoke(() => NavSettings.IsChecked = true);
+                return;
+            }
+        }
+
+        if (type == typeof(SettingsPage) || !_pages.TryGetValue(key, out var page))
+        {
+            page = (UserControl)ActivatorUtilities.CreateInstance(_services, type);
+            if (type != typeof(SettingsPage)) _pages[key] = page;
+        }
+        else if (_stale.Remove(page) && page is IRefreshable refreshable)
+        {
+            refreshable.Refresh();
+        }
+        PageHost.Content = page;
     }
 
     private void OnRunnerChanged(object? sender, PropertyChangedEventArgs e)
@@ -67,8 +99,11 @@ public partial class MainWindow : Window
         CancelButton.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
         RunningText.Text = busy ? $"{_runner.Current}…" : "";
 
-        // Let the page refresh whatever the operation changed (new folder, removed site…).
-        if (!busy && PageHost.Content is IRefreshable page) page.Refresh();
+        // Let the page refresh whatever the operation changed (new folder, removed site…); the other kept pages
+        // catch up when they're next shown.
+        if (busy) return;
+        foreach (var kept in _pages.Values.Where(p => p != PageHost.Content)) _stale.Add(kept);
+        if (PageHost.Content is IRefreshable page) page.Refresh();
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => _runner.Cancel();
@@ -144,7 +179,12 @@ public partial class MainWindow : Window
 
     private void OnClosing(object? sender, CancelEventArgs e)
     {
-        (PageHost.Content as SettingsPage)?.SavePending();
+        if (PageHost.Content is SettingsPage { HasUnsavedChanges: true } &&
+            !Dialogs.Confirm("The settings have unsaved changes. Quit and lose them?"))
+        {
+            e.Cancel = true;
+            return;
+        }
         if (!_runner.IsBusy) return;
         if (!Dialogs.Confirm($"'{_runner.Current}' is still running. Quit anyway?"))
         {

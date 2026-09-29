@@ -129,6 +129,13 @@ public sealed class SettingsStore
             notices.Add(new(false, $"Added settings missing from {FilePath} with their defaults: {string.Join(", ", added)}."));
         }
 
+        // A password typed into the file by hand (or kept by an older version) is encrypted when the file is written.
+        if (PlainSaPassword(root) is not null && source == FilePath)
+        {
+            save = true;
+            notices.Add(new(false, $"Encrypted the SA password in {FilePath}."));
+        }
+
         var settings = ToSettings(root, source);
         if (save)
         {
@@ -216,6 +223,37 @@ public sealed class SettingsStore
             ?? throw new SettingsException($"{path} must contain a JSON object ({{ ... }}).");
     }
 
+    // ─── The sa password: encrypted in the file, plain in memory ────────────────
+
+    /// <summary>The sa password when it's in the file as plain text, else null.</summary>
+    private static string? PlainSaPassword(JsonObject root) =>
+        root["sqlServer"] is JsonObject sql && sql["saPassword"] is JsonValue value && value.TryGetValue<string>(out var text)
+        && !SecretProtector.IsProtected(text) ? text : null;
+
+    /// <summary>Encrypts a plain sa password in <paramref name="root"/> - everything written to settings.json goes through here.</summary>
+    private static void EncryptSaPassword(JsonObject root)
+    {
+        if (PlainSaPassword(root) is { } plain) root["sqlServer"]!["saPassword"] = SecretProtector.Protect(plain);
+    }
+
+    /// <summary>Replaces an encrypted sa password in <paramref name="root"/> with the plain one the app works with.</summary>
+    private static void DecryptSaPassword(JsonObject root, string path)
+    {
+        if (root["sqlServer"] is not JsonObject sql || sql["saPassword"] is not JsonValue value ||
+            !value.TryGetValue<string>(out var text) || !SecretProtector.IsProtected(text))
+            return;
+        try
+        {
+            sql["saPassword"] = SecretProtector.Unprotect(text);
+        }
+        catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or FormatException)
+        {
+            throw new SettingsException($"{path} has an SA password that can't be decrypted.",
+                ["sqlServer.saPassword was encrypted by another Windows user or on another PC. Replace it with the " +
+                 "password as plain text - it is encrypted again on the next start."], ex);
+        }
+    }
+
     private static void Materialize(JsonNode? node)
     {
         if (node is JsonObject obj) foreach (var (_, child) in obj) Materialize(child);
@@ -237,6 +275,7 @@ public sealed class SettingsStore
 
     private static UserSettings ToSettings(JsonObject root, string path)
     {
+        DecryptSaPassword(root, path);
         UserSettings? settings;
         try { settings = root.Deserialize<UserSettings>(JsonOptions); }
         catch (JsonException ex)
@@ -289,6 +328,7 @@ public sealed class SettingsStore
 
     private void Write(JsonObject root)
     {
+        EncryptSaPassword(root);
         var tmp = FilePath + ".tmp";
         File.WriteAllText(tmp, root.ToJsonString(JsonOptions) + Environment.NewLine);
         File.Move(tmp, FilePath, overwrite: true);
@@ -311,7 +351,7 @@ public sealed class SettingsStore
 
     // Windows Security's "Controlled folder access" blocks apps it doesn't know from writing to Documents.
     private static string AccessHint(Exception ex) => ex is UnauthorizedAccessException
-        ? " If Windows Security's Controlled folder access is on, allow dnnmgr.exe through it."
+        ? " If Windows Security's Controlled folder access is on, allow dnnmanager.exe through it."
         : "";
 
     private static string FirstSentence(string message)

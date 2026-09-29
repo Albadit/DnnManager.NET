@@ -13,7 +13,7 @@ internal static class DeveloperDb
     /// The database the project's site actually connects to: the Initial Catalog of the SiteSqlServer
     /// connection string in the project's web.config. Returns null when web.config has no usable SQL
     /// connection (LocalDB, missing file, or unparseable), so callers fall back to the conventional
-    /// {project}_dnndev name. Only the database NAME is taken from web.config - never the server,
+    /// database named like the project. Only the database NAME is taken from web.config - never the server,
     /// because the database lives in the local Docker SQL Server and web.config's Data Source may point elsewhere.
     /// </summary>
     public static string? FromWebConfig(DnnProject project, IWebConfigService webConfig)

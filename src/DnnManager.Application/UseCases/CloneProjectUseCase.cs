@@ -169,7 +169,7 @@ public sealed class CloneProjectUseCase
                 if (sourceIsAzure)
                 {
                     // SqlPackage was already provisioned up front (see the sourceIsAzure check above).
-                    var bacpacTmp = Path.Combine(Path.GetTempPath(), $"dnnmgr_clone_{req.TargetProjectName}_{stamp}.bacpac");
+                    var bacpacTmp = Path.Combine(Path.GetTempPath(), $"dnnmanager_clone_{req.TargetProjectName}_{stamp}.bacpac");
                     var export = await _bacpac.ExportAsync(src, bacpacTmp, reporter, ct);
                     if (!export.Success) return export;
 
@@ -229,6 +229,7 @@ public sealed class CloneProjectUseCase
                 var alias = await _sql.RemapPortalAliasesAsync(db.DatabaseName, _opts.HostnameSuffix, hostname, ct);
                 if (!alias.Success) return alias;
                 reporter.Success($"PortalAlias set to {hostname}.");
+                await HostExistingProjectUseCase.DisableSslAsync(_sql, db.DatabaseName, reporter, ct);
 
                 reporter.Step("Rewriting web.config to use local database");
                 var newConn = new SiteSqlConnection(db.Server, db.DatabaseName, "sa", _opts.Docker.SaPassword);

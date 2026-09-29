@@ -37,12 +37,19 @@ public interface IProjectRepository
 public interface IDnnReleaseService
 {
     Task<Result<DnnRelease>> GetReleaseAsync(string apiUrl, string? version, CancellationToken ct);
+
+    /// <summary>The releases of <paramref name="apiUrl"/> that have a DNN install package, highest version first (no drafts or pre-releases).</summary>
+    Task<Result<IReadOnlyList<DnnRelease>>> ListReleasesAsync(string apiUrl, CancellationToken ct);
+
     IReadOnlyList<string> KnownReleaseApis { get; }
 }
 
 public interface IDnnPackageInstaller
 {
     Task<Result> DownloadAndExtractAsync(DnnRelease release, string projectDirectory, IProgressReporter reporter, CancellationToken ct);
+
+    /// <summary>The release's install package is kept from an earlier download, so installing it needs no download.</summary>
+    bool IsKept(DnnRelease release);
 }
 
 public interface IIisManager
@@ -115,19 +122,17 @@ public interface IPrerequisiteChecker
     Result StartDockerDesktop();
 }
 
-/// <summary>The shared SQL Server's <c>docker-compose.yml</c> in the user's DNN Manager folder, and bringing it up.</summary>
+/// <summary>The shared SQL Server container's docker-compose.yml, made from the settings, and running it.</summary>
 public interface IDockerComposeService
 {
-    string ComposeFilePath { get; }
-
-    /// <summary>The compose file for these SQL Server settings.</summary>
+    /// <summary>The docker-compose.yml for these settings, with a placeholder instead of the sa password - to show or copy.</summary>
     string Render(DockerOptions docker);
 
-    /// <summary>The compose file as it is on disk, or null when there is none.</summary>
-    string? ReadCurrent();
-
-    /// <summary>Writes <paramref name="yaml"/> as the compose file and runs <c>docker compose up -d</c> with it.</summary>
-    Task<Result> UpAsync(string yaml, IProgressReporter reporter, CancellationToken ct);
+    /// <summary>
+    /// Runs <c>docker compose up -d</c> with the docker-compose.yml for <paramref name="docker"/>, sa password included -
+    /// creates the container, or updates it after the settings changed. No file is written.
+    /// </summary>
+    Task<Result> UpAsync(DockerOptions docker, IProgressReporter reporter, CancellationToken ct);
 }
 
 public interface ISqlServerService
@@ -144,6 +149,12 @@ public interface ISqlServerService
     /// site responds at its own host header instead of the source's.
     /// </summary>
     Task<Result> RemapPortalAliasesAsync(string database, string hostnameSuffix, string newHostname, CancellationToken ct);
+
+    /// <summary>
+    /// Turns DNN's SSL off in <paramref name="database"/> - the portal's SSL setting and pages marked secure - so the
+    /// local site, which only has an http binding, isn't redirected to https. Returns how many values it changed.
+    /// </summary>
+    Task<Result<int>> DisableSslAsync(string database, CancellationToken ct);
 }
 
 public interface IHttpConnectivityChecker

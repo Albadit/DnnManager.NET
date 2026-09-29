@@ -34,7 +34,7 @@
                 <StackPanel>
                     <TextBlock Style="{StaticResource PageTitle}" Text="Environment" />
                     <TextBlock Style="{StaticResource PageSubtitle}" x:Name="Subtitle"
-                               Text="Everything DNN Manager needs on this PC - Docker and the SQL Server container, and the IIS Windows features. Test a part to see what's active and set up what's missing." />
+                               Text="Everything DNN Manager needs on this PC - Docker and its SQL Server container, the SQL Server connection, and the IIS Windows features. Test a part to see what's active and set up what's missing." />
                 </StackPanel>
             </DockPanel>
 
@@ -42,7 +42,7 @@
                 <StackPanel>
                     <DockPanel Margin="0,0,0,8">
                         <Button DockPanel.Dock="Right" x:Name="DockerTestButton" Content="Test" MinWidth="80" Click="DockerTest_Click" />
-                        <TextBlock Style="{StaticResource CardTitle}" Text="Docker and SQL Server" Margin="0" VerticalAlignment="Center" />
+                        <TextBlock Style="{StaticResource CardTitle}" Text="Docker" Margin="0" VerticalAlignment="Center" />
                     </DockPanel>
                     <Grid Grid.IsSharedSizeScope="True">
                         <StackPanel>
@@ -85,36 +85,53 @@
                                     <TextBlock Style="{StaticResource StatusName}" Text="SQL Server container" Margin="0,0,24,0" />
                                     <TextBlock Style="{StaticResource StatusValue}" Grid.Column="1" x:Name="ContainerStatus" Text="Not tested" Margin="0,0,16,0" />
                                     <TextBlock Style="{StaticResource StatusDetail}" Grid.Column="2" x:Name="ContainerDetail" />
-                                    <Button Style="{StaticResource StatusAction}" Grid.Column="3" x:Name="SetupContainerButton" Content="Set up container" Click="SetupContainer_Click" />
-                                </Grid>
-                            </Border>
-                            <Border Style="{StaticResource StatusRow}">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Status" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Style="{StaticResource StatusName}" Text="SQL Server connection" Margin="0,0,24,0" />
-                                    <TextBlock Style="{StaticResource StatusValue}" Grid.Column="1" x:Name="SqlStatus" Text="Not tested" Margin="0,0,16,0" />
-                                    <TextBlock Style="{StaticResource StatusDetail}" Grid.Column="2" x:Name="SqlDetail" />
                                 </Grid>
                             </Border>
                         </StackPanel>
                     </Grid>
 
-                    <TextBlock Style="{StaticResource Hint}" Margin="0,10,0,8"
-                               Text="Set up container writes docker-compose.yml (in Documents\DnnManager) from the SQL Server settings (Settings → SQL Server), runs docker compose up -d and waits until SQL Server accepts the sa login." />
-                    <StackPanel Orientation="Horizontal">
+                    <WrapPanel Margin="0,10,0,0">
+                        <Button x:Name="SetupComposeButton" Style="{StaticResource Primary}" Content="Set up docker-compose"
+                                Margin="0,0,8,0" Click="SetupCompose_Click" />
                         <Button x:Name="ShowYamlButton" Content="Show docker-compose.yml" Click="ShowYaml_Click" />
-                    </StackPanel>
+                    </WrapPanel>
                     <StackPanel x:Name="YamlPanel" Visibility="Collapsed" Margin="0,10,0,0">
-                        <TextBlock x:Name="YamlNote" Style="{StaticResource Hint}" Margin="0,0,0,6" />
-                        <TextBox x:Name="YamlBox" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
-                                 FontFamily="Cascadia Mono, Consolas" FontSize="12" MaxHeight="380" Padding="8"
-                                 VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" />
+                        <Grid>
+                            <TextBox x:Name="YamlBox" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                                     FontFamily="Cascadia Mono, Consolas" FontSize="12" MaxHeight="380" Padding="8,8,8,8"
+                                     VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" />
+                            <!-- Over the top-right corner of the box, clear of its vertical scrollbar. -->
+                            <Button x:Name="CopyYamlButton" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,24,0"
+                                    Padding="10,3" ToolTip="Copy docker-compose.yml to the clipboard" Click="CopyYaml_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8C8;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
+                                               VerticalAlignment="Center" Margin="0,0,6,0" />
+                                    <TextBlock x:Name="CopyYamlText" Text="Copy" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
                     </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,8">
+                        <Button DockPanel.Dock="Right" x:Name="SqlTestButton" Content="Test" MinWidth="80" Click="SqlTest_Click" />
+                        <TextBlock Style="{StaticResource CardTitle}" Text="SQL Server" Margin="0" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <Border Style="{StaticResource StatusRow}" BorderThickness="0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource StatusName}" Text="Connection" Margin="0,0,24,0" />
+                            <TextBlock Style="{StaticResource StatusValue}" Grid.Column="1" x:Name="SqlStatus" Text="Not tested" Margin="0,0,16,0" />
+                            <TextBlock Style="{StaticResource StatusDetail}" Grid.Column="2" x:Name="SqlDetail" />
+                        </Grid>
+                    </Border>
                 </StackPanel>
             </Border>
 

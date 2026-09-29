@@ -9,9 +9,9 @@ namespace DnnManager.Presentation.Services;
 internal sealed record Ide(string Name, string ExePath, bool OpensSolution, int MajorVersion = 0);
 
 /// <summary>
-/// Finds the code editors / IDEs installed on this PC: Visual Studio (through vswhere), VS Code and its
-/// forks, JetBrains Rider and Sublime Text, from their default install folders - and SQL Server Management
-/// Studio, for a project's database.
+/// Finds the code editors / IDEs installed on this PC: Visual Studio (through vswhere), VS Code and its forks,
+/// JetBrains Rider and IntelliJ IDEA, Sublime Text, Zed, Vim and Neovim, from their default install folders or PATH -
+/// and SQL Server Management Studio, for a project's database. Only what's found is offered.
 /// </summary>
 internal static class IdeLocator
 {
@@ -129,11 +129,66 @@ internal static class IdeLocator
             Path.Combine(local, "Programs", "cursor", "Cursor.exe"));
         AddFirst(found, "Windsurf", false,
             Path.Combine(local, "Programs", "Windsurf", "Windsurf.exe"));
-        AddFirst(found, "Rider", true, RiderCandidates(local, programFiles).ToArray());
+        AddFirst(found, "Rider", true, JetBrainsCandidates(local, programFiles, "Rider", "JetBrains Rider*", "rider64.exe").ToArray());
+        AddFirst(found, "IntelliJ IDEA", false,
+            JetBrainsCandidates(local, programFiles, "IntelliJ IDEA Ultimate", "IntelliJ IDEA*", "idea64.exe")
+                .Concat(JetBrainsCandidates(local, programFiles, "IntelliJ IDEA Community Edition", "IntelliJ IDEA*", "idea64.exe"))
+                .ToArray());
         AddFirst(found, "Sublime Text", false,
             Path.Combine(programFiles, "Sublime Text", "sublime_text.exe"),
-            Path.Combine(programFiles, "Sublime Text 3", "sublime_text.exe"));
+            Path.Combine(programFiles, "Sublime Text 3", "sublime_text.exe"),
+            OnPath("sublime_text.exe"));
+        AddFirst(found, "Zed", false,
+            Path.Combine(local, "Programs", "Zed", "Zed.exe"),
+            Path.Combine(programFiles, "Zed", "Zed.exe"),
+            OnPath("zed.exe"));
+        // Vim and Neovim: the windowed editor when it's there; otherwise the console one, which opens in a window of
+        // its own (DNN Manager has no console) on the project folder.
+        AddFirst(found, "Vim", false,
+            VersionedCandidates("Vim", "vim*", "gvim.exe").Append(OnPath("gvim.exe"))
+                .Concat(VersionedCandidates("Vim", "vim*", "vim.exe")).Append(OnPath("vim.exe")).ToArray());
+        AddFirst(found, "Neovim", false,
+            Path.Combine(programFiles, "Neovim", "bin", "nvim-qt.exe"), OnPath("nvim-qt.exe"),
+            Path.Combine(programFiles, "Neovim", "bin", "nvim.exe"), OnPath("nvim.exe"));
         return found;
+    }
+
+    /// <summary>
+    /// The full path of <paramref name="exeName"/> in a folder on PATH, or null. Git for Windows' own tools (its vim,
+    /// used for commit messages) don't count - that's not an editor anyone installed.
+    /// </summary>
+    private static string? OnPath(string exeName)
+    {
+        foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries))
+        {
+            try
+            {
+                var exe = Path.Combine(dir.Trim(), exeName);
+                if (exe.Contains(@"\Git\usr\", StringComparison.OrdinalIgnoreCase) ||
+                    exe.Contains(@"\Git\bin\", StringComparison.OrdinalIgnoreCase) ||
+                    exe.Contains(@"\Git\mingw64\", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (File.Exists(exe)) return exe;
+            }
+            catch { /* malformed PATH entry */ }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// <paramref name="exeName"/> in the versioned folders under <c>Program Files\&lt;product&gt;</c> (both Program Files),
+    /// newest first - e.g. <c>Vim\vim91\gvim.exe</c>.
+    /// </summary>
+    private static IEnumerable<string> VersionedCandidates(string product, string versionPattern, string exeName)
+    {
+        foreach (var root in new[] { Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86 }
+                     .Select(Environment.GetFolderPath).Where(r => r.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var folder = Path.Combine(root, product);
+            if (!Directory.Exists(folder)) continue;
+            foreach (var dir in Directory.EnumerateDirectories(folder, versionPattern).OrderByDescending(d => d))
+                yield return Path.Combine(dir, exeName);
+        }
     }
 
     private static void AddFirst(List<Ide> found, string name, bool opensSolution, params string?[] candidates)
@@ -161,14 +216,15 @@ internal static class IdeLocator
         return null;
     }
 
-    private static IEnumerable<string> RiderCandidates(string local, string programFiles)
+    private static IEnumerable<string> JetBrainsCandidates(string local, string programFiles, string toolboxFolder,
+        string standalonePattern, string exeName)
     {
         // JetBrains Toolbox installs here; the standalone installer uses a versioned folder.
-        yield return Path.Combine(local, "Programs", "Rider", "bin", "rider64.exe");
+        yield return Path.Combine(local, "Programs", toolboxFolder, "bin", exeName);
         var jetBrains = Path.Combine(programFiles, "JetBrains");
         if (!Directory.Exists(jetBrains)) yield break;
-        foreach (var dir in Directory.EnumerateDirectories(jetBrains, "JetBrains Rider*").OrderByDescending(d => d))
-            yield return Path.Combine(dir, "bin", "rider64.exe");
+        foreach (var dir in Directory.EnumerateDirectories(jetBrains, standalonePattern).OrderByDescending(d => d))
+            yield return Path.Combine(dir, "bin", exeName);
     }
 
     /// <summary>

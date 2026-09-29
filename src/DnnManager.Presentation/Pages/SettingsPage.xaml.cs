@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Threading;
 using DnnManager.Application.Configuration;
 using DnnManager.Infrastructure.Settings;
 using DnnManager.Presentation.Services;
@@ -11,8 +10,8 @@ using Microsoft.Win32;
 namespace DnnManager.Presentation.Pages;
 
 /// <summary>
-/// Edits the settings in <c>settings.json</c>, saving each change as soon as it is valid. Every service
-/// reads its options once at startup, so saved changes apply after a restart (offered in a banner).
+/// Edits the settings in <c>settings.json</c>. Nothing is saved until <b>Save and restart</b>: every service reads its
+/// options once at startup, so saving restarts DNN Manager to apply them. <b>Discard changes</b> puts the saved values back.
 /// </summary>
 public partial class SettingsPage : UserControl
 {
@@ -22,52 +21,47 @@ public partial class SettingsPage : UserControl
         ["projects.baseDirectory"] = "Projects folder",
         ["projects.sitePort"] = "Site port",
         ["projects.hostnameSuffix"] = "Hostname suffix",
-        ["projects.dnnReleaseSources"] = "DNN release sources",
+        ["projects.dnnReleaseSources"] = "DNN repositories",
         ["sqlServer.host"] = "Server host",
-        ["sqlServer.port"] = "Default port",
+        ["sqlServer.port"] = "Port",
         ["sqlServer.saPassword"] = "SA password",
-        ["sqlServer.containerName"] = "Container name",
-        ["sqlServer.volumeName"] = "Volume name",
-        ["sqlServer.edition"] = "Edition",
-        ["sqlServer.collation"] = "Collation",
+        ["docker.containerName"] = "Container name",
+        ["docker.volumeName"] = "Volume name",
+        ["docker.edition"] = "Edition",
+        ["docker.collation"] = "Collation",
     };
 
     // What the running app was started with - to tell whether the file has changes still to apply.
     private readonly AppOptions _running;
     private readonly OperationRunner _runner;
     private readonly SettingsStore _store;
-    // Saves a moment after the last keystroke rather than on every one.
-    private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
     // Set while the form is being filled in, so that doesn't count as an edit.
     private bool _loading;
+    // The form has edits that aren't saved yet.
+    private bool _dirty;
 
-    public SettingsPage(IOptions<AppOptions> running, OperationRunner runner, SettingsStore store)
+    public SettingsPage(IOptions<AppOptions> running, OperationRunner runner, SettingsStore store, AppDataPaths paths)
     {
         _running = running.Value;
         _runner = runner;
         _store = store;
         InitializeComponent();
-        Subtitle.Text = $"Changes are saved to {_store.FilePath} as you make them.";
+        Subtitle.Text = $"Stored in {_store.FilePath}. Save applies the changes by restarting DNN Manager.";
+        KeepDnnPackagesHint.Text = $"Saved in {paths.PackagesDirectory} and used again when a new project picks the same " +
+                                   "version - no download. Off: each new project downloads its package and deletes it after installing.";
 
         foreach (var box in new[] { BaseDirectory, SitePort, HostnameSuffix, ReleaseApis, ContainerName, ContainerIp,
-                                    VolumeName, DefaultPort, Collation, MssqlPid, DbNameSuffix })
+                                    VolumeName, DefaultPort, Collation, MssqlPid })
             box.TextChanged += (_, _) => Edited();
         SaPassword.PasswordChanged += (_, _) => Edited();
-        SsmsRememberPassword.Checked += (_, _) => Edited();
-        SsmsRememberPassword.Unchecked += (_, _) => Edited();
-        _saveTimer.Tick += (_, _) => SavePending();
-        Unloaded += (_, _) => SavePending();
+        foreach (var box in new[] { SsmsRememberPassword, KeepDnnPackages })
+        {
+            box.Checked += (_, _) => Edited();
+            box.Unchecked += (_, _) => Edited();
+        }
 
         ShowEnvironmentOverrides();
         Load();
-    }
-
-    /// <summary>Saves an edit still waiting for its timer - when leaving the page or closing the app.</summary>
-    public void SavePending()
-    {
-        if (!_saveTimer.IsEnabled) return;
-        _saveTimer.Stop();
-        Save();
     }
 
     private void Load()
@@ -81,7 +75,7 @@ public partial class SettingsPage : UserControl
         {
             // Edited outside the app since it started - say what's wrong rather than overwrite it.
             Form.IsEnabled = false;
-            ShowStatus(null);
+            SetDirty(false);
             ShowError(string.Join(Environment.NewLine, [ex.Message, .. ex.Problems, "Fix the file, then open this page again."]));
             return;
         }
@@ -89,35 +83,61 @@ public partial class SettingsPage : UserControl
         _loading = true;
         var p = saved.Projects;
         var sql = saved.SqlServer;
+        var docker = saved.Docker;
         BaseDirectory.Text = p.BaseDirectory;
         SitePort.Text = p.SitePort.ToString();
         HostnameSuffix.Text = p.HostnameSuffix;
         ReleaseApis.Text = string.Join(Environment.NewLine, p.DnnReleaseSources);
-        ContainerName.Text = sql.ContainerName;
+        KeepDnnPackages.IsChecked = p.KeepDnnPackages;
         ContainerIp.Text = sql.Host;
-        VolumeName.Text = sql.VolumeName;
-        SaPassword.Password = sql.SaPassword;
         DefaultPort.Text = sql.Port.ToString();
-        Collation.Text = sql.Collation;
-        MssqlPid.Text = sql.Edition;
-        DbNameSuffix.Text = sql.DatabaseNameSuffix;
+        SaPassword.Password = sql.SaPassword;
+        ContainerName.Text = docker.ContainerName;
+        VolumeName.Text = docker.VolumeName;
+        MssqlPid.Text = docker.Edition;
+        Collation.Text = docker.Collation;
         SsmsRememberPassword.IsChecked = saved.Ssms.RememberPassword;
         _loading = false;
 
         ShowError(null);
-        ShowStatus(null);
+        SetDirty(false);
         UpdateRestartBanner(saved);
     }
 
     private void Edited()
     {
         if (_loading || !Form.IsEnabled) return;
-        _saveTimer.Stop();
-        _saveTimer.Start();
+        SetDirty(true);
     }
 
+    /// <summary>The form has edits that aren't saved - leaving the page would lose them.</summary>
+    public bool HasUnsavedChanges => _dirty;
+
+    private void SetDirty(bool dirty)
+    {
+        _dirty = dirty;
+        // The Save bar appears with the first edit and goes away once saved or discarded.
+        SaveBar.Visibility = dirty ? Visibility.Visible : Visibility.Collapsed;
+        SaveButton.IsEnabled = dirty;
+        DiscardButton.IsEnabled = dirty;
+        StatusText.Text = "You have unsaved changes.";
+        StatusText.SetResourceReference(TextBlock.ForegroundProperty, "LogWarn");
+    }
+
+    private void Save_Click(object sender, RoutedEventArgs e) => Save();
+
+    private void Discard_Click(object sender, RoutedEventArgs e) => Load();
+
+    /// <summary>Checks the form, saves it and restarts DNN Manager so the new settings apply.</summary>
     private void Save()
     {
+        if (_runner.IsBusy)
+        {
+            Toast.Show($"'{_runner.Current}' is still running - save once it has finished (saving restarts DNN Manager).",
+                ToastKind.Warning);
+            return;
+        }
+
         UserSettings settings;
         try
         {
@@ -127,6 +147,7 @@ public partial class SettingsPage : UserControl
         catch (SettingsException ex)
         {
             ShowError($"Not saved - {ex.Message}");
+            Toast.Show($"Settings not saved - {ex.Message}", ToastKind.Error);
             return;
         }
 
@@ -140,7 +161,7 @@ public partial class SettingsPage : UserControl
         if (error is not null)
         {
             ShowError(error);
-            ShowStatus("Not saved yet - fix the value above.");
+            Toast.Show($"Not saved: {error}", ToastKind.Warning);
             return;
         }
 
@@ -151,12 +172,12 @@ public partial class SettingsPage : UserControl
         catch (Exception ex) when (ex is SettingsException or IOException or UnauthorizedAccessException)
         {
             ShowError($"Could not save {_store.FilePath}: {ex.Message}");
+            Toast.Show($"Could not save the settings: {ex.Message}", ToastKind.Error);
             return;
         }
 
-        ShowError(null);
-        ShowStatus($"Saved at {DateTime.Now:HH:mm:ss}.");
-        UpdateRestartBanner(settings);
+        SetDirty(false);
+        Restart();
     }
 
     /// <summary>Copies the form into <paramref name="settings"/>, or returns the first value that isn't a number where one is needed.</summary>
@@ -165,7 +186,7 @@ public partial class SettingsPage : UserControl
         if (!int.TryParse(SitePort.Text.Trim(), out var sitePort))
             return "Site port must be a number between 1 and 65535.";
         if (!int.TryParse(DefaultPort.Text.Trim(), out var sqlPort))
-            return "Default port must be a number between 1 and 65535.";
+            return "Port must be a number between 1 and 65535.";
 
         var p = settings.Projects;
         p.BaseDirectory = BaseDirectory.Text.Trim();
@@ -174,16 +195,18 @@ public partial class SettingsPage : UserControl
         p.DnnReleaseSources = ReleaseApis.Text
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
+        p.KeepDnnPackages = KeepDnnPackages.IsChecked == true;
 
         var sql = settings.SqlServer;
-        sql.ContainerName = ContainerName.Text.Trim();
         sql.Host = ContainerIp.Text.Trim();
-        sql.VolumeName = VolumeName.Text.Trim();
-        sql.SaPassword = SaPassword.Password;
         sql.Port = sqlPort;
-        sql.Collation = Collation.Text.Trim();
-        sql.Edition = MssqlPid.Text.Trim();
-        sql.DatabaseNameSuffix = DbNameSuffix.Text.Trim();
+        sql.SaPassword = SaPassword.Password;
+
+        var docker = settings.Docker;
+        docker.ContainerName = ContainerName.Text.Trim();
+        docker.VolumeName = VolumeName.Text.Trim();
+        docker.Edition = MssqlPid.Text.Trim();
+        docker.Collation = Collation.Text.Trim();
 
         settings.Ssms.RememberPassword = SsmsRememberPassword.IsChecked == true;
         return null;
@@ -201,11 +224,7 @@ public partial class SettingsPage : UserControl
         if (dialog.ShowDialog(Window.GetWindow(this)) == true) BaseDirectory.Text = dialog.FolderName;
     }
 
-    private void OpenFile_Click(object sender, RoutedEventArgs e)
-    {
-        SavePending();
-        SettingsStartup.OpenInEditor(_store.FilePath);
-    }
+    private void OpenFile_Click(object sender, RoutedEventArgs e) => SettingsStartup.OpenInEditor(_store.FilePath);
 
     private void OpenFolder_Click(object sender, RoutedEventArgs e)
     {
@@ -228,10 +247,7 @@ public partial class SettingsPage : UserControl
         ErrorText.Visibility = error is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    private void ShowStatus(string? status) =>
-        StatusText.Text = status ?? "Changes are saved automatically.";
-
-    // DNNMGR_* environment variables are applied on top of the file, so they win over what's saved here.
+    // DNNMANAGER_* environment variables are applied on top of the file, so they win over what's saved here.
     private void ShowEnvironmentOverrides()
     {
         var overrides = Environment.GetEnvironmentVariables().Keys.OfType<string>()
@@ -246,11 +262,11 @@ public partial class SettingsPage : UserControl
     private static string Snapshot(AppOptions o) => string.Join("|",
         o.BaseDirectory, o.SitePort, o.HostnameSuffix, string.Join(",", o.GitHubReleaseApis),
         o.Docker.ContainerName, o.Docker.ContainerIp, o.Docker.VolumeName, o.Docker.SaPassword,
-        o.Docker.DefaultPort, o.Docker.Collation, o.Docker.MssqlPid, o.Docker.DefaultDbNameSuffix, o.SsmsRememberPassword);
+        o.Docker.DefaultPort, o.Docker.Collation, o.Docker.MssqlPid, o.SsmsRememberPassword,
+        o.KeepDnnPackages);
 
     private void Restart()
     {
-        SavePending();
         if (_runner.IsBusy)
         {
             Dialogs.Error($"'{_runner.Current}' is still running - restart once it has finished.");

@@ -1,6 +1,6 @@
 # DnnManager.NET
 
-**DNN Manager** (`dnnmgr.exe`) is a Windows desktop app for running DNN sites
+**DNN Manager** (`dnnmanager.exe`) is a Windows desktop app for running DNN sites
 locally. It sets up new projects, imports and exports sites as a `.zip` +
 `.bacpac`, hosts existing folders, clones sites from a local folder, and manages
 their IIS websites and databases in a shared SQL Server (a Docker container it
@@ -60,8 +60,8 @@ them, delete that folder after uninstalling.
 - Windows 10/11 or Windows Server (IIS available)
 - **.NET 10 SDK** to build - <https://dotnet.microsoft.com/download/dotnet/10.0>
 - Docker Desktop (Linux containers) for the shared SQL Server - set it up once
-  on the **Environment** page (or point the SQL Server settings
-  at a SQL Server you already run)
+  with **Set up docker-compose** on the **Environment** page (or point the SQL
+  Server settings at a SQL Server you already run)
 - A user account that can elevate to Administrator (UAC prompt will appear)
 
 ## Build
@@ -69,8 +69,8 @@ them, delete that folder after uninstalling.
 All commands run from `DnnManager.NET\` (the folder containing `DnnManager.csproj`).
 
 ```bash
-dotnet build                # Debug   -> bin\Debug\net10.0-windows\dnnmgr.exe
-dotnet build -c Release     # Release -> bin\Release\net10.0-windows\dnnmgr.exe
+dotnet build                # Debug   -> bin\Debug\net10.0-windows\dnnmanager.exe
+dotnet build -c Release     # Release -> bin\Release\net10.0-windows\dnnmanager.exe
 dotnet clean
 ```
 
@@ -93,7 +93,7 @@ there's no prompt.
 ### Option B - run the built executable
 
 ```bash
-.\bin\Release\net10.0-windows\dnnmgr.exe
+.\bin\Release\net10.0-windows\dnnmanager.exe
 ```
 
 ### Option C - publish a single self-contained `.exe`
@@ -107,11 +107,11 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 ```
 
 `-p:PortableExe=true` names the exe `DnnManager-<version>-x64.exe` (without it,
-it's `dnnmgr.exe`). The publish output holds only the program. Settings and `docker-compose.yml`
-live in `Documents\DnnManager` and are created on first start (see
+it's `dnnmanager.exe`). The publish output holds only the program. Settings live in
+`Documents\DnnManager` and are created on first start (see
 [Configuration](#configuration)).
 
-> **"Access to the path '...\publish\dnnmgr.exe' is denied"** when publishing
+> **"Access to the path '...\publish\dnnmanager.exe' is denied"** when publishing
 > means the app is still running from `publish\`. Close it and publish again.
 
 ### Build the installer
@@ -143,25 +143,32 @@ VS Code tasks for build, publish, zip and the installer are in `.vscode/tasks.js
   to **Projects folder** a sun / moon button that switches between the light and
   dark theme.
 - **Activity** - the log at the bottom shows each step of the running operation.
-  **Cancel** stops it and **Copy** puts the log on the clipboard. The chevron (or
-  clicking **Activity**) collapses the log to its header bar, which still shows
-  the running operation and Cancel. Click it again to bring the log back at its
-  previous height.
+  It starts collapsed to its header bar, which still shows the running
+  operation, its progress and **Cancel**; the chevron (or clicking **Activity**)
+  opens the full log, where **Copy** puts it on the clipboard, and closes it
+  again - it comes back at the height it had.
 - **Dialogs** - questions from an operation (confirmations, e.g. before dropping
   a database) open as dialogs.
 - Only one operation runs at a time. While it runs, the pages stay usable
   (scrolling, browsing), but starting a second one is refused.
+- **Pages are kept** while the app runs: the Projects list, the Host project
+  folders and the DNN versions load once, not on every visit. Their **Refresh**
+  button loads them again, and so does every finished operation (a page not on
+  screen catches up when it's next shown). Settings is read on every visit.
+- **Toasts** - short messages over the bottom-right of the page, e.g. why the
+  settings couldn't be saved. They fade out by themselves; warnings stay until
+  closed.
 
 ### Pages
 
 | Page | What it does |
 |---|---|
 | **Projects** | Table of every project folder: name, site URL, DNN version (from `bin\DotNetNuke.dll`), database, **SQL** (**Live** in green when the database is on the SQL Server, **Offline** in red when the server doesn't answer, *(none)* when the database doesn't exist), **IIS** (**Live** in green when the site is started, **Offline** in red when it isn't, *(none)* without a site), size and path. **Refresh** shows it's working (button reads *Refreshing…*, a bar runs along the table) and the subtitle shows when it last updated. The table scrolls both ways - **Shift + mouse wheel** scrolls sideways. **Open site** (or double-click a row) and **Remove…** act on the selected project; **right-click** a project for everything else (see [Project menu](#project-menu)). |
-| **New project** | Enter a name (validated as you type), then **Start from**: *a new site* - pick the DNN release source and optionally a version (blank = latest) - or *an existing site* - pick the site `.zip` and its database `.bacpac` (see [Import a site .zip](#import-a-site-zip)). If a folder with that name already exists, it offers the **Host project** choices instead, plus downloading DNN over the folder. |
+| **New project** | Enter a name (validated as you type), then **Start from**: *a new site* - pick the **Repository** (e.g. `dnnsoftware/Dnn.Platform`), then a **Version** from its GitHub releases (highest version first, the latest selected; *kept, no download* marks a version whose package is kept). The lists are loaded once, when the app starts - the refresh button next to Version asks GitHub again - or *an existing site* - pick the site `.zip` and its database `.bacpac` (see [Import a site .zip](#import-a-site-zip)). A name whose folder already exists is refused - set up an existing folder on **Host project**. |
 | **Host project** | Pick a folder, then *IIS website + database* (the default), *database only* or *IIS website only*, and optionally a backup to restore. See [Host a project](#host-a-project). |
 | **Clone project** | Copy a site from a local folder into a new project. See [Clone a project](#clone-a-project). |
-| **Environment** | Checks what DNN Manager needs when you press a card's **Test** button (nothing runs on opening the page; an action re-tests its card), each with a green / red status and a button to fix it: **Docker Desktop** (**Install Docker Desktop** via winget), the **Docker engine** (**Start Docker Desktop**, then waits for the engine), the **SQL Server container** (**Set up container** / **Start container** - writes `docker-compose.yml` from the SQL Server settings, runs `docker compose up -d` and waits for the sa login; **Show docker-compose.yml** shows the file and whether the one next to the app matches), the **SQL Server connection**, and the **IIS Windows features** as a table with their status (**Enable missing features**). **Reset IIS** restarts IIS (`iisreset`, after a confirmation) - e.g. after installing the URL Rewrite module when a site shows *HTTP Error 500.19*. |
-| **Settings** | Edit `settings.json`, including the SQL Server connection and container values. Changes are saved as you make them (once they are valid). Testing the connection and setting up the Docker container happen on the **Environment** page. See [Configuration](#configuration). |
+| **Environment** | Three cards, each checked when you press its **Test** button (nothing runs on opening the page; an action re-tests what it changed), with a green / red status and a button to fix it. **Docker**: **Docker Desktop** (**Install Docker Desktop** via winget), the **Docker engine** (**Start Docker Desktop**, then waits for the engine) and the **SQL Server container**. **Set up docker-compose** runs the docker-compose.yml made from the settings (`docker compose up -d`, handed to Docker directly - no file is written, and it has the real SA password): it creates the container, starts it, or updates it after the settings changed, then waits for the sa login. **Show docker-compose.yml** shows the same file with a **Copy** button, to run yourself - without the SA password: replace `<your-sa-password>` after copying. **SQL Server**: the sa login to the host and port in Settings. **IIS**: the Windows features as a table with their status (**Enable missing features**). **Reset IIS** restarts IIS (`iisreset`, after a confirmation) - e.g. after installing the URL Rewrite module when a site shows *HTTP Error 500.19*. |
+| **Settings** | Edit `settings.json`: projects, DNN releases (repositories, keeping downloaded packages), the **SQL Server** connection and the **Docker container**, each on a card of its own. Nothing is saved until **Save and restart** (in the bar that appears at the bottom once you change something), which saves and restarts DNN Manager. Testing the connection and setting up the Docker container happen on the **Environment** page. See [Configuration](#configuration). |
 
 ### Project menu
 
@@ -173,7 +180,7 @@ Menu key):
 | **Details…** | In sections, selectable, with **Copy all**: *Project* (folder, created, size, DNN version, git branch, solution, backups); *Website (IIS)* (Live/Offline status, URL, bindings, physical path - flagged when it isn't the project folder -, app pool and its state, .NET version, pipeline, identity); *Database* (Live/Offline, whether the database exists, server and login, size, the DNN version recorded in the database - flagged when it differs from the files -, portals and portal aliases); *web.config* (connection without the password, target framework, debug, custom errors, HTTPS redirects DNN Manager switched off). |
 | **Open site** / **Open folder** | The site in the browser / the folder in Explorer. |
 | **Copy path** | Puts the project folder on the clipboard. |
-| **Open in …** | One entry per IDE found on the PC: Visual Studio (via `vswhere`; opens the project's `.sln` when it has exactly one), VS Code, VS Code Insiders, Cursor, Windsurf, Rider and Sublime Text. |
+| **Open in** ▸ | A submenu with only the editors installed on the PC (greyed out when there are none): Visual Studio (via `vswhere`; opens the project's `.sln` when it has exactly one), VS Code, VS Code Insiders, Cursor, Windsurf, Rider, IntelliJ IDEA, Sublime Text, Zed, Vim (gVim, or console Vim in a window of its own) and Neovim (nvim-qt, or `nvim` in its own window) - found in their usual install folders or on PATH. Git for Windows' bundled vim doesn't count. |
 | **Open in SQL Server Management Studio &lt;version&gt;** ▸ | One submenu per installed SSMS (21+ found via `vswhere`, 18-20 by their install folder): *Default* signs in to the local SQL Server from Settings as `sa`; *Project* signs in to the project's database - the one its `web.config` uses, or its local database as `sa`. SSMS only remembers the password when **Remember the password in SQL Server Management Studio** is on in Settings (off by default). When that SSMS is already open, the connection is added to it (via its *Connect Object Explorer...*) instead of starting another window. For the local container it also trusts the self-signed server certificate (`-C`, SSMS 21+). SSMS takes no password on its command line - and any connection switch makes it connect at once and fail - so for SSMS 21+ DNN Manager starts it without switches and fills in its Connect dialog through UI Automation (server, SQL Server Authentication, login, password with *Remember Password*, database, trust certificate, name) and clicks Connect - only in the SSMS it just started. Older SSMS gets the switches, and the password is left on the clipboard. A missing database opens the server instead. |
 | **Export** ▸ | A backup into the project's folder in `Documents\DnnManager\backups` (see [Backups](#backups)): *Site and database* (`<project>.zip` + `<project>.bacpac`, the pair **New project** imports), *Site files* or *Database*. **Open backups folder** opens it in Explorer. |
 | **Remove…** | After a confirmation, removes the IIS site and deletes the project folder - and drops its database if you say so. If files in the folder are still in use, it finds the programs holding them (open files, or a terminal / editor whose working folder is inside), lists them and - after you confirm - closes them and deletes the folder. Windows itself, services and Explorer are never closed; anything still locked is deleted at the next Windows restart. |
@@ -186,39 +193,43 @@ folder, so updating, reinstalling or uninstalling the app never touches them:
 ```text
 Documents\DnnManager\
 ├── settings.json        your settings
-├── docker-compose.yml   the shared SQL Server container (Environment → Set up container)
 ├── backups\             project backups (see Backups) and settings.json copies made before
 │                        an upgrade of its format or a reset
-└── logs\                the activity log, one file per day (kept 30 days)
+├── logs\                the activity log, one file per day (kept 30 days)
+└── packages\            downloaded DNN install packages, when projects.keepDnnPackages is on
 ```
 
 The folder and `settings.json` are created the first time the app starts. When
-you upgrade from 2.0 or earlier, the `appsettings.json` and
-`docker-compose.yml` next to the old `dnnmgr.exe` are carried over when the new
+you upgrade from 2.0 or earlier, the `appsettings.json`
+next to the old DNN Manager 2.0 exe is carried over when the new
 version is started from that same folder. After installing somewhere else, copy
 `appsettings.json` into `Documents\DnnManager` as `settings.json` and it is
 converted on the next start.
 
-Edit the settings on the **Settings** page. Each change is saved a moment
-after you make it, once the value is valid (full path, valid ports and URLs,
-required fields). The app reads settings at startup, so it offers to **Restart
-now**. **Open settings.json** opens the file for the values the page doesn't
+Edit the settings on the **Settings** page, then press **Save and restart**
+in the bar that appears at the bottom of the page once you change something. The values are checked first (full
+path, valid ports and URLs, required fields); a problem shows as a warning and
+nothing is saved. The app reads settings at startup, so saving restarts it.
+**Discard changes** puts the saved values back, and leaving the page or closing
+the app with unsaved changes asks first. **Open settings.json** opens the file for the values the page doesn't
 show, such as the IIS feature list.
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "projects": {
     "baseDirectory": "C:\\DNN",
     "hostnameSuffix": "dnndev.me",
     "sitePort": 80,
-    "dnnReleaseSources": [ "https://api.github.com/repos/dnnsoftware/Dnn.Platform/releases", "..." ]
+    "dnnReleaseSources": [ "https://api.github.com/repos/dnnsoftware/Dnn.Platform/releases", "..." ],
+    "keepDnnPackages": false
   },
   "sqlServer": {
     "host": "localhost",
     "port": 1433,
-    "saPassword": "Admin@123",
-    "databaseNameSuffix": "_dnndev",
+    "saPassword": "dpapi:AQAAANCMnd8BFdERjHoAwE/Cl+sB…"
+  },
+  "docker": {
     "containerName": "dnn-sqlserver",
     "volumeName": "dnn_sqlserver_data",
     "edition": "Developer",
@@ -235,8 +246,10 @@ show, such as the IIS feature list.
 | `version` | The format of the file. Don't change it - the app upgrades older files itself. |
 | `projects.baseDirectory` | Where projects live (`C:\DNN` by default). |
 | `projects.sitePort`, `projects.hostnameSuffix` | Sites answer at `http://<project>.<hostnameSuffix>[:sitePort]`. |
-| `projects.dnnReleaseSources` | GitHub releases API URLs offered as DNN sources. |
-| `sqlServer.*` | The shared SQL Server: `host` (`localhost` by default), `port` and `saPassword` to connect with; `containerName`, `volumeName`, `edition` (`MSSQL_PID`) and `collation` for the Docker container; `databaseNameSuffix` for project databases. `docker-compose.yml` is generated from these by **Environment → Set up container**. An existing data volume keeps the sa password it was created with. |
+| `projects.dnnReleaseSources` | GitHub releases API URLs - the repositories **New project** offers, with their versions. |
+| `projects.keepDnnPackages` | `false` by default. When `true`, each downloaded DNN install package is kept in `Documents\DnnManager\packages\<owner>.<repo>\` and used again when a new project picks the same version - no download. When `false`, the package is downloaded into the project and deleted after installing. |
+| `sqlServer.*` | The shared SQL Server DNN Manager connects to: `host` (`localhost` by default), `port` and `saPassword`. The password is stored encrypted for your Windows account (Windows DPAPI, `dpapi:…`) - not hashed, since DNN Manager needs it to sign in. To change it in the file, replace the value with the new password as plain text; it's encrypted on the next start. A new project's database is named like the project. The Docker container publishes SQL Server on this port with this password. An existing data volume keeps the sa password it was created with. |
+| `docker.*` | The SQL Server container: `containerName`, `volumeName`, `edition` (`MSSQL_PID`) and `collation`. **Environment → Set up docker-compose** makes the container from these (and `sqlServer.port` / `saPassword`); **Show docker-compose.yml** shows the file to copy. |
 | `ssms.rememberPassword` | `false` by default. When `true`, signing SSMS in from the project menu ticks its *Remember Password*, so SSMS keeps the password. On the Settings page under **SQL Server**. |
 | `iis.requiredFeatures` | IIS Windows features checked (and optionally enabled). |
 | `appearance.theme` | `system` (follow the Windows app theme), `light` or `dark`. Set by the sidebar's theme button. |
@@ -254,8 +267,8 @@ When the app starts, it checks the file:
   you to update the app or reset the settings.
 - Keys the app doesn't know are kept when it saves.
 
-Environment variables prefixed with `DNNMGR_` override settings, e.g.
-`DNNMGR_DnnManager__Docker__SaPassword=...` (names as in `AppOptions`). The
+Environment variables prefixed with `DNNMANAGER_` override settings, e.g.
+`DNNMANAGER_DnnManager__Docker__SaPassword=...` (names as in `AppOptions`). The
 Settings page lists any that are set, since they win over what it saves.
 
 > The folder is the Documents folder of the Windows account the app runs as. If
@@ -331,8 +344,8 @@ DNN site and its database backup - both required
 2. **Host it** exactly like [Host a project](#host-a-project) with *IIS website +
    database*: IIS site, HTTPS redirects switched off, the `.bacpac` (a `.bak`
    works too) restored,
-   `dbo.PortalAlias` pointed at the local hostname and `web.config` pointed at the
-   database (after asking).
+   `dbo.PortalAlias` pointed at the local hostname, DNN's SSL switched off in the
+   database and `web.config` pointed at the database (after asking).
 
 ## Host a project
 
@@ -361,10 +374,13 @@ Flow ([`ExistingFolderPage`](src/DnnManager.Presentation/Pages/ExistingFolderPag
    before the site is deployed to production.
 5. **Database** (unless IIS only) - checks the SQL Server connection. The
    database is the one `web.config` already uses on the local container, or
-   otherwise `<folder>_dnndev`. Then:
+   otherwise one named like the folder. Then:
    - **with a backup**, restores it (`.bacpac` via SqlPackage, `.bak` via
      `RESTORE`) - asking first if the database already exists - and points
-     `dbo.PortalAlias` at the local hostname so the site answers there;
+     `dbo.PortalAlias` at the local hostname so the site answers there. DNN's
+     SSL (`SSLSetup`, or `SSLEnabled` / `SSLEnforced`, and pages marked secure)
+     is switched off in the local database - the local site has no https, and
+     DNN would otherwise redirect every request to `https://`;
    - **without one**, keeps an existing database as it is, or creates it empty
      (run the install wizard, or restore later by running **Host project**
      again with *database only* and a backup).
@@ -400,7 +416,8 @@ Flow ([`ClonePage`](src/DnnManager.Presentation/Pages/ClonePage.xaml.cs)
 
    A copy of the backup is kept in the project's `backups\` folder.
 6. **Rewrite `dbo.PortalAlias`** so portal 0's primary alias becomes the new
-   hostname (see *Notes on cloning*).
+   hostname (see *Notes on cloning*), and switch DNN's SSL off in the copy, as
+   Host project does.
 7. **Point `web.config`** at the local database (supports the
    `configSource="..."` pattern; the external file is what gets rewritten). The
    site connects as the container `sa`.
@@ -459,7 +476,7 @@ Every arrow points *inward*: `Presentation → Application → Domain`,
 ### Project layout
 
 One `.csproj` at the root; the source is organised by layer under `src/` and
-compiled into a single assembly (`dnnmgr.exe`).
+compiled into a single assembly (`dnnmanager.exe`).
 
 ```
 DnnManager.NET/
@@ -481,11 +498,11 @@ DnnManager.NET/
     │   └── DependencyInjection.cs
     ├── DnnManager.Infrastructure/
     │   ├── Iis/                 ← IIS via Microsoft.Web.Administration
-    │   ├── Docker/              ← docker compose up for the shared SQL container
+    │   ├── Docker/              ← docker-compose.yml for the shared SQL container, from the settings, and running it
     │   ├── Sql/                 ← sqlcmd in the container, remote backup, SqlPackage, connection test
     │   ├── Github/              ← GitHub API + DNN package downloader
     │   ├── Settings/            ← AppDataPaths (Documents\DnnManager), SettingsStore, SettingsMigrations
-    │   ├── Files/               ← file copy, site .zip import / export, default docker-compose.yml (BundledFiles), daily log file
+    │   ├── Files/               ← file copy, site .zip import / export, daily log file
     │   ├── Projects/            ← file-system project repository
     │   ├── Prereq/              ← IIS feature checks
     │   ├── WebConfigs/          ← web.config SiteSqlServer read / write
@@ -511,7 +528,7 @@ DnnManager.NET/
 | **Clean Architecture (single project, layered folders)** | Use cases are testable without IIS/Docker; the UI was swapped from a terminal UI to WPF without touching business logic. Layers are enforced by namespace + folder convention. |
 | **All side-effects behind interfaces** | `IIisManager`, `ISqlServerService`, `IDnnReleaseService`, `IPrerequisiteChecker`, `IWebConfigService`, `ISqlConnectionTester`, `IUserPrompt`, `IProgressReporter`, … Easy to mock in tests. |
 | **`Result` / `Result<T>` instead of exceptions across layers** | Use-case outcomes are explicit; unexpected exceptions are still logged and surfaced centrally. |
-| **`Microsoft.Extensions.Hosting` + `IOptions<AppOptions>`** | Standard DI and logging via `Microsoft.Extensions.Logging`. `AppOptions` is made from `settings.json` at startup, with `DNNMGR_*` env vars on top. |
+| **`Microsoft.Extensions.Hosting` + `IOptions<AppOptions>`** | Standard DI and logging via `Microsoft.Extensions.Logging`. `AppOptions` is made from `settings.json` at startup, with `DNNMANAGER_*` env vars on top. |
 | **Program and user data apart** | The installer owns the install folder; the app owns `Documents\DnnManager`. `settings.json` is versioned: `SettingsStore` backs it up and runs `SettingsMigrations` when its format is older, and fills in new keys from `UserSettings`' defaults. |
 | **WPF, code-behind pages** | One `UserControl` per sidebar item, rebuilt on each visit so lists (folders, backups) are always fresh. |
 | **Use cases off the UI thread** | `OperationRunner` runs one use case at a time on the thread pool in its own DI scope, refuses a second one while it runs, and backs the log's **Cancel** button. |
@@ -560,7 +577,7 @@ DnnManager.NET/
 | SQL connection test | [`Sql/SqlConnectionTester.cs`](src/DnnManager.Infrastructure/Sql/SqlConnectionTester.cs) |
 | Projects right-click menu / IDE detection | [`ProjectsPage`](src/DnnManager.Presentation/Pages/ProjectsPage.xaml.cs), [`Services/IdeLocator.cs`](src/DnnManager.Presentation/Services/IdeLocator.cs) |
 | Environment (Docker, SQL Server, IIS features) | [`EnvironmentPage`](src/DnnManager.Presentation/Pages/EnvironmentPage.xaml.cs) + [`Prereq/WindowsPrerequisiteChecker.cs`](src/DnnManager.Infrastructure/Prereq/WindowsPrerequisiteChecker.cs) |
-| Settings page (autosave) | [`SettingsPage`](src/DnnManager.Presentation/Pages/SettingsPage.xaml.cs) |
+| Settings page (Save and restart) | [`SettingsPage`](src/DnnManager.Presentation/Pages/SettingsPage.xaml.cs) |
 | settings.json: format, defaults, validation | [`Configuration/UserSettings.cs`](src/DnnManager.Application/Configuration/UserSettings.cs) |
 | settings.json: load, save, backups, migrations | [`Settings/SettingsStore.cs`](src/DnnManager.Infrastructure/Settings/SettingsStore.cs), [`Settings/SettingsMigrations.cs`](src/DnnManager.Infrastructure/Settings/SettingsMigrations.cs), [`Settings/AppDataPaths.cs`](src/DnnManager.Infrastructure/Settings/AppDataPaths.cs) |
 | Settings error dialog at startup | [`Services/SettingsStartup.cs`](src/DnnManager.Presentation/Services/SettingsStartup.cs) |
@@ -570,8 +587,7 @@ DnnManager.NET/
 | GitHub release lookup | [`Github/GitHubDnnReleaseService.cs`](src/DnnManager.Infrastructure/Github/GitHubDnnReleaseService.cs) |
 | IIS helpers | [`Iis/IisManager.cs`](src/DnnManager.Infrastructure/Iis/IisManager.cs) |
 | sqlcmd | [`Sql/SqlServerService.cs`](src/DnnManager.Infrastructure/Sql/SqlServerService.cs) |
-| Default `docker-compose.yml` | [`Files/BundledFiles.cs`](src/DnnManager.Infrastructure/Files/BundledFiles.cs) - written to `Documents\DnnManager` when missing |
-| Shared SQL container | `docker-compose.yml` in `Documents\DnnManager`, generated by `BundledFiles.ComposeFor` and brought up by [`Docker/DockerComposeService.cs`](src/DnnManager.Infrastructure/Docker/DockerComposeService.cs) + [`UseCases/SetupSqlContainerUseCase.cs`](src/DnnManager.Application/UseCases/SetupSqlContainerUseCase.cs); the connection check is `LocalSqlContainer` in [`UseCases/Provisioning.cs`](src/DnnManager.Application/UseCases/Provisioning.cs) |
+| Shared SQL container | `docker-compose.yml` made from the settings by [`Docker/DockerComposeService.cs`](src/DnnManager.Infrastructure/Docker/DockerComposeService.cs) and run by [`UseCases/SetupSqlContainerUseCase.cs`](src/DnnManager.Application/UseCases/SetupSqlContainerUseCase.cs) (Environment → Set up docker-compose); the connection check is `LocalSqlContainer` in [`UseCases/Provisioning.cs`](src/DnnManager.Application/UseCases/Provisioning.cs) |
 
 ## Notes / limitations
 

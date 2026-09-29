@@ -5,7 +5,7 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <RootNamespace>DnnManager</RootNamespace>
-    <AssemblyName>dnnmgr</AssemblyName>
+    <AssemblyName>dnnmanager</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>src\DnnManager.Presentation\Assets\dnn.ico</ApplicationIcon>
     <Nullable>enable</Nullable>
@@ -39,12 +39,12 @@
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
   </ItemGroup>
 
-  <!-- Nothing but the program is published: settings.json and docker-compose.yml are created in
-       Documents\DNN Manager on first run (src/DnnManager.Infrastructure/Settings, Files/BundledFiles.cs). -->
+  <!-- Nothing but the program is published: settings.json is created in Documents\DnnManager on first run
+       (src/DnnManager.Infrastructure/Settings). -->
 
   <!-- Portable publish (-p:PortableExe=true, used by the VS Code publish task): the single-file exe is renamed
        DnnManager-<version>-<arch>.exe, e.g. DnnManager-2.1.0-x64.exe. Only the file is renamed - the assembly
-       stays dnnmgr, which the XAML pack URIs refer to. The installer's publish keeps dnnmgr.exe. -->
+       stays dnnmanager, which the XAML pack URIs refer to. The installer's publish keeps dnnmanager.exe. -->
   <Target Name="RenamePortableExe" AfterTargets="Publish" Condition="'$(PortableExe)' == 'true'">
     <PropertyGroup>
       <PortableArch>$(RuntimeIdentifier.Replace('win-', ''))</PortableArch>

@@ -19,13 +19,6 @@
                 </StackPanel>
             </Border>
 
-            <Border x:Name="ExistingCard" Style="{StaticResource Card}" Visibility="Collapsed">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource CardTitle}" x:Name="ExistingTitle" Text="Folder already exists" />
-                    <c:ExistingFolderOptions x:Name="ExistingOptions" OfferRedownload="True" ActionChanged="ExistingOptions_ActionChanged" />
-                </StackPanel>
-            </Border>
-
             <Border x:Name="StartCard" Style="{StaticResource Card}">
                 <StackPanel>
                     <TextBlock Style="{StaticResource CardTitle}" Text="Start from" />
@@ -45,7 +38,7 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <ComboBox x:Name="BackupProjectCombo" SelectionChanged="BackupProject_Changed" />
-                        <ComboBox x:Name="ProjectBackupCombo" Grid.Column="2" DisplayMemberPath="Label" SelectionChanged="ProjectBackup_Changed" />
+                        <ComboBox x:Name="ProjectBackupCombo" Grid.Column="2" DisplayMemberPath="Label" IsEnabled="False" SelectionChanged="ProjectBackup_Changed" />
                     </Grid>
                     <TextBlock x:Name="BackupPickHint" Style="{StaticResource Hint}"
                                Text="A project and one of its backups (Documents\DnnManager\backups) - or choose the files anywhere on this PC below." />
@@ -70,11 +63,29 @@
             <Border x:Name="PackageCard" Style="{StaticResource Card}">
                 <StackPanel>
                     <TextBlock Style="{StaticResource CardTitle}" Text="DNN package" />
-                    <TextBlock Style="{StaticResource FieldLabel}" Text="Source" Margin="0,0,0,4" />
-                    <ComboBox x:Name="SourceCombo" />
-                    <TextBlock Style="{StaticResource FieldLabel}" Text="Version" />
-                    <TextBox x:Name="VersionBox" />
-                    <TextBlock Style="{StaticResource Hint}" Text="Leave blank for the latest release, or enter a version such as 10.0.1." />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Repository" Margin="0,0,0,4" />
+                            <ComboBox x:Name="SourceCombo" DisplayMemberPath="Label" SelectionChanged="SourceCombo_SelectionChanged" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Version" Margin="0,0,0,4" />
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" x:Name="RefreshVersionsButton" Margin="8,0,0,0" Padding="10,0"
+                                        ToolTip="Ask GitHub for the repository's releases again" Click="RefreshVersions_Click">
+                                    <TextBlock Text="&#xE72C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center" />
+                                </Button>
+                                <ComboBox x:Name="VersionCombo" DisplayMemberPath="Label" SelectionChanged="VersionCombo_SelectionChanged" />
+                            </DockPanel>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock x:Name="VersionHint" Style="{StaticResource Hint}"
+                               Text="The repository's DNN releases, highest version first - the latest is selected." />
                 </StackPanel>
             </Border>
 

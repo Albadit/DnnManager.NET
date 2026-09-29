@@ -15,17 +15,20 @@ public sealed class ProcessResult
 public sealed class ProcessRunner
 {
     /// <param name="onOutput">Called with each stdout / stderr line as it arrives, e.g. to show progress.</param>
+    /// <param name="stdin">Written to the process's standard input, which is then closed (e.g. <c>docker compose -f -</c>).</param>
     public async Task<ProcessResult> RunAsync(string fileName, IReadOnlyList<string> args, CancellationToken ct = default,
-        IDictionary<string, string?>? env = null, Action<string>? onOutput = null)
+        IDictionary<string, string?>? env = null, Action<string>? onOutput = null, string? stdin = null)
     {
         var psi = new ProcessStartInfo
         {
             FileName = fileName,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            RedirectStandardInput = stdin is not null,
             UseShellExecute = false,
             CreateNoWindow = true
         };
+        if (stdin is not null) psi.StandardInputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
         foreach (var a in args) psi.ArgumentList.Add(a);
         if (env != null)
             foreach (var kv in env) psi.Environment[kv.Key] = kv.Value;
@@ -50,6 +53,11 @@ public sealed class ProcessRunner
         p.BeginErrorReadLine();
         try
         {
+            if (stdin is not null)
+            {
+                await p.StandardInput.WriteAsync(stdin.AsMemory(), ct);
+                p.StandardInput.Close();
+            }
             await p.WaitForExitAsync(ct);
         }
         catch (OperationCanceledException)

@@ -31,21 +31,33 @@ public partial class ExistingFolderPage : UserControl, IRefreshable
 
     private Folder? Selected => FolderList.SelectedItem as Folder;
 
+    private void Refresh_Click(object sender, RoutedEventArgs e) => Refresh();
+
+    /// <summary>Reads the folders and their IIS sites - when the page is first opened, after an operation, and on Refresh.</summary>
     public async void Refresh()
     {
         var selected = Selected?.Name;
+        RefreshButton.IsEnabled = false;
 
         // Show which folders already have a website, so the ones still needing one stand out. Reading IIS's
         // configuration takes a moment - off the UI thread, so the page opens at once.
-        var folders = await Task.Run(() =>
+        List<Folder> folders;
+        try
         {
-            var sites = _iis.GetSiteStates();
-            return _repo.ListAllProjectDirectories()
-                .Select(n => !sites.TryGetValue(n, out var state) ? new Folder(n, "no IIS site", "None")
-                    : string.Equals(state, "Started", StringComparison.OrdinalIgnoreCase) ? new Folder(n, "IIS: Live", "Live")
-                    : new Folder(n, "IIS: Offline", "Offline"))
-                .ToList();
-        });
+            folders = await Task.Run(() =>
+            {
+                var sites = _iis.GetSiteStates();
+                return _repo.ListAllProjectDirectories()
+                    .Select(n => !sites.TryGetValue(n, out var state) ? new Folder(n, "no IIS site", "None")
+                        : string.Equals(state, "Started", StringComparison.OrdinalIgnoreCase) ? new Folder(n, "IIS: Live", "Live")
+                        : new Folder(n, "IIS: Offline", "Offline"))
+                    .ToList();
+            });
+        }
+        finally
+        {
+            RefreshButton.IsEnabled = true;
+        }
 
         FolderList.ItemsSource = folders;
         FolderList.SelectedItem = folders.FirstOrDefault(f => f.Name == selected);

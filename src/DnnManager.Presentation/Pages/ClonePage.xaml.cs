@@ -85,7 +85,7 @@ public partial class ClonePage : UserControl, IRefreshable
 
         // Everything the operation needs is read from the controls here, on the UI thread.
         var local = Path.Combine(_options.BaseDirectory, (string)LocalSourceCombo.SelectedItem);
-        var bakPath = Path.Combine(Path.GetTempPath(), $"dnnmgr_clone_{target}_{DateTime.Now:yyyyMMddHHmmss}.bak");
+        var bakPath = Path.Combine(Path.GetTempPath(), $"dnnmanager_clone_{target}_{DateTime.Now:yyyyMMddHHmmss}.bak");
 
         await _runner.RunAsync($"Clone → '{target}'", async (services, reporter, ct) =>
         {

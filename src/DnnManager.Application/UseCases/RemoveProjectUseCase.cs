@@ -76,7 +76,7 @@ public sealed class RemoveProjectUseCase
             {
                 reporter.Step("Step 3: Drop project database");
                 // Drop the database the site uses (web.config SiteSqlServer), falling back to the
-                // conventional {project}_dnndev name. Read it before the directory is deleted below.
+                // database named like the project. Read it before the directory is deleted below.
                 var dbName = DeveloperDb.FromWebConfig(project, _webConfig) ?? _opts.DatabaseNameFor(projectName);
                 var drop = await _sql.DropDatabaseAsync(dbName, ct);
                 if (drop.Success)

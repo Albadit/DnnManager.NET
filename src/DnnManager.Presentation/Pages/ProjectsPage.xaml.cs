@@ -21,8 +21,6 @@ public partial class ProjectsPage : UserControl, IRefreshable
     private readonly IServiceProvider _services;
     private readonly OperationRunner _runner;
     private int _loadVersion;
-    // Pages are rebuilt on every visit: the last list is kept so a revisit shows it at once while it refreshes.
-    private static (IReadOnlyList<ProjectStatus> List, DateTime Loaded)? _last;
     // The row under the mouse at the last right-click (null: empty space) - what the context menu is for.
     private Row? _menuRow;
 
@@ -46,8 +44,8 @@ public partial class ProjectsPage : UserControl, IRefreshable
     {
         _services = services; _runner = runner;
         InitializeComponent();
-        if (_last is { } last) Show(last.List, last.Loaded);
-        Loaded += (_, _) => Refresh();
+        // Loaded once - the page is kept while the app runs. Refresh (and every finished operation) loads it again.
+        Refresh();
         // Look for installed IDEs now (vswhere takes a moment) so the first right-click opens at once.
         _ = Task.Run(() => (IdeLocator.Installed, IdeLocator.ManagementStudios));
     }
@@ -68,7 +66,6 @@ public partial class ProjectsPage : UserControl, IRefreshable
             });
             if (version != _loadVersion) return;
 
-            _last = (list, DateTime.Now);
             Show(list, DateTime.Now);
         }
         catch (Exception ex)
@@ -181,18 +178,23 @@ public partial class ProjectsPage : UserControl, IRefreshable
         menu.Items.Add(NewMenuItem("Copy path", (_, _) => CopyPath(row)));
         menu.Items.Add(new Separator());
 
+        // One submenu with the editors found on this PC - nothing listed that isn't installed.
         var ides = IdeLocator.Installed;
+        var openIn = new MenuItem { Header = "Open in" };
         if (ides.Count == 0)
-            menu.Items.Add(new MenuItem { Header = "No IDE found", IsEnabled = false });
+        {
+            openIn.IsEnabled = false;
+            openIn.ToolTip = "No code editor or IDE found on this PC.";
+        }
         var solution = IdeLocator.SolutionFor(row.Path);
         foreach (var ide in ides)
         {
-            var header = $"Open in {ide.Name}" +
-                         (ide.OpensSolution && solution is not null ? $"  ({System.IO.Path.GetFileName(solution)})" : "");
+            var header = ide.Name + (ide.OpensSolution && solution is not null ? $"  ({System.IO.Path.GetFileName(solution)})" : "");
             var item = NewMenuItem(header, (_, _) => OpenInIde(ide, row));
             item.ToolTip = ide.ExePath;
-            menu.Items.Add(item);
+            openIn.Items.Add(item);
         }
+        menu.Items.Add(openIn);
         if (IdeLocator.ManagementStudios.Count > 0)
         {
             var projectDatabase = ProjectDatabaseName(row);

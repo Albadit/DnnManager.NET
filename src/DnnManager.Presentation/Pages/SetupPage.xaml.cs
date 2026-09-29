@@ -11,32 +11,98 @@ using Microsoft.Win32;
 namespace DnnManager.Presentation.Pages;
 
 /// <summary>
-/// "Setup a new DNN project" from a DNN download or an imported site .zip - or, when the folder is already
-/// there, host what's in it.
+/// "New project": a new project folder from a DNN download or an imported site .zip. A name whose folder already
+/// exists is refused - setting up an existing folder is what Host project is for.
 /// </summary>
 public partial class SetupPage : UserControl, IRefreshable
 {
     private readonly OperationRunner _runner;
     private readonly IProjectRepository _repo;
+    private readonly DnnReleaseCatalog _catalog;
+    private readonly IDnnPackageInstaller _packages;
 
-    public SetupPage(OperationRunner runner, IProjectRepository repo, IDnnReleaseService releases)
+    /// <summary>A DNN release source: its GitHub releases API URL, shown as <c>owner/repo</c>.</summary>
+    public sealed record SourceOption(string Api, string Label);
+
+    /// <summary>A version to install; <see cref="Release"/> is null for "the latest", used when the list couldn't be loaded.</summary>
+    public sealed record VersionOption(DnnRelease? Release, string Label, bool Ready = true);
+
+    // Which source's versions the list shows now - an answer for another source that arrives late is dropped.
+    private string? _versionsFor;
+
+    public SetupPage(OperationRunner runner, IProjectRepository repo, IDnnReleaseService releases, DnnReleaseCatalog catalog,
+        IDnnPackageInstaller packages)
     {
-        _runner = runner; _repo = repo;
+        _runner = runner; _repo = repo; _catalog = catalog; _packages = packages;
         InitializeComponent();
 
-        SourceCombo.ItemsSource = releases.KnownReleaseApis;
+        SourceCombo.ItemsSource = releases.KnownReleaseApis.Select(api => new SourceOption(api, RepositoryLabel(api))).ToList();
         SourceCombo.SelectedIndex = 0;
         LoadBackupProjects();
     }
 
+    /// <summary><c>https://api.github.com/repos/dnnsoftware/Dnn.Platform/releases</c> → <c>dnnsoftware/Dnn.Platform</c>.</summary>
+    private static string RepositoryLabel(string api)
+    {
+        if (!Uri.TryCreate(api, UriKind.Absolute, out var uri)) return api;
+        var parts = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 3 && parts[0] == "repos" ? $"{parts[1]}/{parts[2]}" : api;
+    }
+
+    private void SourceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => LoadVersions(refresh: false);
+
+    private void RefreshVersions_Click(object sender, RoutedEventArgs e) => LoadVersions(refresh: true);
+
+    /// <summary>
+    /// Fills the version list for the chosen repository - from the list loaded when the app started, or asked of
+    /// GitHub again with <paramref name="refresh"/>.
+    /// </summary>
+    private async void LoadVersions(bool refresh)
+    {
+        if (SourceCombo.SelectedItem is not SourceOption source) return;
+        _versionsFor = source.Api;
+
+        var lookup = _catalog.GetAsync(source.Api, refresh);
+        if (!lookup.IsCompleted)
+        {
+            ShowVersions([new VersionOption(null, "Loading versions…", Ready: false)],
+                $"Asking GitHub for the releases of {source.Label}…");
+            RefreshVersionsButton.IsEnabled = false;
+        }
+        var result = await lookup;
+        if (_versionsFor != source.Api) return; // another repository was picked meanwhile
+        RefreshVersionsButton.IsEnabled = true;
+
+        if (!result.Success)
+        {
+            // Still usable: the latest release is looked up when the project is set up.
+            ShowVersions([new VersionOption(null, "Latest release")],
+                $"Could not load the versions ({result.Error}) - the latest release is used. Refresh to try again.");
+            return;
+        }
+        var releases = result.Value!;
+        if (releases.Count == 0)
+        {
+            ShowVersions([], $"{source.Label} has no release with a DNN install package.");
+            return;
+        }
+        ShowVersions(releases.Select((r, i) => new VersionOption(r,
+                r.Version + (i == 0 ? "  (latest)" : "") + (_packages.IsKept(r) ? "  - kept, no download" : ""))).ToList(),
+            $"{releases.Count} releases of {source.Label}, highest version first - the latest is selected.");
+    }
+
+    private void ShowVersions(IReadOnlyList<VersionOption> options, string hint)
+    {
+        VersionCombo.ItemsSource = options;
+        VersionCombo.SelectedIndex = options.Count > 0 ? 0 : -1;
+        VersionCombo.IsEnabled = options.Count > 0 && options[0].Ready;
+        VersionHint.Text = hint;
+        UpdateState();
+    }
+
+    private void VersionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateState();
+
     private string EnteredName => NameBox.Text.Trim();
-
-    // The folder is already there (copied in by hand, a git checkout, an earlier run…): usually only
-    // the website and database are missing, so offer that before overwriting any files.
-    private bool FolderExists { get; set; }
-
-    // The project whose backups the existing-folder options currently list.
-    private string? _optionsLoadedFor;
 
     /// <summary>A dated backup in the "From a project backup" list.</summary>
     public sealed record BackupPick(ProjectBackup Backup, string Label);
@@ -61,9 +127,11 @@ public partial class SetupPage : UserControl, IRefreshable
 
     private void BackupProject_Changed(object sender, SelectionChangedEventArgs e)
     {
+        // The backup list belongs to the chosen project - nothing to pick from until one is chosen.
         if (BackupProjectCombo.SelectedItem is not string project)
         {
             ProjectBackupCombo.ItemsSource = null;
+            ProjectBackupCombo.IsEnabled = false;
             return;
         }
         var backups = ProjectBackups.List(_repo.Build(project))
@@ -71,6 +139,7 @@ public partial class SetupPage : UserControl, IRefreshable
             .Select(b => new BackupPick(b, $"{b.Created:yyyy-MM-dd HH:mm:ss}  ({SizeMb(b.SiteZip!) + SizeMb(b.Database!):N1} MB)"))
             .ToList();
         ProjectBackupCombo.ItemsSource = backups;
+        ProjectBackupCombo.IsEnabled = backups.Count > 0;
         ProjectBackupCombo.SelectedIndex = backups.Count > 0 ? 0 : -1; // newest first
     }
 
@@ -91,13 +160,11 @@ public partial class SetupPage : UserControl, IRefreshable
     public void Refresh()
     {
         LoadBackupProjects();
-        _optionsLoadedFor = null; // the operation may have created the folder or a backup
         UpdateState();
+        LoadVersions(refresh: false); // from the kept list - only the "kept, no download" marks may have changed
     }
 
     private void NameBox_TextChanged(object sender, TextChangedEventArgs e) => UpdateState();
-
-    private void ExistingOptions_ActionChanged(object? sender, EventArgs e) => UpdateState();
 
     private void Start_Checked(object sender, RoutedEventArgs e)
     {
@@ -122,7 +189,7 @@ public partial class SetupPage : UserControl, IRefreshable
         if (dialog.ShowDialog(Window.GetWindow(this)) == true) BackupBox.Text = dialog.FileName;
     }
 
-    private bool Importing => !FolderExists && FromZip.IsChecked == true;
+    private bool Importing => FromZip.IsChecked == true;
 
     /// <summary>What's wrong with the import fields, or null when they're usable.</summary>
     private string? ImportProblem()
@@ -142,22 +209,14 @@ public partial class SetupPage : UserControl, IRefreshable
         var check = ProjectName.Validate(name);
         var valid = check.Success;
 
-        NameError.Text = name.Length > 0 && !valid ? check.Error ?? "" : "";
-        NameError.Visibility = NameError.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-
+        // A new project needs a folder of its own - an existing one is set up on Host project.
         var exists = valid && _repo.ProjectExists(name);
-        if (exists && !string.Equals(_optionsLoadedFor, name, StringComparison.OrdinalIgnoreCase))
-        {
-            ExistingOptions.Load(_repo.Build(name));
-            _optionsLoadedFor = name;
-        }
-        FolderExists = exists;
+        NameError.Text = name.Length > 0 && !valid ? check.Error ?? ""
+            : exists ? $"A project named '{name}' already exists. Choose another name, or set it up on Host project."
+            : "";
+        NameError.Visibility = NameError.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        valid = valid && !exists;
 
-        ExistingCard.Visibility = exists ? Visibility.Visible : Visibility.Collapsed;
-        ExistingTitle.Text = $"Folder '{name}' already exists - what do you want to do?";
-
-        // "Start from" is for a new folder; an existing one is hosted (or re-downloaded) instead.
-        StartCard.Visibility = exists ? Visibility.Collapsed : Visibility.Visible;
         var importing = Importing;
         var problem = importing ? ImportProblem() : null;
         ImportCard.Visibility = importing ? Visibility.Visible : Visibility.Collapsed;
@@ -166,31 +225,16 @@ public partial class SetupPage : UserControl, IRefreshable
         ImportError.Text = problem is not null && started ? problem : "";
         ImportError.Visibility = ImportError.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 
-        var downloading = !importing && (!exists || ExistingOptions.Action == ExistingFolderAction.Redownload);
-        PackageCard.Visibility = downloading ? Visibility.Visible : Visibility.Collapsed;
-        RunButton.Content = importing ? "Import project" : downloading ? "Set up project" : "Set up existing folder";
-        RunButton.IsEnabled = valid && (importing ? problem is null : !downloading || SourceCombo.SelectedItem is string);
+        PackageCard.Visibility = importing ? Visibility.Collapsed : Visibility.Visible;
+        RunButton.Content = importing ? "Import project" : "Set up project";
+        RunButton.IsEnabled = valid && (importing ? problem is null
+            : SourceCombo.SelectedItem is SourceOption && VersionCombo.SelectedItem is VersionOption { Ready: true });
     }
 
     private async void Run_Click(object sender, RoutedEventArgs e)
     {
         var name = EnteredName;
-        if (!ProjectName.Validate(name).Success) return;
-
-        if (FolderExists && ExistingOptions.Action != ExistingFolderAction.Redownload)
-        {
-            var action = ExistingOptions.Action;
-            var req = new HostExistingProjectRequest
-            {
-                ProjectName = name,
-                SetupIis = action is ExistingFolderAction.IisOnly or ExistingFolderAction.IisAndDatabase,
-                SetupDatabase = ExistingOptions.SetupsDatabase,
-                BackupFilePath = ExistingOptions.SetupsDatabase ? ExistingOptions.BackupFile : null
-            };
-            await _runner.RunAsync($"Set up existing project '{name}'",
-                (sp, reporter, ct) => sp.GetRequiredService<HostExistingProjectUseCase>().ExecuteAsync(req, reporter, ct));
-            return;
-        }
+        if (!ProjectName.Validate(name).Success || _repo.ProjectExists(name)) return;
 
         if (Importing)
         {
@@ -201,21 +245,30 @@ public partial class SetupPage : UserControl, IRefreshable
                 ZipPath = ZipBox.Text.Trim(),
                 BackupFilePath = BackupBox.Text.Trim()
             };
-            await _runner.RunAsync($"Import '{name}'",
-                (sp, reporter, ct) => sp.GetRequiredService<ImportProjectUseCase>().ExecuteAsync(import, reporter, ct));
+            if (await _runner.RunAsync($"Import '{name}'",
+                    (sp, reporter, ct) => sp.GetRequiredService<ImportProjectUseCase>().ExecuteAsync(import, reporter, ct)))
+                Created();
             return;
         }
 
-        if (SourceCombo.SelectedItem is not string api) return;
-        var version = VersionBox.Text.Trim();
+        if (SourceCombo.SelectedItem is not SourceOption source ||
+            VersionCombo.SelectedItem is not VersionOption { Ready: true } version) return;
         var setup = new SetupProjectRequest
         {
             ProjectName = name,
-            ReleaseApiUrl = api,
-            Version = version.Length == 0 ? null : version,
-            AllowOverwrite = FolderExists
+            ReleaseApiUrl = source.Api,
+            Version = version.Release?.TagName
         };
-        await _runner.RunAsync($"Set up '{name}'",
-            (sp, reporter, ct) => sp.GetRequiredService<SetupProjectUseCase>().ExecuteAsync(setup, reporter, ct));
+        if (await _runner.RunAsync($"Set up '{name}'",
+                (sp, reporter, ct) => sp.GetRequiredService<SetupProjectUseCase>().ExecuteAsync(setup, reporter, ct)))
+            Created();
+    }
+
+    /// <summary>Clears the name after a project is created, so the page is ready for the next one.</summary>
+    private void Created()
+    {
+        NameBox.Text = "";
+        ZipBox.Text = "";
+        BackupBox.Text = "";
     }
 }

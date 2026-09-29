@@ -37,7 +37,13 @@
 
             <Border Style="{StaticResource Card}" Padding="0" Margin="0">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource CardTitle}" Text="Project folders" Margin="14,12,14,8" />
+                    <DockPanel DockPanel.Dock="Top" Margin="14,8,10,4">
+                        <Button DockPanel.Dock="Right" x:Name="RefreshButton" Padding="10,0" VerticalAlignment="Center"
+                                ToolTip="Read the project folders and their IIS sites again" Click="Refresh_Click">
+                            <TextBlock Text="&#xE72C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center" />
+                        </Button>
+                        <TextBlock Style="{StaticResource CardTitle}" Text="Project folders" Margin="0" VerticalAlignment="Center" />
+                    </DockPanel>
                     <ListBox x:Name="FolderList" BorderThickness="0" SelectionChanged="FolderList_SelectionChanged">
                         <ListBox.ItemTemplate>
                             <DataTemplate>

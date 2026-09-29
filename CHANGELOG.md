@@ -2,6 +2,107 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## Unreleased
+
+### Fixed
+
+- **Imported and cloned sites no longer redirect to https.** A database from a
+  live site often has DNN's SSL on (`SSLSetup` in DNN 10, `SSLEnabled` /
+  `SSLEnforced` in DNN 9, or pages marked secure), so DNN sent every
+  `http://<project>.dnndev.me` request to `https://`, which the local site
+  doesn't answer. Host project (with a backup restored), Import and Clone now
+  switch it off in the local database, with a warning in the activity log to
+  switch it back on before that database goes live again.
+
+### Added
+
+- **Toasts.** Short messages over the bottom-right of the page - e.g. why the
+  settings couldn't be saved - seen wherever the page is scrolled.
+- **Refresh buttons** next to the DNN version list (New project) and the
+  project folders (Host project).
+
+- **Pick a DNN version from a list.** On **New project**, choose the
+  **Repository** (shown as `owner/repo`), then a **Version** from its GitHub
+  releases - newest first, with the latest selected. Before, the version had to
+  be typed (blank for the latest).
+- **Keep downloaded DNN packages.** A new setting, **Keep downloaded DNN install
+  packages for next time** (`projects.keepDnnPackages`, off by default), keeps
+  each downloaded `DNN_Platform_<version>_Install.zip` in
+  `Documents\DnnManager\packages\<owner>.<repo>\` and uses it again when a new
+  project picks the same version, without downloading. The version list marks
+  those versions *kept, no download*. Downloads now show their progress.
+
+### Changed
+
+- **Open in: one submenu with your editors.** The project menu's separate
+  *Open in …* entries are now one **Open in** submenu listing only the editors
+  installed on the PC. Newly found: IntelliJ IDEA, Zed, Vim and Neovim (their
+  windowed versions, or the console ones in a window of their own), next to
+  Visual Studio, VS Code (and Insiders, Cursor, Windsurf), Rider and Sublime
+  Text.
+- **SA password encrypted.** `sqlServer.saPassword` in `settings.json` is now
+  stored encrypted for your Windows account (Windows DPAPI, `dpapi:…`) - it
+  can't be hashed, as DNN Manager needs the password itself to sign in to SQL
+  Server. A plain password in the file is encrypted on the next start, so it can
+  still be changed by hand. The activity log no longer prints it, and
+  **Show docker-compose.yml** leaves it out: the file has a
+  `<your-sa-password>` placeholder to replace after copying, and its health
+  check reads the password from the container's own environment. Sites' `web.config` still holds it -
+  DNN needs it there to connect.
+- **Renamed from dnnmgr to dnnmanager.** The program is now `dnnmanager.exe`,
+  the log files are `logs\dnnmanager-<date>.log`, and the environment variables
+  that override settings start with `DNNMANAGER_` (e.g.
+  `DNNMANAGER_DnnManager__Docker__SaPassword`) instead of `DNNMGR_`. The Start
+  menu and desktop shortcuts point at the new exe (re-pin it if it was pinned to
+  the taskbar). Old log files are cleaned up after 30 days as before.
+- **Activity log starts collapsed.** Only its header bar shows at first - with
+  the running operation, its progress and Cancel; the chevron opens the log.
+- **New project only creates new projects.** A name whose folder already exists
+  now shows *A project named '…' already exists* and can't be set up, instead
+  of offering the existing-folder choices (and downloading DNN over the
+  folder). Setting up an existing folder is what **Host project** is for. After
+  a project is created, the name is cleared for the next one.
+
+- **Settings: Save and restart instead of autosave.** Edits on the Settings
+  page are no longer saved as you type. Once something changes, a bar appears
+  pinned to the bottom of the page with **Save and restart** - it checks the values, saves them and restarts DNN
+  Manager so they apply - and **Discard changes**. Leaving the page or closing
+  the app with unsaved changes asks first.
+
+- **Faster pages.** Pages are kept while the app runs instead of being rebuilt
+  on every visit, so the Projects list and the Host project folders load once;
+  **Refresh**, or a finished operation, loads them again. The DNN versions are
+  asked of GitHub once, in the background when the app starts.
+- **DNN versions sorted by version number,** highest first - GitHub lists them
+  by date, which put e.g. 9.13.10 between 10.2.0 and 10.1.2. The "latest"
+  release is now the highest version, too.
+
+- **Docker and SQL Server settings apart.** The Settings page has a **SQL
+  Server** card (host, port, SA password, database name suffix) and a **Docker
+  container** card (container name, volume, edition, collation). In
+  `settings.json` the container values move from `sqlServer` to a new `docker`
+  section - the file's `version` becomes 2, and an existing file is backed up to
+  `backups\` and upgraded on the next start.
+- **Environment: Docker and SQL Server apart.** The *Docker and SQL Server*
+  card is split into a **Docker** card (Docker Desktop, engine, SQL Server
+  container) and a **SQL Server** card (the connection), each with its own
+  **Test**.
+- **Set up docker-compose, without a docker-compose.yml file.** The Docker card's
+  **Set up docker-compose** button (replacing **Set up container** / **Start
+  container**) runs the docker-compose.yml made from the settings - handed to
+  `docker compose up -d` directly, so no file is written and it can't get out
+  of step with the settings. It creates the container, starts it, or updates it
+  after the settings changed, and waits for the sa login. **Show
+  docker-compose.yml** shows the same file with a **Copy** button (without the
+  SA password). The docker-compose.yml in `Documents\DnnManager` (or next to an
+  old DNN Manager exe) is no longer used.
+- **Databases named like the project.** A new project's local database is now
+  named like the project (`ceesboer`, not `ceesboer_dnndev`), and the *Database
+  name suffix* setting is removed - `sqlServer.databaseNameSuffix` is dropped
+  from `settings.json` when it is upgraded. Existing sites keep their database:
+  DNN Manager uses the one their `web.config` names. A project can't be named
+  after a SQL Server system database (`master`, `model`, `msdb`, `tempdb`).
+
 ## v2.1.0 - 2026-09-29
 
 DNN Manager now has a Windows installer, and your settings and project backups

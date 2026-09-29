@@ -7,12 +7,11 @@ using Microsoft.Win32;
 namespace DnnManager.Presentation.Controls;
 
 /// <summary>What to do with a project folder that already exists.</summary>
-public enum ExistingFolderAction { IisOnly, IisAndDatabase, DatabaseOnly, Redownload }
+public enum ExistingFolderAction { IisOnly, IisAndDatabase, DatabaseOnly }
 
 /// <summary>
 /// Asks how to set up an existing project folder - IIS site, database, or both - and which
-/// backup (if any) to restore into the database. Shared by "New project" (when the folder is already
-/// there) and "Host project".
+/// backup (if any) to restore into the database. Used by "Host project".
 /// </summary>
 public partial class ExistingFolderOptions : UserControl
 {
@@ -26,21 +25,9 @@ public partial class ExistingFolderOptions : UserControl
         InitializeComponent();
     }
 
-    /// <summary>Adds the option to extract a fresh DNN package over the folder (used by setup).</summary>
-    public bool OfferRedownload
-    {
-        get => Redownload.Visibility == Visibility.Visible;
-        set
-        {
-            Redownload.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
-            if (!value && Redownload.IsChecked == true) IisAndDatabase.IsChecked = true;
-        }
-    }
-
     public ExistingFolderAction Action =>
         IisOnly.IsChecked == true      ? ExistingFolderAction.IisOnly :
         DatabaseOnly.IsChecked == true ? ExistingFolderAction.DatabaseOnly :
-        Redownload.IsChecked == true   ? ExistingFolderAction.Redownload :
                                          ExistingFolderAction.IisAndDatabase;
 
     public bool SetupsDatabase => Action is ExistingFolderAction.IisAndDatabase or ExistingFolderAction.DatabaseOnly;

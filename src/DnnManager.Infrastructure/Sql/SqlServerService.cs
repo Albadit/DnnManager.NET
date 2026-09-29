@@ -195,4 +195,34 @@ IF COL_LENGTH('dbo.PortalAlias','IsPrimary') IS NOT NULL
         var r = await SqlcmdAsync(null, null, null, sql, ct);
         return r.Success ? Result.Ok() : Result.Fail(r.StdErr);
     }
+
+    public async Task<Result<int>> DisableSslAsync(string database, CancellationToken ct)
+    {
+        // DNN 10 keeps one SSLSetup portal setting (0 off, 1 on, 2 advanced); DNN 9 has SSLEnabled / SSLEnforced. Pages
+        // can also be marked secure one by one. Each only if the schema has it.
+        var sql = $@"
+USE {Quoted(database)};
+SET NOCOUNT ON;
+DECLARE @changed int = 0;
+IF OBJECT_ID(N'dbo.PortalSettings') IS NOT NULL
+BEGIN
+    UPDATE dbo.PortalSettings SET SettingValue = N'0'
+    WHERE SettingName = N'SSLSetup' AND ISNULL(SettingValue, N'') <> N'0';
+    SET @changed += @@ROWCOUNT;
+    UPDATE dbo.PortalSettings SET SettingValue = N'False'
+    WHERE SettingName IN (N'SSLEnabled', N'SSLEnforced') AND ISNULL(SettingValue, N'') NOT IN (N'False', N'false');
+    SET @changed += @@ROWCOUNT;
+END
+IF COL_LENGTH(N'dbo.Tabs', N'IsSecure') IS NOT NULL
+BEGIN
+    UPDATE dbo.Tabs SET IsSecure = 0 WHERE IsSecure = 1;
+    SET @changed += @@ROWCOUNT;
+END
+PRINT 'CHANGED=' + CAST(@changed AS nvarchar(10));";
+        var r = await SqlcmdAsync(null, null, null, sql, ct);
+        if (!r.Success) return Result<int>.Fail(r.StdErr.Length > 0 ? r.StdErr : r.StdOut);
+        var marker = r.StdOut.LastIndexOf("CHANGED=", StringComparison.Ordinal);
+        var count = marker >= 0 && int.TryParse(r.StdOut[(marker + 8)..].Trim(), out var n) ? n : 0;
+        return Result<int>.Ok(count);
+    }
 }

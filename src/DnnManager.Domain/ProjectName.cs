@@ -6,7 +6,7 @@ namespace DnnManager.Domain;
 /// <remarks>
 /// The name is used verbatim in four places, so it has to satisfy all of them at once:
 /// a single directory segment under the base directory, an IIS site + application-pool name,
-/// a DNS host label (<c>{name}.{suffix}</c>) and the prefix of a SQL database name. Most
+/// a DNS host label (<c>{name}.{suffix}</c>) and a SQL database name. Most
 /// importantly it must stay a <em>single relative segment</em>: anything containing a separator,
 /// a drive qualifier or <c>..</c> would escape the base directory - and removing a project
 /// recursively deletes that resolved path.
@@ -22,6 +22,12 @@ public static class ProjectName
         "CON", "PRN", "AUX", "NUL",
         "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
         "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    };
+
+    // The project's database is named like the project, so it can't take a SQL Server system database's name.
+    private static readonly HashSet<string> SqlSystemDatabases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "master", "model", "msdb", "tempdb", "resource", "distribution"
     };
 
     public static Result Validate(string? name)
@@ -54,6 +60,9 @@ public static class ProjectName
         var stem = name.Split('.')[0];
         if (ReservedDeviceNames.Contains(stem))
             return Result.Fail($"'{name}' uses the reserved Windows device name '{stem}'.");
+
+        if (SqlSystemDatabases.Contains(name))
+            return Result.Fail($"'{name}' is a SQL Server system database - the project's database is named like the project.");
 
         return Result.Ok();
     }
