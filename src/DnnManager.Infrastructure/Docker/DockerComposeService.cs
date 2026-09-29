@@ -3,6 +3,7 @@ using DnnManager.Application.Configuration;
 using DnnManager.Domain;
 using DnnManager.Infrastructure.Files;
 using DnnManager.Infrastructure.Processes;
+using DnnManager.Infrastructure.Settings;
 
 namespace DnnManager.Infrastructure.Docker;
 
@@ -12,10 +13,15 @@ public sealed class DockerComposeService : IDockerComposeService
     private const string ComposeProjectName = "dnn-shared";
 
     private readonly ProcessRunner _proc;
+    private readonly AppDataPaths _paths;
 
-    public DockerComposeService(ProcessRunner proc) => _proc = proc;
+    public DockerComposeService(ProcessRunner proc, AppDataPaths paths)
+    {
+        _proc = proc;
+        _paths = paths;
+    }
 
-    public string ComposeFilePath => BundledFiles.PathOf(BundledFiles.DockerCompose);
+    public string ComposeFilePath => _paths.ComposeFile;
 
     public string Render(DockerOptions docker) => BundledFiles.ComposeFor(docker);
 

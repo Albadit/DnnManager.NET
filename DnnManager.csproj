@@ -12,7 +12,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <DebugType>embedded</DebugType>
-    <Version>2.0.0</Version>
+    <Version>2.1.0</Version>
     <!-- Publishing for a runtime (e.g. -r win-x64) precompiles the code (ReadyToRun), so the app starts without
          JIT-compiling everything first. Plain builds and dotnet run are unaffected. -->
     <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
@@ -33,14 +33,27 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
     <PackageReference Include="Microsoft.Web.Administration" Version="11.1.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
   </ItemGroup>
 
-  <!-- The default appsettings.json and docker-compose.yml are defined in code and written next to
-       the exe on first run (src/DnnManager.Infrastructure/Files/BundledFiles.cs). -->
+  <!-- Nothing but the program is published: settings.json and docker-compose.yml are created in
+       Documents\DNN Manager on first run (src/DnnManager.Infrastructure/Settings, Files/BundledFiles.cs). -->
+
+  <!-- Portable publish (-p:PortableExe=true, used by the VS Code publish task): the single-file exe is renamed
+       DnnManager-<version>-<arch>.exe, e.g. DnnManager-2.1.0-x64.exe. Only the file is renamed - the assembly
+       stays dnnmgr, which the XAML pack URIs refer to. The installer's publish keeps dnnmgr.exe. -->
+  <Target Name="RenamePortableExe" AfterTargets="Publish" Condition="'$(PortableExe)' == 'true'">
+    <PropertyGroup>
+      <PortableArch>$(RuntimeIdentifier.Replace('win-', ''))</PortableArch>
+      <PortableExePath>$(PublishDir)DnnManager-$(Version)-$(PortableArch).exe</PortableExePath>
+    </PropertyGroup>
+    <Error Condition="'$(PublishSingleFile)' != 'true'" Text="PortableExe=true needs a single-file publish (-p:PublishSingleFile=true)." />
+    <Copy SourceFiles="$(PublishDir)$(AssemblyName).exe" DestinationFiles="$(PortableExePath)" />
+    <Delete Files="$(PublishDir)$(AssemblyName).exe" />
+    <Message Importance="high" Text="Portable exe: $([System.IO.Path]::GetFullPath('$(PortableExePath)'))" />
+  </Target>
 
 </Project>

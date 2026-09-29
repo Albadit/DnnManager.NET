@@ -45,6 +45,26 @@ public partial class MessageDialog : Window
         dialog.ShowDialog();
     }
 
+    /// <summary>
+    /// Shows <paramref name="message"/> as a warning with one button per choice and returns the index of the
+    /// one clicked. The first choice is the default (Enter); Esc or closing the window picks <paramref name="cancelIndex"/>.
+    /// </summary>
+    public static int Choose(string message, IReadOnlyList<string> choices, int cancelIndex)
+    {
+        var dialog = Create(message, Kind.Warning);
+        var chosen = cancelIndex;
+        for (var i = 0; i < choices.Count; i++)
+        {
+            var index = i;
+            var button = dialog.AddButton(choices[i], primary: i == 0, answer: true);
+            button.Click += (_, _) => chosen = index;
+            button.IsDefault = i == 0;
+            button.IsCancel = i == cancelIndex;
+            if (i == 0) dialog.Loaded += (_, _) => button.Focus();
+        }
+        return dialog.ShowDialog() == true ? chosen : cancelIndex;
+    }
+
     private static MessageDialog Create(string message, Kind kind)
     {
         var dialog = new MessageDialog(message, kind)

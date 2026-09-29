@@ -2,6 +2,57 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## v2.1.0 - 2026-09-29
+
+DNN Manager now has a Windows installer, and your settings move out of the
+program folder into `Documents\DNN Manager`, where updates, reinstalls and
+uninstalls leave them alone.
+
+### Upgrading from v2.0.x
+
+- Settings are now in `Documents\DNN Manager\settings.json`, in a new format
+  (grouped, camelCase, with a `version`). Start the new `dnnmgr.exe` once from
+  the folder of the old one and its `appsettings.json` and `docker-compose.yml`
+  are carried over (the originals are left in place). If you install the new
+  version elsewhere, copy the old `appsettings.json` to
+  `Documents\DNN Manager\settings.json` before the first start - it is
+  converted automatically.
+- `DNNMGR_DnnManager__*` environment variables still override settings, with
+  the same names.
+- The `Logging` section of `appsettings.json` is gone (it had no effect).
+
+### Added
+
+- **Windows installer** (`DnnManagerSetup-<version>-x64.exe`, built with
+  `installer\build.ps1` and Inno Setup). It works like the VS Code user
+  installer: no administrator rights, installs into
+  `%LOCALAPPDATA%\Programs\DNN Manager` (or a folder you pick), adds a Start
+  menu shortcut and an optional desktop shortcut, registers in **Installed
+  apps** for uninstalling, and can start the app when it finishes. When DNN
+  Manager is already installed, Setup first offers **Repair** / **Update** (in
+  place, same folder) or **Uninstall**; Setup and the uninstaller ask you to close DNN Manager when
+  it's running. `/ALLUSERS` installs for all users into Program Files.
+- **Settings in Documents.** `Documents\DNN Manager` holds `settings.json`,
+  `docker-compose.yml`, `backups\` and `logs\`, and is created on first start.
+- **Checked settings.** At startup, invalid JSON, a value of the wrong type or a
+  value that isn't allowed (e.g. a port above 65535) opens a dialog that says
+  what's wrong - **Try again**, **Open file**, **Reset to defaults** (keeping
+  the old file in `backups\`) or **Exit** - instead of the app failing. Missing
+  keys are filled in with their defaults.
+- **Versioned settings.** `settings.json` has a `version`; a file in an older
+  format is backed up to `backups\` and upgraded, and a file from a newer DNN
+  Manager is refused rather than overwritten.
+- **Log files.** The activity log is also written to
+  `Documents\DNN Manager\logs\dnnmgr-<date>.log` (kept 30 days).
+
+### Changed
+
+- The **Settings** page saves each change automatically once it is valid (the
+  Save and Revert buttons are gone), and has **Open settings.json** and **Open
+  settings folder**.
+- `docker-compose.yml` is written to `Documents\DNN Manager` instead of next to
+  the exe.
+
 ## v2.0.0 - 2026-09-28
 
 A major release: projects can be imported from and exported to a `.zip` +

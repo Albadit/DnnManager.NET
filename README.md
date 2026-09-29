@@ -22,15 +22,43 @@ solution.
 - **Environment** - see whether Docker Desktop, its engine, the SQL Server
   container, the SQL Server connection and the IIS Windows features are active,
   and install / start / set up / enable what's missing.
-- **Settings** - edit `appsettings.json` from the app, test the SQL Server
-  connection and set up its Docker container.
+- **Settings** - edit the settings from the app; each change is saved to
+  `Documents\DNN Manager\settings.json` as you make it.
 - **Light and dark theme**, a live **activity log** with Cancel, and an eye
   button on every password field.
+
+## Install
+
+Run `DnnManagerSetup-<version>-x64.exe` (see [Build the installer](#build-the-installer)).
+Like the Visual Studio Code user installer, it needs no administrator rights:
+
+- installs into `%LOCALAPPDATA%\Programs\DNN Manager` - **Browse…** picks another folder
+- adds **DNN Manager** to the Start menu, and a desktop shortcut if you tick it
+- registers in **Settings → Apps → Installed apps**, where you uninstall it
+- starts the app when you click **Finish** (the app asks for administrator
+  rights itself - UAC - every time it starts, since it manages IIS)
+
+The app is self-contained: no .NET runtime to install. When DNN Manager is
+already installed, Setup's first page shows the installed version and asks what
+to do: **Repair** (or **Update** when Setup is newer), which installs over it
+in the same folder, or **Uninstall**, which runs the uninstaller and closes
+Setup. Your settings are kept either way. If DNN Manager is running, Setup (and
+the uninstaller) asks you to close it first. Silent installs (`/SILENT`,
+`/VERYSILENT`) skip that page and upgrade in place.
+
+`Setup.exe /ALLUSERS` installs for every user into `Program Files` instead (it
+asks for administrator rights). For unattended installs, Inno Setup's
+`/SILENT` / `/VERYSILENT` and `/DIR="..."` work too.
+
+Your settings are **not** in the install folder - they're in
+`Documents\DNN Manager` (see [Configuration](#configuration)). Setup never
+writes there, so upgrading, reinstalling or uninstalling keeps them. To remove
+them, delete that folder after uninstalling.
 
 ## Prerequisites
 
 - Windows 10/11 or Windows Server (IIS available)
-- **.NET 10 SDK** - <https://dotnet.microsoft.com/download/dotnet/10.0>
+- **.NET 10 SDK** to build - <https://dotnet.microsoft.com/download/dotnet/10.0>
 - Docker Desktop (Linux containers) for the shared SQL Server - set it up once
   on the **Environment** page (or point the SQL Server settings
   at a SQL Server you already run)
@@ -73,22 +101,39 @@ there's no prompt.
 One file, no .NET runtime needed on the target machine:
 
 ```bash
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o publish
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:PortableExe=true -o publish
 
-.\publish\dnnmgr.exe
+.\publish\DnnManager-2.1.0-x64.exe
 ```
 
-`appsettings.json` and `docker-compose.yml` aren't part of the source or the
-publish output. Their defaults are defined in code
-([`BundledFiles.cs`](src/DnnManager.Infrastructure/Files/BundledFiles.cs)), and
-the app writes them next to the exe on first start, or whenever one is missing.
-Existing files are never overwritten, so your edits stick. If the folder is
-read-only, the app still starts with the built-in settings.
+`-p:PortableExe=true` names the exe `DnnManager-<version>-x64.exe` (without it,
+it's `dnnmgr.exe`). The publish output holds only the program. Settings and `docker-compose.yml`
+live in `Documents\DNN Manager` and are created on first start (see
+[Configuration](#configuration)).
 
 > **"Access to the path '...\publish\dnnmgr.exe' is denied"** when publishing
 > means the app is still running from `publish\`. Close it and publish again.
 
-VS Code tasks for build, publish and zip are in `.vscode/tasks.json`.
+### Build the installer
+
+```powershell
+.\installer\build.ps1
+```
+
+Publishes the app (self-contained, single file) into `installer\bin\app`, then
+compiles [`installer/DnnManager.iss`](installer/DnnManager.iss) with Inno Setup
+into `publish\DnnManagerSetup-<version>-x64.exe`. The version
+comes from `<Version>` in `DnnManager.csproj`. It uses an installed Inno Setup 6
+when there is one, otherwise it downloads a pinned copy (the `Tools.InnoSetup`
+package from nuget.org) into `installer\bin\tools` - no admin rights needed.
+Everything made along the way (the published app, wizard images, Inno Setup)
+is in `installer\bin`; the finished Setup is in `publish\`.
+`-SkipPublish` reuses the last publish; `-Iscc <path>` picks the compiler.
+
+The installer's `AppId` in `DnnManager.iss` identifies the installation for
+upgrades and uninstall - never change it.
+
+VS Code tasks for build, publish, zip and the installer are in `.vscode/tasks.json`.
 
 ## Using the app
 
@@ -116,7 +161,7 @@ VS Code tasks for build, publish and zip are in `.vscode/tasks.json`.
 | **Host project** | Pick a folder, then *IIS website + database* (the default), *database only* or *IIS website only*, and optionally a backup to restore. See [Host a project](#host-a-project). |
 | **Clone project** | Copy a site from a local folder into a new project. See [Clone a project](#clone-a-project). |
 | **Environment** | Checks what DNN Manager needs when you press a card's **Test** button (nothing runs on opening the page; an action re-tests its card), each with a green / red status and a button to fix it: **Docker Desktop** (**Install Docker Desktop** via winget), the **Docker engine** (**Start Docker Desktop**, then waits for the engine), the **SQL Server container** (**Set up container** / **Start container** - writes `docker-compose.yml` from the SQL Server settings, runs `docker compose up -d` and waits for the sa login; **Show docker-compose.yml** shows the file and whether the one next to the app matches), the **SQL Server connection**, and the **IIS Windows features** as a table with their status (**Enable missing features**). **Reset IIS** restarts IIS (`iisreset`, after a confirmation) - e.g. after installing the URL Rewrite module when a site shows *HTTP Error 500.19*. |
-| **Settings** | Edit `appsettings.json`, including the SQL Server connection and container values. Testing the connection and setting up the Docker container happen on the **Environment** page. See [Configuration](#configuration). |
+| **Settings** | Edit `settings.json`, including the SQL Server connection and container values. Changes are saved as you make them (once they are valid). Testing the connection and setting up the Docker container happen on the **Environment** page. See [Configuration](#configuration). |
 
 ### Project menu
 
@@ -135,26 +180,86 @@ Menu key):
 
 ## Configuration
 
-Settings live in the `appsettings.json` next to `dnnmgr.exe`. Edit them on the
-**Settings** page and **Save**. The values are checked first (full path, valid
-ports and URLs, required fields). Only the edited keys are rewritten; the rest of
-the file is kept. The app reads settings at startup, so it offers to **Restart
-now**. The IIS feature list and logging levels aren't on the page - **Open
-appsettings.json** opens the file for those.
+DNN Manager keeps your files apart from the program, in your **Documents**
+folder, so updating, reinstalling or uninstalling the app never touches them:
+
+```text
+Documents\DNN Manager\
+├── settings.json        your settings
+├── docker-compose.yml   the shared SQL Server container (Environment → Set up container)
+├── backups\             settings.json copies made before an upgrade of its format or a reset
+└── logs\                the activity log, one file per day (kept 30 days)
+```
+
+The folder and `settings.json` are created the first time the app starts. When
+you upgrade from 2.0 or earlier, the `appsettings.json` and
+`docker-compose.yml` next to the old `dnnmgr.exe` are carried over when the new
+version is started from that same folder. After installing somewhere else, copy
+`appsettings.json` into `Documents\DNN Manager` as `settings.json` and it is
+converted on the next start.
+
+Edit the settings on the **Settings** page. Each change is saved a moment
+after you make it, once the value is valid (full path, valid ports and URLs,
+required fields). The app reads settings at startup, so it offers to **Restart
+now**. **Open settings.json** opens the file for the values the page doesn't
+show, such as the IIS feature list.
+
+```json
+{
+  "version": 1,
+  "projects": {
+    "baseDirectory": "C:\\DNN",
+    "hostnameSuffix": "dnndev.me",
+    "sitePort": 80,
+    "dnnReleaseSources": [ "https://api.github.com/repos/dnnsoftware/Dnn.Platform/releases", "..." ]
+  },
+  "sqlServer": {
+    "host": "localhost",
+    "port": 1433,
+    "saPassword": "Admin@123",
+    "databaseNameSuffix": "_dnndev",
+    "containerName": "dnn-sqlserver",
+    "volumeName": "dnn_sqlserver_data",
+    "edition": "Developer",
+    "collation": "Latin1_General_CI_AS"
+  },
+  "ssms": { "rememberPassword": false },
+  "iis": { "requiredFeatures": [ { "name": "IIS-WebServerRole", "label": "IIS Web Server" }, "..." ] },
+  "appearance": { "theme": "system" }
+}
+```
 
 | Key | Meaning |
 |---|---|
-| `DnnManager:BaseDirectory` | Where projects live (`C:\DNN` by default). |
-| `DnnManager:SitePort`, `DnnManager:HostnameSuffix` | Sites answer at `http://<project>.<HostnameSuffix>[:SitePort]`. |
-| `DnnManager:Theme` | `Light`, `Dark` or `System` (follow the Windows app theme). Set by the sidebar's theme button. |
-| `DnnManager:SsmsRememberPassword` | `false` by default. When `true`, signing SSMS in from the project menu ticks its *Remember Password*, so SSMS keeps the password. On the Settings page under **SQL Server**. |
-| `DnnManager:GitHubReleaseApis` | GitHub releases API URLs offered as DNN sources. |
-| `DnnManager:Docker:*` | Shared SQL Server: host (`ContainerIp`, `localhost` by default), port and SA password to connect with; container name, volume, collation and edition for the Docker container; database name suffix. `docker-compose.yml` is generated from these by **Environment → Set up container**. An existing data volume keeps the sa password it was created with. |
-| `DnnManager:RequiredIisFeatures` | IIS Windows features checked (and optionally enabled). |
+| `version` | The format of the file. Don't change it - the app upgrades older files itself. |
+| `projects.baseDirectory` | Where projects live (`C:\DNN` by default). |
+| `projects.sitePort`, `projects.hostnameSuffix` | Sites answer at `http://<project>.<hostnameSuffix>[:sitePort]`. |
+| `projects.dnnReleaseSources` | GitHub releases API URLs offered as DNN sources. |
+| `sqlServer.*` | The shared SQL Server: `host` (`localhost` by default), `port` and `saPassword` to connect with; `containerName`, `volumeName`, `edition` (`MSSQL_PID`) and `collation` for the Docker container; `databaseNameSuffix` for project databases. `docker-compose.yml` is generated from these by **Environment → Set up container**. An existing data volume keeps the sa password it was created with. |
+| `ssms.rememberPassword` | `false` by default. When `true`, signing SSMS in from the project menu ticks its *Remember Password*, so SSMS keeps the password. On the Settings page under **SQL Server**. |
+| `iis.requiredFeatures` | IIS Windows features checked (and optionally enabled). |
+| `appearance.theme` | `system` (follow the Windows app theme), `light` or `dark`. Set by the sidebar's theme button. |
+
+When the app starts, it checks the file:
+
+- **Missing keys** are added with their default values (and written back).
+- **Invalid JSON, a value of the wrong type or a value that isn't allowed**
+  (e.g. a port above 65535, an unknown theme) opens a dialog that says what's
+  wrong, with **Try again** (after fixing the file), **Open file**, **Reset to
+  defaults** (the current file is kept in `backups\`) and **Exit**. The app
+  never starts with half-read settings.
+- **An older format** is backed up to `backups\settings.v<n>.<time>.json`, then
+  upgraded. A file from a *newer* DNN Manager is not touched - the dialog asks
+  you to update the app or reset the settings.
+- Keys the app doesn't know are kept when it saves.
 
 Environment variables prefixed with `DNNMGR_` override settings, e.g.
-`DNNMGR_DnnManager__Docker__SaPassword=...`. The Settings page lists any that
-are set, since they win over what it saves.
+`DNNMGR_DnnManager__Docker__SaPassword=...` (names as in `AppOptions`). The
+Settings page lists any that are set, since they win over what it saves.
+
+> The folder is the Documents folder of the Windows account the app runs as. If
+> you sign in to the UAC prompt with a *different* administrator account, that
+> account's Documents is used.
 
 ## Backups
 
@@ -295,7 +400,7 @@ I/O and state into layers:
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      DnnManager.Presentation                        │
 │  WPF GUI: sidebar pages, activity log, dialogs, themes, settings.   │
-│  Composition root (Host + DI + config), admin elevation.            │
+│  Composition root (settings + Host + DI), admin elevation.          │
 └──────────────────────────┬──────────────────────────────────────────┘
                            │ depends on interfaces only
 ┌──────────────────────────▼──────────────────────────────────────────┐
@@ -309,7 +414,7 @@ I/O and state into layers:
 │                     DnnManager.Infrastructure                       │
 │  IIS (Microsoft.Web.Administration), Docker CLI, GitHub releases,   │
 │  SQL (sqlcmd in the container, SqlClient + SqlPackage for remote),  │
-│  web.config, appsettings.json.                                      │
+│  web.config, settings.json (load, migrate, save), log files.        │
 └──────────────────────────┬──────────────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────────────┐
@@ -331,6 +436,10 @@ compiled into a single assembly (`dnnmgr.exe`).
 DnnManager.NET/
 ├── DnnManager.csproj            ← single project (net10.0-windows, WPF WinExe)
 ├── app.manifest                 ← asInvoker; AdminElevation relaunches elevated
+├── installer/
+│   ├── DnnManager.iss           ← Inno Setup script (per-user install, shortcuts, uninstall)
+│   ├── build.ps1                ← publish + compile the installer
+│   └── bin/                     ← build files (published app, wizard images, Inno Setup) - not in git
 └── src/
     ├── DnnManager.Domain/
     │   ├── Models.cs            ← DnnProject, DnnRelease, DatabaseConfig, …
@@ -338,7 +447,7 @@ DnnManager.NET/
     │   └── Result.cs            ← Result / Result<T> (no exceptions across layers)
     ├── DnnManager.Application/
     │   ├── Abstractions/        ← all interfaces consumed by use cases
-    │   ├── Configuration/       ← AppOptions, DockerOptions
+    │   ├── Configuration/       ← UserSettings (settings.json, defaults, validation), AppOptions
     │   ├── UseCases/            ← one class per top-level action
     │   └── DependencyInjection.cs
     ├── DnnManager.Infrastructure/
@@ -346,22 +455,24 @@ DnnManager.NET/
     │   ├── Docker/              ← docker compose up for the shared SQL container
     │   ├── Sql/                 ← sqlcmd in the container, remote backup, SqlPackage, connection test
     │   ├── Github/              ← GitHub API + DNN package downloader
-    │   ├── Files/               ← file copy, site .zip import / export, appsettings.json, default files (BundledFiles)
+    │   ├── Settings/            ← AppDataPaths (Documents\DNN Manager), SettingsStore, SettingsMigrations
+    │   ├── Files/               ← file copy, site .zip import / export, default docker-compose.yml (BundledFiles), daily log file
     │   ├── Projects/            ← file-system project repository
     │   ├── Prereq/              ← IIS feature checks
     │   ├── WebConfigs/          ← web.config SiteSqlServer read / write
     │   ├── Processes/           ← shared ProcessRunner
     │   └── DependencyInjection.cs
     └── DnnManager.Presentation/
-        ├── Program.cs           ← composition root (Host + DI + config), starts WPF
+        ├── Program.cs           ← composition root (settings + Host + DI), starts WPF
         ├── AdminElevation.cs    ← relaunches elevated when needed
+        ├── RunningMarker.cs     ← named mutex the installer checks before replacing the app
         ├── App.xaml             ← styles (buttons, inputs, lists, table, scrollbars, sidebar)
         ├── MainWindow.xaml      ← sidebar navigation + page host + activity log
         ├── Pages/               ← one page per sidebar item (incl. Settings)
         ├── Assets/              ← dnn.ico - the exe and window icon (DNN logo mark)
         ├── Controls/            ← InputDialog, DetailsDialog, MessageDialog, ExistingFolderOptions, PasswordInput
         ├── Themes/              ← LightTheme / DarkTheme colour palettes
-        └── Services/            ← ActivityLog, OperationRunner, ThemeManager, IdeLocator, GUI adapters
+        └── Services/            ← ActivityLog, OperationRunner, ThemeManager, IdeLocator, SettingsStartup, GUI adapters
 ```
 
 ### Key design decisions
@@ -371,7 +482,8 @@ DnnManager.NET/
 | **Clean Architecture (single project, layered folders)** | Use cases are testable without IIS/Docker; the UI was swapped from a terminal UI to WPF without touching business logic. Layers are enforced by namespace + folder convention. |
 | **All side-effects behind interfaces** | `IIisManager`, `ISqlServerService`, `IDnnReleaseService`, `IPrerequisiteChecker`, `IWebConfigService`, `ISqlConnectionTester`, `IUserPrompt`, `IProgressReporter`, … Easy to mock in tests. |
 | **`Result` / `Result<T>` instead of exceptions across layers** | Use-case outcomes are explicit; unexpected exceptions are still logged and surfaced centrally. |
-| **`Microsoft.Extensions.Hosting` + `IOptions<AppOptions>`** | Standard DI, configuration binding (`appsettings.json` + `DNNMGR_*` env vars), logging via `Microsoft.Extensions.Logging`. |
+| **`Microsoft.Extensions.Hosting` + `IOptions<AppOptions>`** | Standard DI and logging via `Microsoft.Extensions.Logging`. `AppOptions` is made from `settings.json` at startup, with `DNNMGR_*` env vars on top. |
+| **Program and user data apart** | The installer owns the install folder; the app owns `Documents\DNN Manager`. `settings.json` is versioned: `SettingsStore` backs it up and runs `SettingsMigrations` when its format is older, and fills in new keys from `UserSettings`' defaults. |
 | **WPF, code-behind pages** | One `UserControl` per sidebar item, rebuilt on each visit so lists (folders, backups) are always fresh. |
 | **Use cases off the UI thread** | `OperationRunner` runs one use case at a time on the thread pool in its own DI scope, refuses a second one while it runs, and backs the log's **Cancel** button. |
 | **Adapters for GUI → app layer** | `GuiProgressReporter` (writes to the activity log) and `GuiUserPrompt` (modal dialogs) implement application interfaces, so use cases never know what drives them. |
@@ -379,7 +491,7 @@ DnnManager.NET/
 | **SQL** | The local container is checked by logging in with `Microsoft.Data.SqlClient` and driven with `sqlcmd` via `docker exec`; remote / Azure SQL uses `Microsoft.Data.SqlClient` and SqlPackage (`.bacpac`). |
 | **Centralised error handling** | `OperationRunner` catches per-action exceptions and reports them in the activity log; `App` shows anything escaping a click handler; `Program.cs` catches fatal errors. |
 | **Admin enforcement** | `AdminElevation` relaunches the app elevated (UAC prompt) when it isn't. |
-| **No hardcoded values** | Container name, SA password, port, GitHub APIs, IIS feature list, hostname suffix, base directory, theme - all in `appsettings.json`. |
+| **No hardcoded values** | Container name, SA password, port, GitHub APIs, IIS feature list, hostname suffix, base directory, theme - all in `settings.json`. |
 
 ## Extending
 
@@ -390,6 +502,19 @@ DnnManager.NET/
   follows the theme.
 - **New colour**: add the same key to both `Themes/LightTheme.xaml` and
   `Themes/DarkTheme.xaml`.
+- **New setting**: add the property, with its default, to a section of
+  [`UserSettings`](src/DnnManager.Application/Configuration/UserSettings.cs)
+  (and a check to `Validate` if it needs one), then carry it into `AppOptions` in
+  `ToAppOptions`. Existing files get it with its default on the next start - no
+  migration needed.
+- **Changing the settings format** (renaming, moving or re-meaning a key): raise
+  `UserSettings.CurrentVersion` and add an `ISettingsMigration` from the
+  previous version to
+  [`SettingsMigrations`](src/DnnManager.Infrastructure/Settings/SettingsMigrations.cs).
+  The store backs the file up and runs the chain on the next start.
+- **Installer**: files, shortcuts and Setup options are in
+  [`installer/DnnManager.iss`](installer/DnnManager.iss). Code signing can be
+  added there (`SignTool`) and in `build.ps1`.
 - **Add tests**: every use case takes pure interfaces - drop in fakes / mocks
   (no test project is shipped).
 
@@ -406,14 +531,18 @@ DnnManager.NET/
 | SQL connection test | [`Sql/SqlConnectionTester.cs`](src/DnnManager.Infrastructure/Sql/SqlConnectionTester.cs) |
 | Projects right-click menu / IDE detection | [`ProjectsPage`](src/DnnManager.Presentation/Pages/ProjectsPage.xaml.cs), [`Services/IdeLocator.cs`](src/DnnManager.Presentation/Services/IdeLocator.cs) |
 | Environment (Docker, SQL Server, IIS features) | [`EnvironmentPage`](src/DnnManager.Presentation/Pages/EnvironmentPage.xaml.cs) + [`Prereq/WindowsPrerequisiteChecker.cs`](src/DnnManager.Infrastructure/Prereq/WindowsPrerequisiteChecker.cs) |
-| Settings (incl. SQL test, Docker setup) | [`SettingsPage`](src/DnnManager.Presentation/Pages/SettingsPage.xaml.cs) + [`Files/AppSettingsFile.cs`](src/DnnManager.Infrastructure/Files/AppSettingsFile.cs) |
+| Settings page (autosave) | [`SettingsPage`](src/DnnManager.Presentation/Pages/SettingsPage.xaml.cs) |
+| settings.json: format, defaults, validation | [`Configuration/UserSettings.cs`](src/DnnManager.Application/Configuration/UserSettings.cs) |
+| settings.json: load, save, backups, migrations | [`Settings/SettingsStore.cs`](src/DnnManager.Infrastructure/Settings/SettingsStore.cs), [`Settings/SettingsMigrations.cs`](src/DnnManager.Infrastructure/Settings/SettingsMigrations.cs), [`Settings/AppDataPaths.cs`](src/DnnManager.Infrastructure/Settings/AppDataPaths.cs) |
+| Settings error dialog at startup | [`Services/SettingsStartup.cs`](src/DnnManager.Presentation/Services/SettingsStartup.cs) |
+| Installer | [`installer/DnnManager.iss`](installer/DnnManager.iss), [`installer/build.ps1`](installer/build.ps1) |
 | Themes | [`Themes/`](src/DnnManager.Presentation/Themes/), [`Services/ThemeManager.cs`](src/DnnManager.Presentation/Services/ThemeManager.cs) |
 | File copy, zip extract / create | [`Files/ProjectFileCopier.cs`](src/DnnManager.Infrastructure/Files/ProjectFileCopier.cs) |
 | GitHub release lookup | [`Github/GitHubDnnReleaseService.cs`](src/DnnManager.Infrastructure/Github/GitHubDnnReleaseService.cs) |
 | IIS helpers | [`Iis/IisManager.cs`](src/DnnManager.Infrastructure/Iis/IisManager.cs) |
 | sqlcmd | [`Sql/SqlServerService.cs`](src/DnnManager.Infrastructure/Sql/SqlServerService.cs) |
-| Default `appsettings.json` / `docker-compose.yml` | [`Files/BundledFiles.cs`](src/DnnManager.Infrastructure/Files/BundledFiles.cs) - written next to the exe when missing |
-| Shared SQL container | `docker-compose.yml` next to the exe, generated by `BundledFiles.ComposeFor` and brought up by [`Docker/DockerComposeService.cs`](src/DnnManager.Infrastructure/Docker/DockerComposeService.cs) + [`UseCases/SetupSqlContainerUseCase.cs`](src/DnnManager.Application/UseCases/SetupSqlContainerUseCase.cs); the connection check is `LocalSqlContainer` in [`UseCases/Provisioning.cs`](src/DnnManager.Application/UseCases/Provisioning.cs) |
+| Default `docker-compose.yml` | [`Files/BundledFiles.cs`](src/DnnManager.Infrastructure/Files/BundledFiles.cs) - written to `Documents\DNN Manager` when missing |
+| Shared SQL container | `docker-compose.yml` in `Documents\DNN Manager`, generated by `BundledFiles.ComposeFor` and brought up by [`Docker/DockerComposeService.cs`](src/DnnManager.Infrastructure/Docker/DockerComposeService.cs) + [`UseCases/SetupSqlContainerUseCase.cs`](src/DnnManager.Application/UseCases/SetupSqlContainerUseCase.cs); the connection check is `LocalSqlContainer` in [`UseCases/Provisioning.cs`](src/DnnManager.Application/UseCases/Provisioning.cs) |
 
 ## Notes / limitations
 

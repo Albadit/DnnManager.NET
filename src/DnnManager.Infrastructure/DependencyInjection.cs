@@ -6,6 +6,7 @@ using DnnManager.Infrastructure.Iis;
 using DnnManager.Infrastructure.Prereq;
 using DnnManager.Infrastructure.Processes;
 using DnnManager.Infrastructure.Projects;
+using DnnManager.Infrastructure.Settings;
 using DnnManager.Infrastructure.Sql;
 using DnnManager.Infrastructure.WebConfigs;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,8 +15,12 @@ namespace DnnManager.Infrastructure;
 
 public static class InfrastructureServiceCollectionExtensions
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services)
+    /// <param name="settings">The settings store Program loaded the settings with; its folder holds the user's files.</param>
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, AppDataPaths paths, SettingsStore settings)
     {
+        services.AddSingleton(paths);
+        services.AddSingleton(settings);
+        services.AddSingleton<DailyLogFile>();
         services.AddSingleton<ProcessRunner>();
         services.AddSingleton<IProjectRepository, FileSystemProjectRepository>();
         services.AddSingleton<IIisManager, IisManager>();

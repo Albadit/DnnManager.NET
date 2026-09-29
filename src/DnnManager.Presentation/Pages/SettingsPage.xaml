@@ -19,6 +19,7 @@
                 <TextBlock x:Name="EnvWarningText" TextWrapping="Wrap" />
             </Border>
 
+            <StackPanel x:Name="Form">
             <Border Style="{StaticResource Card}">
                 <StackPanel>
                     <TextBlock Style="{StaticResource CardTitle}" Text="Projects" />
@@ -113,14 +114,19 @@
                 </StackPanel>
             </Border>
 
-            <TextBlock x:Name="ErrorText" Style="{StaticResource ErrorLine}" Visibility="Collapsed" Margin="0,0,0,10" />
-            <StackPanel Orientation="Horizontal">
-                <Button Style="{StaticResource Primary}" Content="Save" MinWidth="90" Click="Save_Click" />
-                <Button Content="Revert" Margin="8,0,0,0" Click="Revert_Click" />
-                <Button Content="Open appsettings.json" Margin="8,0,0,0" Click="OpenFile_Click" />
             </StackPanel>
+
+            <TextBlock x:Name="ErrorText" Style="{StaticResource ErrorLine}" Visibility="Collapsed" Margin="0,0,0,10" />
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="Open settings.json" Click="OpenFile_Click" />
+                    <Button Content="Open settings folder" Margin="8,0,0,0" Click="OpenFolder_Click" />
+                </StackPanel>
+                <TextBlock x:Name="StatusText" Style="{StaticResource Hint}" Margin="0" VerticalAlignment="Center"
+                           Text="Changes are saved automatically." />
+            </DockPanel>
             <TextBlock Style="{StaticResource Hint}" Margin="0,10,0,0"
-                       Text="The IIS feature list and logging levels are edited in appsettings.json directly." />
+                       Text="The IIS feature list is edited in settings.json directly. The settings folder in Documents also holds docker-compose.yml, settings backups and the logs - updating or uninstalling DNN Manager leaves it alone." />
         </StackPanel>
     </ScrollViewer>
 </UserControl>

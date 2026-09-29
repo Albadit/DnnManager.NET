@@ -109,7 +109,7 @@ public interface IPrerequisiteChecker
     Result StartDockerDesktop();
 }
 
-/// <summary>The shared SQL Server's <c>docker-compose.yml</c> next to the app, and bringing it up.</summary>
+/// <summary>The shared SQL Server's <c>docker-compose.yml</c> in the user's DNN Manager folder, and bringing it up.</summary>
 public interface IDockerComposeService
 {
     string ComposeFilePath { get; }

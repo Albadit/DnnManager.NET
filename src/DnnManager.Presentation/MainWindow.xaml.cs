@@ -3,7 +3,7 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using DnnManager.Application.Configuration;
-using DnnManager.Infrastructure.Files;
+using DnnManager.Infrastructure.Settings;
 using DnnManager.Presentation.Pages;
 using DnnManager.Presentation.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +16,7 @@ public partial class MainWindow : Window
     private readonly IServiceProvider _services;
     private readonly ActivityLog _log;
     private readonly OperationRunner _runner;
+    private readonly SettingsStore _settings;
 
     // One entry per sidebar item. Pages are rebuilt on every visit so their lists (folders,
     // backups…) are always fresh.
@@ -29,9 +30,10 @@ public partial class MainWindow : Window
         ["Settings"]      = typeof(SettingsPage),
     };
 
-    public MainWindow(IServiceProvider services, ActivityLog log, OperationRunner runner, IOptions<AppOptions> options)
+    public MainWindow(IServiceProvider services, ActivityLog log, OperationRunner runner, SettingsStore settings,
+        IOptions<AppOptions> options)
     {
-        _services = services; _log = log; _runner = runner;
+        _services = services; _log = log; _runner = runner; _settings = settings;
         InitializeComponent();
 
         var version = Assembly.GetExecutingAssembly().GetName().Version;
@@ -74,9 +76,13 @@ public partial class MainWindow : Window
     private void Theme_Click(object sender, RoutedEventArgs e)
     {
         ThemeManager.Toggle();
-        // Remembered in appsettings.json; failing to save only means the next start uses the old theme.
-        try { AppSettingsFile.SaveTheme(ThemeManager.Current.ToString()); }
-        catch (Exception ex) { _log.Fail($"Could not save the theme to {AppSettingsFile.FullPath}: {ex.Message}"); }
+        // Remembered in settings.json; failing to save only means the next start uses the old theme.
+        var theme = ThemeManager.Current.ToString().ToLowerInvariant();
+        try { _settings.Update(s => s.Appearance.Theme = theme); }
+        catch (Exception ex) when (ex is SettingsException or IOException or UnauthorizedAccessException)
+        {
+            _log.Fail($"Could not save the theme to {_settings.FilePath}: {ex.Message}");
+        }
     }
 
     // The button shows what a click switches to: a moon in light mode, a sun in dark mode.
@@ -138,6 +144,7 @@ public partial class MainWindow : Window
 
     private void OnClosing(object? sender, CancelEventArgs e)
     {
+        (PageHost.Content as SettingsPage)?.SavePending();
         if (!_runner.IsBusy) return;
         if (!Dialogs.Confirm($"'{_runner.Current}' is still running. Quit anyway?"))
         {

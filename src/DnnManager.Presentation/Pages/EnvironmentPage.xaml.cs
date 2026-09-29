@@ -274,7 +274,7 @@ public partial class EnvironmentPage : UserControl
         var yaml = _compose.Render(_options.Docker);
         var current = _compose.ReadCurrent();
         YamlNote.Text = current is null
-            ? $"From the SQL Server settings - no docker-compose.yml next to the app yet ({_compose.ComposeFilePath})."
+            ? $"From the SQL Server settings - no docker-compose.yml yet ({_compose.ComposeFilePath})."
             : SameText(current, yaml)
                 ? $"From the SQL Server settings - the same as {_compose.ComposeFilePath}."
                 : $"From the SQL Server settings - {_compose.ComposeFilePath} is different; setting up the container replaces it.";
