@@ -4,7 +4,7 @@ using DnnManager.Domain;
 namespace DnnManager.Application.UseCases;
 
 /// <summary>
-/// One dated backup of a project: a folder <c>&lt;project&gt;\01_backup\&lt;project&gt;_&lt;yyyyMMdd_HHmmss&gt;\</c> holding the
+/// One dated backup of a project: a folder <c>&lt;backups&gt;\&lt;project&gt;\&lt;project&gt;_&lt;yyyyMMdd_HHmmss&gt;\</c> holding the
 /// site's <c>.zip</c> and / or the database's <c>.bacpac</c> (or <c>.bak</c>).
 /// </summary>
 public sealed record ProjectBackup(string Project, string Folder, DateTime Created, string? SiteZip, string? Database)
@@ -13,43 +13,14 @@ public sealed record ProjectBackup(string Project, string Folder, DateTime Creat
     public bool IsComplete => SiteZip is not null && Database is not null;
 }
 
-/// <summary>Where and how project backups are kept.</summary>
+/// <summary>
+/// Where and how project backups are kept: in <see cref="DnnProject.BackupDirectory"/>, one folder per project in
+/// the user's <c>Documents\DnnManager\backups</c> - outside the site, so IIS never serves them, a site export
+/// never includes them, and they are kept when the project is removed.
+/// </summary>
 public static class ProjectBackups
 {
-    /// <summary>The backups folder inside a project. The "01_" keeps it at the top of the folder.</summary>
-    public const string FolderName = "01_backup";
-
-    /// <summary>The folder earlier versions kept backups in - still read, never written.</summary>
-    public const string LegacyFolderName = "backups";
-
     private const string StampFormat = "yyyyMMdd_HHmmss";
-
-    // The backups folder is inside the site, so IIS would hand out its .zip / .bacpac files: a web.config of its
-    // own makes request filtering refuse every file there (404.7). Request filtering is a required IIS feature.
-    private const string GuardWebConfig = """
-        <?xml version="1.0" encoding="utf-8"?>
-        <!-- Written by DNN Manager: this folder holds backups of the site - never serve anything from it. -->
-        <configuration>
-          <system.webServer>
-            <security>
-              <requestFiltering>
-                <fileExtensions allowUnlisted="false" />
-              </requestFiltering>
-            </security>
-          </system.webServer>
-        </configuration>
-
-        """;
-
-    /// <summary>
-    /// Creates the project's backups folder, with the web.config that keeps IIS from serving what's in it.
-    /// </summary>
-    public static void EnsureFolder(DnnProject project)
-    {
-        Directory.CreateDirectory(project.BackupDirectory);
-        var guard = Path.Combine(project.BackupDirectory, "web.config");
-        if (!File.Exists(guard)) File.WriteAllText(guard, GuardWebConfig);
-    }
 
     /// <summary>A new backup folder for a backup taken at <paramref name="when"/> (not created yet).</summary>
     public static string NewFolder(DnnProject project, DateTime when) =>

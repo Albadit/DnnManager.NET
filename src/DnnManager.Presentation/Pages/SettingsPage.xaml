@@ -126,7 +126,7 @@
                            Text="Changes are saved automatically." />
             </DockPanel>
             <TextBlock Style="{StaticResource Hint}" Margin="0,10,0,0"
-                       Text="The IIS feature list is edited in settings.json directly. The settings folder in Documents also holds docker-compose.yml, settings backups and the logs - updating or uninstalling DNN Manager leaves it alone." />
+                       Text="The IIS feature list is edited in settings.json directly. The settings folder (Documents\DnnManager) also holds docker-compose.yml, the project and settings backups and the logs - updating or uninstalling DNN Manager leaves it alone." />
         </StackPanel>
     </ScrollViewer>
 </UserControl>

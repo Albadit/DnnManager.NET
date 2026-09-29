@@ -6,9 +6,9 @@
 ;   OutputDir   where Setup is written                  (default ..\publish)
 ;   ImagesDir   wizard images made from the app icon    (optional)
 ;
-; Installs per user, without administrator rights, into %LOCALAPPDATA%\Programs\DNN Manager (like the VS Code
+; Installs per user, without administrator rights, into %LOCALAPPDATA%\Programs\DnnManager (like the VS Code
 ; user installer); run Setup with /ALLUSERS to install for all users into Program Files instead. The user's
-; settings live in Documents\DNN Manager, which Setup never writes to, so upgrading, reinstalling or
+; settings live in Documents\DnnManager, which Setup never writes to, so upgrading, reinstalling or
 ; uninstalling keeps them.
 
 #ifndef AppVersion
@@ -43,7 +43,7 @@ VersionInfoDescription={#AppName} Setup
 ; Per-user install without elevation; /ALLUSERS on the command line installs for everyone (asks for admin).
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=commandline
-DefaultDirName={autopf}\{#AppName}
+DefaultDirName={autopf}\DnnManager
 ; An upgrade goes where the previous version is, without asking again.
 UsePreviousAppDir=yes
 DisableDirPage=auto
@@ -79,7 +79,7 @@ SolidCompression=yes
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Messages]
-UninstalledAll=%1 was successfully removed from your computer.%n%nYour settings in Documents\DNN Manager were kept - delete that folder to remove them too.
+UninstalledAll=%1 was successfully removed from your computer.%n%nYour settings in Documents\DnnManager were kept - delete that folder to remove them too.
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
@@ -152,7 +152,7 @@ begin
     '{#AppName} is already installed',
     'Choose what to do with the installed version.',
     '{#AppName} ' + InstalledVersion + ' is installed in:' + #13#10 + ExtractFileDir(InstalledUninstaller) + #13#10#13#10 +
-      'Your settings in Documents\{#AppName} are kept either way.',
+      'Your settings in Documents\DnnManager are kept either way.',
     True, False);
 
   Compared := CompareInstalledVersion;

@@ -108,26 +108,19 @@ public sealed class ProjectFileCopier : IProjectFileCopier
         }
     }
 
-    public Task<Result> CreateZipAsync(string sourceDirectory, string zipPath, IReadOnlyCollection<string> excludedFolders,
+    public Task<Result> CreateZipAsync(string sourceDirectory, string zipPath, IReadOnlyCollection<string> excludedPaths,
         IProgressReporter reporter, CancellationToken ct)
-        => Task.Run(() => CreateZip(sourceDirectory, zipPath, excludedFolders, reporter, ct), ct);
+        => Task.Run(() => CreateZip(sourceDirectory, zipPath, excludedPaths, reporter, ct), ct);
 
-    private static Result CreateZip(string src, string zipPath, IReadOnlyCollection<string> excludedFolders,
+    private static Result CreateZip(string src, string zipPath, IReadOnlyCollection<string> excludedPaths,
         IProgressReporter reporter, CancellationToken ct)
     {
         if (!Directory.Exists(src)) return Result.Fail($"Folder not found: {src}");
 
-        var excluded = new HashSet<string>(excludedFolders, StringComparer.OrdinalIgnoreCase);
+        var excluded = new HashSet<string>(excludedPaths.Select(p => p.Replace('/', '\\').Trim('\\')),
+            StringComparer.OrdinalIgnoreCase);
         var tmp = zipPath + ".tmp";
-        var options = new EnumerationOptions
-        {
-            RecurseSubdirectories = true,
-            IgnoreInaccessible = true,
-            AttributesToSkip = FileAttributes.ReparsePoint, // a junction would zip its target or loop
-        };
-        var files = new DirectoryInfo(src).EnumerateFiles("*", options)
-            .Select(f => (File: f, Rel: Path.GetRelativePath(src, f.FullName)))
-            .Where(f => !excluded.Contains(f.Rel.Split(Path.DirectorySeparatorChar)[0]))
+        var files = FilesToZip(src, excluded, ct)
             // Never zip the zip itself when it is being written inside the folder.
             .Where(f => !f.File.FullName.Equals(Path.GetFullPath(tmp), StringComparison.OrdinalIgnoreCase)
                      && !f.File.FullName.Equals(Path.GetFullPath(zipPath), StringComparison.OrdinalIgnoreCase))
@@ -178,6 +171,33 @@ public sealed class ProjectFileCopier : IProjectFileCopier
                           string.Join(", ", skipped.Take(5)) + (skipped.Count > 5 ? ", …" : ""));
         reporter.Success($"Zipped {count} files ({bytes / 1024d / 1024d:N1} MB) into {zipPath}");
         return Result.Ok();
+    }
+
+    /// <summary>
+    /// Every file under <paramref name="root"/> with its path relative to it, leaving out the <paramref name="excluded"/>
+    /// relative paths. An excluded folder isn't walked at all, so a large cache folder costs nothing.
+    /// </summary>
+    private static IEnumerable<(FileInfo File, string Rel)> FilesToZip(string root, HashSet<string> excluded, CancellationToken ct)
+    {
+        var options = new EnumerationOptions
+        {
+            IgnoreInaccessible = true,
+            AttributesToSkip = FileAttributes.ReparsePoint, // a junction would zip its target or loop
+        };
+        var folders = new Stack<DirectoryInfo>();
+        folders.Push(new DirectoryInfo(root));
+        while (folders.Count > 0)
+        {
+            ct.ThrowIfCancellationRequested();
+            var folder = folders.Pop();
+            foreach (var file in folder.EnumerateFiles("*", options))
+            {
+                var rel = Path.GetRelativePath(root, file.FullName);
+                if (!excluded.Contains(rel)) yield return (file, rel);
+            }
+            foreach (var sub in folder.EnumerateDirectories("*", options))
+                if (!excluded.Contains(Path.GetRelativePath(root, sub.FullName))) folders.Push(sub);
+        }
     }
 
     /// <summary>

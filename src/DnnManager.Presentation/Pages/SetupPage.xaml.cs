@@ -41,18 +41,21 @@ public partial class SetupPage : UserControl, IRefreshable
     /// <summary>A dated backup in the "From a project backup" list.</summary>
     public sealed record BackupPick(ProjectBackup Backup, string Label);
 
-    /// <summary>Fills the project list with the projects that have a complete backup (site zip + database).</summary>
+    /// <summary>
+    /// Fills the project list with the projects that have a complete backup (site zip + database) - including
+    /// projects removed since, whose backups are kept.
+    /// </summary>
     private void LoadBackupProjects()
     {
         var selected = BackupProjectCombo.SelectedItem as string;
-        var projects = _repo.ListAllProjectDirectories()
+        var projects = _repo.ListProjectsWithBackups()
             .Where(p => ProjectBackups.List(_repo.Build(p)).Any(b => b.IsComplete))
             .ToList();
         BackupProjectCombo.ItemsSource = projects;
         BackupProjectCombo.SelectedItem = projects.FirstOrDefault(p => p == selected);
         BackupProjectCombo.IsEnabled = projects.Count > 0;
         BackupPickHint.Text = projects.Count > 0
-            ? $"A project and one of its backups ({ProjectBackups.FolderName}) - or choose the files anywhere on this PC below."
+            ? @"A project and one of its backups (Documents\DnnManager\backups) - or choose the files anywhere on this PC below."
             : $"No project has a backup with site and database yet (Projects → right-click → Export) - choose the files below.";
     }
 

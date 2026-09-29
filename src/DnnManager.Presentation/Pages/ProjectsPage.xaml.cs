@@ -12,7 +12,6 @@ using DnnManager.Presentation.Controls;
 using DnnManager.Presentation.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Microsoft.Win32;
 
 namespace DnnManager.Presentation.Pages;
 
@@ -223,8 +222,8 @@ public partial class ProjectsPage : UserControl, IRefreshable
     private enum ExportParts { Both, Site, Database }
 
     /// <summary>
-    /// "Export": a backup into the project's 01_backup folder - site and database, or just one of them - or, with
-    /// "Export to another folder…", a site .zip + .bacpac anywhere.
+    /// "Export": a backup into the project's backups folder (Documents\DnnManager\backups\&lt;project&gt;) - site and
+    /// database, or just one of them.
     /// </summary>
     private MenuItem ExportMenu(Row row)
     {
@@ -233,15 +232,14 @@ public partial class ProjectsPage : UserControl, IRefreshable
         export.Items.Add(NewMenuItem("Site files  (.zip)", (_, _) => Backup(row, ExportParts.Site)));
         export.Items.Add(NewMenuItem("Database  (.bacpac)", (_, _) => Backup(row, ExportParts.Database)));
         export.Items.Add(new Separator());
-        export.Items.Add(NewMenuItem("Export to another folder…", (_, _) => Export(row, ExportParts.Both)));
-        var backups = System.IO.Path.Combine(row.Path, ProjectBackups.FolderName);
-        var open = NewMenuItem($"Open {ProjectBackups.FolderName} folder", (_, _) => Shell(backups));
+        var backups = _services.GetRequiredService<IProjectRepository>().Build(row.Name).BackupDirectory;
+        var open = NewMenuItem("Open backups folder", (_, _) => Shell(backups));
         open.IsEnabled = Directory.Exists(backups);
         export.Items.Add(open);
         return export;
     }
 
-    /// <summary>A dated backup: 01_backup\&lt;project&gt;_&lt;yyyyMMdd_HHmmss&gt;\ with &lt;project&gt;.zip and / or &lt;project&gt;.bacpac.</summary>
+    /// <summary>A dated backup: backups\&lt;project&gt;\&lt;project&gt;_&lt;yyyyMMdd_HHmmss&gt;\ with &lt;project&gt;.zip and / or &lt;project&gt;.bacpac.</summary>
     private async void Backup(Row row, ExportParts parts)
     {
         var project = _services.GetRequiredService<IProjectRepository>().Build(row.Name);
@@ -253,39 +251,6 @@ public partial class ProjectsPage : UserControl, IRefreshable
             BacpacPath = parts == ExportParts.Site ? null : System.IO.Path.Combine(folder, ProjectBackups.DatabaseName(project, ".bacpac"))
         };
         await _runner.RunAsync($"Back up '{row.Name}'",
-            (sp, reporter, ct) => sp.GetRequiredService<ExportProjectUseCase>().ExecuteAsync(request, reporter, ct));
-    }
-
-    private async void Export(Row row, ExportParts parts)
-    {
-        var database = parts == ExportParts.Database;
-        var dialog = new SaveFileDialog
-        {
-            Title = parts switch
-            {
-                ExportParts.Both => $"Export '{row.Name}' - the database is saved next to the .zip as a .bacpac",
-                ExportParts.Site => $"Export the site files of '{row.Name}'",
-                _ => $"Export the database of '{row.Name}'"
-            },
-            Filter = database ? "BACPAC files (*.bacpac)|*.bacpac" : "Zip files (*.zip)|*.zip",
-            FileName = $"{row.Name}_{DateTime.Now:yyyyMMdd}{(database ? ".bacpac" : ".zip")}",
-            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) is { Length: > 0 } home
-                ? System.IO.Path.Combine(home, "Downloads") : null
-        };
-        if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
-
-        var request = new ExportProjectRequest
-        {
-            ProjectName = row.Name,
-            ZipPath = database ? null : dialog.FileName,
-            BacpacPath = parts switch
-            {
-                ExportParts.Both => System.IO.Path.ChangeExtension(dialog.FileName, ".bacpac"),
-                ExportParts.Database => dialog.FileName,
-                _ => null
-            }
-        };
-        await _runner.RunAsync($"Export '{row.Name}'",
             (sp, reporter, ct) => sp.GetRequiredService<ExportProjectUseCase>().ExecuteAsync(request, reporter, ct));
     }
 
@@ -458,7 +423,7 @@ public partial class ProjectsPage : UserControl, IRefreshable
             if (GitBranch(dir) is { } branch) details.Add(new("Git branch", branch));
             if (Solutions(dir) is { Count: > 0 } solutions) details.Add(new("Solution", string.Join(", ", solutions)));
             var projectBackups = ProjectBackups.List(project);
-            details.Add(new("Backups", projectBackups.Count == 0 ? $"none in {ProjectBackups.FolderName}"
+            details.Add(new("Backups", projectBackups.Count == 0 ? $"none in {project.BackupDirectory}"
                 : $"{projectBackups.Count} in {project.BackupDirectory} - newest {projectBackups[0].Created:yyyy-MM-dd HH:mm}"));
 
             details.Add(DetailsDialog.Detail.Section("Website (IIS)"));

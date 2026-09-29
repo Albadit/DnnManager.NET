@@ -162,7 +162,6 @@ public sealed class CloneProjectUseCase
                     if (!drop.Success) return drop;
                 }
 
-                ProjectBackups.EnsureFolder(project);
                 var backupFolder = ProjectBackups.NewFolder(project, DateTime.Now);
                 Directory.CreateDirectory(backupFolder);
                 var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
@@ -174,7 +173,7 @@ public sealed class CloneProjectUseCase
                     var export = await _bacpac.ExportAsync(src, bacpacTmp, reporter, ct);
                     if (!export.Success) return export;
 
-                    // Cache a copy under the project for traceability.
+                    // Keep a copy in the project's backups for traceability.
                     var cached = Path.Combine(backupFolder, ProjectBackups.DatabaseName(project, ".bacpac"));
                     try { File.Copy(bacpacTmp, cached, overwrite: true); reporter.Info($"Cached BACPAC at {cached}"); } catch { }
 

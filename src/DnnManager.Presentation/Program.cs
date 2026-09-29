@@ -39,7 +39,7 @@ internal static class Program
         app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
         ThemeManager.Initialize(null);
 
-        // The user's settings, in Documents\DNN Manager - apart from the program, so updates and
+        // The user's settings, in Documents\DnnManager - apart from the program, so updates and
         // reinstalls keep them. A file that can't be used is reported here, before anything else starts.
         var paths = AppDataPaths.ForCurrentUser();
         var store = new SettingsStore(paths);

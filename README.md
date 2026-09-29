@@ -23,7 +23,7 @@ solution.
   container, the SQL Server connection and the IIS Windows features are active,
   and install / start / set up / enable what's missing.
 - **Settings** - edit the settings from the app; each change is saved to
-  `Documents\DNN Manager\settings.json` as you make it.
+  `Documents\DnnManager\settings.json` as you make it.
 - **Light and dark theme**, a live **activity log** with Cancel, and an eye
   button on every password field.
 
@@ -32,7 +32,7 @@ solution.
 Run `DnnManagerSetup-<version>-x64.exe` (see [Build the installer](#build-the-installer)).
 Like the Visual Studio Code user installer, it needs no administrator rights:
 
-- installs into `%LOCALAPPDATA%\Programs\DNN Manager` - **Browse…** picks another folder
+- installs into `%LOCALAPPDATA%\Programs\DnnManager` - **Browse…** picks another folder
 - adds **DNN Manager** to the Start menu, and a desktop shortcut if you tick it
 - registers in **Settings → Apps → Installed apps**, where you uninstall it
 - starts the app when you click **Finish** (the app asks for administrator
@@ -40,7 +40,7 @@ Like the Visual Studio Code user installer, it needs no administrator rights:
 
 The app is self-contained: no .NET runtime to install. When DNN Manager is
 already installed, Setup's first page shows the installed version and asks what
-to do: **Repair** (or **Update** when Setup is newer), which installs over it
+to do: **Repair**, which installs this Setup's version over it
 in the same folder, or **Uninstall**, which runs the uninstaller and closes
 Setup. Your settings are kept either way. If DNN Manager is running, Setup (and
 the uninstaller) asks you to close it first. Silent installs (`/SILENT`,
@@ -50,8 +50,8 @@ the uninstaller) asks you to close it first. Silent installs (`/SILENT`,
 asks for administrator rights). For unattended installs, Inno Setup's
 `/SILENT` / `/VERYSILENT` and `/DIR="..."` work too.
 
-Your settings are **not** in the install folder - they're in
-`Documents\DNN Manager` (see [Configuration](#configuration)). Setup never
+Your settings and backups are **not** in the install folder - they're in
+`Documents\DnnManager` (see [Configuration](#configuration)). Setup never
 writes there, so upgrading, reinstalling or uninstalling keeps them. To remove
 them, delete that folder after uninstalling.
 
@@ -108,7 +108,7 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 
 `-p:PortableExe=true` names the exe `DnnManager-<version>-x64.exe` (without it,
 it's `dnnmgr.exe`). The publish output holds only the program. Settings and `docker-compose.yml`
-live in `Documents\DNN Manager` and are created on first start (see
+live in `Documents\DnnManager` and are created on first start (see
 [Configuration](#configuration)).
 
 > **"Access to the path '...\publish\dnnmgr.exe' is denied"** when publishing
@@ -175,7 +175,7 @@ Menu key):
 | **Copy path** | Puts the project folder on the clipboard. |
 | **Open in …** | One entry per IDE found on the PC: Visual Studio (via `vswhere`; opens the project's `.sln` when it has exactly one), VS Code, VS Code Insiders, Cursor, Windsurf, Rider and Sublime Text. |
 | **Open in SQL Server Management Studio &lt;version&gt;** ▸ | One submenu per installed SSMS (21+ found via `vswhere`, 18-20 by their install folder): *Default* signs in to the local SQL Server from Settings as `sa`; *Project* signs in to the project's database - the one its `web.config` uses, or its local database as `sa`. SSMS only remembers the password when **Remember the password in SQL Server Management Studio** is on in Settings (off by default). When that SSMS is already open, the connection is added to it (via its *Connect Object Explorer...*) instead of starting another window. For the local container it also trusts the self-signed server certificate (`-C`, SSMS 21+). SSMS takes no password on its command line - and any connection switch makes it connect at once and fail - so for SSMS 21+ DNN Manager starts it without switches and fills in its Connect dialog through UI Automation (server, SQL Server Authentication, login, password with *Remember Password*, database, trust certificate, name) and clicks Connect - only in the SSMS it just started. Older SSMS gets the switches, and the password is left on the clipboard. A missing database opens the server instead. |
-| **Export** ▸ | A backup into the project's `01_backup` folder (see [Backups](#backups)): *Site and database* (`<project>.zip` + `<project>.bacpac`, the pair **New project** imports), *Site files* or *Database*. **Export to another folder…** saves the `.zip` + `.bacpac` anywhere; **Open 01_backup folder** opens it in Explorer. |
+| **Export** ▸ | A backup into the project's folder in `Documents\DnnManager\backups` (see [Backups](#backups)): *Site and database* (`<project>.zip` + `<project>.bacpac`, the pair **New project** imports), *Site files* or *Database*. **Open backups folder** opens it in Explorer. |
 | **Remove…** | After a confirmation, removes the IIS site and deletes the project folder - and drops its database if you say so. If files in the folder are still in use, it finds the programs holding them (open files, or a terminal / editor whose working folder is inside), lists them and - after you confirm - closes them and deletes the folder. Windows itself, services and Explorer are never closed; anything still locked is deleted at the next Windows restart. |
 
 ## Configuration
@@ -184,10 +184,11 @@ DNN Manager keeps your files apart from the program, in your **Documents**
 folder, so updating, reinstalling or uninstalling the app never touches them:
 
 ```text
-Documents\DNN Manager\
+Documents\DnnManager\
 ├── settings.json        your settings
 ├── docker-compose.yml   the shared SQL Server container (Environment → Set up container)
-├── backups\             settings.json copies made before an upgrade of its format or a reset
+├── backups\             project backups (see Backups) and settings.json copies made before
+│                        an upgrade of its format or a reset
 └── logs\                the activity log, one file per day (kept 30 days)
 ```
 
@@ -195,7 +196,7 @@ The folder and `settings.json` are created the first time the app starts. When
 you upgrade from 2.0 or earlier, the `appsettings.json` and
 `docker-compose.yml` next to the old `dnnmgr.exe` are carried over when the new
 version is started from that same folder. After installing somewhere else, copy
-`appsettings.json` into `Documents\DNN Manager` as `settings.json` and it is
+`appsettings.json` into `Documents\DnnManager` as `settings.json` and it is
 converted on the next start.
 
 Edit the settings on the **Settings** page. Each change is saved a moment
@@ -263,28 +264,56 @@ Settings page lists any that are set, since they win over what it saves.
 
 ## Backups
 
-Each project keeps its backups in `<project>\01_backup\` (the `01_` keeps it at the
-top of the folder), one folder per backup:
+All project backups are kept in one place, apart from the sites:
+`Documents\DnnManager\backups\`, one folder per project and one dated folder per
+backup:
 
 ```
-C:\DNN\ceesboer\01_backup\
-├── web.config                        ← makes IIS refuse to serve anything in here
-├── ceesboer_20260928_154210\
-│   ├── ceesboer.zip                  ← the site files
-│   └── ceesboer.bacpac               ← the database
-└── ceesboer_20260930_091500\
-    └── ceesboer.bacpac               ← a database-only backup
+Documents\DnnManager\backups\
+├── ceesboer\
+│   ├── ceesboer_20260928_154210\
+│   │   ├── ceesboer.zip              ← the site files
+│   │   └── ceesboer.bacpac           ← the database
+│   └── ceesboer_20260930_091500\
+│       └── ceesboer.bacpac           ← a database-only backup
+└── settings.v0.20260929-101500.json  ← a settings.json copy (see Configuration)
 ```
+
+Because they're outside the site, IIS never serves them, a site export never
+includes them, and **removing a project keeps its backups**.
 
 - **Projects → right-click → Export** writes a new dated folder (site, database
-  or both). The site `.zip` leaves out `01_backup`, the old `backups` folder and
-  `.git`, so backups never end up inside backups.
+  or both); **Open backups folder** opens the project's folder. The site `.zip`
+  leaves out `.git` and everything the site's `_backup.filter` lists (below).
 - **Clone** keeps the source database backup it restored in a dated folder too.
 - **New project → An existing site** lists every project with a complete backup
-  (site + database) and its backups by date - pick one, or choose files anywhere
-  on the PC.
-- **Host project** offers the `.bacpac` / `.bak` files in `01_backup` (and the old
-  `backups` folder and the project root) to restore.
+  (site + database) - including removed projects - and its backups by date. Pick
+  one, or choose files anywhere on the PC.
+- **Host project** offers the `.bacpac` / `.bak` files in the project's backups
+  (and the project folder's root) to restore.
+
+### `_backup.filter`
+
+A `_backup.filter` in the project folder lists what the site `.zip` leaves out -
+caches, search indexes, logs, big data files. It's the format Azure App Service
+backups use, so the file a site already has for Azure works as it is: one path
+per line, from `D:\home` (`\site\wwwroot\...` is the site root). A path without
+that prefix counts from the site root, and a folder leaves out everything in it:
+
+```text
+\site\wwwroot\App_Data\Search
+\site\wwwroot\App_Data\51Degrees.dat
+\site\wwwroot\imagecache
+Portals\_default\Logs
+```
+
+The activity log lists what was left out. `_backup.filter` itself is kept in the
+zip, so a site imported from it has the same filter.
+
+Backups made by DNN Manager 2.0 stay in each project's `01_backup` folder -
+DNN Manager no longer uses it. Move the dated folders you want to keep to
+`Documents\DnnManager\backups\<project>\`, then delete `01_backup` (otherwise it
+is now included in the project's site `.zip`).
 
 ## Import a site .zip
 
@@ -292,7 +321,7 @@ C:\DNN\ceesboer\01_backup\
 DNN site and its database backup - both required
 ([`ImportProjectUseCase`](src/DnnManager.Application/UseCases/ImportProjectUseCase.cs)).
 **From a project backup** picks a project and one of its dated backups in
-`01_backup`; the **Browse…** buttons take a `.zip` and `.bacpac` from anywhere:
+`Documents\DnnManager\backups`; the **Browse…** buttons take a `.zip` and `.bacpac` from anywhere:
 
 1. **Extract** the zip into a new folder `<BaseDirectory>\<name>`. The site root
    is the zip's shallowest folder with a `web.config`, so a zip with everything
@@ -455,7 +484,7 @@ DnnManager.NET/
     │   ├── Docker/              ← docker compose up for the shared SQL container
     │   ├── Sql/                 ← sqlcmd in the container, remote backup, SqlPackage, connection test
     │   ├── Github/              ← GitHub API + DNN package downloader
-    │   ├── Settings/            ← AppDataPaths (Documents\DNN Manager), SettingsStore, SettingsMigrations
+    │   ├── Settings/            ← AppDataPaths (Documents\DnnManager), SettingsStore, SettingsMigrations
     │   ├── Files/               ← file copy, site .zip import / export, default docker-compose.yml (BundledFiles), daily log file
     │   ├── Projects/            ← file-system project repository
     │   ├── Prereq/              ← IIS feature checks
@@ -483,7 +512,7 @@ DnnManager.NET/
 | **All side-effects behind interfaces** | `IIisManager`, `ISqlServerService`, `IDnnReleaseService`, `IPrerequisiteChecker`, `IWebConfigService`, `ISqlConnectionTester`, `IUserPrompt`, `IProgressReporter`, … Easy to mock in tests. |
 | **`Result` / `Result<T>` instead of exceptions across layers** | Use-case outcomes are explicit; unexpected exceptions are still logged and surfaced centrally. |
 | **`Microsoft.Extensions.Hosting` + `IOptions<AppOptions>`** | Standard DI and logging via `Microsoft.Extensions.Logging`. `AppOptions` is made from `settings.json` at startup, with `DNNMGR_*` env vars on top. |
-| **Program and user data apart** | The installer owns the install folder; the app owns `Documents\DNN Manager`. `settings.json` is versioned: `SettingsStore` backs it up and runs `SettingsMigrations` when its format is older, and fills in new keys from `UserSettings`' defaults. |
+| **Program and user data apart** | The installer owns the install folder; the app owns `Documents\DnnManager`. `settings.json` is versioned: `SettingsStore` backs it up and runs `SettingsMigrations` when its format is older, and fills in new keys from `UserSettings`' defaults. |
 | **WPF, code-behind pages** | One `UserControl` per sidebar item, rebuilt on each visit so lists (folders, backups) are always fresh. |
 | **Use cases off the UI thread** | `OperationRunner` runs one use case at a time on the thread pool in its own DI scope, refuses a second one while it runs, and backs the log's **Cancel** button. |
 | **Adapters for GUI → app layer** | `GuiProgressReporter` (writes to the activity log) and `GuiUserPrompt` (modal dialogs) implement application interfaces, so use cases never know what drives them. |
@@ -541,8 +570,8 @@ DnnManager.NET/
 | GitHub release lookup | [`Github/GitHubDnnReleaseService.cs`](src/DnnManager.Infrastructure/Github/GitHubDnnReleaseService.cs) |
 | IIS helpers | [`Iis/IisManager.cs`](src/DnnManager.Infrastructure/Iis/IisManager.cs) |
 | sqlcmd | [`Sql/SqlServerService.cs`](src/DnnManager.Infrastructure/Sql/SqlServerService.cs) |
-| Default `docker-compose.yml` | [`Files/BundledFiles.cs`](src/DnnManager.Infrastructure/Files/BundledFiles.cs) - written to `Documents\DNN Manager` when missing |
-| Shared SQL container | `docker-compose.yml` in `Documents\DNN Manager`, generated by `BundledFiles.ComposeFor` and brought up by [`Docker/DockerComposeService.cs`](src/DnnManager.Infrastructure/Docker/DockerComposeService.cs) + [`UseCases/SetupSqlContainerUseCase.cs`](src/DnnManager.Application/UseCases/SetupSqlContainerUseCase.cs); the connection check is `LocalSqlContainer` in [`UseCases/Provisioning.cs`](src/DnnManager.Application/UseCases/Provisioning.cs) |
+| Default `docker-compose.yml` | [`Files/BundledFiles.cs`](src/DnnManager.Infrastructure/Files/BundledFiles.cs) - written to `Documents\DnnManager` when missing |
+| Shared SQL container | `docker-compose.yml` in `Documents\DnnManager`, generated by `BundledFiles.ComposeFor` and brought up by [`Docker/DockerComposeService.cs`](src/DnnManager.Infrastructure/Docker/DockerComposeService.cs) + [`UseCases/SetupSqlContainerUseCase.cs`](src/DnnManager.Application/UseCases/SetupSqlContainerUseCase.cs); the connection check is `LocalSqlContainer` in [`UseCases/Provisioning.cs`](src/DnnManager.Application/UseCases/Provisioning.cs) |
 
 ## Notes / limitations
 

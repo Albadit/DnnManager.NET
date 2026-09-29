@@ -90,7 +90,7 @@
                 "-Command",
                 "Compress-Archive -Path '${workspaceFolder}/publish/DnnManager-*.exe' -DestinationPath '${workspaceFolder}/DnnManager.zip' -Force"
             ],
-            "dependsOn": "publish (single self-contained win-x64)",
+            "dependsOn": "publish (DnnManager.exe)",
             "group": "build",
             "problemMatcher": [],
             "presentation": {

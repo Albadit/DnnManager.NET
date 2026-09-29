@@ -105,7 +105,7 @@
                     </Grid>
 
                     <TextBlock Style="{StaticResource Hint}" Margin="0,10,0,8"
-                               Text="Set up container writes docker-compose.yml (in Documents\DNN Manager) from the SQL Server settings (Settings → SQL Server), runs docker compose up -d and waits until SQL Server accepts the sa login." />
+                               Text="Set up container writes docker-compose.yml (in Documents\DnnManager) from the SQL Server settings (Settings → SQL Server), runs docker compose up -d and waits until SQL Server accepts the sa login." />
                     <StackPanel Orientation="Horizontal">
                         <Button x:Name="ShowYamlButton" Content="Show docker-compose.yml" Click="ShowYaml_Click" />
                     </StackPanel>

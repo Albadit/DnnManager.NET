@@ -1,7 +1,7 @@
 namespace DnnManager.Application.Configuration;
 
 /// <summary>
-/// The user's <c>settings.json</c> (in <c>Documents\DNN Manager</c>), as the file is laid out. Every value has
+/// The user's <c>settings.json</c> (in <c>Documents\DnnManager</c>), as the file is laid out. Every value has
 /// a default here, so a key missing from the file is filled in with it. The running app reads the
 /// flattened <see cref="AppOptions"/> made by <see cref="ToAppOptions"/>.
 /// </summary>

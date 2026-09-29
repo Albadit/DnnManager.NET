@@ -52,28 +52,26 @@ public partial class ExistingFolderOptions : UserControl
     public event EventHandler? ActionChanged;
 
     /// <summary>
-    /// Loads the backups found in <paramref name="project"/>, newest first: its 01_backup folder (the dated backup
-    /// folders in it too), the old "backups" folder, and its root.
+    /// Loads the database backups for <paramref name="project"/>, newest first: its dated backups in
+    /// Documents\DnnManager\backups\&lt;project&gt;, and any in the project folder's root.
     /// </summary>
     public void Load(DnnProject project)
     {
         _project = project;
-        var legacy = Path.Combine(project.ProjectDirectory, ProjectBackups.LegacyFolderName);
         var found = new[]
             {
                 (Folder: project.BackupDirectory, Deep: true),
-                (Folder: legacy, Deep: false),
                 (Folder: project.ProjectDirectory, Deep: false)
             }
             .Where(f => Directory.Exists(f.Folder))
             .SelectMany(f => Directory.EnumerateFiles(f.Folder, "*",
-                f.Deep ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
-            .Where(LocalSqlContainer.IsBackupFile)
-            .Select(f => new FileInfo(f))
-            .OrderByDescending(f => f.LastWriteTime)
-            .Select(f => new BackupOption(f.FullName,
-                $"{Path.GetRelativePath(project.ProjectDirectory, f.FullName)}  " +
-                $"({f.Length / 1024d / 1024d:N1} MB, {f.LastWriteTime:yyyy-MM-dd HH:mm})"))
+                f.Deep ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly)
+                .Select(file => (File: new FileInfo(file), f.Folder)))
+            .Where(f => LocalSqlContainer.IsBackupFile(f.File.FullName))
+            .OrderByDescending(f => f.File.LastWriteTime)
+            .Select(f => new BackupOption(f.File.FullName,
+                $"{Path.GetRelativePath(f.Folder, f.File.FullName)}  " +
+                $"({f.File.Length / 1024d / 1024d:N1} MB, {f.File.LastWriteTime:yyyy-MM-dd HH:mm})"))
             .Append(new BackupOption(null, "No backup - keep the database / create it empty"))
             .ToList();
 

@@ -48,7 +48,7 @@
                         <ComboBox x:Name="ProjectBackupCombo" Grid.Column="2" DisplayMemberPath="Label" SelectionChanged="ProjectBackup_Changed" />
                     </Grid>
                     <TextBlock x:Name="BackupPickHint" Style="{StaticResource Hint}"
-                               Text="A project and one of its backups (01_backup) - or choose the files anywhere on this PC below." />
+                               Text="A project and one of its backups (Documents\DnnManager\backups) - or choose the files anywhere on this PC below." />
                     <TextBlock Style="{StaticResource FieldLabel}" Text="Site .zip" />
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="BrowseZip_Click" />

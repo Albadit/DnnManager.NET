@@ -4,7 +4,7 @@ using DnnManager.Infrastructure.Settings;
 namespace DnnManager.Infrastructure.Files;
 
 /// <summary>
-/// The default <c>docker-compose.yml</c> lives here, in code, and is written to <c>Documents\DNN Manager</c>
+/// The default <c>docker-compose.yml</c> lives here, in code, and is written to <c>Documents\DnnManager</c>
 /// when it's missing there, so the SQL Server container can always be brought up. An existing file is
 /// never touched, so edits stick. (The default settings are <see cref="UserSettings"/>'s own defaults.)
 /// </summary>

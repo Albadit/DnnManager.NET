@@ -69,6 +69,17 @@ public sealed class SettingsStore
     public SettingsLoadResult Load()
     {
         var notices = new List<SettingsNotice>();
+        try
+        {
+            if (_paths.MoveFromOldName() is { } moved) notices.Add(new(false, moved));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new SettingsException(
+                $"Could not rename {_paths.OldRoot} to {_paths.Root}: {ex.Message}",
+                ["Close whatever has a file in it open (another DNN Manager, an editor, Explorer) and choose Try again."], ex);
+        }
+
         try { _paths.EnsureCreated(); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

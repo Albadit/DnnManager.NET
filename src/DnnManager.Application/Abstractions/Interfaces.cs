@@ -26,6 +26,12 @@ public interface IProjectRepository
     IReadOnlyList<string> ListAllProjectDirectories();
     DnnProject Build(string projectName);
     bool ProjectExists(string projectName);
+
+    /// <summary>
+    /// The projects with a folder in the backups folder, whether or not the project itself still exists
+    /// (backups outlive a removed project).
+    /// </summary>
+    IReadOnlyList<string> ListProjectsWithBackups();
 }
 
 public interface IDnnReleaseService
@@ -157,10 +163,12 @@ public interface IProjectFileCopier
     Task<Result> ExtractZipAsync(string zipPath, string destinationDirectory, IProgressReporter reporter, CancellationToken ct);
 
     /// <summary>
-    /// Zips every file under <paramref name="sourceDirectory"/> into <paramref name="zipPath"/>, leaving out the
-    /// top-level folders named in <paramref name="excludedFolders"/>. Files that can't be read are skipped and reported.
+    /// Zips every file under <paramref name="sourceDirectory"/> into <paramref name="zipPath"/>, leaving out
+    /// <paramref name="excludedPaths"/> - files or folders (with everything in them), relative to
+    /// <paramref name="sourceDirectory"/>, e.g. <c>.git</c> or <c>App_Data\Search</c>. Files that can't be read are
+    /// skipped and reported.
     /// </summary>
-    Task<Result> CreateZipAsync(string sourceDirectory, string zipPath, IReadOnlyCollection<string> excludedFolders,
+    Task<Result> CreateZipAsync(string sourceDirectory, string zipPath, IReadOnlyCollection<string> excludedPaths,
         IProgressReporter reporter, CancellationToken ct);
 }
 

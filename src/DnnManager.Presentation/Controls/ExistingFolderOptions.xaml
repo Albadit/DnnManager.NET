@@ -15,7 +15,7 @@
                 <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="Browse_Click" />
                 <ComboBox x:Name="BackupCombo" DisplayMemberPath="Label" />
             </DockPanel>
-            <TextBlock Style="{StaticResource Hint}" Text="Backups are looked up in the project's 01_backup folder (and its dated backups), the old backups folder and the project root, newest first." />
+            <TextBlock Style="{StaticResource Hint}" Text="Backups are looked up in the project's backups (Documents\DnnManager\backups\&lt;project&gt;) and the project folder's root, newest first." />
         </StackPanel>
     </StackPanel>
 </UserControl>

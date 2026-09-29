@@ -21,8 +21,8 @@ public sealed class ExportProjectRequest
 /// </summary>
 public sealed class ExportProjectUseCase
 {
-    // Not part of the site: DNN Manager's own backups folders (so backups never end up inside backups), and source control.
-    private static readonly string[] ExcludedFolders = { ProjectBackups.FolderName, ProjectBackups.LegacyFolderName, ".git" };
+    // Never part of the site: source control. The site's _backup.filter adds its own paths.
+    private static readonly string[] AlwaysExcluded = { ".git" };
 
     private readonly IProjectRepository _projects;
     private readonly IProjectFileCopier _copier;
@@ -54,25 +54,28 @@ public sealed class ExportProjectUseCase
             return Result.Fail("Nothing to export - choose the site files, the database, or both.");
         var zipPath = req.ZipPath is null ? null : Path.GetFullPath(req.ZipPath);
         var bacpacPath = req.BacpacPath is null ? null : Path.GetFullPath(req.BacpacPath);
-        // Inside the site is only allowed in its backups folder, which the zip leaves out.
+        // Inside the site, the export would be served by IIS and zipped into the next export.
         var inside = Path.GetFullPath(project.ProjectDirectory).TrimEnd('\\') + "\\";
-        var backups = Path.GetFullPath(project.BackupDirectory).TrimEnd('\\') + "\\";
-        if (new[] { zipPath, bacpacPath }.Any(p => p is not null && p.StartsWith(inside, StringComparison.OrdinalIgnoreCase)
-                                                && !p.StartsWith(backups, StringComparison.OrdinalIgnoreCase)))
-            return Result.Fail($"Choose a location outside the project folder (or in its {ProjectBackups.FolderName} folder) - " +
-                               "the export would end up inside the site.");
+        if (new[] { zipPath, bacpacPath }.Any(p => p is not null && p.StartsWith(inside, StringComparison.OrdinalIgnoreCase)))
+            return Result.Fail("Choose a location outside the project folder - the export would end up inside the site.");
         foreach (var path in new[] { zipPath, bacpacPath }.OfType<string>())
-        {
-            if (path.StartsWith(backups, StringComparison.OrdinalIgnoreCase)) ProjectBackups.EnsureFolder(project);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        }
 
         try
         {
             if (zipPath is not null)
             {
                 reporter.Step("Zipping the website files");
-                var zip = await _copier.CreateZipAsync(project.ProjectDirectory, zipPath, ExcludedFolders, reporter, ct);
+                IReadOnlyList<string> filtered;
+                try { filtered = BackupFilter.Read(project.ProjectDirectory); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    return Result.Fail($"Could not read {Path.Combine(project.ProjectDirectory, BackupFilter.FileName)}: {ex.Message}");
+                }
+                if (filtered.Count > 0)
+                    reporter.Info($"Leaving out what {BackupFilter.FileName} lists: {string.Join(", ", filtered)}");
+                var zip = await _copier.CreateZipAsync(project.ProjectDirectory, zipPath,
+                    AlwaysExcluded.Concat(filtered).ToList(), reporter, ct);
                 if (!zip.Success)
                 {
                     RemoveIfEmpty(zipPath);

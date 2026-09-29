@@ -43,7 +43,11 @@ public sealed class RemoveProjectUseCase
         {
             var project = _projects.Build(projectName);
             var dropDb = await _prompt.ConfirmAsync("Also drop the project's database?", false, ct);
-            if (!await _prompt.ConfirmAsync($"Remove project '{projectName}' permanently?", false, ct))
+            // Backups live outside the project folder, so removing the project keeps them.
+            var keeps = Directory.Exists(project.BackupDirectory)
+                ? $"{Environment.NewLine}{Environment.NewLine}Its backups in {project.BackupDirectory} are kept."
+                : "";
+            if (!await _prompt.ConfirmAsync($"Remove project '{projectName}' permanently?{keeps}", false, ct))
                 return Result.Fail("Aborted by user.");
 
             reporter.Step("Step 1: Remove IIS site & pool");
