@@ -180,11 +180,11 @@ public partial class ProjectsPage : UserControl, IRefreshable
 
         // One submenu with the editors found on this PC - nothing listed that isn't installed.
         var ides = IdeLocator.Installed;
-        var openIn = new MenuItem { Header = "Open in" };
+        var openWith = new MenuItem { Header = "Open with" };
         if (ides.Count == 0)
         {
-            openIn.IsEnabled = false;
-            openIn.ToolTip = "No code editor or IDE found on this PC.";
+            openWith.IsEnabled = false;
+            openWith.ToolTip = "No code editor or IDE found on this PC.";
         }
         var solution = IdeLocator.SolutionFor(row.Path);
         foreach (var ide in ides)
@@ -192,9 +192,9 @@ public partial class ProjectsPage : UserControl, IRefreshable
             var header = ide.Name + (ide.OpensSolution && solution is not null ? $"  ({System.IO.Path.GetFileName(solution)})" : "");
             var item = NewMenuItem(header, (_, _) => OpenInIde(ide, row));
             item.ToolTip = ide.ExePath;
-            openIn.Items.Add(item);
+            openWith.Items.Add(item);
         }
-        menu.Items.Add(openIn);
+        menu.Items.Add(openWith);
         if (IdeLocator.ManagementStudios.Count > 0)
         {
             var projectDatabase = ProjectDatabaseName(row);
@@ -202,7 +202,7 @@ public partial class ProjectsPage : UserControl, IRefreshable
             {
                 // Default: the local SQL Server as sa. Project: this project's database with its own login.
                 // Whether SSMS remembers the password is the SsmsRememberPassword setting.
-                var item = new MenuItem { Header = $"Open in {ssms.Name}", ToolTip = ssms.ExePath };
+                var item = new MenuItem { Header = $"Open with {ssms.Name}", ToolTip = ssms.ExePath };
                 item.Items.Add(NewMenuItem("Default  (local SQL Server, sa)", (_, _) => OpenDatabase(ssms, row, project: false)));
                 item.Items.Add(NewMenuItem(projectDatabase is null ? "Project database" : $"Project  ([{projectDatabase}])",
                     (_, _) => OpenDatabase(ssms, row, project: true)));

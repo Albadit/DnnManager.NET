@@ -34,12 +34,13 @@ All notable changes to DnnManager.NET are documented here.
 
 ### Changed
 
-- **Open in: one submenu with your editors.** The project menu's separate
-  *Open in …* entries are now one **Open in** submenu listing only the editors
+- **Open with: one submenu with your editors.** The project menu's separate
+  *Open in …* entries are now one **Open with** submenu listing only the editors
   installed on the PC. Newly found: IntelliJ IDEA, Zed, Vim and Neovim (their
   windowed versions, or the console ones in a window of their own), next to
   Visual Studio, VS Code (and Insiders, Cursor, Windsurf), Rider and Sublime
-  Text.
+  Text. The SQL Server Management Studio entries read **Open with SQL Server
+  Management Studio <version>**.
 - **SA password encrypted.** `sqlServer.saPassword` in `settings.json` is now
   stored encrypted for your Windows account (Windows DPAPI, `dpapi:…`) - it
   can't be hashed, as DNN Manager needs the password itself to sign in to SQL
