@@ -1,5 +1,10 @@
 namespace DnnManager.Application.Configuration;
 
+/// <summary>
+/// The settings the running app works with, made from the user's <c>settings.json</c>
+/// (<see cref="UserSettings.ToAppOptions"/>) at startup, with any <c>DNNMGR_DnnManager__*</c>
+/// environment variables applied on top. Read once: saved changes apply after a restart.
+/// </summary>
 public sealed class AppOptions
 {
     public const string SectionName = "DnnManager";
@@ -7,7 +12,7 @@ public sealed class AppOptions
     public string BaseDirectory { get; set; } = @"C:\DNN";
     public int SitePort { get; set; } = 80;
     public string HostnameSuffix { get; set; } = "dnndev.me";
-    /// <summary>"Light", "Dark" or "System" (follow the Windows app theme). Set by the sidebar's theme button.</summary>
+    /// <summary>"light", "dark" or "system" (follow the Windows app theme). Set by the sidebar's theme button.</summary>
     public string Theme { get; set; } = "System";
     /// <summary>
     /// Tick SQL Server Management Studio's "Remember Password" when the project menu signs it in. Off by default:
@@ -15,10 +20,7 @@ public sealed class AppOptions
     /// </summary>
     public bool SsmsRememberPassword { get; set; }
     public DockerOptions Docker { get; set; } = new();
-    // NOTE: Intentionally empty. Microsoft.Extensions.Configuration *appends* to
-    // collection defaults when binding, so any items listed here would be
-    // duplicated by the matching entries in appsettings.json. Defaults live in
-    // appsettings.json only (its built-in default is in Infrastructure/Files/BundledFiles.cs).
+    // Empty here: the defaults live in UserSettings, which fills these in.
     public IReadOnlyList<string> GitHubReleaseApis { get; set; } = Array.Empty<string>();
     public IReadOnlyList<IisFeatureSetting> RequiredIisFeatures { get; set; } = Array.Empty<IisFeatureSetting>();
 

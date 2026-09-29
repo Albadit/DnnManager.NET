@@ -1,95 +1,34 @@
 using DnnManager.Application.Configuration;
+using DnnManager.Infrastructure.Settings;
 
 namespace DnnManager.Infrastructure.Files;
 
 /// <summary>
-/// The default <c>appsettings.json</c> and <c>docker-compose.yml</c> live here, in code. Neither file
-/// has to exist in the source tree or the publish folder: a copy missing from next to the exe (first
-/// run, a partial copy, a cleaned publish folder…) is written from these defaults instead of the app
-/// failing to start or to bring up SQL Server. An existing file is never touched, so edits stick.
+/// The default <c>docker-compose.yml</c> lives here, in code, and is written to <c>Documents\DNN Manager</c>
+/// when it's missing there, so the SQL Server container can always be brought up. An existing file is
+/// never touched, so edits stick. (The default settings are <see cref="UserSettings"/>'s own defaults.)
 /// </summary>
 public static class BundledFiles
 {
-    public const string AppSettings = "appsettings.json";
-    public const string DockerCompose = "docker-compose.yml";
-
-    /// <summary>Full path of <paramref name="fileName"/> next to the app.</summary>
-    public static string PathOf(string fileName) => Path.Combine(AppContext.BaseDirectory, fileName);
-
     /// <summary>
-    /// Writes the default <paramref name="fileName"/> next to the app when it is missing.
-    /// Returns true when the file was created; an existing file is never touched.
+    /// Writes <c>docker-compose.yml</c> into the user's folder when it is missing there: the copy an older
+    /// version kept next to the exe, or else the default. Returns what was done, or null when the file was there.
     /// </summary>
-    public static bool EnsureExists(string fileName)
+    public static string? EnsureDockerCompose(AppDataPaths paths)
     {
-        var path = PathOf(fileName);
-        if (File.Exists(path)) return false;
+        var path = paths.ComposeFile;
+        if (File.Exists(path)) return null;
+
+        var legacy = Path.Combine(AppDataPaths.LegacyDirectory, "docker-compose.yml");
+        var fromLegacy = File.Exists(legacy);
+        var content = fromLegacy ? File.ReadAllText(legacy) : ComposeFor(new DockerOptions());
 
         // Write beside it and move into place, so a crash never leaves a half-written file behind.
         var tmp = path + ".tmp";
-        File.WriteAllText(tmp, DefaultContent(fileName));
+        File.WriteAllText(tmp, content);
         File.Move(tmp, path, overwrite: false);
-        return true;
+        return fromLegacy ? $"Copied {legacy} to {path}." : $"Created {path} with the default SQL Server container.";
     }
-
-    public static string DefaultContent(string fileName) => fileName switch
-    {
-        AppSettings => DefaultAppSettings,
-        DockerCompose => ComposeFor(new DockerOptions()),
-        _ => throw new ArgumentException($"No built-in default for {fileName}.", nameof(fileName))
-    };
-
-    private const string DefaultAppSettings = """
-        {
-          "Logging": {
-            "LogLevel": {
-              "Default": "Information",
-              "Microsoft": "Warning",
-              "System.Net.Http": "Warning"
-            }
-          },
-          "DnnManager": {
-            "BaseDirectory": "C:\\DNN",
-            "SitePort": 80,
-            "HostnameSuffix": "dnndev.me",
-            "Theme": "System",
-            "SsmsRememberPassword": false,
-            "GitHubReleaseApis": [
-              "https://api.github.com/repos/dnnsoftware/Dnn.Platform/releases",
-              "https://api.github.com/repos/DNN-Connect/Dnn.Platform/releases"
-            ],
-            "Docker": {
-              "ContainerName": "dnn-sqlserver",
-              "ContainerIp": "localhost",
-              "VolumeName": "dnn_sqlserver_data",
-              "SaPassword": "Admin@123",
-              "DefaultPort": 1433,
-              "Collation": "Latin1_General_CI_AS",
-              "MssqlPid": "Developer",
-              "DefaultDbNameSuffix": "_dnndev"
-            },
-            "RequiredIisFeatures": [
-              { "Name": "IIS-WebServerRole",        "Label": "IIS Web Server" },
-              { "Name": "IIS-WebServer",            "Label": "World Wide Web Services" },
-              { "Name": "IIS-ManagementConsole",    "Label": "IIS Management Console" },
-              { "Name": "IIS-NetFxExtensibility",   "Label": ".NET Extensibility 3.5" },
-              { "Name": "IIS-NetFxExtensibility45", "Label": ".NET Extensibility 4.8" },
-              { "Name": "IIS-ASPNET",               "Label": "ASP.NET 3.5" },
-              { "Name": "IIS-ASPNET45",             "Label": "ASP.NET 4.8" },
-              { "Name": "IIS-ISAPIExtensions",      "Label": "ISAPI Extensions" },
-              { "Name": "IIS-ISAPIFilter",          "Label": "ISAPI Filters" },
-              { "Name": "IIS-DefaultDocument",      "Label": "Default Document" },
-              { "Name": "IIS-DirectoryBrowsing",    "Label": "Directory Browsing" },
-              { "Name": "IIS-HttpErrors",           "Label": "HTTP Errors" },
-              { "Name": "IIS-StaticContent",        "Label": "Static Content" },
-              { "Name": "IIS-BasicAuthentication",  "Label": "Basic Authentication" },
-              { "Name": "IIS-RequestFiltering",     "Label": "Request Filtering" },
-              { "Name": "IIS-HostableWebCore",      "Label": "IIS Hostable Web Core" }
-            ]
-          }
-        }
-
-        """;
 
     /// <summary>
     /// The shared SQL Server's <c>docker-compose.yml</c> for <paramref name="docker"/>: container name, sa

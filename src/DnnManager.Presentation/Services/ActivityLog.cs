@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Threading;
+using DnnManager.Infrastructure.Files;
 
 namespace DnnManager.Presentation.Services;
 
@@ -46,10 +47,14 @@ public sealed class LogEntry : INotifyPropertyChanged
 /// <summary>
 /// The activity pane's contents. Use cases run on the thread pool, so every write is marshalled onto
 /// the UI thread; writes queue in order, so the log reads exactly as the use case reported it.
+/// Each line is also appended to the day's log file (in-place progress lines are left out).
 /// </summary>
 public sealed class ActivityLog
 {
     private readonly Dispatcher _dispatcher = System.Windows.Application.Current.Dispatcher;
+    private readonly DailyLogFile _file;
+
+    public ActivityLog(DailyLogFile file) => _file = file;
 
     // The in-place progress line (e.g. a download percentage) until the next regular message closes it.
     private LogEntry? _progress;
@@ -85,7 +90,9 @@ public sealed class ActivityLog
     private void Add(LogKind kind, string text) => Post(() =>
     {
         _progress = null;
-        Entries.Add(new LogEntry(kind, text));
+        var entry = new LogEntry(kind, text);
+        Entries.Add(entry);
+        _file.Append(entry.Time, entry.Display);
     });
 
     private void Post(Action action)

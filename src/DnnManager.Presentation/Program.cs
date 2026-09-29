@@ -1,4 +1,3 @@
-using System.Text;
 using System.Windows;
 using DnnManager.Application;
 using DnnManager.Application.Abstractions;
@@ -6,6 +5,7 @@ using DnnManager.Application.Configuration;
 using DnnManager.Presentation.Services;
 using DnnManager.Infrastructure;
 using DnnManager.Infrastructure.Files;
+using DnnManager.Infrastructure.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -16,6 +16,9 @@ namespace DnnManager.Presentation;
 
 internal static class Program
 {
+    /// <summary>Prefix of the environment variables that override settings, e.g. <c>DNNMGR_DnnManager__SitePort</c>.</summary>
+    public const string EnvironmentPrefix = "DNNMGR_";
+
     [STAThread]
     private static int Main(string[] args)
     {
@@ -28,39 +31,45 @@ internal static class Program
             return 1;
         }
 
-        // Write the default config and compose file next to the exe if either is missing (first run,
-        // cleaned publish folder…). Reported in the activity log once the window is up.
-        var startupNotices = new List<(bool Ok, string Message)>();
-        foreach (var file in new[] { BundledFiles.AppSettings, BundledFiles.DockerCompose })
+        using var running = RunningMarker.Create();
+
+        var app = new App();
+        app.InitializeComponent();
+        // Until the main window opens, closing a dialog mustn't end the app.
+        app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        ThemeManager.Initialize(null);
+
+        // The user's settings, in Documents\DNN Manager - apart from the program, so updates and
+        // reinstalls keep them. A file that can't be used is reported here, before anything else starts.
+        var paths = AppDataPaths.ForCurrentUser();
+        var store = new SettingsStore(paths);
+        var loaded = SettingsStartup.Load(store);
+        if (loaded is null) return 1;
+        var startupNotices = loaded.Notices.ToList();
+        ThemeManager.Initialize(loaded.Settings.Appearance.Theme);
+
+        try
         {
-            try
-            {
-                if (BundledFiles.EnsureExists(file))
-                    startupNotices.Add((true, $"{file} was missing - created the default one next to the app."));
-            }
-            catch (Exception ex)
-            {
-                startupNotices.Add((false, $"{file} is missing and could not be recreated: {ex.Message}"));
-            }
+            if (BundledFiles.EnsureDockerCompose(paths) is { } created) startupNotices.Add(new(false, created));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            startupNotices.Add(new(true, $"{paths.ComposeFile} is missing and could not be created: {ex.Message}"));
         }
 
-        var builder = Host.CreateApplicationBuilder(args);
-
-        // Settings come from appsettings.json next to the exe; if it couldn't be written (e.g. a read-only
-        // folder), the built-in default is used as-is so the app still starts.
-        builder.Configuration.SetBasePath(AppContext.BaseDirectory);
-        if (File.Exists(BundledFiles.PathOf(BundledFiles.AppSettings)))
-            builder.Configuration.AddJsonFile(BundledFiles.AppSettings, optional: false, reloadOnChange: false);
-        else
-            builder.Configuration.AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(BundledFiles.DefaultContent(BundledFiles.AppSettings))));
-        builder.Configuration.AddEnvironmentVariables("DNNMGR_");
+        // No default configuration sources: the settings come from settings.json above, with only the
+        // DNNMGR_* environment variables on top.
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { Args = args, DisableDefaults = true });
+        builder.Configuration.AddEnvironmentVariables(EnvironmentPrefix);
+        var options = loaded.Settings.ToAppOptions();
+        builder.Configuration.GetSection(AppOptions.SectionName).Bind(options);
 
         // No console in a WinExe - errors surface in the activity log and message boxes instead.
         builder.Logging.ClearProviders();
 
-        builder.Services.Configure<AppOptions>(builder.Configuration.GetSection(AppOptions.SectionName));
+        builder.Services.AddSingleton(Options.Create(options));
         builder.Services.AddApplication();
-        builder.Services.AddInfrastructure();
+        builder.Services.AddInfrastructure(paths, store);
 
         builder.Services.AddSingleton<ActivityLog>();
         builder.Services.AddSingleton<GuiProgressReporter>();
@@ -72,20 +81,19 @@ internal static class Program
 
         using var host = builder.Build();
 
-        var app = new App();
-        app.InitializeComponent();
-        ThemeManager.Initialize(host.Services.GetRequiredService<IOptions<AppOptions>>().Value.Theme);
-
         var log = host.Services.GetRequiredService<ActivityLog>();
-        foreach (var (ok, message) in startupNotices)
+        foreach (var notice in startupNotices)
         {
-            if (ok) log.Info(message);
-            else log.Fail(message);
+            if (notice.IsWarning) log.Warn(notice.Message);
+            else log.Info(notice.Message);
         }
 
         try
         {
-            return app.Run(host.Services.GetRequiredService<MainWindow>());
+            var window = host.Services.GetRequiredService<MainWindow>();
+            app.MainWindow = window;
+            app.ShutdownMode = ShutdownMode.OnMainWindowClose;
+            return app.Run(window);
         }
         catch (Exception ex)
         {

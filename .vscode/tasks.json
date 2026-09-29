@@ -67,6 +67,7 @@
                 "-p:PublishSingleFile=true",
                 "-p:IncludeNativeLibrariesForSelfExtract=true",
                 "-p:EnableCompressionInSingleFile=true",
+                "-p:PortableExe=true",
                 "-o",
                 "${workspaceFolder}/publish"
             ],
@@ -87,11 +88,30 @@
                 "-ExecutionPolicy",
                 "Bypass",
                 "-Command",
-                "Compress-Archive -Path '${workspaceFolder}/publish/*' -DestinationPath '${workspaceFolder}/DnnManager.zip' -Force"
+                "Compress-Archive -Path '${workspaceFolder}/publish/DnnManager-*.exe' -DestinationPath '${workspaceFolder}/DnnManager.zip' -Force"
             ],
             "dependsOn": "publish (single self-contained win-x64)",
             "group": "build",
             "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            }
+        },
+        {
+            "label": "installer (DnnManagerSetup.exe)",
+            "type": "process",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/installer/build.ps1"
+            ],
+            "group": "build",
+            "problemMatcher": "$msCompile",
             "presentation": {
                 "reveal": "always",
                 "panel": "shared",
