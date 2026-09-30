@@ -192,11 +192,14 @@ begin
       Exit;
     end;
   finally
+    // Also before closing - a hidden wizard ignores Close.
     WizardForm.Show;
   end;
 
-  // Still there: the uninstall was cancelled - stay on the page.
-  if FileExists(InstalledUninstaller) then Exit;
+  // The uninstaller runs a copy of itself from TEMP, which deletes unins000.exe only after this Exec has
+  // returned - so check its registry key, which is gone by now. Still there: the uninstall was cancelled - stay
+  // on the page.
+  if RegKeyExists(HKA, UninstallKey) then Exit;
   ClosingAfterUninstall := True;
   WizardForm.Close;
 end;

@@ -13,6 +13,9 @@ All notable changes to DnnManager.NET are documented here.
   doesn't answer. Host project (with a backup restored), Import and Clone now
   switch it off in the local database, with a warning in the activity log to
   switch it back on before that database goes live again.
+- **Setup closes after uninstalling.** Choosing *Uninstall DNN Manager* in
+  Setup now closes Setup once the uninstall is done, instead of leaving it open
+  on the same page.
 
 ### Added
 
