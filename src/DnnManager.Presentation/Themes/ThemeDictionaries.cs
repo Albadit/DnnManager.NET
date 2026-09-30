@@ -11,3 +11,8 @@ public partial class DarkTheme : ResourceDictionary
 {
     public DarkTheme() => InitializeComponent();
 }
+
+public partial class Tokens : ResourceDictionary
+{
+    public Tokens() => InitializeComponent();
+}

@@ -19,12 +19,4 @@ public partial class App : System.Windows.Application
         Dialogs.Error($"Unexpected error: {e.Exception.Message}");
         e.Handled = true;
     }
-
-    // The ✕ in a search field (the SearchBox style): empties it and leaves the keyboard there.
-    private void SearchClear_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement { TemplatedParent: TextBox box }) return;
-        box.Clear();
-        box.Focus();
-    }
 }

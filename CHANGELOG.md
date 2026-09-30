@@ -2,7 +2,26 @@
 
 All notable changes to DnnManager.NET are documented here.
 
-## Unreleased
+## v2.2.0 - 2026-10-01
+
+DNN Manager now works like Docker Desktop: **Projects** is a live server table
+that follows IIS and the projects folder by itself - no Refresh -, a status bar
+shows IIS and this PC's resources, and a terminal panel holds the activity log
+next to real terminals. Settings is a page of its own and applies without a
+restart, and every button, input and switch shares one look.
+
+### Upgrading from v2.1.x
+
+- `settings.json` is upgraded on the first start (its `version` becomes 2, the
+  Docker values move to a `docker` section); the old file is backed up to
+  `Documents\DnnManager\backups\` first. The SA password in it is encrypted on
+  that start too.
+- The program is now `dnnmanager.exe` and the environment variables start with
+  `DNNMANAGER_` (was `DNNMGR_`) - re-pin the app if it was pinned to the taskbar.
+- The SQL Server container's compose project is renamed from `dnn-shared` to
+  `dnn-mssql`. Press **Environment → Set up docker-compose** once: it removes the
+  old container and makes it again under the new name. The databases are kept -
+  they live in the data volume, which is reused.
 
 ### Fixed
 
@@ -26,8 +45,9 @@ All notable changes to DnnManager.NET are documented here.
 
 - **Pick a DNN version from a list.** On **New project**, choose the
   **Repository** (shown as `owner/repo`), then a **Version** from its GitHub
-  releases - newest first, with the latest selected. Before, the version had to
-  be typed (blank for the latest).
+  releases - newest first, with the latest release selected. Pre-releases are
+  listed too, marked *(pre-release)*, but are never selected by default. Before,
+  the version had to be typed (blank for the latest).
 - **Keep downloaded DNN packages.** A new setting, **Keep downloaded DNN install
   packages for next time** (`projects.keepDnnPackages`, off by default), keeps
   each downloaded `DNN_Platform_<version>_Install.zip` in
@@ -143,8 +163,20 @@ All notable changes to DnnManager.NET are documented here.
   takes no room: the running operation, its progress and **Cancel** moved to the
   status bar, whose terminal button opens the panel (a click on the running
   operation opens it on Activity).
-- **Reset IIS** (Environment) runs through the same IIS start / stop / restart
-  as the status bar.
+- **Environment: Set up IIS.** The IIS card has a **Set up IIS** button under
+  its feature table, like the Docker card's **Set up docker-compose** - always
+  there, not only after a Test found missing features. It checks the Windows
+  features and enables the missing ones after asking. **Reset IIS** and
+  **Enable missing features** are gone: restarting IIS is on the status bar.
+- **Docker compose project renamed** from `dnn-shared` to `dnn-mssql` (see
+  *Upgrading from v2.1.x*).
+- **One look for every control.** Text boxes and password boxes now have
+  rounded corners like the buttons, selects and search boxes; buttons, text
+  boxes and selects share one height (30 px) so they line up side by side; the
+  right-click menus and select lists are rounded too, and a select shows the
+  accent colour when it has the keyboard. The styles are reusable: one file per
+  kind of control in `Themes/Controls`, sharing sizes from `Themes/Tokens.xaml`
+  (see *Control styles* in the README).
 - **Open with: one submenu with your editors.** The project menu's separate
   *Open in …* entries are now one **Open with** submenu listing only the editors
   installed on the PC. Newly found: IntelliJ IDEA, Zed, Vim and Neovim (their

@@ -38,7 +38,10 @@ public interface IDnnReleaseService
 {
     Task<Result<DnnRelease>> GetReleaseAsync(string apiUrl, string? version, CancellationToken ct);
 
-    /// <summary>The releases of <paramref name="apiUrl"/> that have a DNN install package, highest version first (no drafts or pre-releases).</summary>
+    /// <summary>
+    /// The releases of <paramref name="apiUrl"/> that have a DNN install package, pre-releases included (no drafts),
+    /// highest version first - a release before a pre-release of the same version.
+    /// </summary>
     Task<Result<IReadOnlyList<DnnRelease>>> ListReleasesAsync(string apiUrl, CancellationToken ct);
 
     IReadOnlyList<string> KnownReleaseApis { get; }

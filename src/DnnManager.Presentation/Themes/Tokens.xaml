@@ -1,0 +1,18 @@
+<ResourceDictionary x:Class="DnnManager.Presentation.Themes.Tokens"
+                    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <!-- Sizes and shapes shared by every control style in Themes\Controls - change one here and every button, input,
+         select and menu follows. The colours are in LightTheme / DarkTheme. -->
+
+    <!-- Buttons, text boxes, password boxes, selects, menu items. -->
+    <CornerRadius x:Key="ControlRadius">4</CornerRadius>
+    <!-- Check boxes - a 16 px box looks round with more. -->
+    <CornerRadius x:Key="SmallRadius">3</CornerRadius>
+    <!-- Cards and banners. -->
+    <CornerRadius x:Key="CardRadius">6</CornerRadius>
+
+    <!-- Buttons, text boxes and selects share one height, so they line up side by side. -->
+    <sys:Double x:Key="ControlHeight">30</sys:Double>
+    <Thickness x:Key="InputPadding">6,4</Thickness>
+</ResourceDictionary>

@@ -86,15 +86,19 @@ public partial class SetupPage : UserControl, IRefreshable
             ShowVersions([], $"{source.Label} has no release with a DNN install package.");
             return;
         }
-        ShowVersions(releases.Select((r, i) => new VersionOption(r,
-                r.Version + (i == 0 ? "  (latest)" : "") + (_packages.IsKept(r) ? "  - kept, no download" : ""))).ToList(),
-            $"{releases.Count} releases of {source.Label}, highest version first - the latest is selected.");
+        // A pre-release can be newer than the latest release - it's listed, but the latest release stays the default.
+        var latest = releases.FirstOrDefault(r => !r.Prerelease) ?? releases[0];
+        ShowVersions(releases.Select(r => new VersionOption(r,
+                r.Version + (r == latest ? "  (latest)" : "") + (r.Prerelease ? "  (pre-release)" : "")
+                + (_packages.IsKept(r) ? "  - kept, no download" : ""))).ToList(),
+            $"{releases.Count} releases of {source.Label}, highest version first - the latest release is selected.",
+            selected: releases.ToList().IndexOf(latest));
     }
 
-    private void ShowVersions(IReadOnlyList<VersionOption> options, string hint)
+    private void ShowVersions(IReadOnlyList<VersionOption> options, string hint, int selected = 0)
     {
         VersionCombo.ItemsSource = options;
-        VersionCombo.SelectedIndex = options.Count > 0 ? 0 : -1;
+        VersionCombo.SelectedIndex = options.Count > 0 ? selected : -1;
         VersionCombo.IsEnabled = options.Count > 0 && options[0].Ready;
         VersionHint.Text = hint;
         UpdateState();

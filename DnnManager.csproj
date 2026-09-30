@@ -12,7 +12,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <DebugType>embedded</DebugType>
-    <Version>2.1.0</Version>
+    <Version>2.2.0</Version>
     <!-- Publishing for a runtime (e.g. -r win-x64) precompiles the code (ReadyToRun), so the app starts without
          JIT-compiling everything first. Plain builds and dotnet run are unaffected. -->
     <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
@@ -45,7 +45,7 @@
        (src/DnnManager.Infrastructure/Settings). -->
 
   <!-- Portable publish (-p:PortableExe=true, used by the VS Code publish task): the single-file exe is renamed
-       DnnManager-<version>-<arch>.exe, e.g. DnnManager-2.1.0-x64.exe. Only the file is renamed - the assembly
+       DnnManager-<version>-<arch>.exe, e.g. DnnManager-2.2.0-x64.exe. Only the file is renamed - the assembly
        stays dnnmanager, which the XAML pack URIs refer to. The installer's publish keeps dnnmanager.exe. -->
   <Target Name="RenamePortableExe" AfterTargets="Publish" Condition="'$(PortableExe)' == 'true'">
     <PropertyGroup>

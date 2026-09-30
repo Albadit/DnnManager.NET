@@ -148,11 +148,11 @@ public partial class EnvironmentPage : UserControl
         else if (d.DesktopInstalled)
             Set(EngineStatus, EngineDetail, "Stopped", Tone.Bad, "Start Docker Desktop and wait until the engine runs.");
         else
-            Set(EngineStatus, EngineDetail, "—", Tone.Muted, "");
+            Set(EngineStatus, EngineDetail, "-", Tone.Muted, "");
         StartDockerButton.Visibility = d.DesktopInstalled && !d.EngineRunning ? Visibility.Visible : Visibility.Collapsed;
 
         if (!d.EngineRunning)
-            Set(ContainerStatus, ContainerDetail, "—", Tone.Muted, $"'{container}' - needs the Docker engine.");
+            Set(ContainerStatus, ContainerDetail, "-", Tone.Muted, $"'{container}' - needs the Docker engine.");
         else if (d.ContainerState is null)
             Set(ContainerStatus, ContainerDetail, "Not created", Tone.Bad,
                 $"No container named '{container}' - create it with Set up docker-compose below.");
@@ -185,7 +185,6 @@ public partial class EnvironmentPage : UserControl
             ? "Couldn't read the Windows features - DNN Manager needs to run as Administrator."
             : missing == 0 ? $"All {rows.Count} Windows features are enabled."
             : $"{rows.Count - missing - unknown} of {rows.Count} Windows features enabled - {missing} missing.";
-        EnableFeaturesButton.Visibility = missing > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private static void Set(TextBlock status, TextBlock detail, string text, Tone tone, string detailText)
@@ -254,18 +253,12 @@ public partial class EnvironmentPage : UserControl
         TestSql();
     }
 
-    private async void EnableFeatures_Click(object sender, RoutedEventArgs e)
+    /// <summary>Checks the IIS Windows features, enables the missing ones (after a prompt), then re-tests the card.</summary>
+    private async void SetupIis_Click(object sender, RoutedEventArgs e)
     {
-        await _runner.RunAsync("Enable IIS features", (sp, reporter, ct) =>
+        await _runner.RunAsync("Set up IIS", (sp, reporter, ct) =>
             sp.GetRequiredService<IPrerequisiteChecker>().EnsureIisFeaturesAsync(reporter, sp.GetRequiredService<IUserPrompt>(), ct));
         TestFeatures();
-    }
-
-    private async void ResetIis_Click(object sender, RoutedEventArgs e)
-    {
-        // IisServerUseCase asks for confirmation itself.
-        await _runner.RunAsync("Reset IIS",
-            (sp, reporter, ct) => sp.GetRequiredService<IisServerUseCase>().ExecuteAsync(IisServerAction.Restart, reporter, ct));
     }
 
     // ─── docker-compose.yml ───────────────────────────────────────────────

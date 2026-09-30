@@ -32,8 +32,10 @@ public sealed class GitHubDnnReleaseService : IDnnReleaseService
             {
                 var list = await ListReleasesAsync(apiUrl, ct);
                 if (!list.Success) return Result<DnnRelease>.Fail(list.Error ?? "Could not list the releases.");
-                return list.Value!.Count > 0
-                    ? Result<DnnRelease>.Ok(list.Value[0])
+                // The latest means the latest release - a pre-release only when the repository has nothing else.
+                var latest = list.Value!.FirstOrDefault(r => !r.Prerelease) ?? list.Value!.FirstOrDefault();
+                return latest is not null
+                    ? Result<DnnRelease>.Ok(latest)
                     : Result<DnnRelease>.Fail("No suitable DNN release found.");
             }
 
@@ -47,7 +49,7 @@ public sealed class GitHubDnnReleaseService : IDnnReleaseService
                 if (rel is null) break;
                 var asset = FindAsset(rel);
                 if (asset is null) return Result<DnnRelease>.Fail($"Release {rel.TagName} has no DNN Install ZIP asset.");
-                return Result<DnnRelease>.Ok(new DnnRelease(rel.TagName.TrimStart('v'), rel.TagName, asset.BrowserDownloadUrl));
+                return Result<DnnRelease>.Ok(new DnnRelease(rel.TagName.TrimStart('v'), rel.TagName, asset.BrowserDownloadUrl, rel.Prerelease));
             }
             return Result<DnnRelease>.Fail($"Release {version} not found.");
         }
@@ -67,15 +69,18 @@ public sealed class GitHubDnnReleaseService : IDnnReleaseService
             var releases = await _http.GetFromJsonAsync<List<GhRelease>>(url, ct);
             if (releases is null) return Result<IReadOnlyList<DnnRelease>>.Fail("Empty release list.");
             var usable = releases
-                .Where(r => !r.Prerelease && !r.Draft)
+                .Where(r => !r.Draft)
                 .Select(r => (Release: r, Asset: FindAsset(r)))
                 .Where(r => r.Asset is not null)
-                .Select(r => new DnnRelease(r.Release.TagName.TrimStart('v'), r.Release.TagName, r.Asset!.BrowserDownloadUrl))
+                .Select(r => new DnnRelease(r.Release.TagName.TrimStart('v'), r.Release.TagName, r.Asset!.BrowserDownloadUrl,
+                    r.Release.Prerelease))
                 // GitHub lists by release date, and a 9.x patch can come out after a 10.x release: order by version,
-                // highest first. Tags that aren't a version number keep GitHub's order, after the numbered ones.
-                .Select((r, index) => (Release: r, Index: index, Number: Version.TryParse(r.Version, out var v) ? v : null))
+                // highest first, a release before a pre-release of the same version ("10.1.0" before "10.1.0-rc1").
+                // Tags that aren't a version number keep GitHub's order, after the numbered ones.
+                .Select((r, index) => (Release: r, Index: index, Number: VersionNumber(r.Version)))
                 .OrderByDescending(r => r.Number is not null)
                 .ThenByDescending(r => r.Number)
+                .ThenBy(r => r.Release.Prerelease)
                 .ThenBy(r => r.Index)
                 .Select(r => r.Release)
                 .ToList();
@@ -86,6 +91,13 @@ public sealed class GitHubDnnReleaseService : IDnnReleaseService
             _log.LogError(ex, "GitHub release list failed");
             return Result<IReadOnlyList<DnnRelease>>.Fail(ex.Message);
         }
+    }
+
+    /// <summary>The number part of a version - <c>10.1.0</c> of <c>10.1.0-rc1</c> - or null when it doesn't start with one.</summary>
+    private static Version? VersionNumber(string version)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(version, @"^\d+(\.\d+){1,3}");
+        return match.Success && Version.TryParse(match.Value, out var v) ? v : null;
     }
 
     private static GhAsset? FindAsset(GhRelease r)

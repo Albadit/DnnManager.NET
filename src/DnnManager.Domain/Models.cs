@@ -5,7 +5,7 @@ public sealed record DnnProject(
     string ProjectDirectory,
     string BackupDirectory);
 
-public sealed record DnnRelease(string Version, string TagName, string DownloadUrl);
+public sealed record DnnRelease(string Version, string TagName, string DownloadUrl, bool Prerelease = false);
 
 public sealed record DatabaseConfig(
     string Server,

@@ -140,10 +140,6 @@
                     <DockPanel Margin="0,0,0,8">
                         <Button DockPanel.Dock="Right" x:Name="FeaturesTestButton" Content="Test" MinWidth="80" Margin="8,0,0,0"
                                 VerticalAlignment="Center" Click="FeaturesTest_Click" />
-                        <Button DockPanel.Dock="Right" Content="Reset IIS" Margin="8,0,0,0" VerticalAlignment="Center" Click="ResetIis_Click"
-                                ToolTip="Restart IIS (iisreset) - clears stuck sites and picks up IIS changes, e.g. a newly installed URL Rewrite module" />
-                        <Button DockPanel.Dock="Right" x:Name="EnableFeaturesButton" Style="{StaticResource Primary}" Content="Enable missing features"
-                                VerticalAlignment="Center" Visibility="Collapsed" Click="EnableFeatures_Click" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Style="{StaticResource CardTitle}" Text="IIS" Margin="0" />
                             <TextBlock x:Name="FeaturesSummary" Style="{StaticResource Hint}" Margin="0,2,0,0" Text="Windows features: not tested yet - press Test." />
@@ -205,6 +201,11 @@
                             </ItemsControl>
                         </StackPanel>
                     </Border>
+
+                    <WrapPanel Margin="0,10,0,0">
+                        <Button x:Name="SetupIisButton" Style="{StaticResource Primary}" Content="Set up IIS" Click="SetupIis_Click"
+                                ToolTip="Enable the missing IIS Windows features (needs Administrator; a reboot may be required)" />
+                    </WrapPanel>
                 </StackPanel>
             </Border>
         </StackPanel>

@@ -113,7 +113,7 @@ One file, no .NET runtime needed on the target machine:
 ```bash
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:PortableExe=true -o publish
 
-.\publish\DnnManager-2.1.0-x64.exe
+.\publish\DnnManager-2.2.0-x64.exe
 ```
 
 `-p:PortableExe=true` names the exe `DnnManager-<version>-x64.exe` (without it,
@@ -162,7 +162,9 @@ VS Code tasks for build, publish, zip and the installer are in `.vscode/tasks.js
     web service, W3SVC - Windows reports when it starts or stops, from wherever
     that is done) with **Restart** and **Stop**
     while it runs, **Start** while it's stopped (`iisreset`; stopping and
-    restarting ask first - every site on the PC goes down). Under the narrow
+    restarting ask first - every site on the PC goes down). Restart is also what
+    picks up IIS changes, e.g. a newly installed URL Rewrite module when a site
+    shows *HTTP Error 500.19*. Under the narrow
     sidebar only its dot is left, with a **⋮** menu for the same actions;
   - *next*: this PC's **RAM** in use, **CPU** use (two decimals) and the
     **Disk** space used on the projects folder's drive, with its size as the
@@ -213,10 +215,10 @@ VS Code tasks for build, publish, zip and the installer are in `.vscode/tasks.js
 | Page | What it does |
 |---|---|
 | **Projects** | A table of every project folder, one row per project - see [Projects table](#projects-table). |
-| **New project** | Enter a name (validated as you type), then **Start from**: *a new site* - pick the **Repository** (e.g. `dnnsoftware/Dnn.Platform`), then a **Version** from its GitHub releases (highest version first, the latest selected; *kept, no download* marks a version whose package is kept). The lists are loaded once, when the app starts - the refresh button next to Version asks GitHub again - or *an existing site* - pick the site `.zip` and its database `.bacpac` (see [Import a site .zip](#import-a-site-zip)). A name whose folder already exists is refused - set up an existing folder on **Host project**. |
+| **New project** | Enter a name (validated as you type), then **Start from**: *a new site* - pick the **Repository** (e.g. `dnnsoftware/Dnn.Platform`), then a **Version** from its GitHub releases (highest version first; pre-releases are listed too, marked *(pre-release)*, but the latest release - marked *(latest)* - is what's selected; *kept, no download* marks a version whose package is kept). The lists are loaded once, when the app starts - the refresh button next to Version asks GitHub again - or *an existing site* - pick the site `.zip` and its database `.bacpac` (see [Import a site .zip](#import-a-site-zip)). A name whose folder already exists is refused - set up an existing folder on **Host project**. |
 | **Host project** | Pick a folder, then *IIS website + database* (the default), *database only* or *IIS website only*, and optionally a backup to restore. See [Host a project](#host-a-project). |
 | **Clone project** | Copy a site from a local folder into a new project. See [Clone a project](#clone-a-project). |
-| **Environment** | Three cards, each checked when you press its **Test** button (nothing runs on opening the page; an action re-tests what it changed), with a green / red status and a button to fix it. **Docker**: **Docker Desktop** (**Install Docker Desktop** via winget), the **Docker engine** (**Start Docker Desktop**, then waits for the engine) and the **SQL Server container**. **Set up docker-compose** runs the docker-compose.yml made from the settings (`docker compose up -d`, handed to Docker directly - no file is written, and it has the real SA password): it creates the container, starts it, or updates it after the settings changed, then waits for the sa login. **Show docker-compose.yml** shows the same file with a **Copy** button, to run yourself - without the SA password: replace `<your-sa-password>` after copying. **SQL Server**: the sa login to the host and port in Settings. **IIS**: the Windows features as a table with their status (**Enable missing features**). **Reset IIS** restarts IIS (`iisreset`, after a confirmation) - e.g. after installing the URL Rewrite module when a site shows *HTTP Error 500.19*. |
+| **Environment** | Three cards, each checked when you press its **Test** button (nothing runs on opening the page; an action re-tests what it changed), with a green / red status and a button to fix it. **Docker**: **Docker Desktop** (**Install Docker Desktop** via winget), the **Docker engine** (**Start Docker Desktop**, then waits for the engine) and the **SQL Server container**. **Set up docker-compose** runs the docker-compose.yml made from the settings (`docker compose up -d`, handed to Docker directly - no file is written, and it has the real SA password): it creates the container, starts it, or updates it after the settings changed, then waits for the sa login. The compose project is `dnn-mssql`; a container made by an older DNN Manager under `dnn-shared` is removed and made again under the new name - the databases stay, they're in the volume. **Show docker-compose.yml** shows the same file with a **Copy** button, to run yourself - without the SA password: replace `<your-sa-password>` after copying. **SQL Server**: the sa login to the host and port in Settings. **IIS**: the Windows features as a table with their status. **Set up IIS** checks them and, after a confirmation, enables the missing ones (a reboot may be needed). Restarting IIS is on the status bar. |
 | **Settings** (the gear in the title bar) | Edits `settings.json` on a page of its own, laid out like Docker Desktop's settings: the categories on the left, under a **search** box that leaves the ones with a matching setting (its **✕** empties it), and the chosen category on the right. **General**: **Start DNN Manager when you sign in** (a scheduled task that starts it with its Administrator rights, so Windows doesn't ask for them at every sign-in), the theme (*Light*, *Dark* or *Use system settings*), the **terminal** (on or off, the default shell, font family and size) and the settings file, with buttons to open it and its folder. **Projects**: the projects folder, hostname suffix and site port. **DNN releases**: the repositories, and keeping downloaded packages. **SQL Server**: host, port, SA password, and remembering the password in SSMS. **Docker container**: its name, volume, edition and collation. **IIS**: the Windows features the Environment page checks (edited in the file). **About**: the version and the folders with your files (settings, backups, logs, DNN packages), each with **Open**. Nothing is saved until **Save** (bottom right, ready once you change something in any category; **Discard changes** puts the saved values back), which saves the settings and applies them at once - no restart. **Close** (or the ✕) goes back to the page you came from. Testing the connection and setting up the Docker container happen on the **Environment** page. See [Configuration](#configuration). |
 
 ### Projects table
@@ -582,7 +584,7 @@ I/O and state into layers:
 ┌──────────────────────────▼──────────────────────────────────────────┐
 │                       DnnManager.Application                        │
 │  Use cases: Setup / Import / Export / HostExisting / Clone /        │
-│  Remove / List / ControlSites / IisServer / SetupSqlContainer.      │
+│  Remove / ControlSites / IisServer / SetupSqlContainer.             │
 │  Abstractions (interfaces for IIS, SQL, Releases, Files…).          │
 └──────────────────────────┬──────────────────────────────────────────┘
                            │ implements interfaces
@@ -645,15 +647,16 @@ DnnManager.NET/
         ├── Program.cs           ← composition root (settings + Host + DI), starts WPF
         ├── AdminElevation.cs    ← relaunches elevated when needed
         ├── RunningMarker.cs     ← named mutex the installer checks before replacing the app
-        ├── App.xaml             ← styles (buttons, inputs, check boxes, switches, lists, table, scrollbars, sidebar)
+        ├── App.xaml             ← merges the palette, tokens and control styles; the sidebar's own styles
         ├── MainWindow.xaml      ← sidebar navigation + page host + activity log + status bar
         ├── Pages/               ← one page per sidebar item (incl. Settings)
         │   └── Projects/        ← the Projects table's row, columns and right-click menu
         ├── Assets/              ← dnn.ico - the exe and window icon (DNN logo mark)
-        ├── Controls/            ← StatusBar, IisStatus, TerminalPanel, InputDialog, DetailsDialog, MessageDialog, ExistingFolderOptions, PasswordInput
+        ├── Controls/            ← StatusBar, IisStatus, TerminalPanel, LogView, ToastView, InputDialog, DetailsDialog, MessageDialog, ExistingFolderOptions, PasswordInput
         ├── Terminal/            ← the terminal itself: screen buffer + VT parser, the view that draws it, the shell session
-        ├── Themes/              ← LightTheme / DarkTheme colour palettes
-        └── Services/            ← ActivityLog, OperationRunner, ServerStore, TerminalService, ThemeManager, IdeLocator, SettingsStartup, GUI adapters
+        ├── Themes/              ← LightTheme / DarkTheme colour palettes, Tokens (radii, heights, padding)
+        │   └── Controls/        ← the reusable control styles, one dictionary per kind (see Control styles)
+        └── Services/            ← ActivityLog, OperationRunner, ServerStore, LiveSettings, DnnReleaseCatalog, TerminalService, ThemeManager, Toast, IdeLocator, SsmsConnectDialog, SettingsStartup, GUI adapters
 ```
 
 ### Key design decisions
@@ -670,6 +673,7 @@ DnnManager.NET/
 | **Use cases off the UI thread** | `OperationRunner` runs one use case at a time on the thread pool in its own DI scope, refuses a second one while it runs, and backs the status bar's **Cancel** button. |
 | **Adapters for GUI → app layer** | `GuiProgressReporter` (writes to the activity log) and `GuiUserPrompt` (modal dialogs) implement application interfaces, so use cases never know what drives them. |
 | **Runtime theming** | Colours live in `LightTheme` / `DarkTheme`; everything references them with `DynamicResource`, and `ThemeManager` swaps the dictionary (and the title bar's dark mode) live. |
+| **Reusable control styles** | Every control's look is a style in `Themes/Controls`, not set per page: a plain `<TextBox />` or `<Button />` is already styled, and sizes come from `Tokens.xaml`, so all controls stay alike. See [Control styles](#control-styles). |
 | **SQL** | The local container is checked by logging in with `Microsoft.Data.SqlClient` and driven with `sqlcmd` via `docker exec`; remote / Azure SQL uses `Microsoft.Data.SqlClient` and SqlPackage (`.bacpac`). |
 | **Centralised error handling** | `OperationRunner` catches per-action exceptions and reports them in the activity log; `App` shows anything escaping a click handler; `Program.cs` catches fatal errors. |
 | **Admin enforcement** | `AdminElevation` relaunches the app elevated (UAC prompt) when it isn't. |
@@ -729,8 +733,37 @@ and a source that stopped notifying is attached again the same way. An IIS
 that doesn't answer at all isn't waited for longer than 15 s. The only loading
 state is the first snapshot.
 
+### Control styles
+
+The app's controls are styled in one place, so every page looks the same and a
+new page needs no styling of its own. [`App.xaml`](src/DnnManager.Presentation/App.xaml)
+merges, in order: the colour palette (`LightTheme` / `DarkTheme`),
+[`Tokens.xaml`](src/DnnManager.Presentation/Themes/Tokens.xaml) and the control
+dictionaries in [`Themes/Controls/`](src/DnnManager.Presentation/Themes/Controls/).
+
+| Dictionary | Default look for | Keyed variants (`Style="{StaticResource …}"`) |
+|---|---|---|
+| `ButtonStyles` | `Button` | `Primary`, `Danger`, `IconButton`, `IconToggleButton`, `LinkButton`, `ExpandToggle` |
+| `InputStyles` | `TextBox`, `PasswordBox`, `ComboBox` (select) | `SearchBox` (magnifier, `Tag` as placeholder, ✕ to clear) |
+| `SelectionStyles` | `CheckBox`, `RadioButton` | `ToggleSwitch`, `TableCheckBox` |
+| `MenuStyles` | `ToolTip`, `ContextMenu`, `MenuItem`, menu separators | - |
+| `ListStyles` | `ListBox`, `ScrollBar`, `DataGrid` | - |
+| `LayoutStyles` | - | `PageTitle`, `PageSubtitle`, `CardTitle`, `FieldLabel`, `Hint`, `ErrorLine`, `Card`, `InfoBanner`, `WarnBanner` |
+
+`Tokens.xaml` holds what the styles share: `ControlRadius` (4 - buttons,
+inputs, selects, menus), `SmallRadius` (3 - check boxes), `CardRadius` (6),
+`ControlHeight` (30 - buttons, inputs and selects line up side by side) and
+`InputPadding`. Change a token and every control using it follows. Colours are
+never set in a style directly - always a palette key with `DynamicResource`, so
+the theme switch repaints them.
+
 ## Extending
 
+- **New control style**: put it in the matching dictionary in
+  `Themes/Controls/` - without `x:Key` to style every control of that type, or
+  with one for a variant - and take sizes from `Tokens.xaml`. For a new kind of
+  control, add a dictionary (a `.xaml` with `x:Class` and its partial class in
+  `ControlDictionaries.cs`) and merge it in `App.xaml` after `Tokens`.
 - **New page**: add a `UserControl` under `Pages/` (Presentation) that runs its
   use case (Application, registered with DI) through `OperationRunner`, then add
   a sidebar entry in `MainWindow.xaml` and its type to the `Pages` map in
@@ -768,7 +801,7 @@ state is the first snapshot.
 | Clone project | [`ClonePage`](src/DnnManager.Presentation/Pages/ClonePage.xaml.cs) + [`UseCases/CloneProjectUseCase.cs`](src/DnnManager.Application/UseCases/CloneProjectUseCase.cs) |
 | SQL connection test | [`Sql/SqlConnectionTester.cs`](src/DnnManager.Infrastructure/Sql/SqlConnectionTester.cs) |
 | Projects right-click menu / IDE detection | [`Pages/Projects/ProjectMenu.cs`](src/DnnManager.Presentation/Pages/Projects/ProjectMenu.cs), [`Services/IdeLocator.cs`](src/DnnManager.Presentation/Services/IdeLocator.cs) |
-| Environment (Docker, SQL Server, IIS features) | [`EnvironmentPage`](src/DnnManager.Presentation/Pages/EnvironmentPage.xaml.cs) + [`Prereq/WindowsPrerequisiteChecker.cs`](src/DnnManager.Infrastructure/Prereq/WindowsPrerequisiteChecker.cs) |
+| Environment (Docker, SQL Server, IIS features) | [`EnvironmentPage`](src/DnnManager.Presentation/Pages/EnvironmentPage.xaml.cs) + [`Prereq/WindowsPrerequisiteChecker.cs`](src/DnnManager.Infrastructure/Prereq/WindowsPrerequisiteChecker.cs) (checks and enables the IIS features - **Set up IIS**) |
 | Settings page (Save applies at once) | [`SettingsPage`](src/DnnManager.Presentation/Pages/SettingsPage.xaml.cs), [`Services/LiveSettings.cs`](src/DnnManager.Presentation/Services/LiveSettings.cs), [`Configuration/AppOptions.cs`](src/DnnManager.Application/Configuration/AppOptions.cs) |
 | settings.json: format, defaults, validation | [`Configuration/UserSettings.cs`](src/DnnManager.Application/Configuration/UserSettings.cs) |
 | settings.json: load, save, backups, migrations | [`Settings/SettingsStore.cs`](src/DnnManager.Infrastructure/Settings/SettingsStore.cs), [`Settings/SettingsMigrations.cs`](src/DnnManager.Infrastructure/Settings/SettingsMigrations.cs), [`Settings/AppDataPaths.cs`](src/DnnManager.Infrastructure/Settings/AppDataPaths.cs) |
@@ -777,8 +810,9 @@ state is the first snapshot.
 | Terminal panel (activity log + shells) | [`Controls/TerminalPanel.xaml`](src/DnnManager.Presentation/Controls/TerminalPanel.xaml.cs), [`Terminal/`](src/DnnManager.Presentation/Terminal/) (`TerminalBuffer`, `TerminalView`, `TerminalSession`), [`Services/TerminalService.cs`](src/DnnManager.Presentation/Services/TerminalService.cs), [`Terminal/PseudoConsole.cs`](src/DnnManager.Infrastructure/Terminal/PseudoConsole.cs) |
 | Start at sign-in | [`Startup/StartupTask.cs`](src/DnnManager.Infrastructure/Startup/StartupTask.cs) |
 | Themes | [`Themes/`](src/DnnManager.Presentation/Themes/), [`Services/ThemeManager.cs`](src/DnnManager.Presentation/Services/ThemeManager.cs) |
+| Control styles (buttons, inputs, selects, switches…) | [`Themes/Controls/`](src/DnnManager.Presentation/Themes/Controls/), [`Themes/Tokens.xaml`](src/DnnManager.Presentation/Themes/Tokens.xaml) |
 | File copy, zip extract / create | [`Files/ProjectFileCopier.cs`](src/DnnManager.Infrastructure/Files/ProjectFileCopier.cs) |
-| GitHub release lookup | [`Github/GitHubDnnReleaseService.cs`](src/DnnManager.Infrastructure/Github/GitHubDnnReleaseService.cs) |
+| GitHub release lookup (releases and pre-releases, the latest release by default) | [`Github/GitHubDnnReleaseService.cs`](src/DnnManager.Infrastructure/Github/GitHubDnnReleaseService.cs), [`Services/DnnReleaseCatalog.cs`](src/DnnManager.Presentation/Services/DnnReleaseCatalog.cs) |
 | IIS helpers | [`Iis/IisManager.cs`](src/DnnManager.Infrastructure/Iis/IisManager.cs) |
 | sqlcmd | [`Sql/SqlServerService.cs`](src/DnnManager.Infrastructure/Sql/SqlServerService.cs) |
 | Shared SQL container | `docker-compose.yml` made from the settings by [`Docker/DockerComposeService.cs`](src/DnnManager.Infrastructure/Docker/DockerComposeService.cs) and run by [`UseCases/SetupSqlContainerUseCase.cs`](src/DnnManager.Application/UseCases/SetupSqlContainerUseCase.cs) (Environment → Set up docker-compose); the connection check is `LocalSqlContainer` in [`UseCases/Provisioning.cs`](src/DnnManager.Application/UseCases/Provisioning.cs) |

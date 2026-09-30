@@ -13,7 +13,10 @@ namespace DnnManager.Infrastructure.Docker;
 public sealed class DockerComposeService : IDockerComposeService
 {
     // All projects share one SQL container, so there is one compose project name.
-    private const string ComposeProjectName = "dnn-shared";
+    private const string ComposeProjectName = "dnn-mssql";
+
+    // What the compose project was called before - its container is handed over to the new name.
+    private const string OldComposeProjectName = "dnn-shared";
 
     private const string PasswordPlaceholder = "<your-sa-password>";
 
@@ -25,6 +28,8 @@ public sealed class DockerComposeService : IDockerComposeService
 
     public async Task<Result> UpAsync(DockerOptions docker, IProgressReporter reporter, CancellationToken ct)
     {
+        await RemoveOldProjectContainerAsync(docker.ContainerName, reporter, ct);
+
         // "-f -": the definition comes on standard input. The first run pulls the SQL Server image (well over a GB) -
         // show docker's progress as it comes.
         reporter.Info("Running docker compose up -d with the settings (the first run downloads the SQL Server image)…");
@@ -38,6 +43,28 @@ public sealed class DockerComposeService : IDockerComposeService
             return Result.Fail("Docker is not installed or not on PATH - install Docker Desktop, start it and try again.");
         var error = r.StdErr.Trim();
         return Result.Fail($"docker compose up failed: {(error.Length > 0 ? error : r.StdOut.Trim())}");
+    }
+
+    /// <summary>
+    /// A container made under the old compose project name would block the new project with "container name already in
+    /// use" - remove it, so compose creates it again under the new name. The databases are kept: they live in the volume.
+    /// </summary>
+    private async Task RemoveOldProjectContainerAsync(string container, IProgressReporter reporter, CancellationToken ct)
+    {
+        var inspect = await _proc.RunAsync("docker",
+            new[] { "inspect", "-f", "{{ index .Config.Labels \"com.docker.compose.project\" }}", container }, ct);
+        if (!inspect.Success || inspect.StdOut.Trim() != OldComposeProjectName) return;
+
+        reporter.Info($"Moving '{container}' from the compose project '{OldComposeProjectName}' to '{ComposeProjectName}' - " +
+                      "the container is made again, the databases stay in the volume…");
+        var removed = await _proc.RunAsync("docker", new[] { "rm", "-f", container }, ct);
+        if (!removed.Success)
+        {
+            reporter.Warn($"Could not remove the old container: {removed.StdErr.Trim()}");
+            return;
+        }
+        // The old project's network is empty now (best effort - another container may still use it).
+        await _proc.RunAsync("docker", new[] { "network", "rm", OldComposeProjectName + "_default" }, ct);
     }
 
     private static string Build(DockerOptions docker, bool withPassword)
