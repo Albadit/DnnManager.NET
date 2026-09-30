@@ -122,7 +122,8 @@
         </Setter>
     </Style>
 
-    <!-- ComboBox (the select): the stock Windows template ignores Background, so it gets its own. -->
+    <!-- ComboBox (the select): the stock Windows template ignores Background, so it gets its own. With nothing to
+         choose from it is disabled (a page that sets IsEnabled itself decides for itself). -->
     <Style TargetType="ComboBox">
         <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
         <Setter Property="Padding" Value="8,4,28,4" />
@@ -180,6 +181,11 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <Style.Triggers>
+            <Trigger Property="HasItems" Value="False">
+                <Setter Property="IsEnabled" Value="False" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
     <Style TargetType="ComboBoxItem">
         <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />

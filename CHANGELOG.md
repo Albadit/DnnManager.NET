@@ -178,7 +178,9 @@ restart, and every button, input and switch shares one look.
   rounded corners like the buttons, selects and search boxes; buttons, text
   boxes and selects share one height (30 px) so they line up side by side; the
   right-click menus and select lists are rounded too, and a select shows the
-  accent colour when it has the keyboard. The styles are reusable: one file per
+  accent colour when it has the keyboard. A select with nothing to choose from
+  (e.g. Clone's source project when the projects folder is empty) is greyed
+  out. The styles are reusable: one file per
   kind of control in `Themes/Controls`, sharing sizes from `Themes/Tokens.xaml`
   (see *Control styles* in the README).
 - **Open with: one submenu with your editors.** The project menu's separate
