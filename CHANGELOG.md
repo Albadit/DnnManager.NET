@@ -89,6 +89,10 @@ restart, and every button, input and switch shares one look.
   button. The sun / moon theme button is gone - the theme is chosen in
   **Settings → General**.
 - **Search boxes** have a **✕** that empties them.
+- **DNN Manager runs once.** Starting it again - Start menu, desktop shortcut,
+  the exe - brings the open window to the front (restored if it was minimized)
+  instead of opening a second copy, and without asking for Administrator rights
+  again.
 
 ### Changed
 

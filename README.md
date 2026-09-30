@@ -200,6 +200,10 @@ VS Code tasks for build, publish and the installer are in `.vscode/tasks.json`.
   at all are in **Settings → General**.
 - **Dialogs** - questions from an operation (confirmations, e.g. before dropping
   a database) open as dialogs.
+- **One DNN Manager at a time.** Starting it while it's already open (Start
+  menu, shortcut, the exe) brings the open window to the front - restored if it
+  was minimized - instead of opening a second one, and doesn't ask for
+  Administrator rights again.
 - Only one operation runs at a time. While it runs, the pages stay usable
   (scrolling, browsing), but starting a second one is refused.
 - **Pages are kept** while the app runs: the Host project folders and the DNN
@@ -648,7 +652,8 @@ DnnManager.NET/
     └── DnnManager.Presentation/
         ├── Program.cs           ← composition root (settings + Host + DI), starts WPF
         ├── AdminElevation.cs    ← relaunches elevated when needed
-        ├── RunningMarker.cs     ← named mutex the installer checks before replacing the app
+        ├── RunningMarker.cs     ← named mutex while the app runs - the installer checks it before replacing the app
+        ├── SingleInstance.cs    ← a second start hands over to the running app, which shows its window
         ├── App.xaml             ← merges the palette, tokens and control styles; the sidebar's own styles
         ├── MainWindow.xaml      ← sidebar navigation + page host + activity log + status bar
         ├── Pages/               ← one page per sidebar item (incl. Settings)

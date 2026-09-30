@@ -21,6 +21,10 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        // Only one DNN Manager at a time: a second start shows the open window instead - checked before elevating,
+        // so it doesn't ask for Administrator rights first.
+        if (SingleInstance.HandOffToRunning()) return 0;
+
         if (!AdminElevation.IsAdministrator())
         {
             if (AdminElevation.TryRelaunchElevated(args)) return 0;
@@ -30,10 +34,17 @@ internal static class Program
             return 1;
         }
 
-        using var running = RunningMarker.Create();
+        using var running = RunningMarker.Create(out var alreadyRunning);
+        // Started twice at the same moment: both got past the check above, only one made the mutex.
+        if (alreadyRunning)
+        {
+            SingleInstance.HandOffToRunning();
+            return 0;
+        }
 
         var app = new App();
         app.InitializeComponent();
+        using var activation = SingleInstance.Listen(app.Dispatcher);
         // Until the main window opens, closing a dialog mustn't end the app.
         app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
         ThemeManager.Initialize(null);
