@@ -80,26 +80,6 @@
             }
         },
         {
-            "label": "zip (DnnManager.zip)",
-            "type": "process",
-            "command": "powershell",
-            "args": [
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-Command",
-                "Compress-Archive -Path '${workspaceFolder}/publish/DnnManager-*.exe' -DestinationPath '${workspaceFolder}/DnnManager.zip' -Force"
-            ],
-            "dependsOn": "publish (DnnManager.exe)",
-            "group": "build",
-            "problemMatcher": [],
-            "presentation": {
-                "reveal": "always",
-                "panel": "shared",
-                "clear": true
-            }
-        },
-        {
             "label": "installer (DnnManagerSetup.exe)",
             "type": "process",
             "command": "powershell",
@@ -108,7 +88,7 @@
                 "-ExecutionPolicy",
                 "Bypass",
                 "-File",
-                "${workspaceFolder}/installer/build.ps1"
+                "${workspaceFolder}/src/DnnManager.Installer/build.ps1"
             ],
             "group": "build",
             "problemMatcher": "$msCompile",

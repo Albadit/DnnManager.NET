@@ -3,36 +3,39 @@
     Builds the DNN Manager installer: publish\DnnManagerSetup-<version>-x64.exe
 
 .DESCRIPTION
-    1. Publishes the app self-contained for win-x64 as a single file into installer\bin\app.
-    2. Draws the wizard images from the app icon into installer\bin\images.
-    3. Compiles installer\DnnManager.iss with Inno Setup's ISCC.exe - an installed Inno Setup 6 when there
-       is one, otherwise a pinned copy from nuget.org (Tools.InnoSetup) cached in installer\bin\tools.
+    1. Publishes the app self-contained for win-x64 as a single file into src\DnnManager.Installer\bin\app.
+    2. Draws the wizard images from the app icon into src\DnnManager.Installer\bin\images.
+    3. Compiles src\DnnManager.Installer\DnnManager.iss with Inno Setup's ISCC.exe - an installed Inno Setup 6
+       when there is one, otherwise a pinned copy from nuget.org (Tools.InnoSetup) cached in
+       src\DnnManager.Installer\bin\tools.
 
-    Everything the build makes along the way is in installer\bin; the finished Setup is in publish\ (next to DnnManager.csproj).
-    The version comes from <Version> in DnnManager.csproj - raise it there for a new release.
+    Everything the build makes along the way is in src\DnnManager.Installer\bin; the finished Setup is in
+    publish\ (next to DnnManager.csproj). The version comes from <Version> in DnnManager.csproj - raise it there
+    for a new release.
 
 .EXAMPLE
-    .\installer\build.ps1
+    .\src\DnnManager.Installer\build.ps1
 .EXAMPLE
-    .\installer\build.ps1 -SkipPublish -Iscc 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+    .\src\DnnManager.Installer\build.ps1 -SkipPublish -Iscc 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
 #>
 [CmdletBinding()]
 param(
     [string]$Configuration = 'Release',
     # ISCC.exe to use; found automatically when omitted.
     [string]$Iscc,
-    # Reuse installer\bin\app from an earlier run.
+    # Reuse bin\app from an earlier run.
     [switch]$SkipPublish
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-$root = Split-Path $PSScriptRoot -Parent
+# The repository root: this script is in src\DnnManager.Installer.
+$root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $project = Join-Path $root 'DnnManager.csproj'
 $script = Join-Path $PSScriptRoot 'DnnManager.iss'
 $icon = Join-Path $root 'src\DnnManager.Presentation\Assets\dnn.ico'
-# installer\bin: intermediate files (published app, wizard images, Inno Setup). publish: the Setup exe.
+# bin (next to this script): intermediate files (published app, wizard images, Inno Setup). publish: the Setup exe.
 $binDir = Join-Path $PSScriptRoot 'bin'
 $publishDir = Join-Path $binDir 'app'
 $imagesDir = Join-Path $binDir 'images'

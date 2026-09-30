@@ -127,23 +127,25 @@ it's `dnnmanager.exe`). The publish output holds only the program. Settings live
 ### Build the installer
 
 ```powershell
-.\installer\build.ps1
+.\src\DnnManager.Installer\build.ps1
 ```
 
-Publishes the app (self-contained, single file) into `installer\bin\app`, then
-compiles [`installer/DnnManager.iss`](installer/DnnManager.iss) with Inno Setup
+Publishes the app (self-contained, single file) into
+`src\DnnManager.Installer\bin\app`, then compiles
+[`src/DnnManager.Installer/DnnManager.iss`](src/DnnManager.Installer/DnnManager.iss) with Inno Setup
 into `publish\DnnManagerSetup-<version>-x64.exe`. The version
 comes from `<Version>` in `DnnManager.csproj`. It uses an installed Inno Setup 6
 when there is one, otherwise it downloads a pinned copy (the `Tools.InnoSetup`
-package from nuget.org) into `installer\bin\tools` - no admin rights needed.
-Everything made along the way (the published app, wizard images, Inno Setup)
-is in `installer\bin`; the finished Setup is in `publish\`.
+package from nuget.org) into `src\DnnManager.Installer\bin\tools` - no admin
+rights needed. Everything made along the way (the published app, wizard images,
+Inno Setup) is in `src\DnnManager.Installer\bin`; the finished Setup is in
+`publish\`.
 `-SkipPublish` reuses the last publish; `-Iscc <path>` picks the compiler.
 
 The installer's `AppId` in `DnnManager.iss` identifies the installation for
 upgrades and uninstall - never change it.
 
-VS Code tasks for build, publish, zip and the installer are in `.vscode/tasks.json`.
+VS Code tasks for build, publish and the installer are in `.vscode/tasks.json`.
 
 ## Using the app
 
@@ -614,10 +616,6 @@ compiled into a single assembly (`dnnmanager.exe`).
 DnnManager.NET/
 ├── DnnManager.csproj            ← single project (net10.0-windows, WPF WinExe)
 ├── app.manifest                 ← asInvoker; AdminElevation relaunches elevated
-├── installer/
-│   ├── DnnManager.iss           ← Inno Setup script (per-user install, shortcuts, uninstall)
-│   ├── build.ps1                ← publish + compile the installer
-│   └── bin/                     ← build files (published app, wizard images, Inno Setup) - not in git
 └── src/
     ├── DnnManager.Domain/
     │   ├── Models.cs            ← DnnProject, DnnRelease, DatabaseConfig, …
@@ -643,6 +641,10 @@ DnnManager.NET/
     │   ├── Startup/             ← the "start at sign-in" scheduled task
     │   ├── Monitoring/          ← ServerStateMonitor: the live state of the projects, IIS and this PC - what tells it to look (ChangeSources) and what it measures with
     │   └── DependencyInjection.cs
+    ├── DnnManager.Installer/    ← not compiled into the app
+    │   ├── DnnManager.iss       ← Inno Setup script (per-user install, shortcuts, uninstall)
+    │   ├── build.ps1            ← publish + compile the installer
+    │   └── bin/                 ← build files (published app, wizard images, Inno Setup) - not in git
     └── DnnManager.Presentation/
         ├── Program.cs           ← composition root (settings + Host + DI), starts WPF
         ├── AdminElevation.cs    ← relaunches elevated when needed
@@ -782,7 +784,7 @@ the theme switch repaints them.
   [`SettingsMigrations`](src/DnnManager.Infrastructure/Settings/SettingsMigrations.cs).
   The store backs the file up and runs the chain on the next start.
 - **Installer**: files, shortcuts and Setup options are in
-  [`installer/DnnManager.iss`](installer/DnnManager.iss). Code signing can be
+  [`src/DnnManager.Installer/DnnManager.iss`](src/DnnManager.Installer/DnnManager.iss). Code signing can be
   added there (`SignTool`) and in `build.ps1`.
 - **Add tests**: every use case takes pure interfaces - drop in fakes / mocks
   (no test project is shipped).
@@ -806,7 +808,7 @@ the theme switch repaints them.
 | settings.json: format, defaults, validation | [`Configuration/UserSettings.cs`](src/DnnManager.Application/Configuration/UserSettings.cs) |
 | settings.json: load, save, backups, migrations | [`Settings/SettingsStore.cs`](src/DnnManager.Infrastructure/Settings/SettingsStore.cs), [`Settings/SettingsMigrations.cs`](src/DnnManager.Infrastructure/Settings/SettingsMigrations.cs), [`Settings/AppDataPaths.cs`](src/DnnManager.Infrastructure/Settings/AppDataPaths.cs) |
 | Settings error dialog at startup | [`Services/SettingsStartup.cs`](src/DnnManager.Presentation/Services/SettingsStartup.cs) |
-| Installer | [`installer/DnnManager.iss`](installer/DnnManager.iss), [`installer/build.ps1`](installer/build.ps1) |
+| Installer | [`src/DnnManager.Installer/DnnManager.iss`](src/DnnManager.Installer/DnnManager.iss), [`src/DnnManager.Installer/build.ps1`](src/DnnManager.Installer/build.ps1) |
 | Terminal panel (activity log + shells) | [`Controls/TerminalPanel.xaml`](src/DnnManager.Presentation/Controls/TerminalPanel.xaml.cs), [`Terminal/`](src/DnnManager.Presentation/Terminal/) (`TerminalBuffer`, `TerminalView`, `TerminalSession`), [`Services/TerminalService.cs`](src/DnnManager.Presentation/Services/TerminalService.cs), [`Terminal/PseudoConsole.cs`](src/DnnManager.Infrastructure/Terminal/PseudoConsole.cs) |
 | Start at sign-in | [`Startup/StartupTask.cs`](src/DnnManager.Infrastructure/Startup/StartupTask.cs) |
 | Themes | [`Themes/`](src/DnnManager.Presentation/Themes/), [`Services/ThemeManager.cs`](src/DnnManager.Presentation/Services/ThemeManager.cs) |

@@ -1,9 +1,9 @@
 ; DNN Manager - Windows installer (Inno Setup 6).
 ;
-; Build it with installer\build.ps1, which publishes the app and passes the defines below:
+; Build it with src\DnnManager.Installer\build.ps1, which publishes the app and passes the defines below:
 ;   AppVersion  version from DnnManager.csproj          (required)
 ;   PublishDir  the self-contained publish output       (default bin\app)
-;   OutputDir   where Setup is written                  (default ..\publish)
+;   OutputDir   where Setup is written                  (default ..\..\publish)
 ;   ImagesDir   wizard images made from the app icon    (optional)
 ;
 ; Installs per user, without administrator rights, into %LOCALAPPDATA%\Programs\DnnManager (like the VS Code
@@ -12,13 +12,13 @@
 ; uninstalling keeps them.
 
 #ifndef AppVersion
-  #error AppVersion is not defined - build with installer\build.ps1 (or pass /DAppVersion=x.y.z to ISCC).
+  #error AppVersion is not defined - build with src\DnnManager.Installer\build.ps1 (or pass /DAppVersion=x.y.z to ISCC).
 #endif
 #ifndef PublishDir
   #define PublishDir "bin\app"
 #endif
 #ifndef OutputDir
-  #define OutputDir "..\publish"
+  #define OutputDir "..\..\publish"
 #endif
 
 #define AppName "DNN Manager"
@@ -49,7 +49,7 @@ UsePreviousAppDir=yes
 DisableDirPage=auto
 DisableProgramGroupPage=yes
 DisableWelcomePage=yes
-LicenseFile=..\LICENSE
+LicenseFile=..\..\LICENSE
 ShowLanguageDialog=no
 
 ArchitecturesAllowed=x64compatible
@@ -62,7 +62,7 @@ AppMutex=DnnManager.NET.Running
 SetupMutex=DnnManager.NET.Setup
 
 WizardStyle=modern
-SetupIconFile=..\src\DnnManager.Presentation\Assets\dnn.ico
+SetupIconFile=..\DnnManager.Presentation\Assets\dnn.ico
 #ifdef ImagesDir
 WizardImageFile={#ImagesDir}\wizard-100.bmp,{#ImagesDir}\wizard-200.bmp
 WizardSmallImageFile={#ImagesDir}\wizard-small-100.bmp,{#ImagesDir}\wizard-small-200.bmp

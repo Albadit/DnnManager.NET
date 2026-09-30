@@ -9,7 +9,7 @@ namespace DnnManager.Presentation;
 /// </summary>
 internal static class RunningMarker
 {
-    /// <summary>Keep in step with <c>AppMutex</c> in <c>installer\DnnManager.iss</c>.</summary>
+    /// <summary>Keep in step with <c>AppMutex</c> in <c>src\DnnManager.Installer\DnnManager.iss</c>.</summary>
     public const string Name = "DnnManager.NET.Running";
 
     /// <summary>Creates the mutex; keep it alive until the app exits. Null when it couldn't be created (Setup then just can't tell).</summary>
