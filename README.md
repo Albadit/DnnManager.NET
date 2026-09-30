@@ -9,9 +9,19 @@ solution.
 
 ## Features
 
-- **Projects** - every project folder with its site URL, DNN version, IIS
-  state, database and size. Right-click a project for its details, to open it in
-  an installed IDE, copy its path, export it or remove it.
+- **Projects** - a table of every project with its IIS site's live state, ID,
+  ports, CPU and memory, plus its DNN version, database and size. It keeps
+  itself up to date - there is no Refresh: a site stopped in IIS Manager or a
+  folder deleted in Explorer shows up by itself. Start, stop, restart or remove
+  one project from its row, or several at once with the check boxes; search the
+  list and choose the columns. Right-click a project for its details, to open it
+  in an installed IDE or export it.
+- **Status bar** - like Docker Desktop's: IIS running or stopped, with Start /
+  Stop / Restart, then this PC's memory, CPU and disk use, the running
+  operation with Cancel, the terminal's switch and the app's version.
+- **Terminal** - a panel at the bottom with the **activity log** (every step of
+  what DNN Manager does) and real terminals next to it: PowerShell, Command
+  Prompt or Git Bash, as many as you open, also straight in a project's folder.
 - **New project** - download a DNN release into a new folder, or import a `.zip`
   of an existing site plus its `.bacpac`, with its IIS site, hostname and
   database.
@@ -24,8 +34,8 @@ solution.
   and install / start / set up / enable what's missing.
 - **Settings** - edit the settings from the app; each change is saved to
   `Documents\DnnManager\settings.json` as you make it.
-- **Light and dark theme**, a live **activity log** with Cancel, and an eye
-  button on every password field.
+- **Light and dark theme**, **start at sign-in**, and an eye button on every
+  password field.
 
 ## Install
 
@@ -139,36 +149,148 @@ VS Code tasks for build, publish, zip and the installer are in `.vscode/tasks.js
 
 ### Window
 
-- **Sidebar** - the pages below, **Settings** (gear icon) at the bottom, and next
-  to **Projects folder** a sun / moon button that switches between the light and
-  dark theme.
-- **Activity** - the log at the bottom shows each step of the running operation.
-  It starts collapsed to its header bar, which still shows the running
-  operation, its progress and **Cancel**; the chevron (or clicking **Activity**)
-  opens the full log, where **Copy** puts it on the clipboard, and closes it
-  again - it comes back at the height it had.
+- **Title bar** - DNN Manager draws its own: next to the minimize / maximize /
+  close buttons is **Settings** (gear icon, underlined while Settings is open -
+  a page of its own, without the sidebar; the theme is chosen there). Drag it to move the window, double-click it to maximize; on Windows 11,
+  resting on maximize shows Snap layouts.
+- **Sidebar** - the pages below, and the **Projects folder** at the bottom. In a
+  window narrower than 1100 pixels it slides to a narrow one with only the page
+  icons (their names as tooltips).
+- **Status bar** - along the bottom of the window, always visible, laid out
+  like Docker Desktop's:
+  - *under the sidebar*: **IIS running** / **stopped** in its colour (the IIS
+    web service, W3SVC - Windows reports when it starts or stops, from wherever
+    that is done) with **Restart** and **Stop**
+    while it runs, **Start** while it's stopped (`iisreset`; stopping and
+    restarting ask first - every site on the PC goes down). Under the narrow
+    sidebar only its dot is left, with a **⋮** menu for the same actions;
+  - *next*: this PC's **RAM** in use, **CPU** use (two decimals) and the
+    **Disk** space used on the projects folder's drive, with its size as the
+    *limit* - each keeps the room of its widest value, so the figures don't
+    move as the numbers change (measured every 2 seconds, the disk every 10);
+  - *while an operation runs*: its name, a progress bar and **Cancel** - click
+    the name to open the activity log;
+  - *right*: the **>_ Terminal** button and the app's version.
+- **Terminal** - the panel the status bar's terminal button opens and closes (it
+  starts closed, and comes back at the height it had). Its tabs are listed on
+  the right:
+  - **Activity** - always there: the log of each step of the running
+    operation. The tools next to it copy the selection (or the whole log) and
+    clear it. It comes to the front when an operation starts, or when you click
+    the running operation in the status bar.
+  - **Terminals** - **+** opens one with the default shell; the arrow next to
+    it offers the shells installed on this PC: **PowerShell** (the default),
+    **PowerShell 7**, **Command Prompt** and **Git Bash**. They start in the
+    projects folder - or in a project's folder with **Open in terminal** on its
+    right-click menu - and run with Administrator rights, like DNN Manager. They
+    are real terminals (Windows' pseudo console): colours, tab completion and
+    full-screen programs work. The scrollbar, the mouse wheel or **Shift + Page
+    Up / Down** scroll back through the output, and the **↓** button under the
+    tools jumps to the newest line again (on Activity too); drag to select, **Ctrl+C** copies a selection (and interrupts
+    the program when nothing is selected), **Ctrl+V** or a right-click pastes.
+    Rest the mouse on a tab for what it is: its shell, process ID, program
+    (the `.exe`), the folder it started in and when. **Double-click** a tab (or
+    **F2**, or right-click → **Rename**) to give it a name of your own. The
+    **bin** on a tab - or `exit` - ends its shell; closing the panel doesn't.
+  The default shell, the font and its size, and whether terminals are offered
+  at all are in **Settings → General**.
 - **Dialogs** - questions from an operation (confirmations, e.g. before dropping
   a database) open as dialogs.
 - Only one operation runs at a time. While it runs, the pages stay usable
   (scrolling, browsing), but starting a second one is refused.
-- **Pages are kept** while the app runs: the Projects list, the Host project
-  folders and the DNN versions load once, not on every visit. Their **Refresh**
-  button loads them again, and so does every finished operation (a page not on
-  screen catches up when it's next shown). Settings is read on every visit.
-- **Toasts** - short messages over the bottom-right of the page, e.g. why the
-  settings couldn't be saved. They fade out by themselves; warnings stay until
-  closed.
+- **Pages are kept** while the app runs: the Host project folders and the DNN
+  versions load once, not on every visit. Their **Refresh** button loads them
+  again, and so does every finished operation (a page not on screen catches up
+  when it's next shown). **Projects** has no Refresh - it keeps itself up to
+  date (see [Projects table](#projects-table)). Settings is read on every visit.
+- **Toasts** - short messages over the bottom-right of the page, e.g. why an
+  operation failed (with **Show activity**, which opens its log) or why the
+  settings couldn't be saved. They fade out by themselves; warnings and errors
+  stay until closed.
 
 ### Pages
 
 | Page | What it does |
 |---|---|
-| **Projects** | Table of every project folder: name, site URL, DNN version (from `bin\DotNetNuke.dll`), database, **SQL** (**Live** in green when the database is on the SQL Server, **Offline** in red when the server doesn't answer, *(none)* when the database doesn't exist), **IIS** (**Live** in green when the site is started, **Offline** in red when it isn't, *(none)* without a site), size and path. **Refresh** shows it's working (button reads *Refreshing…*, a bar runs along the table) and the subtitle shows when it last updated. The table scrolls both ways - **Shift + mouse wheel** scrolls sideways. **Open site** (or double-click a row) and **Remove…** act on the selected project; **right-click** a project for everything else (see [Project menu](#project-menu)). |
+| **Projects** | A table of every project folder, one row per project - see [Projects table](#projects-table). |
 | **New project** | Enter a name (validated as you type), then **Start from**: *a new site* - pick the **Repository** (e.g. `dnnsoftware/Dnn.Platform`), then a **Version** from its GitHub releases (highest version first, the latest selected; *kept, no download* marks a version whose package is kept). The lists are loaded once, when the app starts - the refresh button next to Version asks GitHub again - or *an existing site* - pick the site `.zip` and its database `.bacpac` (see [Import a site .zip](#import-a-site-zip)). A name whose folder already exists is refused - set up an existing folder on **Host project**. |
 | **Host project** | Pick a folder, then *IIS website + database* (the default), *database only* or *IIS website only*, and optionally a backup to restore. See [Host a project](#host-a-project). |
 | **Clone project** | Copy a site from a local folder into a new project. See [Clone a project](#clone-a-project). |
 | **Environment** | Three cards, each checked when you press its **Test** button (nothing runs on opening the page; an action re-tests what it changed), with a green / red status and a button to fix it. **Docker**: **Docker Desktop** (**Install Docker Desktop** via winget), the **Docker engine** (**Start Docker Desktop**, then waits for the engine) and the **SQL Server container**. **Set up docker-compose** runs the docker-compose.yml made from the settings (`docker compose up -d`, handed to Docker directly - no file is written, and it has the real SA password): it creates the container, starts it, or updates it after the settings changed, then waits for the sa login. **Show docker-compose.yml** shows the same file with a **Copy** button, to run yourself - without the SA password: replace `<your-sa-password>` after copying. **SQL Server**: the sa login to the host and port in Settings. **IIS**: the Windows features as a table with their status (**Enable missing features**). **Reset IIS** restarts IIS (`iisreset`, after a confirmation) - e.g. after installing the URL Rewrite module when a site shows *HTTP Error 500.19*. |
-| **Settings** | Edit `settings.json`: projects, DNN releases (repositories, keeping downloaded packages), the **SQL Server** connection and the **Docker container**, each on a card of its own. Nothing is saved until **Save and restart** (in the bar that appears at the bottom once you change something), which saves and restarts DNN Manager. Testing the connection and setting up the Docker container happen on the **Environment** page. See [Configuration](#configuration). |
+| **Settings** (the gear in the title bar) | Edits `settings.json` on a page of its own, laid out like Docker Desktop's settings: the categories on the left, under a **search** box that leaves the ones with a matching setting (its **✕** empties it), and the chosen category on the right. **General**: **Start DNN Manager when you sign in** (a scheduled task that starts it with its Administrator rights, so Windows doesn't ask for them at every sign-in), the theme (*Light*, *Dark* or *Use system settings*), the **terminal** (on or off, the default shell, font family and size) and the settings file, with buttons to open it and its folder. **Projects**: the projects folder, hostname suffix and site port. **DNN releases**: the repositories, and keeping downloaded packages. **SQL Server**: host, port, SA password, and remembering the password in SSMS. **Docker container**: its name, volume, edition and collation. **IIS**: the Windows features the Environment page checks (edited in the file). **About**: the version and the folders with your files (settings, backups, logs, DNN packages), each with **Open**. Nothing is saved until **Save** (bottom right, ready once you change something in any category; **Discard changes** puts the saved values back), which saves the settings and applies them at once - no restart. **Close** (or the ✕) goes back to the page you came from. Testing the connection and setting up the Docker container happen on the **Environment** page. See [Configuration](#configuration). |
+
+### Projects table
+
+Each project is a row: a **check box**, a **chevron** that opens the row's
+details (site, folder, app pool, ports, database, DNN version, size, worker
+process), its **status** dot, its **name**, the columns you chose and its
+**Actions**.
+
+- **Always current** - the table has no Refresh button: it follows the
+  system. A site started or stopped in IIS Manager, IIS restarted, a worker
+  process that ended, a project folder made or deleted in Explorer - each shows
+  up by itself, in the row it is about, within seconds. Nothing else
+  is touched: the checked rows, the search, the sort order, the scroll position
+  and the open details stay as they are, and the only *Loading projects…* is
+  the one when the app starts. Changes made outside DNN Manager are noted in
+  the activity log. Only when something can't be read (IIS's configuration,
+  the projects folder), or after the PC wakes up, *Reconnecting…* shows top
+  right: the table stays as it was and catches up by itself. Rest the mouse
+  on it for the reason and the time of the last synchronisation. How it works
+  is under [Live updates](#live-updates).
+- **Status** - a green dot while the IIS site runs, a hollow ring while it's
+  stopped (also when only its app pool is: *App pool stopped*), amber while
+  it's starting, stopping or an action on it runs, a dash when the project has
+  no IIS site.
+- **Actions** - **Stop** and **Restart** for a running site, **Start** for a
+  stopped one, and **Remove…** (the bin) for any project. Stop also stops the
+  site's app pool (unless another site uses it), which ends its worker process;
+  Restart recycles the app pool; Start starts the pool and the site. The row
+  says *Starting…*, *Stopping…* or *Restarting…* at once (*Removing…* once you
+  have confirmed), with a progress bar, and every action waits for it (one
+  operation runs at a time); afterwards it shows what IIS reports. A stopped
+  site stays *Stopping…* until its worker process has ended - only then can it
+  be started again. When an action fails, the row goes back to its real state
+  and a toast says why. When IIS itself is stopped, start it from the status
+  bar first.
+- **Check boxes** - check rows (or press **Space** on the selected row) and the
+  bulk actions appear above the table as one group of icons: **Remove…** (the
+  red bin, on the left), then **Start**, **Stop** and **Restart** - rest the
+  mouse on one for what it will do. Each acts on the checked rows it applies to - Start on the
+  stopped ones, Stop and Restart on the running ones - and is greyed out when
+  none of them qualifies. **Remove…** asks once for all of them (drop the
+  databases too? remove them permanently?). The header check box checks every
+  row the search shows, or none; it shows a dash when some are checked. Under
+  the table: *12 projects* (or *4 of 12 projects* while searching) and
+  *Selected 2 of 12*.
+- **Search** - filters as you type on the name, site URL, site ID, port,
+  status, DNN version, database and path; the **✕** in the box (or **Esc**)
+  clears it. The bulk buttons
+  act only on checked rows the search shows.
+- **Only show running** (the switch next to the Columns button) - leaves the
+  projects whose site is running; a row goes when its site stops and comes
+  back when it starts.
+- **Columns** (the button next to the search) - switch the optional columns on
+  and off. They are listed, and shown, the most used first: *DNN version*,
+  *Database*, *SQL* (**Live** in green when the database is on the SQL Server,
+  **Offline** in red when the server doesn't answer, *(none)* when the database
+  doesn't exist), *CPU (%)* (share of the whole PC), *Memory usage*, *PID*
+  (what a debugger attaches to) and *Last started* (when the worker process
+  started - IIS starts one on the site's first request) - these seven are the
+  default, and **Default** in the menu goes back to them. Then *Status* (as
+  text), *Site* (URL), *Port(s)*, *Site ID*, *Size*, *Memory (%)*,
+  *Disk read/write* (bytes the worker process read and wrote since it started -
+  its files, and its database connection), *Network I/O* (bytes the site
+  received / sent over HTTP since IIS started - IIS's own counters) and *Path*.
+  The choice is saved in `settings.json`. The CPU, memory, disk and PID columns
+  show *-* while the site has no worker process.
+- The check box, chevron, status and name stay on the left and **Actions** on
+  the right while the columns between them scroll sideways - scrollbar or
+  **Shift + mouse wheel** - so a narrow window still shows every row's actions. Click a
+  column header to sort; the table stays sorted as values change - a row whose
+  status or CPU use changes moves to its place. **Double-click** a row to open
+  the site; **right-click** it for everything else (see
+  [Project menu](#project-menu)).
 
 ### Project menu
 
@@ -177,9 +299,11 @@ Menu key):
 
 | Item | What it does |
 |---|---|
+| **Start** / **Stop**, **Restart** | The same as the row's actions, for the site's current state. |
 | **Details…** | In sections, selectable, with **Copy all**: *Project* (folder, created, size, DNN version, git branch, solution, backups); *Website (IIS)* (Live/Offline status, URL, bindings, physical path - flagged when it isn't the project folder -, app pool and its state, .NET version, pipeline, identity); *Database* (Live/Offline, whether the database exists, server and login, size, the DNN version recorded in the database - flagged when it differs from the files -, portals and portal aliases); *web.config* (connection without the password, target framework, debug, custom errors, HTTPS redirects DNN Manager switched off). |
 | **Open site** / **Open folder** | The site in the browser / the folder in Explorer. |
-| **Copy path** | Puts the project folder on the clipboard. |
+| **Open in terminal** | A new terminal (the default shell) in the project's folder, in the terminal panel. Not shown when the terminal is switched off in Settings. |
+
 | **Open with** ▸ | A submenu with only the editors installed on the PC (greyed out when there are none): Visual Studio (via `vswhere`; opens the project's `.sln` when it has exactly one), VS Code, VS Code Insiders, Cursor, Windsurf, Rider, IntelliJ IDEA, Sublime Text, Zed, Vim (gVim, or console Vim in a window of its own) and Neovim (nvim-qt, or `nvim` in its own window) - found in their usual install folders or on PATH. Git for Windows' bundled vim doesn't count. |
 | **Open with SQL Server Management Studio &lt;version&gt;** ▸ | One submenu per installed SSMS (21+ found via `vswhere`, 18-20 by their install folder): *Default* signs in to the local SQL Server from Settings as `sa`; *Project* signs in to the project's database - the one its `web.config` uses, or its local database as `sa`. SSMS only remembers the password when **Remember the password in SQL Server Management Studio** is on in Settings (off by default). When that SSMS is already open, the connection is added to it (via its *Connect Object Explorer...*) instead of starting another window. For the local container it also trusts the self-signed server certificate (`-C`, SSMS 21+). SSMS takes no password on its command line - and any connection switch makes it connect at once and fail - so for SSMS 21+ DNN Manager starts it without switches and fills in its Connect dialog through UI Automation (server, SQL Server Authentication, login, password with *Remember Password*, database, trust certificate, name) and clicks Connect - only in the SSMS it just started. Older SSMS gets the switches, and the password is left on the clipboard. A missing database opens the server instead. |
 | **Export** ▸ | A backup into the project's folder in `Documents\DnnManager\backups` (see [Backups](#backups)): *Site and database* (`<project>.zip` + `<project>.bacpac`, the pair **New project** imports), *Site files* or *Database*. **Open backups folder** opens it in Explorer. |
@@ -206,13 +330,16 @@ version is started from that same folder. After installing somewhere else, copy
 `appsettings.json` into `Documents\DnnManager` as `settings.json` and it is
 converted on the next start.
 
-Edit the settings on the **Settings** page, then press **Save and restart**
-in the bar that appears at the bottom of the page once you change something. The values are checked first (full
-path, valid ports and URLs, required fields); a problem shows as a warning and
-nothing is saved. The app reads settings at startup, so saving restarts it.
+Edit the settings on the **Settings** page, then press **Save** at the bottom
+of the page. The values are checked first (full path, valid ports and URLs,
+required fields); a problem shows as a warning and nothing is saved. Saved
+settings apply at once, without a restart: another projects folder shows its
+projects in the table, a new site address or SQL Server is what the next
+operation uses. (Not while an operation runs - save once it has finished.)
 **Discard changes** puts the saved values back, and leaving the page or closing
-the app with unsaved changes asks first. **Open settings.json** opens the file for the values the page doesn't
-show, such as the IIS feature list.
+the app with unsaved changes asks first. **Open settings.json** opens the file
+for the values the page doesn't show, such as the IIS feature list - a change
+made in the file itself applies the next time DNN Manager starts.
 
 ```json
 {
@@ -237,7 +364,8 @@ show, such as the IIS feature list.
   },
   "ssms": { "rememberPassword": false },
   "iis": { "requiredFeatures": [ { "name": "IIS-WebServerRole", "label": "IIS Web Server" }, "..." ] },
-  "appearance": { "theme": "system" }
+  "appearance": { "theme": "system", "projectColumns": [ "dnn", "database", "sql", "cpu", "memory", "pid", "lastStarted" ] },
+  "terminal": { "enabled": true, "defaultShell": "powershell", "fontFamily": "", "fontSize": 13 }
 }
 ```
 
@@ -252,7 +380,9 @@ show, such as the IIS feature list.
 | `docker.*` | The SQL Server container: `containerName`, `volumeName`, `edition` (`MSSQL_PID`) and `collation`. **Environment → Set up docker-compose** makes the container from these (and `sqlServer.port` / `saPassword`); **Show docker-compose.yml** shows the file to copy. |
 | `ssms.rememberPassword` | `false` by default. When `true`, signing SSMS in from the project menu ticks its *Remember Password*, so SSMS keeps the password. On the Settings page under **SQL Server**. |
 | `iis.requiredFeatures` | IIS Windows features checked (and optionally enabled). |
-| `appearance.theme` | `system` (follow the Windows app theme), `light` or `dark`. Set by the sidebar's theme button. |
+| `appearance.theme` | `system` (follow the Windows app theme), `light` or `dark`. Set in **Settings → General**. |
+| `appearance.projectColumns` | The optional columns the Projects table shows: `dnn`, `database`, `sql`, `cpu`, `memory`, `pid`, `lastStarted`, `status`, `url`, `ports`, `id`, `size`, `memoryPercent`, `disk`, `network`, `path`. Set by the table's **Columns** button; the default is `dnn`, `database`, `sql`, `cpu`, `memory`, `pid`, `lastStarted`. |
+| `terminal.*` | The terminal panel, set in **Settings → General** and applied at once: `enabled` (`false`: only the activity log, no shells), `defaultShell` (`powershell`, `pwsh`, `cmd` or `gitbash` - the first installed one when that one isn't), `fontFamily` (empty for Cascadia Mono, or Consolas) and `fontSize` (8 to 32) - also the activity log's font. |
 
 When the app starts, it checks the file:
 
@@ -452,7 +582,7 @@ I/O and state into layers:
 ┌──────────────────────────▼──────────────────────────────────────────┐
 │                       DnnManager.Application                        │
 │  Use cases: Setup / Import / Export / HostExisting / Clone /        │
-│  Remove / List / Prereqs / SetupSqlContainer.                       │
+│  Remove / List / ControlSites / IisServer / SetupSqlContainer.      │
 │  Abstractions (interfaces for IIS, SQL, Releases, Files…).          │
 └──────────────────────────┬──────────────────────────────────────────┘
                            │ implements interfaces
@@ -507,18 +637,23 @@ DnnManager.NET/
     │   ├── Prereq/              ← IIS feature checks
     │   ├── WebConfigs/          ← web.config SiteSqlServer read / write
     │   ├── Processes/           ← shared ProcessRunner
+    │   ├── Terminal/            ← a shell in a Windows pseudo console (ConPTY)
+    │   ├── Startup/             ← the "start at sign-in" scheduled task
+    │   ├── Monitoring/          ← ServerStateMonitor: the live state of the projects, IIS and this PC - what tells it to look (ChangeSources) and what it measures with
     │   └── DependencyInjection.cs
     └── DnnManager.Presentation/
         ├── Program.cs           ← composition root (settings + Host + DI), starts WPF
         ├── AdminElevation.cs    ← relaunches elevated when needed
         ├── RunningMarker.cs     ← named mutex the installer checks before replacing the app
-        ├── App.xaml             ← styles (buttons, inputs, lists, table, scrollbars, sidebar)
-        ├── MainWindow.xaml      ← sidebar navigation + page host + activity log
+        ├── App.xaml             ← styles (buttons, inputs, check boxes, switches, lists, table, scrollbars, sidebar)
+        ├── MainWindow.xaml      ← sidebar navigation + page host + activity log + status bar
         ├── Pages/               ← one page per sidebar item (incl. Settings)
+        │   └── Projects/        ← the Projects table's row, columns and right-click menu
         ├── Assets/              ← dnn.ico - the exe and window icon (DNN logo mark)
-        ├── Controls/            ← InputDialog, DetailsDialog, MessageDialog, ExistingFolderOptions, PasswordInput
+        ├── Controls/            ← StatusBar, IisStatus, TerminalPanel, InputDialog, DetailsDialog, MessageDialog, ExistingFolderOptions, PasswordInput
+        ├── Terminal/            ← the terminal itself: screen buffer + VT parser, the view that draws it, the shell session
         ├── Themes/              ← LightTheme / DarkTheme colour palettes
-        └── Services/            ← ActivityLog, OperationRunner, ThemeManager, IdeLocator, SettingsStartup, GUI adapters
+        └── Services/            ← ActivityLog, OperationRunner, ServerStore, TerminalService, ThemeManager, IdeLocator, SettingsStartup, GUI adapters
 ```
 
 ### Key design decisions
@@ -528,16 +663,71 @@ DnnManager.NET/
 | **Clean Architecture (single project, layered folders)** | Use cases are testable without IIS/Docker; the UI was swapped from a terminal UI to WPF without touching business logic. Layers are enforced by namespace + folder convention. |
 | **All side-effects behind interfaces** | `IIisManager`, `ISqlServerService`, `IDnnReleaseService`, `IPrerequisiteChecker`, `IWebConfigService`, `ISqlConnectionTester`, `IUserPrompt`, `IProgressReporter`, … Easy to mock in tests. |
 | **`Result` / `Result<T>` instead of exceptions across layers** | Use-case outcomes are explicit; unexpected exceptions are still logged and surfaced centrally. |
-| **`Microsoft.Extensions.Hosting` + `IOptions<AppOptions>`** | Standard DI and logging via `Microsoft.Extensions.Logging`. `AppOptions` is made from `settings.json` at startup, with `DNNMANAGER_*` env vars on top. |
+| **`Microsoft.Extensions.Hosting` + `IOptions<AppOptions>`** | Standard DI and logging via `Microsoft.Extensions.Logging`. `AppOptions` is made from `settings.json` at startup, with `DNNMANAGER_*` env vars on top. There is one instance, shared: saving on the Settings page puts the new values into it (`LiveSettings`), so they apply without a restart; what caches something made from a setting follows its `Changed` event. |
 | **Program and user data apart** | The installer owns the install folder; the app owns `Documents\DnnManager`. `settings.json` is versioned: `SettingsStore` backs it up and runs `SettingsMigrations` when its format is older, and fills in new keys from `UserSettings`' defaults. |
-| **WPF, code-behind pages** | One `UserControl` per sidebar item, rebuilt on each visit so lists (folders, backups) are always fresh. |
-| **Use cases off the UI thread** | `OperationRunner` runs one use case at a time on the thread pool in its own DI scope, refuses a second one while it runs, and backs the log's **Cancel** button. |
+| **WPF, code-behind pages** | One `UserControl` per sidebar item, made on its first visit and kept, so its lists load once (Settings is made anew each time). |
+| **Live state instead of Refresh** | One monitor reads the system and one store holds what the window shows. Windows' own notifications say when to look; timers cover what has none. See [Live updates](#live-updates). |
+| **Use cases off the UI thread** | `OperationRunner` runs one use case at a time on the thread pool in its own DI scope, refuses a second one while it runs, and backs the status bar's **Cancel** button. |
 | **Adapters for GUI → app layer** | `GuiProgressReporter` (writes to the activity log) and `GuiUserPrompt` (modal dialogs) implement application interfaces, so use cases never know what drives them. |
 | **Runtime theming** | Colours live in `LightTheme` / `DarkTheme`; everything references them with `DynamicResource`, and `ThemeManager` swaps the dictionary (and the title bar's dark mode) live. |
 | **SQL** | The local container is checked by logging in with `Microsoft.Data.SqlClient` and driven with `sqlcmd` via `docker exec`; remote / Azure SQL uses `Microsoft.Data.SqlClient` and SqlPackage (`.bacpac`). |
 | **Centralised error handling** | `OperationRunner` catches per-action exceptions and reports them in the activity log; `App` shows anything escaping a click handler; `Program.cs` catches fatal errors. |
 | **Admin enforcement** | `AdminElevation` relaunches the app elevated (UAC prompt) when it isn't. |
 | **No hardcoded values** | Container name, SA password, port, GitHub APIs, IIS feature list, hostname suffix, base directory, theme - all in `settings.json`. |
+
+### Live updates
+
+The Projects table, the IIS indicator and the status bar's figures show one
+shared state that keeps itself current, the way Docker Desktop follows its
+engine: take a snapshot, follow the changes as they happen, and reconcile now
+and then, because a notification can be missed.
+
+- [`ServerStateMonitor`](src/DnnManager.Infrastructure/Monitoring/ServerStateMonitor.cs)
+  (background threads) is the only thing that reads the projects, IIS and this
+  PC's figures. It keeps what it last read and raises one event with what
+  differs: a project added, removed or changed - and which part of it: site,
+  worker figures, database, size… -, IIS's state, the PC's figures, the
+  connection.
+- [`ServerStore`](src/DnnManager.Presentation/Services/ServerStore.cs) (UI
+  thread) applies that to the row objects the table is bound to. A row is never
+  made again while its project exists, and only the properties of the changed
+  part are announced - so one site stopping redraws that row's state, and the
+  check boxes, search, sorting, scroll position and open details are not
+  touched. It also runs the rows' actions: the row says *Starting…* at once,
+  the use case runs, the sites are read again and the row shows what IIS
+  reports - the new state, or the old one and a toast when it failed.
+- Both are in one process, so the "connection" between them is a .NET event
+  handed to the UI thread - no IPC, no WebSocket, no timer in the UI.
+
+Windows tells the monitor when to look
+([`ChangeSources.cs`](src/DnnManager.Infrastructure/Monitoring/ChangeSources.cs));
+what Windows has no notification for is read on a timer, each at its own pace:
+
+| What | How it is noticed |
+|---|---|
+| IIS started or stopped | Pushed: the service control manager reports the web service's status. |
+| A site or app pool added, removed, started or stopped | Pushed: `applicationHost.config` being written, and what IIS writes to the System event log. Reconciled every 5 s (30 s while Projects isn't on screen) - IIS has no notification for a site's running state. |
+| A worker process started or ended | The set of `w3wp` processes, every 2 s ¹ - a change reads the sites again. |
+| A project folder made, removed or renamed | Pushed: the projects folder is watched. |
+| Worker-process CPU, memory and disk I/O | Every 2 s ¹. |
+| HTTP traffic per site | Every 5 s ¹, and only while that column is shown. |
+| The SQL Server and its databases | Every 10 s ¹. |
+| Each project's database (`web.config`) and DNN version | Every 30 s ¹, and after an operation. |
+| Folder sizes | Every 10 min ¹, and after an operation. |
+| This PC's memory and CPU; its disk | Every 2 s; every 10 s. |
+| The PC woke up | Pushed (power event) - or a timer tick that comes half a minute late. Everything is read again. |
+
+¹ Only while the Projects page is on screen and the window isn't minimized;
+showing it again reads everything once, at once.
+
+A notification only says "look again" - the monitor then reads the real state,
+so a missed or doubled one does no harm. The intervals are counted from when a
+read was last asked for or finished, on a clock that doesn't follow the PC's
+date and time. What can't be read (IIS's configuration, the projects folder)
+is kept as it was and shown as *Reconnecting…*; it is tried again every 5 s,
+and a source that stopped notifying is attached again the same way. An IIS
+that doesn't answer at all isn't waited for longer than 15 s. The only loading
+state is the first snapshot.
 
 ## Extending
 
@@ -569,19 +759,23 @@ DnnManager.NET/
 | Area | C# location |
 |---|---|
 | Main window / navigation / activity log | [`MainWindow.xaml`](src/DnnManager.Presentation/MainWindow.xaml) |
-| Projects list, remove, export | [`ProjectsPage`](src/DnnManager.Presentation/Pages/ProjectsPage.xaml.cs), [`UseCases/ListProjectsUseCase.cs`](src/DnnManager.Application/UseCases/ListProjectsUseCase.cs), [`UseCases/RemoveProjectUseCase.cs`](src/DnnManager.Application/UseCases/RemoveProjectUseCase.cs), [`UseCases/ExportProjectUseCase.cs`](src/DnnManager.Application/UseCases/ExportProjectUseCase.cs) |
+| Status bar (IIS, resources, running operation, version) | [`Controls/StatusBar.xaml`](src/DnnManager.Presentation/Controls/StatusBar.xaml.cs), [`Controls/IisStatus.xaml`](src/DnnManager.Presentation/Controls/IisStatus.xaml.cs), [`UseCases/IisServerUseCase.cs`](src/DnnManager.Application/UseCases/IisServerUseCase.cs), [`Services/ServerStore.cs`](src/DnnManager.Presentation/Services/ServerStore.cs), [`Monitoring/HostResourceMonitor.cs`](src/DnnManager.Infrastructure/Monitoring/HostResourceMonitor.cs) |
+| Live state of the projects, IIS and this PC (no Refresh) | [`Monitoring/ServerStateMonitor.cs`](src/DnnManager.Infrastructure/Monitoring/ServerStateMonitor.cs), [`Monitoring/ChangeSources.cs`](src/DnnManager.Infrastructure/Monitoring/ChangeSources.cs), [`Monitoring/MonitorModel.cs`](src/DnnManager.Infrastructure/Monitoring/MonitorModel.cs), [`Services/ServerStore.cs`](src/DnnManager.Presentation/Services/ServerStore.cs) |
+| Projects table, start / stop / restart, remove, export | [`ProjectsPage`](src/DnnManager.Presentation/Pages/ProjectsPage.xaml.cs), [`Pages/Projects/`](src/DnnManager.Presentation/Pages/Projects/), [`Services/ServerStore.cs`](src/DnnManager.Presentation/Services/ServerStore.cs), [`Monitoring/ProcessSampler.cs`](src/DnnManager.Infrastructure/Monitoring/ProcessSampler.cs), [`UseCases/ControlSitesUseCase.cs`](src/DnnManager.Application/UseCases/ControlSitesUseCase.cs), [`UseCases/RemoveProjectUseCase.cs`](src/DnnManager.Application/UseCases/RemoveProjectUseCase.cs), [`UseCases/ExportProjectUseCase.cs`](src/DnnManager.Application/UseCases/ExportProjectUseCase.cs) |
 | New project | [`SetupPage`](src/DnnManager.Presentation/Pages/SetupPage.xaml.cs) + [`UseCases/SetupProjectUseCase.cs`](src/DnnManager.Application/UseCases/SetupProjectUseCase.cs), [`UseCases/ImportProjectUseCase.cs`](src/DnnManager.Application/UseCases/ImportProjectUseCase.cs) |
 | Host project (IIS / DB) | [`ExistingFolderPage`](src/DnnManager.Presentation/Pages/ExistingFolderPage.xaml.cs) + [`UseCases/HostExistingProjectUseCase.cs`](src/DnnManager.Application/UseCases/HostExistingProjectUseCase.cs) |
 | Shared IIS site / SQL container steps | [`UseCases/Provisioning.cs`](src/DnnManager.Application/UseCases/Provisioning.cs) |
 | Clone project | [`ClonePage`](src/DnnManager.Presentation/Pages/ClonePage.xaml.cs) + [`UseCases/CloneProjectUseCase.cs`](src/DnnManager.Application/UseCases/CloneProjectUseCase.cs) |
 | SQL connection test | [`Sql/SqlConnectionTester.cs`](src/DnnManager.Infrastructure/Sql/SqlConnectionTester.cs) |
-| Projects right-click menu / IDE detection | [`ProjectsPage`](src/DnnManager.Presentation/Pages/ProjectsPage.xaml.cs), [`Services/IdeLocator.cs`](src/DnnManager.Presentation/Services/IdeLocator.cs) |
+| Projects right-click menu / IDE detection | [`Pages/Projects/ProjectMenu.cs`](src/DnnManager.Presentation/Pages/Projects/ProjectMenu.cs), [`Services/IdeLocator.cs`](src/DnnManager.Presentation/Services/IdeLocator.cs) |
 | Environment (Docker, SQL Server, IIS features) | [`EnvironmentPage`](src/DnnManager.Presentation/Pages/EnvironmentPage.xaml.cs) + [`Prereq/WindowsPrerequisiteChecker.cs`](src/DnnManager.Infrastructure/Prereq/WindowsPrerequisiteChecker.cs) |
-| Settings page (Save and restart) | [`SettingsPage`](src/DnnManager.Presentation/Pages/SettingsPage.xaml.cs) |
+| Settings page (Save applies at once) | [`SettingsPage`](src/DnnManager.Presentation/Pages/SettingsPage.xaml.cs), [`Services/LiveSettings.cs`](src/DnnManager.Presentation/Services/LiveSettings.cs), [`Configuration/AppOptions.cs`](src/DnnManager.Application/Configuration/AppOptions.cs) |
 | settings.json: format, defaults, validation | [`Configuration/UserSettings.cs`](src/DnnManager.Application/Configuration/UserSettings.cs) |
 | settings.json: load, save, backups, migrations | [`Settings/SettingsStore.cs`](src/DnnManager.Infrastructure/Settings/SettingsStore.cs), [`Settings/SettingsMigrations.cs`](src/DnnManager.Infrastructure/Settings/SettingsMigrations.cs), [`Settings/AppDataPaths.cs`](src/DnnManager.Infrastructure/Settings/AppDataPaths.cs) |
 | Settings error dialog at startup | [`Services/SettingsStartup.cs`](src/DnnManager.Presentation/Services/SettingsStartup.cs) |
 | Installer | [`installer/DnnManager.iss`](installer/DnnManager.iss), [`installer/build.ps1`](installer/build.ps1) |
+| Terminal panel (activity log + shells) | [`Controls/TerminalPanel.xaml`](src/DnnManager.Presentation/Controls/TerminalPanel.xaml.cs), [`Terminal/`](src/DnnManager.Presentation/Terminal/) (`TerminalBuffer`, `TerminalView`, `TerminalSession`), [`Services/TerminalService.cs`](src/DnnManager.Presentation/Services/TerminalService.cs), [`Terminal/PseudoConsole.cs`](src/DnnManager.Infrastructure/Terminal/PseudoConsole.cs) |
+| Start at sign-in | [`Startup/StartupTask.cs`](src/DnnManager.Infrastructure/Startup/StartupTask.cs) |
 | Themes | [`Themes/`](src/DnnManager.Presentation/Themes/), [`Services/ThemeManager.cs`](src/DnnManager.Presentation/Services/ThemeManager.cs) |
 | File copy, zip extract / create | [`Files/ProjectFileCopier.cs`](src/DnnManager.Infrastructure/Files/ProjectFileCopier.cs) |
 | GitHub release lookup | [`Github/GitHubDnnReleaseService.cs`](src/DnnManager.Infrastructure/Github/GitHubDnnReleaseService.cs) |

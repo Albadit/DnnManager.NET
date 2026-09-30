@@ -22,6 +22,7 @@ public sealed class UserSettings
     public SsmsSettings Ssms { get; set; } = new();
     public IisSettings Iis { get; set; } = new();
     public AppearanceSettings Appearance { get; set; } = new();
+    public TerminalSettings Terminal { get; set; } = new();
 
     /// <summary>The values that aren't allowed, each with the key it is about; empty when the settings are usable.</summary>
     public IReadOnlyList<SettingsProblem> Validate()
@@ -57,6 +58,8 @@ public sealed class UserSettings
 
         Check(AppearanceSettings.Themes.Contains(Appearance.Theme, StringComparer.OrdinalIgnoreCase),
             "appearance.theme", $"must be one of: {string.Join(", ", AppearanceSettings.Themes)}.");
+        Check(Terminal.FontSize is >= TerminalSettings.MinFontSize and <= TerminalSettings.MaxFontSize, "terminal.fontSize",
+            $"must be a number between {TerminalSettings.MinFontSize} and {TerminalSettings.MaxFontSize}.");
         return problems;
     }
 
@@ -68,6 +71,14 @@ public sealed class UserSettings
         GitHubReleaseApis = Projects.DnnReleaseSources.ToList(),
         KeepDnnPackages = Projects.KeepDnnPackages,
         Theme = Appearance.Theme,
+        ProjectColumns = Appearance.ProjectColumns.ToList(),
+        Terminal = new TerminalSettings
+        {
+            Enabled = Terminal.Enabled,
+            DefaultShell = Terminal.DefaultShell,
+            FontFamily = Terminal.FontFamily,
+            FontSize = Terminal.FontSize
+        },
         SsmsRememberPassword = Ssms.RememberPassword,
         Docker = new DockerOptions
         {
@@ -158,8 +169,37 @@ public sealed class AppearanceSettings
 {
     public static readonly string[] Themes = ["system", "light", "dark"];
 
-    /// <summary>"system" (follow the Windows app theme), "light" or "dark". Set by the sidebar's theme button.</summary>
+    /// <summary>"system" (follow the Windows app theme), "light" or "dark". Set in Settings - General.</summary>
     public string Theme { get; set; } = "system";
+
+    /// <summary>
+    /// The columns the Projects table starts with (and its Columns menu's "Default" goes back to) - what is looked at
+    /// every day while working on DNN sites: which DNN version a site runs, its database and whether that is there,
+    /// what its worker process costs, the process ID to attach a debugger to, and since when it runs (it starts
+    /// again with every recycle and rebuild). The site's ID, address, ports, I/O, size and path are one click away,
+    /// in the row's details and the Columns menu.
+    /// </summary>
+    public static readonly IReadOnlyList<string> DefaultProjectColumns = ["dnn", "database", "sql", "cpu", "memory", "pid", "lastStarted"];
+
+    /// <summary>
+    /// The optional columns the Projects table shows, set by its Columns button. Name, status and actions are always
+    /// shown; keys this version doesn't know are ignored.
+    /// </summary>
+    public List<string> ProjectColumns { get; set; } = [.. DefaultProjectColumns];
+}
+
+/// <summary>The terminal at the bottom of the window. Set on the Settings page; applies at once.</summary>
+public sealed class TerminalSettings
+{
+    public const int MinFontSize = 8, MaxFontSize = 32;
+
+    /// <summary>Off: the panel only shows the activity log - no shells can be opened in it.</summary>
+    public bool Enabled { get; set; } = true;
+    /// <summary>The shell the + button opens: "powershell", "pwsh", "cmd" or "gitbash" - the first installed one when this one isn't.</summary>
+    public string DefaultShell { get; set; } = "powershell";
+    /// <summary>The font of the terminal and the activity log; empty for the default (Cascadia Mono, or Consolas).</summary>
+    public string FontFamily { get; set; } = "";
+    public int FontSize { get; set; } = 13;
 }
 
 /// <summary>A value in <c>settings.json</c> that isn't allowed: <paramref name="Key"/> is its path, e.g. <c>projects.sitePort</c>.</summary>

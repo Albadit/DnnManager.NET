@@ -52,7 +52,7 @@
             }
         },
         {
-            "label": "publish (single self-contained win-x64)",
+            "label": "publish (DnnManager.exe)",
             "type": "process",
             "command": "dotnet",
             "args": [

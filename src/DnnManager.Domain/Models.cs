@@ -14,15 +14,3 @@ public sealed record DatabaseConfig(
     int Port,
     string BackupDirectory);
 
-public sealed record ProjectStatus(
-    string Name,
-    string ProjectDirectory,
-    bool IisSiteExists,
-    string? IisSiteState,
-    long DirectorySizeBytes,
-    bool SqlReachable,
-    string? DatabaseName,
-    int? SqlPort,
-    string SiteUrl,
-    string? DnnVersion,
-    bool DatabaseExists);

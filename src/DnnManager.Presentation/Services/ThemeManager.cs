@@ -23,7 +23,6 @@ public static class ThemeManager
     public static void Initialize(string? configured) =>
         Apply(Enum.TryParse<AppTheme>(configured, ignoreCase: true, out var theme) ? theme : SystemTheme());
 
-    public static void Toggle() => Apply(Current == AppTheme.Light ? AppTheme.Dark : AppTheme.Light);
 
     public static void Apply(AppTheme theme)
     {

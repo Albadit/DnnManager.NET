@@ -1,0 +1,133 @@
+<UserControl x:Class="DnnManager.Presentation.Controls.TerminalPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:DnnManager.Presentation.Controls">
+    <UserControl.Resources>
+        <Style x:Key="PanelButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+            <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+        </Style>
+        <!-- A tab in the list on the right: the shown one highlighted. -->
+        <Style x:Key="TabItem" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource LogMuted}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd" Background="Transparent" Padding="14,3,6,3">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource LogHeaderFg}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <DockPanel Background="{DynamicResource LogBg}">
+        <!-- "Terminal", then: a new terminal with the default shell, the other shells, hide the panel. -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource LogHeaderBg}" BorderBrush="{DynamicResource CardBorder}"
+                BorderThickness="0,0,0,1" Padding="14,2,6,2">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button x:Name="NewButton" Style="{StaticResource PanelButton}" Content="&#xE710;" Click="New_Click" />
+                    <Button x:Name="ShellsButton" Style="{StaticResource PanelButton}" Width="22" FontSize="9" Content="&#xE70D;"
+                            ToolTip="New terminal with another shell" Click="Shells_Click" />
+                    <Button Style="{StaticResource PanelButton}" FontSize="11" Content="&#xE8BB;" Margin="10,0,0,0" ToolTip="Hide the terminal"
+                            Click="Close_Click" />
+                </StackPanel>
+                <TextBlock Text="Terminal" Foreground="{DynamicResource LogHeaderFg}" FontWeight="SemiBold" VerticalAlignment="Center" />
+            </DockPanel>
+        </Border>
+
+        <!-- The tabs: Activity (what DNN Manager itself does - always there), then the open shells. -->
+        <Border x:Name="TabsPane" DockPanel.Dock="Right" Width="176" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1,0,0,0">
+            <ListBox x:Name="Tabs" Background="Transparent" BorderThickness="0" Margin="0,6,0,0" ItemContainerStyle="{StaticResource TabItem}"
+                     SelectionChanged="Tabs_SelectionChanged" PreviewKeyDown="Tabs_PreviewKeyDown"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <!-- Hover: what the tab is (a terminal: its shell, process ID, program and folder). Double-click,
+                             F2 or the right-click menu renames a terminal; the bin ends it. -->
+                        <DockPanel Background="Transparent" MinHeight="24" MouseLeftButtonDown="Tab_MouseLeftButtonDown"
+                                   ContextMenuOpening="Tab_ContextMenuOpening" ToolTipService.ShowDuration="30000">
+                            <DockPanel.ToolTip>
+                                <ToolTip DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                    <StackPanel MaxWidth="520">
+                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Description}" Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                        <ItemsControl ItemsSource="{Binding Details}" Margin="0,6,0,0" Grid.IsSharedSizeScope="True">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,1">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="Label" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{Binding Key}" Foreground="{DynamicResource TextMuted}" Margin="0,0,14,0" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </ToolTip>
+                            </DockPanel.ToolTip>
+                            <DockPanel.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Rename" Click="RenameTab_Click" />
+                                    <MenuItem Header="Close terminal" Click="CloseTab_Click" />
+                                </ContextMenu>
+                            </DockPanel.ContextMenu>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource PanelButton}" Width="24" Height="24" FontSize="12"
+                                    Content="&#xE74D;" ToolTip="Close this terminal (ends what runs in it)" Click="CloseTab_Click"
+                                    Visibility="{Binding CanClose, Converter={StaticResource BoolToVis}}" />
+                            <Grid>
+                                <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                           Visibility="{Binding IsNotRenaming, Converter={StaticResource BoolToVis}}" />
+                                <TextBox Text="{Binding EditTitle, UpdateSourceTrigger=PropertyChanged}" MinHeight="22" Padding="3,1" Margin="-4,0,2,0"
+                                         FontWeight="Normal" MaxLength="60"
+                                         Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVis}}"
+                                         IsVisibleChanged="Rename_IsVisibleChanged" KeyDown="Rename_KeyDown" LostKeyboardFocus="Rename_LostFocus" />
+                            </Grid>
+                        </DockPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+        <!-- Tools for the shown tab; at the bottom, back to the newest line. -->
+        <DockPanel DockPanel.Dock="Right" Margin="0,6,4,6" LastChildFill="False">
+            <Button x:Name="CopyButton" DockPanel.Dock="Top" Style="{StaticResource PanelButton}" Content="&#xE8C8;" Click="Copy_Click" />
+            <Button x:Name="PasteButton" DockPanel.Dock="Top" Style="{StaticResource PanelButton}" Content="&#xE77F;"
+                    ToolTip="Paste (Ctrl+V, or right-click)" Click="Paste_Click" />
+            <Button x:Name="ClearButton" DockPanel.Dock="Top" Style="{StaticResource PanelButton}" Content="&#xE74D;"
+                    ToolTip="Clear the activity log" Click="Clear_Click" />
+            <Button DockPanel.Dock="Bottom" Style="{StaticResource PanelButton}" Content="&#xE74B;" ToolTip="Scroll to the bottom"
+                    Click="ScrollToBottom_Click" />
+        </DockPanel>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <!-- Read-only rich text: lines can be selected and copied (Ctrl+A / Ctrl+C, right-click → Copy). It has a
+                 scrollbar of its own. -->
+            <c:LogView x:Name="LogList" Grid.ColumnSpan="2" Background="Transparent" BorderThickness="0"
+                       Foreground="{DynamicResource LogFg}" SelectionBrush="{DynamicResource Accent}" />
+            <!-- The shown shell's TerminalView, and the scrollbar through the lines that scrolled off its top. -->
+            <ContentControl x:Name="TerminalHost" Focusable="False" Visibility="Collapsed" />
+            <ScrollBar x:Name="TerminalScroll" Grid.Column="1" Orientation="Vertical" SmallChange="1" Visibility="Collapsed"
+                       ValueChanged="TerminalScroll_ValueChanged" />
+        </Grid>
+    </DockPanel>
+</UserControl>

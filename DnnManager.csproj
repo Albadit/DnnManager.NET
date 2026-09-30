@@ -37,6 +37,8 @@
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
     <PackageReference Include="Microsoft.Web.Administration" Version="11.1.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
+    <!-- The state of the IIS service (W3SVC) for the status bar. -->
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
   </ItemGroup>
 
   <!-- Nothing but the program is published: settings.json is created in Documents\DnnManager on first run

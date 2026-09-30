@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Security.AccessControl;
 using System.Security.Principal;
+using System.ServiceProcess;
 using DnnManager.Application.Abstractions;
 using DnnManager.Domain;
 using DnnManager.Infrastructure.Processes;
@@ -17,6 +19,11 @@ public sealed class IisManager : IIisManager
         "DefaultAppPool", "Classic .NET AppPool", ".NET v2.0", ".NET v2.0 Classic", ".NET v4.5", ".NET v4.5 Classic"
     };
 
+    // Windows' ERROR_SERVICE_DOES_NOT_EXIST.
+    private const int ServiceDoesNotExist = 1060;
+    // How long StartSite waits for an app pool that is still stopping.
+    private static readonly TimeSpan PoolStopWait = TimeSpan.FromSeconds(20);
+
     private readonly ProcessRunner _proc;
     private readonly ILogger<IisManager> _log;
 
@@ -26,16 +33,42 @@ public sealed class IisManager : IIisManager
         _log = log;
     }
 
-    public async Task<Result> ResetAsync(CancellationToken ct)
+    public async Task<Result> ControlServerAsync(IisServerAction action, CancellationToken ct)
     {
         var iisreset = Path.Combine(Environment.SystemDirectory, "iisreset.exe");
         if (!File.Exists(iisreset)) return Result.Fail($"iisreset was not found at {iisreset}.");
 
-        var r = await _proc.RunAsync(iisreset, new[] { "/restart" }, ct);
+        var r = await _proc.RunAsync(iisreset, new[] { "/" + action.ToString().ToLowerInvariant() }, ct);
         if (r.Success) return Result.Ok();
 
         var output = (r.StdErr.Length > 0 ? r.StdErr : r.StdOut).Trim();
         return Result.Fail($"iisreset failed (exit code {r.ExitCode}): {output}");
+    }
+
+    public IisServerState GetServerState()
+    {
+        try
+        {
+            using var service = new ServiceController("W3SVC");
+            return service.Status switch
+            {
+                ServiceControllerStatus.Running => IisServerState.Running,
+                ServiceControllerStatus.Stopped => IisServerState.Stopped,
+                ServiceControllerStatus.StartPending or ServiceControllerStatus.ContinuePending => IisServerState.Starting,
+                ServiceControllerStatus.StopPending or ServiceControllerStatus.PausePending or ServiceControllerStatus.Paused => IisServerState.Stopping,
+                _ => IisServerState.Unknown
+            };
+        }
+        catch (InvalidOperationException ex) when (ex.InnerException is System.ComponentModel.Win32Exception { NativeErrorCode: ServiceDoesNotExist })
+        {
+            return IisServerState.NotInstalled;
+        }
+        catch (Exception ex)
+        {
+            // Asking failed - which isn't IIS being absent: the next read asks again.
+            _log.LogWarning(ex, "Could not read the IIS service state");
+            return IisServerState.Unknown;
+        }
     }
 
     public Result CreateSite(string siteName, string physicalPath, string hostname, int port)
@@ -166,14 +199,75 @@ public sealed class IisManager : IIisManager
     {
         try
         {
+            // An app pool that is still stopping - its worker process is on its way out, as right after StopSite -
+            // can't be started: IIS refuses. Wait for it to have stopped.
+            var deadline = DateTime.UtcNow + PoolStopWait;
+            while (PoolState(siteName) == ObjectState.Stopping)
+            {
+                if (DateTime.UtcNow >= deadline)
+                    return Result.Fail("Its app pool is still stopping (the worker process hasn't ended yet) - try again in a moment.");
+                Thread.Sleep(250);
+            }
+
             using var sm = new ServerManager();
             var site = sm.Sites[siteName];
             if (site is null) return Result.Fail($"Site '{siteName}' not found");
-            site.Start();
+            // A stopped pool (StopSite stops it too) would leave the started site answering 503.
+            if (PoolOf(sm, site) is { } pool && pool.State == ObjectState.Stopped) pool.Start();
+            if (site.State is not (ObjectState.Started or ObjectState.Starting)) site.Start();
             return Result.Ok();
         }
         catch (Exception ex) { return Result.Fail(ex.Message); }
     }
+
+    /// <summary>The state of the site's app pool, read afresh; null when it has none or it can't be told.</summary>
+    private static ObjectState? PoolState(string siteName)
+    {
+        using var sm = new ServerManager();
+        if (sm.Sites[siteName] is not { } site || PoolOf(sm, site) is not { } pool) return null;
+        try { return pool.State; } catch { return null; }
+    }
+
+    public Result StopSite(string siteName)
+    {
+        try
+        {
+            using var sm = new ServerManager();
+            var site = sm.Sites[siteName];
+            if (site is null) return Result.Fail($"Site '{siteName}' not found");
+            if (site.State is not (ObjectState.Stopped or ObjectState.Stopping)) site.Stop();
+
+            // Stopping the pool ends its worker process (and the memory it holds) - unless another site shares it.
+            var pool = PoolOf(sm, site);
+            var shared = pool is not null && sm.Sites.Any(s => s.Name != site.Name &&
+                string.Equals(s.Applications["/"]?.ApplicationPoolName, pool.Name, StringComparison.OrdinalIgnoreCase));
+            if (pool is not null && !shared && pool.State is not (ObjectState.Stopped or ObjectState.Stopping)) pool.Stop();
+            return Result.Ok();
+        }
+        catch (Exception ex) { return Result.Fail(ex.Message); }
+    }
+
+    public Result RestartSite(string siteName)
+    {
+        try
+        {
+            using var sm = new ServerManager();
+            var site = sm.Sites[siteName];
+            if (site is null) return Result.Fail($"Site '{siteName}' not found");
+            var pool = PoolOf(sm, site);
+            if (pool is not null)
+            {
+                if (pool.State == ObjectState.Started) pool.Recycle();
+                else if (pool.State == ObjectState.Stopped) pool.Start();
+            }
+            if (site.State is not (ObjectState.Started or ObjectState.Starting)) site.Start();
+            return Result.Ok();
+        }
+        catch (Exception ex) { return Result.Fail(ex.Message); }
+    }
+
+    private static ApplicationPool? PoolOf(ServerManager sm, Site site) =>
+        site.Applications["/"]?.ApplicationPoolName is { Length: > 0 } name ? sm.ApplicationPools[name] : null;
 
     public bool IsAvailable()
     {
@@ -212,6 +306,79 @@ public sealed class IisManager : IIisManager
         return map;
     }
 
+    public IReadOnlyDictionary<string, IisSiteRuntime>? GetSiteRuntimes()
+    {
+        var map = new Dictionary<string, IisSiteRuntime>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var sm = new ServerManager();
+            // Several sites can share a pool - read each pool's workers once.
+            var workers = new Dictionary<string, IReadOnlyList<int>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var site in sm.Sites)
+            {
+                // The state and the workers are asked of the running IIS. While it is stopped they read as stopped;
+                // what it can't tell while it runs (a site it doesn't know yet) is unknown - the site still exists.
+                string state;
+                try { state = site.State.ToString(); } catch { state = "Unknown"; }
+                var pool = PoolOf(sm, site);
+                string? poolState = null;
+                try { poolState = pool?.State.ToString(); } catch { /* unknown */ }
+                IReadOnlyList<int> pids = [];
+                if (pool is not null && !workers.TryGetValue(pool.Name, out pids!))
+                {
+                    try { pids = pool.WorkerProcesses.Select(w => w.ProcessId).ToList(); } catch { pids = []; }
+                    workers[pool.Name] = pids;
+                }
+
+                var ports = site.Bindings.Select(b => BindingParts(b.BindingInformation).Port)
+                    .OfType<int>().Distinct().Order().ToList();
+                map[site.Name] = new IisSiteRuntime(site.Id, state, ports, pool?.Name ?? "", poolState, pids);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Not "no sites": the caller keeps what it knew.
+            _log.LogWarning(ex, "Could not read the IIS sites");
+            return null;
+        }
+        return map;
+    }
+
+    // IIS's "Web Service" performance counters have one instance per site, named like it.
+    public IReadOnlyDictionary<string, SiteTraffic> GetSiteTraffic()
+    {
+        var traffic = new Dictionary<string, SiteTraffic>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            const string category = "Web Service";
+            if (!PerformanceCounterCategory.Exists(category)) return traffic;
+            var data = new PerformanceCounterCategory(category).ReadCategory();
+            var received = data["Total Bytes Received"];
+            var sent = data["Total Bytes Sent"];
+            if (received is null || sent is null) return traffic;
+            foreach (System.Collections.DictionaryEntry entry in received)
+            {
+                var site = (string)entry.Key;
+                if (sent[site] is { } sentSample)
+                    traffic[site] = new SiteTraffic(((InstanceData)entry.Value!).RawValue, sentSample.RawValue);
+            }
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException
+                                       or System.ComponentModel.Win32Exception or FormatException)
+        {
+            _log.LogWarning(ex, "Could not read the IIS site traffic counters");
+        }
+        return traffic;
+    }
+
+    // BindingInformation is "ip:port:host"; the IP can hold colons (IPv6), so read from the end.
+    private static (int? Port, string Host) BindingParts(string bindingInformation)
+    {
+        var parts = bindingInformation.Split(':');
+        var host = parts.Length >= 3 && parts[^1].Length > 0 ? parts[^1] : "*";
+        return (parts.Length >= 2 && int.TryParse(parts[^2], out var port) ? port : null, host);
+    }
+
     public IisSiteInfo? GetSiteInfo(string siteName)
     {
         try
@@ -224,13 +391,9 @@ public sealed class IisManager : IIisManager
             try { state = site.State.ToString(); } catch { state = "Unknown"; }
             var root = site.Applications["/"];
             var physicalPath = Environment.ExpandEnvironmentVariables(root?.VirtualDirectories["/"]?.PhysicalPath ?? "");
-            // BindingInformation is "ip:port:host"; the IP can hold colons (IPv6), so read from the end.
-            var bindings = site.Bindings.Select(b =>
-            {
-                var parts = b.BindingInformation.Split(':');
-                var host = parts.Length >= 3 && parts[^1].Length > 0 ? parts[^1] : "*";
-                return parts.Length >= 2 ? $"{b.Protocol}://{host}:{parts[^2]}" : $"{b.Protocol} {b.BindingInformation}";
-            }).ToList();
+            var bindings = site.Bindings.Select(b => BindingParts(b.BindingInformation) is { Port: { } port } parts
+                ? $"{b.Protocol}://{parts.Host}:{port}"
+                : $"{b.Protocol} {b.BindingInformation}").ToList();
 
             var poolName = root?.ApplicationPoolName ?? "";
             var pool = sm.ApplicationPools[poolName];

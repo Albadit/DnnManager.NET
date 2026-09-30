@@ -35,8 +35,116 @@ All notable changes to DnnManager.NET are documented here.
   project picks the same version, without downloading. The version list marks
   those versions *kept, no download*. Downloads now show their progress.
 
+- **Start, stop and restart sites.** Each row on **Projects** has the actions
+  for its IIS site's state - **Stop** and **Restart** (recycles the app pool)
+  while it runs, **Start** while it's stopped - next to **Remove…**. The right-click
+  menu has them too.
+- **Status bar** along the bottom of the window, laid out like Docker
+  Desktop's: under the sidebar whether IIS runs, with **Start** / **Stop** /
+  **Restart** (`iisreset`); then this PC's RAM, CPU (two decimals) and disk use
+  (the projects folder's drive, with its size as the limit) - each figure keeps
+  its room, so they don't jump as the numbers change -, the running operation
+  with **Cancel**, a button that opens the activity log, and the app's version
+  (moved from the sidebar).
+- **Compact sidebar** - in a window narrower than 1100 pixels the sidebar shows
+  only the page icons (names as tooltips), and IIS in the status bar only its
+  dot with a **⋮** menu.
+- **Terminal.** The activity panel is now a terminal panel: the **Activity**
+  tab keeps the log of what DNN Manager does, and **+** opens real terminals
+  next to it - **PowerShell** by default, or **PowerShell 7**, **Command
+  Prompt** or **Git Bash** (when installed) from the arrow beside it - as many
+  as you like, listed on the right. **Open in terminal** on a project's
+  right-click menu opens one in its folder. They run in Windows' pseudo console,
+  so colours, tab completion and full-screen programs work; a scrollbar (or the
+  wheel) scrolls back and a **↓** button returns to the newest line, drag selects, Ctrl+C / Ctrl+V or a right-click copy and paste. Resting
+  the mouse on a tab shows its shell, process ID, program and folder; a
+  double-click (or F2) renames it, and its bin ends it.
+  **Settings → General** has the default shell, the font family and size, and
+  a switch to turn terminals off (`terminal.*` in `settings.json`).
+- **Start DNN Manager when you sign in** (Settings → General) - through a
+  scheduled task with its Administrator rights, so there is no UAC question at
+  sign-in. Uninstalling removes the task.
+- **Own title bar** with **Settings** next to the window buttons (moved from
+  the bottom of the sidebar). Snap layouts still show on Windows 11's maximize
+  button. The sun / moon theme button is gone - the theme is chosen in
+  **Settings → General**.
+- **Search boxes** have a **✕** that empties them.
+
 ### Changed
 
+- **Settings apply without a restart.** **Save and restart** is now **Save**:
+  it checks the values, writes `settings.json` and puts the settings to work at
+  once - another projects folder shows its projects in the table, a new site
+  address, SQL Server or container name is what the next operation uses. The
+  *Restart now* banner is gone. The **General** settings (theme, terminal,
+  start at sign-in) are saved with the same button now, instead of applying by
+  themselves while **Save** stayed greyed out.
+- **Only show running** - a switch next to the Columns button on **Projects**
+  that leaves the projects whose site is running.
+- The status bar's terminal button is now **>_ Terminal**.
+- **Bulk actions as one group of icons** - with rows checked, **Remove…** (on
+  the left, in red), **Start**, **Stop** and **Restart** show as icons in one
+  frame instead of four buttons with text; their tooltips say what each will do.
+- The sidebar slides between its wide and narrow width, and the on / off
+  switches slide when switched.
+- **Copy path** is gone from the project's right-click menu (the path is in
+  the row's details and in the *Path* column).
+- **Projects' default columns** are the ones for daily work: DNN version,
+  Database, SQL, CPU, Memory, PID (to attach a debugger) and Last started.
+  **Default** in the Columns menu goes back to them; a choice you already made
+  stays until you press it. The Columns menu and the table list the
+  columns in that order - the most used first.
+- Check boxes and radio buttons (Settings, New project, Host project) follow the
+  theme instead of Windows' white ones.
+- **Projects keeps itself up to date - its Refresh button is gone.** Like
+  Docker Desktop's list, the table follows the system: a site started or
+  stopped in IIS Manager, IIS restarted, a worker process that ended, a project
+  folder made or deleted in Explorer - each shows up by itself, in the row it
+  is about, within seconds. The rest of the table isn't touched: the
+  checked rows, the search, the sort order, the scroll position and the open
+  details stay as they are, and nothing "loads" after the first time.
+  **Start**, **Stop** and **Restart** show *Starting…* / *Stopping…* /
+  *Restarting…* in the row at once (**Remove…** shows *Removing…* once you
+  have confirmed), then what IIS reports; when one fails, the row goes back to
+  its real state and a toast says why (**Show activity** opens the log). A
+  stopped site stays *Stopping…* until its worker process has ended, and
+  **Start** waits for that. A site whose app pool is stopped shows as stopped
+  (*App pool stopped*) - **Start** starts the pool. Only while IIS's
+  configuration or the projects folder can't be read, or after the PC wakes
+  up, *Reconnecting…* shows top right - the table stays and catches up by
+  itself. Changes made outside
+  DNN Manager are noted in the activity log. IIS's state in the status bar is
+  now reported by Windows when it changes, instead of being asked for every 2
+  seconds. How it works is in the README under *Live updates*.
+- **Projects is a server table.** Check rows (or the header box for every row
+  shown) to **Start**, **Stop**, **Restart** or **Remove** them together -
+  those buttons appear above the table only while rows are checked, and each
+  acts on the checked rows it applies to. Removing several asks once for all of
+  them. A **search** box filters as you type (name, site, ID, port, status, DNN
+  version, database, path), and the **Columns** button switches columns on and
+  off - saved as `appearance.projectColumns`. New columns show each site's live
+  state (a status dot), IIS site ID, ports, its network I/O (HTTP bytes received
+  / sent) and its worker process's CPU, memory, disk read/write, PID and start
+  time. A chevron opens a row's details under
+  it. **Actions** stays at the right edge while the other columns scroll
+  sideways, so a narrow window still shows them. The counts sit under the table
+  (*4 of 12 projects*, *Selected 2 of 12*); **Open site** is a double-click on
+  the row, and the separate **Open site** / **Remove…** buttons are gone.
+- **Settings is a page of its own**, laid out like Docker Desktop's: the app's
+  sidebar makes way for the settings' categories - **General** (new: start at
+  sign-in, the theme as *Light* / *Dark* / *Use system settings*, the terminal,
+  and the settings file),
+  **Projects**, **DNN releases**, **SQL Server**, **Docker container**, **IIS**
+  (new: the required Windows features) and **About** (new: the version and your
+  folders) - with a search box over them. **Close** goes back to the page you
+  came from; **Save** is at the bottom right.
+- The sidebar no longer repeats the app's name - it is in the title bar.
+- **Activity log** - now the first tab of the terminal panel. Closed, the panel
+  takes no room: the running operation, its progress and **Cancel** moved to the
+  status bar, whose terminal button opens the panel (a click on the running
+  operation opens it on Activity).
+- **Reset IIS** (Environment) runs through the same IIS start / stop / restart
+  as the status bar.
 - **Open with: one submenu with your editors.** The project menu's separate
   *Open in …* entries are now one **Open with** submenu listing only the editors
   installed on the PC. Newly found: IntelliJ IDEA, Zed, Vim and Neovim (their
@@ -67,16 +175,15 @@ All notable changes to DnnManager.NET are documented here.
   folder). Setting up an existing folder is what **Host project** is for. After
   a project is created, the name is cleared for the next one.
 
-- **Settings: Save and restart instead of autosave.** Edits on the Settings
-  page are no longer saved as you type. Once something changes, a bar appears
-  pinned to the bottom of the page with **Save and restart** - it checks the values, saves them and restarts DNN
-  Manager so they apply - and **Discard changes**. Leaving the page or closing
-  the app with unsaved changes asks first.
+- **Settings: Save instead of autosave.** Edits on the Settings page are no
+  longer saved as you type. Once something changes, **Save** (bottom right)
+  checks the values, saves them and applies them, next to **Discard changes**.
+  Leaving the page or closing the app with unsaved changes asks first.
 
 - **Faster pages.** Pages are kept while the app runs instead of being rebuilt
-  on every visit, so the Projects list and the Host project folders load once;
-  **Refresh**, or a finished operation, loads them again. The DNN versions are
-  asked of GitHub once, in the background when the app starts.
+  on every visit, so the Host project folders load once; **Refresh**, or a
+  finished operation, loads them again. The DNN versions are asked of GitHub
+  once, in the background when the app starts.
 - **DNN versions sorted by version number,** highest first - GitHub lists them
   by date, which put e.g. 9.13.10 between 10.2.0 and 10.1.2. The "latest"
   release is now the highest version, too.

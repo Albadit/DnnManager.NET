@@ -37,19 +37,61 @@ public sealed class RemoveProjectUseCase
         _log = log;
     }
 
-    public async Task<Result> ExecuteAsync(string projectName, IProgressReporter reporter, CancellationToken ct)
+    /// <summary>
+    /// Removes the projects after asking once for all of them - whether to drop their databases too, then for the
+    /// final confirmation. Goes on past a project that fails; fails when any did.
+    /// </summary>
+    public async Task<Result> ExecuteAsync(IReadOnlyList<string> projectNames, IProgressReporter reporter, CancellationToken ct)
     {
+        if (projectNames.Count == 0) return Result.Ok();
+        var nl = Environment.NewLine;
+        var single = projectNames.Count == 1;
+        var projects = projectNames.Select(_projects.Build).ToList();
+
+        var dropDb = await _prompt.ConfirmAsync(single
+            ? "Also drop the project's database?"
+            : $"Also drop the databases of these {projects.Count} projects?", false, ct);
+
+        // Backups live outside the project folder, so removing the project keeps them.
+        string question;
+        if (single)
+        {
+            var keeps = Directory.Exists(projects[0].BackupDirectory)
+                ? $"{nl}{nl}Its backups in {projects[0].BackupDirectory} are kept."
+                : "";
+            question = $"Remove project '{projects[0].Name}' permanently?{keeps}";
+        }
+        else
+        {
+            var list = string.Join(nl, projects.Select(p => $"• {p.Name}"));
+            var keeps = projects.Any(p => Directory.Exists(p.BackupDirectory)) ? $"{nl}{nl}Their backups are kept." : "";
+            question = $"Remove these {projects.Count} projects permanently?{nl}{nl}{list}{keeps}";
+        }
+        if (!await _prompt.ConfirmAsync(question, false, ct))
+            return Result.Aborted();
+
+        var failed = new List<string>();
+        foreach (var project in projects)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (!single) reporter.Step($"Removing '{project.Name}'");
+            var result = await RemoveAsync(project, dropDb, reporter, ct);
+            if (!result.Success)
+            {
+                if (!single) reporter.Fail($"'{project.Name}': {result.Error}");
+                failed.Add(project.Name);
+                if (single) return result;
+            }
+        }
+        return failed.Count == 0 ? Result.Ok()
+            : Result.Fail($"{failed.Count} of {projects.Count} projects weren't removed completely: {string.Join(", ", failed)}.");
+    }
+
+    private async Task<Result> RemoveAsync(DnnProject project, bool dropDb, IProgressReporter reporter, CancellationToken ct)
+    {
+        var projectName = project.Name;
         try
         {
-            var project = _projects.Build(projectName);
-            var dropDb = await _prompt.ConfirmAsync("Also drop the project's database?", false, ct);
-            // Backups live outside the project folder, so removing the project keeps them.
-            var keeps = Directory.Exists(project.BackupDirectory)
-                ? $"{Environment.NewLine}{Environment.NewLine}Its backups in {project.BackupDirectory} are kept."
-                : "";
-            if (!await _prompt.ConfirmAsync($"Remove project '{projectName}' permanently?{keeps}", false, ct))
-                return Result.Fail("Aborted by user.");
-
             reporter.Step("Step 1: Remove IIS site & pool");
             var iisResult = _iis.RemoveSite(projectName);
             if (!iisResult.Success)

@@ -2,8 +2,9 @@ using System.ComponentModel;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
+using System.Windows.Media.Animation;
 using DnnManager.Application.Configuration;
-using DnnManager.Infrastructure.Settings;
 using DnnManager.Presentation.Pages;
 using DnnManager.Presentation.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,11 +17,11 @@ public partial class MainWindow : Window
     private readonly IServiceProvider _services;
     private readonly ActivityLog _log;
     private readonly OperationRunner _runner;
-    private readonly SettingsStore _settings;
 
-    // One entry per sidebar item. A page is created on its first visit and kept, so its lists (projects, folders,
-    // DNN versions…) load once instead of on every visit; its Refresh button, or a finished operation, reloads them.
-    // Settings is the exception - it is read from settings.json on every visit.
+    // One entry per sidebar item. A page is created on its first visit and kept, so its lists (folders, DNN
+    // versions…) load once instead of on every visit; its Refresh button, or a finished operation, reloads them.
+    // Projects needs neither: it shows the ServerStore, which keeps itself current. Settings is read from
+    // settings.json on every visit.
     private static readonly Dictionary<string, Type> Pages = new()
     {
         ["Projects"]      = typeof(ProjectsPage),
@@ -35,28 +36,65 @@ public partial class MainWindow : Window
     // Kept pages an operation may have changed since they were last shown - refreshed on their next visit.
     private readonly HashSet<UserControl> _stale = new();
 
-    public MainWindow(IServiceProvider services, ActivityLog log, OperationRunner runner, SettingsStore settings,
-        IOptions<AppOptions> options, DnnReleaseCatalog releases)
+    public MainWindow(IServiceProvider services, ActivityLog log, OperationRunner runner, IOptions<AppOptions> options,
+        DnnReleaseCatalog releases, ServerStore store, TerminalService terminal)
     {
-        _services = services; _log = log; _runner = runner; _settings = settings;
+        _services = services; _log = log; _runner = runner;
         InitializeComponent();
         Toast.Attach(ToastHost);
         // Ask GitHub for the DNN versions now, in the background, so New project has them when it's opened.
         releases.Preload();
 
         var version = Assembly.GetExecutingAssembly().GetName().Version;
-        VersionText.Text = version is null ? "" : $"v{version.Major}.{version.Minor}.{version.Build}";
+        // The IIS indicator and the status bar's figures show the store's state; it starts following the system when
+        // the window is up.
+        StatusBar.Attach(store, runner, version is null ? "" : $"v{version.Major}.{version.Minor}.{version.Build}");
+        IisStatus.Attach(store, runner);
+        Loaded += (_, _) => store.Start();
+        SizeChanged += (_, _) => IsCompact = ActualWidth < CompactBelow;
         BaseDirText.Text = options.Value.BaseDirectory;
         BaseDirText.ToolTip = options.Value.BaseDirectory;
+        // Settings saved: they apply at once. The kept pages were filled in with the old ones (folders, repositories,
+        // the container's name) - they are made anew on their next visit. Projects follows by itself.
+        options.Value.Changed += () =>
+        {
+            BaseDirText.Text = options.Value.BaseDirectory;
+            BaseDirText.ToolTip = options.Value.BaseDirectory;
+            foreach (var (key, kept) in _pages.Where(p => p.Value is not ProjectsPage).ToList())
+            {
+                _pages.Remove(key);
+                _stale.Remove(kept);
+            }
+            releases.Preload();
+        };
 
-        LogList.Attach(_log.Entries);
-        // Collapsed to its header bar at first - it still shows the running operation, its progress and Cancel;
-        // the chevron opens the full log.
+        // The terminal panel (activity log + shells). Closed at first - the status bar shows the running operation, its
+        // progress and Cancel; its terminal button opens the panel, and a click on the operation opens it on Activity.
+        TerminalPanel.Attach(_log, terminal);
+        TerminalPanel.CloseRequested += (_, _) => SetLogOpen(false);
+        StatusBar.ActivityToggled += (_, _) => SetLogOpen(!LogOpen);
+        StatusBar.OperationClicked += (_, _) =>
+        {
+            SetLogOpen(true);
+            TerminalPanel.ShowActivity();
+        };
+        // "Open in terminal" on a project: a new shell in its folder.
+        terminal.OpenRequested += directory =>
+        {
+            SetLogOpen(true);
+            TerminalPanel.NewTerminal(directory: directory);
+        };
+        Closed += (_, _) => TerminalPanel.CloseAll();
         SetLogOpen(false);
         ThemeManager.Track(this);
-        ThemeManager.Changed += (_, _) => UpdateThemeButton();
-        UpdateThemeButton();
+
         _runner.PropertyChanged += OnRunnerChanged;
+        // A failed operation is said where it is seen - its steps are in the activity log, which may be closed.
+        _runner.Failed += (title, error) => Toast.Show($"{title} failed: {error}", ToastKind.Error, "Show activity", () =>
+        {
+            SetLogOpen(true);
+            TerminalPanel.ShowActivity();
+        });
 
         // On short screens (e.g. 768px laptops) the default height would push the window off screen.
         Height = Math.Min(Height, SystemParameters.WorkArea.Height);
@@ -88,94 +126,176 @@ public partial class MainWindow : Window
         {
             refreshable.Refresh();
         }
+
+        // Settings has a sidebar of its own and takes the whole width; closing it goes back to the page before it.
+        if (page is SettingsPage settings) settings.CloseRequested += (_, _) => (_lastNav ?? NavProjects).IsChecked = true;
+        else _lastNav = (RadioButton)sender;
+        var full = page is SettingsPage;
+        Sidebar.Visibility = full ? Visibility.Collapsed : Visibility.Visible;
+        Grid.SetColumn(ContentArea, full ? 0 : 1);
+        Grid.SetColumnSpan(ContentArea, full ? 2 : 1);
         PageHost.Content = page;
     }
 
+    // The sidebar entry of the page shown before Settings was opened.
+    private RadioButton? _lastNav;
+
     private void OnRunnerChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(OperationRunner.Current)) return;
-        var busy = _runner.IsBusy;
-        BusyBar.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
-        CancelButton.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
-        RunningText.Text = busy ? $"{_runner.Current}…" : "";
-
         // Let the page refresh whatever the operation changed (new folder, removed site…); the other kept pages
-        // catch up when they're next shown.
-        if (busy) return;
+        // catch up when they're next shown. The status bar shows the running operation itself.
+        if (e.PropertyName != nameof(OperationRunner.Current)) return;
+        if (_runner.IsBusy)
+        {
+            // Something is happening: with the panel open, show it - the Activity tab.
+            if (LogOpen) TerminalPanel.ShowActivity();
+            return;
+        }
         foreach (var kept in _pages.Values.Where(p => p != PageHost.Content)) _stale.Add(kept);
         if (PageHost.Content is IRefreshable page) page.Refresh();
     }
 
-    private void Cancel_Click(object sender, RoutedEventArgs e) => _runner.Cancel();
+    // ─── Sidebar ────────────────────────────────────────────────────────────
 
-    private void Theme_Click(object sender, RoutedEventArgs e)
+    // Narrower than this, the sidebar shows only its icons, to leave the room to the page.
+    private const double CompactBelow = 1100;
+    private const double ExpandedSidebarWidth = 230, CompactSidebarWidth = 56;
+
+    public static readonly DependencyProperty IsCompactProperty = DependencyProperty.Register(nameof(IsCompact), typeof(bool),
+        typeof(MainWindow), new PropertyMetadata(false, (d, e) => ((MainWindow)d).SlideSidebar((bool)e.NewValue)));
+
+    // The sidebar's width - a number, so it can be animated (a grid column's width can't); the column follows it.
+    private static readonly DependencyProperty SidebarWidthProperty = DependencyProperty.Register("SidebarWidth", typeof(double),
+        typeof(MainWindow), new PropertyMetadata(ExpandedSidebarWidth, (d, e) =>
+            ((MainWindow)d).SidebarColumn.Width = new GridLength((double)e.NewValue)));
+
+    /// <summary>Slides the sidebar to its narrow or wide width - at once while the window is still being set up.</summary>
+    private void SlideSidebar(bool compact)
     {
-        ThemeManager.Toggle();
-        // Remembered in settings.json; failing to save only means the next start uses the old theme.
-        var theme = ThemeManager.Current.ToString().ToLowerInvariant();
-        try { _settings.Update(s => s.Appearance.Theme = theme); }
-        catch (Exception ex) when (ex is SettingsException or IOException or UnauthorizedAccessException)
+        var width = compact ? CompactSidebarWidth : ExpandedSidebarWidth;
+        var slide = new DoubleAnimation(width, TimeSpan.FromMilliseconds(IsLoaded ? 180 : 0))
         {
-            _log.Fail($"Could not save the theme to {_settings.FilePath}: {ex.Message}");
-        }
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        BeginAnimation(SidebarWidthProperty, slide);
     }
-
-    // The button shows what a click switches to: a moon in light mode, a sun in dark mode.
-    private void UpdateThemeButton()
-    {
-        var dark = ThemeManager.Current == AppTheme.Dark;
-        ThemeGlyph.Text = dark ? "\uE706" : "\uE708";
-        ThemeButton.ToolTip = dark ? "Switch to light theme" : "Switch to dark theme";
-    }
-
-    // Height the log had when it was hidden (it may have been resized with the splitter), restored on show.
-    private GridLength _logHeight = new(230);
-
-    private bool LogOpen => LogList.Visibility == Visibility.Visible;
-
-    private void ToggleLog_Click(object sender, RoutedEventArgs e) => SetLogOpen(!LogOpen);
 
     /// <summary>
-    /// Hides or shows the activity log. Hidden, only its header bar stays - with the running
-    /// operation, its progress and Cancel - so nothing that's going on gets lost.
+    /// The window is narrow: the sidebar shows only the page icons (names as tooltips) and the IIS dot with its
+    /// buttons - no title, IIS text or projects folder. Its parts follow this with triggers (ExpandedOnly, SidebarNav).
+    /// </summary>
+    public bool IsCompact
+    {
+        get => (bool)GetValue(IsCompactProperty);
+        private set => SetValue(IsCompactProperty, value);
+    }
+
+    // ─── Title bar ──────────────────────────────────────────────────────────
+
+    private void Minimize_Click(object sender, RoutedEventArgs e) => SystemCommands.MinimizeWindow(this);
+
+    private void Maximize_Click(object sender, RoutedEventArgs e) => ToggleMaximize();
+
+    private void Close_Click(object sender, RoutedEventArgs e) => SystemCommands.CloseWindow(this);
+
+    private void ToggleMaximize()
+    {
+        if (WindowState == WindowState.Maximized) SystemCommands.RestoreWindow(this);
+        else SystemCommands.MaximizeWindow(this);
+    }
+
+    // Without Windows' frame, a maximized window reaches past the screen edges by its resize border - keep the content
+    // (and the window buttons) on screen.
+    private void Window_StateChanged(object? sender, EventArgs e)
+    {
+        var maximized = WindowState == WindowState.Maximized;
+        Root.Margin = maximized ? SystemParameters.WindowResizeBorderThickness : new Thickness(0);
+        MaximizeButton.Content = maximized ? "\uE923" : "\uE922";
+        MaximizeButton.ToolTip = maximized ? "Restore" : "Maximize";
+    }
+
+    private const int WmNcHitTest = 0x0084, WmNcMouseLeave = 0x02A2, WmNcLButtonDown = 0x00A1, WmNcLButtonUp = 0x00A2;
+    private const int HtMaxButton = 9;
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(WndProc);
+    }
+
+    /// <summary>
+    /// Tells Windows the maximize button is one (HTMAXBUTTON), so Windows 11 shows its Snap layouts when the pointer
+    /// rests on it. Windows then sends the clicks there as non-client messages, so the click and the hover are handled here.
+    /// </summary>
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        switch (msg)
+        {
+            case WmNcHitTest:
+                var over = IsOverMaximize(lParam);
+                MaximizeButton.Tag = over ? "Hover" : null;
+                if (over)
+                {
+                    handled = true;
+                    return HtMaxButton;
+                }
+                break;
+            case WmNcMouseLeave:
+                MaximizeButton.Tag = null;
+                break;
+            case WmNcLButtonDown when wParam == HtMaxButton:
+                handled = true;
+                break;
+            case WmNcLButtonUp when wParam == HtMaxButton:
+                handled = true;
+                ToggleMaximize();
+                break;
+        }
+        return IntPtr.Zero;
+    }
+
+    private bool IsOverMaximize(IntPtr lParam)
+    {
+        if (!MaximizeButton.IsVisible) return false;
+        // Screen coordinates in device pixels, signed (a second monitor can be left of or above the first).
+        var point = new Point((short)(lParam.ToInt64() & 0xFFFF), (short)((lParam.ToInt64() >> 16) & 0xFFFF));
+        var inside = MaximizeButton.PointFromScreen(point);
+        return inside.X >= 0 && inside.Y >= 0 && inside.X < MaximizeButton.ActualWidth && inside.Y < MaximizeButton.ActualHeight;
+    }
+
+    // Height the panel had when it was hidden (it may have been resized with the splitter), restored on show.
+    private GridLength _logHeight = new(260);
+
+    private bool LogOpen => TerminalPanel.Visibility == Visibility.Visible;
+
+    /// <summary>
+    /// Hides or shows the terminal panel (the activity log and the shells). Hidden, it takes no room at all - the
+    /// shells keep running, and the status bar still shows the running operation, its progress and Cancel.
     /// </summary>
     private void SetLogOpen(bool open)
     {
+        StatusBar.IsActivityOpen = open;
         if (open == LogOpen) return;
         if (open)
         {
-            LogList.Visibility = Visibility.Visible;
+            TerminalPanel.Visibility = Visibility.Visible;
             LogSplitter.Visibility = Visibility.Visible;
             SplitterRow.Height = new GridLength(5);
             LogRow.MinHeight = 90;
             LogRow.Height = _logHeight;
-            LogList.ScrollToEnd();
+            TerminalPanel.Opened();
         }
         else
         {
             _logHeight = LogRow.Height;
-            LogList.Visibility = Visibility.Collapsed;
+            TerminalPanel.Visibility = Visibility.Collapsed;
             LogSplitter.Visibility = Visibility.Collapsed;
             SplitterRow.Height = new GridLength(0);
             LogRow.MinHeight = 0;
-            LogRow.Height = GridLength.Auto;
+            LogRow.Height = new GridLength(0);
         }
-        // Closed, the splitter is gone - a line on top separates the bar from the page instead. Copy / Clear
-        // act on a log you can't see then, so they hide with it.
-        LogHeader.BorderThickness = open ? new Thickness(0, 0, 0, 1) : new Thickness(0, 1, 0, 0);
-        CopyLogButton.Visibility = ClearLogButton.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
-        ToggleLogGlyph.Text = open ? "\uE70D" : "\uE70E"; // chevron down = hide, up = show
-        ToggleLogButton.ToolTip = open ? "Hide activity" : "Show activity";
     }
 
-    // Copies the selected part of the log, or - with nothing selected - the whole log with timestamps.
-    private void CopyLog_Click(object sender, RoutedEventArgs e)
-    {
-        var text = LogList.Selection.IsEmpty ? _log.ToText() : LogList.Selection.Text.TrimEnd();
-        if (text.Length > 0) Clipboard.SetText(text);
-    }
-
-    private void ClearLog_Click(object sender, RoutedEventArgs e) => _log.Clear();
 
     private void OnClosing(object? sender, CancelEventArgs e)
     {

@@ -31,13 +31,14 @@
 
     <SolidColorBrush x:Key="SidebarBg"        Color="#13151A" />
     <SolidColorBrush x:Key="SidebarBorder"    Color="#1F222A" />
-    <SolidColorBrush x:Key="SidebarTitle"     Color="#FFFFFF" />
     <SolidColorBrush x:Key="SidebarFg"        Color="#C9CEDB" />
     <SolidColorBrush x:Key="SidebarActiveFg"  Color="#FFFFFF" />
     <SolidColorBrush x:Key="SidebarHover"     Color="#1E2129" />
     <SolidColorBrush x:Key="SidebarSelected"  Color="#242833" />
     <SolidColorBrush x:Key="SidebarMuted"     Color="#7F879A" />
     <SolidColorBrush x:Key="SidebarDivider"   Color="#262A34" />
+
+    <SolidColorBrush x:Key="StatusBarBg"      Color="#13151A" />
 
     <SolidColorBrush x:Key="LogBg"            Color="#14161B" />
     <SolidColorBrush x:Key="LogHeaderBg"      Color="#1C1F26" />

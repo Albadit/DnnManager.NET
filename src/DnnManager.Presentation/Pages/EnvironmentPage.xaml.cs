@@ -263,9 +263,9 @@ public partial class EnvironmentPage : UserControl
 
     private async void ResetIis_Click(object sender, RoutedEventArgs e)
     {
-        // ResetIisUseCase asks for confirmation itself.
+        // IisServerUseCase asks for confirmation itself.
         await _runner.RunAsync("Reset IIS",
-            (sp, reporter, ct) => sp.GetRequiredService<ResetIisUseCase>().ExecuteAsync(reporter, ct));
+            (sp, reporter, ct) => sp.GetRequiredService<IisServerUseCase>().ExecuteAsync(IisServerAction.Restart, reporter, ct));
     }
 
     // ─── docker-compose.yml ───────────────────────────────────────────────

@@ -105,7 +105,11 @@ public sealed class SqlConnectionTester : ISqlConnectionTester
                 Password = server.Password,
                 Encrypt = true,
                 TrustServerCertificate = true,
-                ConnectTimeout = timeoutSeconds
+                ConnectTimeout = timeoutSeconds,
+                // Asked again every few seconds to see whether the server is there (ServerStateMonitor): each time
+                // for real, not answered from the last failure for up to a minute - so a server that comes back is
+                // seen at the next look.
+                PoolBlockingPeriod = PoolBlockingPeriod.NeverBlock
             }.ConnectionString);
             await conn.OpenAsync(ct);
 

@@ -36,6 +36,12 @@ public sealed class OperationRunner : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// An operation failed - its title and what went wrong. Not raised when it was cancelled, or when the user said
+    /// no to a question it asked. Raised on the thread <see cref="RunAsync"/> was called on (the UI thread).
+    /// </summary>
+    public event Action<string, string>? Failed;
+
+    /// <summary>
     /// Runs <paramref name="operation"/> and reports its outcome in the log.
     /// Returns true when it succeeded; false when it failed, was cancelled or another one is running.
     /// </summary>
@@ -61,9 +67,15 @@ public sealed class OperationRunner : INotifyPropertyChanged
                 return await operation(scope.ServiceProvider, _reporter, cts.Token);
             });
 
-            if (result.Success) _log.Success($"{title} - finished.");
-            else _log.Fail(result.Error ?? $"{title} failed.");
-            return result.Success;
+            if (result.Success)
+            {
+                _log.Success($"{title} - finished.");
+                return true;
+            }
+            var error = result.Error ?? $"{title} failed.";
+            _log.Fail(error);
+            if (!result.IsAborted) Failed?.Invoke(title, error);
+            return false;
         }
         catch (OperationCanceledException)
         {
@@ -74,6 +86,7 @@ public sealed class OperationRunner : INotifyPropertyChanged
         {
             _logger.LogError(ex, "Action failed");
             _log.Fail($"Unexpected error: {ex.Message}");
+            Failed?.Invoke(title, ex.Message);
             return false;
         }
         finally

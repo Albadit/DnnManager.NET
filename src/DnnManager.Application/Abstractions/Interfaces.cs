@@ -56,14 +56,25 @@ public interface IIisManager
 {
     Result CreateSite(string siteName, string physicalPath, string hostname, int port);
     Result RemoveSite(string siteName);
+
+    /// <summary>Starts the site, and its app pool first when that is stopped.</summary>
     Result StartSite(string siteName);
+
+    /// <summary>Stops the site, and its app pool when no other site uses it.</summary>
+    Result StopSite(string siteName);
+
+    /// <summary>Recycles the site's app pool (a new worker process) and starts the site if it's stopped.</summary>
+    Result RestartSite(string siteName);
 
     /// <summary>True when IIS is installed and its configuration is reachable on this machine.
     /// Lets setup skip website creation gracefully instead of failing when IIS is absent.</summary>
     bool IsAvailable();
 
-    /// <summary>Restarts all IIS services (<c>iisreset /restart</c>).</summary>
-    Task<Result> ResetAsync(CancellationToken ct);
+    /// <summary>The state of the IIS web service (W3SVC).</summary>
+    IisServerState GetServerState();
+
+    /// <summary>Starts, stops or restarts all IIS services (<c>iisreset /start</c>, <c>/stop</c> or <c>/restart</c>).</summary>
+    Task<Result> ControlServerAsync(IisServerAction action, CancellationToken ct);
 
     /// <summary>
     /// One-shot snapshot of every IIS site: name -> state. Loading applicationHost.config is what a
@@ -71,6 +82,19 @@ public interface IIisManager
     /// snapshot rather than querying site by site. Empty when IIS is unavailable.
     /// </summary>
     IReadOnlyDictionary<string, string> GetSiteStates();
+
+    /// <summary>
+    /// Like <see cref="GetSiteStates"/>, with what the Projects table shows live: the site's ID, ports, app pool
+    /// and the pool's worker processes. Null when IIS's configuration couldn't be read - which is not the same as
+    /// "there are no sites", so a caller can keep what it knew.
+    /// </summary>
+    IReadOnlyDictionary<string, IisSiteRuntime>? GetSiteRuntimes();
+
+    /// <summary>
+    /// Every site's HTTP traffic since IIS started, from IIS's own counters - all of them in one read. Empty when
+    /// the counters aren't there or can't be read.
+    /// </summary>
+    IReadOnlyDictionary<string, SiteTraffic> GetSiteTraffic();
 
     /// <summary>A site's details for the project details view, or null when there is no such site.</summary>
     IisSiteInfo? GetSiteInfo(string siteName);
@@ -98,6 +122,31 @@ public sealed record IisSiteInfo(
     string? ClrVersion,
     string? PipelineMode,
     string? Identity);
+
+/// <param name="State">IIS's state of the site: "Started", "Starting", "Stopping", "Stopped" or "Unknown" (e.g. IIS is stopped).</param>
+/// <param name="Ports">The ports of its bindings, lowest first.</param>
+/// <param name="WorkerProcessIds">The app pool's w3wp.exe processes - none until the site gets its first request.</param>
+public sealed record IisSiteRuntime(
+    long Id,
+    string State,
+    IReadOnlyList<int> Ports,
+    string AppPool,
+    string? AppPoolState,
+    IReadOnlyList<int> WorkerProcessIds)
+{
+    /// <summary>The same site in the same state - the lists compared by what is in them.</summary>
+    public bool SameAs(IisSiteRuntime? other) =>
+        other is not null && Id == other.Id && State == other.State && AppPool == other.AppPool &&
+        AppPoolState == other.AppPoolState && Ports.SequenceEqual(other.Ports) &&
+        WorkerProcessIds.SequenceEqual(other.WorkerProcessIds);
+}
+
+/// <summary>Bytes a site received and sent over HTTP since IIS started.</summary>
+public sealed record SiteTraffic(long BytesReceived, long BytesSent);
+
+public enum IisServerState { Running, Stopped, Starting, Stopping, NotInstalled, Unknown }
+
+public enum IisServerAction { Start, Stop, Restart }
 
 /// <param name="DesktopInstalled">Docker Desktop (or at least the docker CLI) is on this PC.</param>
 /// <param name="ContainerState">Docker's state of the container ("running", "exited"…); null when it doesn't exist or the engine is down.</param>

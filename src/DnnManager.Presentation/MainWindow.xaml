@@ -3,61 +3,185 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="clr-namespace:DnnManager.Presentation.Controls"
         Title="DNN Manager" Icon="pack://application:,,,/dnnmanager;component/src/DnnManager.Presentation/Assets/dnn.ico" Width="1180" Height="800" MinWidth="900" MinHeight="600"
-        WindowStartupLocation="CenterScreen" Background="{DynamicResource WindowBg}" Foreground="{DynamicResource TextPrimary}">
-    <Grid>
+        WindowStartupLocation="CenterScreen" Background="{DynamicResource WindowBg}" Foreground="{DynamicResource TextPrimary}"
+        StateChanged="Window_StateChanged">
+    <!-- The app draws its own title bar (with Settings next to the window buttons). The 1px glass
+         edge keeps Windows' shadow and rounded corners. -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="36" ResizeBorderThickness="6" GlassFrameThickness="0,0,0,1" CornerRadius="0"
+                      UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+    <Window.Resources>
+        <!-- Minimize / maximize / close. -->
+        <Style x:Key="CaptionButton" TargetType="Button">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}" />
+                            </Trigger>
+                            <!-- Set from code while the pointer is over maximize (Windows 11 shows Snap layouts there). -->
+                            <Trigger Property="Tag" Value="Hover">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CloseCaptionButton" TargetType="Button" BasedOn="{StaticResource CaptionButton}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#C42B1C" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- Settings, left of the window buttons. -->
+        <Style x:Key="TitleBarButton" TargetType="ButtonBase">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ButtonBase">
+                        <Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent" BorderThickness="0,0,0,2">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}" />
+                            </Trigger>
+                            <!-- Settings is a page: underlined while it's the one shown. -->
+                            <Trigger Property="ToggleButton.IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Sidebar parts only shown while it's wide (see MainWindow.IsCompact). -->
+        <Style x:Key="ExpandedOnly" TargetType="FrameworkElement">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <!-- A page entry; its name shows as a tooltip only while the sidebar is icons only. -->
+        <Style x:Key="SidebarNav" TargetType="RadioButton" BasedOn="{StaticResource NavItem}">
+            <Setter Property="ToolTipService.IsEnabled" Value="False" />
+            <Setter Property="ToolTipService.Placement" Value="Right" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                    <Setter Property="ToolTipService.IsEnabled" Value="True" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid x:Name="Root">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="230" />
+            <!-- 230 wide, or 56 (icons only) in a narrow window - see IsCompact. -->
+            <ColumnDefinition x:Name="SidebarColumn" Width="230" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- Sidebar -->
-        <Border Background="{DynamicResource SidebarBg}" BorderBrush="{DynamicResource SidebarBorder}" BorderThickness="0,0,1,0">
+        <!-- Title bar: drag it to move the window, double-click to maximize. -->
+        <Border Grid.ColumnSpan="2" Height="36" Background="{DynamicResource SidebarBg}"
+                BorderBrush="{DynamicResource SidebarBorder}" BorderThickness="0,0,0,1">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <RadioButton x:Name="NavSettings" Style="{StaticResource TitleBarButton}" GroupName="Nav" Tag="Settings"
+                                 Checked="Nav_Checked" Content="&#xE713;" ToolTip="Settings" />
+                    <Border Width="1" Height="16" Margin="6,0" Background="{DynamicResource SidebarDivider}" />
+                    <Button Style="{StaticResource CaptionButton}" Content="&#xE921;" ToolTip="Minimize" Click="Minimize_Click" />
+                    <Button x:Name="MaximizeButton" Style="{StaticResource CaptionButton}" Content="&#xE922;" ToolTip="Maximize"
+                            Click="Maximize_Click" />
+                    <Button Style="{StaticResource CloseCaptionButton}" Content="&#xE8BB;" ToolTip="Close" Click="Close_Click" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
+                    <Image Source="pack://application:,,,/dnnmanager;component/src/DnnManager.Presentation/Assets/dnn.ico"
+                           Width="16" Height="16" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="DNN Manager" Foreground="{DynamicResource TextPrimary}" FontSize="12" Margin="10,0,0,0"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Along the bottom, like Docker Desktop: IIS under the sidebar (as wide as it), then this PC's resources, the
+             running operation, the activity switch and the version. -->
+        <c:IisStatus x:Name="IisStatus" Grid.Row="2" IsCompact="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=Window}}" />
+        <c:StatusBar x:Name="StatusBar" Grid.Row="2" Grid.Column="1" />
+
+        <!-- Sidebar: pages, and the projects folder at the bottom. In a narrow window only the icons (with their
+             names as tooltips) are left. Hidden while Settings - a page with its own sidebar - is open. -->
+        <Border x:Name="Sidebar" Grid.Row="1" Background="{DynamicResource SidebarBg}" BorderBrush="{DynamicResource SidebarBorder}" BorderThickness="0,0,1,0">
         <DockPanel>
-            <StackPanel DockPanel.Dock="Top" Margin="20,22,20,18">
-                <TextBlock Text="DNN Manager" Foreground="{DynamicResource SidebarTitle}" FontSize="17" FontWeight="SemiBold" />
-                <TextBlock x:Name="VersionText" Foreground="{DynamicResource SidebarMuted}" FontSize="12" Margin="0,2,0,0" />
-            </StackPanel>
-            <StackPanel DockPanel.Dock="Bottom" Margin="0,0,0,14">
-                <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" Tag="Settings" Checked="Nav_Checked" x:Name="NavSettings" ToolTip="Edit settings.json">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE713;" />
-                        <TextBlock Text="Settings" />
-                    </StackPanel>
-                </RadioButton>
-                <Border Height="1" Background="{DynamicResource SidebarDivider}" Margin="18,8,18,0" />
-                <DockPanel Margin="20,10,12,0">
-                    <Button DockPanel.Dock="Right" x:Name="ThemeButton" Style="{StaticResource SidebarIconButton}"
-                            VerticalAlignment="Center" Margin="8,0,0,0" Click="Theme_Click">
-                        <TextBlock x:Name="ThemeGlyph" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="15" />
-                    </Button>
-                    <StackPanel VerticalAlignment="Center">
+            <StackPanel DockPanel.Dock="Bottom" Margin="0,0,0,12">
+                <StackPanel Style="{StaticResource ExpandedOnly}">
+                    <Border Height="1" Background="{DynamicResource SidebarDivider}" Margin="18,0,18,0" />
+                    <StackPanel Margin="20,10,12,0">
                         <TextBlock Text="Projects folder" Foreground="{DynamicResource SidebarMuted}" FontSize="11" />
                         <TextBlock x:Name="BaseDirText" Foreground="{DynamicResource SidebarFg}" FontSize="12" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
-                </DockPanel>
+                </StackPanel>
             </StackPanel>
-            <StackPanel>
-                <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" Tag="Projects" Checked="Nav_Checked" x:Name="NavProjects">
-                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE8FD;" /><TextBlock Text="Projects" /></StackPanel>
+            <StackPanel Margin="0,12,0,0">
+                <RadioButton Style="{StaticResource SidebarNav}" GroupName="Nav" Tag="Projects" Checked="Nav_Checked" x:Name="NavProjects" ToolTip="Projects">
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE8FD;" /><TextBlock Style="{StaticResource ExpandedOnly}" Text="Projects" /></StackPanel>
                 </RadioButton>
-                <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" Tag="Setup" Checked="Nav_Checked">
-                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE710;" /><TextBlock Text="New project" /></StackPanel>
+                <RadioButton Style="{StaticResource SidebarNav}" GroupName="Nav" Tag="Setup" Checked="Nav_Checked" ToolTip="New project">
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE710;" /><TextBlock Style="{StaticResource ExpandedOnly}" Text="New project" /></StackPanel>
                 </RadioButton>
-                <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" Tag="Existing" Checked="Nav_Checked">
-                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE838;" /><TextBlock Text="Host project" /></StackPanel>
+                <RadioButton Style="{StaticResource SidebarNav}" GroupName="Nav" Tag="Existing" Checked="Nav_Checked" ToolTip="Host project">
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE838;" /><TextBlock Style="{StaticResource ExpandedOnly}" Text="Host project" /></StackPanel>
                 </RadioButton>
-                <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" Tag="Clone" Checked="Nav_Checked">
-                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE8C8;" /><TextBlock Text="Clone project" /></StackPanel>
+                <RadioButton Style="{StaticResource SidebarNav}" GroupName="Nav" Tag="Clone" Checked="Nav_Checked" ToolTip="Clone project">
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE8C8;" /><TextBlock Style="{StaticResource ExpandedOnly}" Text="Clone project" /></StackPanel>
                 </RadioButton>
-                <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" Tag="Environment" Checked="Nav_Checked">
-                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE9D9;" /><TextBlock Text="Environment" /></StackPanel>
+                <RadioButton Style="{StaticResource SidebarNav}" GroupName="Nav" Tag="Environment" Checked="Nav_Checked" ToolTip="Environment">
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE9D9;" /><TextBlock Style="{StaticResource ExpandedOnly}" Text="Environment" /></StackPanel>
                 </RadioButton>
             </StackPanel>
         </DockPanel>
         </Border>
 
-        <!-- Page + activity log -->
-        <Grid Grid.Column="1">
+        <!-- Page + activity log (over the sidebar's column too while Settings is open) -->
+        <Grid x:Name="ContentArea" Grid.Row="1" Grid.Column="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" MinHeight="200" />
                 <RowDefinition x:Name="SplitterRow" Height="5" />
@@ -70,34 +194,8 @@
 
             <GridSplitter x:Name="LogSplitter" Grid.Row="1" HorizontalAlignment="Stretch" Background="{DynamicResource CardBorder}" />
 
-            <DockPanel Grid.Row="2" Background="{DynamicResource LogBg}">
-                <Border x:Name="LogHeader" DockPanel.Dock="Top" Background="{DynamicResource LogHeaderBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1" Padding="14,6">
-                    <DockPanel>
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                            <Button x:Name="CancelButton" Content="Cancel" Style="{StaticResource Danger}" MinHeight="24" Padding="10,2"
-                                    Margin="0,0,8,0" Visibility="Collapsed" Click="Cancel_Click" />
-                            <Button x:Name="CopyLogButton" Content="Copy" MinHeight="24" Padding="10,2" Margin="0,0,6,0" Click="CopyLog_Click"
-                                    ToolTip="Copy the selected text, or the whole log when nothing is selected" />
-                            <Button x:Name="ClearLogButton" Content="Clear" MinHeight="24" Padding="10,2" Click="ClearLog_Click" />
-                            <Button x:Name="ToggleLogButton" MinHeight="24" Padding="8,2" Margin="6,0,0,0" ToolTip="Hide activity"
-                                    Click="ToggleLog_Click">
-                                <TextBlock x:Name="ToggleLogGlyph" Text="&#xE70D;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" />
-                            </Button>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="Activity" Foreground="{DynamicResource LogHeaderFg}" FontWeight="SemiBold" Cursor="Hand"
-                                       MouseLeftButtonUp="ToggleLog_Click" ToolTip="Show / hide activity" />
-                            <TextBlock x:Name="RunningText" Foreground="{DynamicResource LogMuted}" Margin="12,0,10,0" />
-                            <ProgressBar x:Name="BusyBar" Width="120" Height="4" IsIndeterminate="True" Visibility="Collapsed"
-                                         Foreground="{DynamicResource Accent}" Background="{DynamicResource LogTrack}" BorderThickness="0" />
-                        </StackPanel>
-                    </DockPanel>
-                </Border>
-                <!-- Read-only rich text: lines can be selected and copied (Ctrl+A / Ctrl+C, right-click → Copy). -->
-                <c:LogView x:Name="LogList" Background="Transparent" BorderThickness="0"
-                           FontFamily="Cascadia Mono, Consolas" FontSize="12.5"
-                           Foreground="{DynamicResource LogFg}" SelectionBrush="{DynamicResource Accent}" />
-            </DockPanel>
+            <!-- The activity log and the terminals; opened and closed with the status bar's terminal button (or its own ✕). -->
+            <c:TerminalPanel x:Name="TerminalPanel" Grid.Row="2" />
         </Grid>
     </Grid>
 </Window>

@@ -67,7 +67,10 @@ internal static class Program
         builder.Services.AddSingleton<GuiUserPrompt>();
         builder.Services.AddSingleton<IUserPrompt>(sp => sp.GetRequiredService<GuiUserPrompt>());
         builder.Services.AddSingleton<OperationRunner>();
+        builder.Services.AddSingleton<LiveSettings>();
         builder.Services.AddSingleton<DnnReleaseCatalog>();
+        builder.Services.AddSingleton<ServerStore>();
+        builder.Services.AddSingleton<TerminalService>();
         builder.Services.AddSingleton<MainWindow>();
 
         using var host = builder.Build();

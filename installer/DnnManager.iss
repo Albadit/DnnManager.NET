@@ -96,6 +96,11 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app
 ; The app asks for administrator rights itself (UAC) when it starts, as it does from the shortcuts.
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
 
+[UninstallRun]
+; "Start DNN Manager when you sign in" (Settings - General) is a scheduled task - it goes with the app. Best effort:
+; nothing happens when there is no task, or when this uninstaller may not delete it.
+Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""DNN Manager"" /F"; Flags: runhidden; RunOnceId: "RemoveStartupTask"
+
 [Code]
 // When DNN Manager is already installed, the first page asks what to do: repair (or update / install this
 // version over it) or uninstall. Uninstall runs the installed uninstaller and closes Setup.

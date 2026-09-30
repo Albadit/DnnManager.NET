@@ -1,105 +1,184 @@
-using System.Diagnostics;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
-using DnnManager.Application.Abstractions;
+using System.Windows.Shapes;
+using System.Windows.Threading;
 using DnnManager.Application.Configuration;
 using DnnManager.Application.UseCases;
-using DnnManager.Domain;
-using DnnManager.Presentation.Controls;
+using DnnManager.Infrastructure.Monitoring;
+using DnnManager.Infrastructure.Settings;
+using DnnManager.Presentation.Pages.Projects;
 using DnnManager.Presentation.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace DnnManager.Presentation.Pages;
 
-/// <summary>"Show all projects info", plus quick actions on the selected project.</summary>
-public partial class ProjectsPage : UserControl, IRefreshable
+/// <summary>
+/// Every project as a table of servers: its IIS site's state, ports and worker process (CPU, memory), with
+/// start / stop / restart / remove per row or for the checked rows, a search box and a choice of columns.
+/// <para>
+/// The table is a view of the <see cref="ServerStore"/>'s rows and has no Refresh: the store changes the rows in
+/// place as things happen - here or outside the app - so the check boxes, the search, the sorting, the scroll position
+/// and the expanded rows stay as they are. The only "loading" is the first snapshot.
+/// </para>
+/// </summary>
+public partial class ProjectsPage : UserControl
 {
-    private readonly IServiceProvider _services;
-    private readonly OperationRunner _runner;
-    private int _loadVersion;
+    private readonly ServerStore _store;
+    private readonly SettingsStore _settings;
+    private readonly ActivityLog _log;
+    private readonly ProjectMenu _menu;
+    private readonly ICollectionView _view;
+    private readonly CheckBox _selectAll;
+    private readonly Dictionary<string, DataGridColumn> _optionalColumns;
+    private readonly List<ProjectColumnOption> _columnOptions;
+    // The window the page is in, once it is - the live figures pause while it is minimized.
+    private Window? _window;
     // The row under the mouse at the last right-click (null: empty space) - what the context menu is for.
-    private Row? _menuRow;
+    private ProjectRow? _menuRow;
+    // The grid's own scroll viewer, found on first use (LayoutUpdated runs often).
+    private ScrollViewer? _gridViewer;
+    private bool _selectionQueued;
 
-    public sealed record Row(ProjectStatus Status)
+    public ProjectsPage(IServiceProvider services, OperationRunner runner, ServerStore store, SettingsStore settings,
+        ActivityLog log, IOptions<AppOptions> options)
     {
-        public string Name => Status.Name;
-        public string Url => Status.SiteUrl;
-        // "Live" when the site is started, "Offline" when it's stopped (or starting / stopping), "(none)" without one.
-        public string Iis => !Status.IisSiteExists ? "(none)"
-            : string.Equals(Status.IisSiteState, "Started", StringComparison.OrdinalIgnoreCase) ? "Live" : "Offline";
-        // "Live" when the database is on the SQL Server, "Offline" when the server doesn't answer, "(none)" when the
-        // server is up but the database doesn't exist.
-        public string Sql => !Status.SqlReachable ? "Offline" : Status.DatabaseExists ? "Live" : "(none)";
-        public string Dnn => Status.DnnVersion ?? "(none)";
-        public string Database => Status.DatabaseName ?? "(unknown)";
-        public string Size => $"{Status.DirectorySizeBytes / 1024d / 1024d:N1} MB";
-        public string Path => Status.ProjectDirectory;
-    }
-
-    public ProjectsPage(IServiceProvider services, OperationRunner runner)
-    {
-        _services = services; _runner = runner;
+        _store = store; _settings = settings; _log = log;
         InitializeComponent();
-        // Loaded once - the page is kept while the app runs. Refresh (and every finished operation) loads it again.
-        Refresh();
+        _menu = new ProjectMenu(services, runner, (action, row) => ControlSites(action, [row]), row => Remove([row]));
+
+        // The store's rows, filtered by the search box and sorted by the column the user clicked. A row whose
+        // searchable text or sorted-by value changes is looked at again by itself (live shaping): it leaves, comes
+        // back or moves to its place - the rest of the table isn't touched.
+        _view = CollectionViewSource.GetDefaultView(_store.Projects);
+        _view.Filter = item => item is ProjectRow row && Passes(row);
+        if (_view is ICollectionViewLiveShaping live)
+        {
+            if (live.CanChangeLiveFiltering)
+            {
+                live.LiveFilteringProperties.Add(nameof(ProjectRow.SearchKey));
+                // For "Only show running".
+                live.LiveFilteringProperties.Add(nameof(ProjectRow.State));
+                live.IsLiveFiltering = true;
+            }
+            // No properties named: the ones the table is sorted by at the time.
+            if (live.CanChangeLiveSorting) live.IsLiveSorting = true;
+        }
+        ProjectsGrid.ItemsSource = _view;
+
+        _selectAll = new CheckBox { Style = (Style)FindResource("TableCheckBox"), ToolTip = "Select all shown / none" };
+        _selectAll.Click += SelectAll_Click;
+        SelectColumn.Header = _selectAll;
+
+        _optionalColumns = new Dictionary<string, DataGridColumn>
+        {
+            ["id"] = IdColumn, ["url"] = UrlColumn, ["ports"] = PortsColumn, ["dnn"] = DnnColumn,
+            ["database"] = DatabaseColumn, ["sql"] = SqlColumn, ["status"] = StatusColumn, ["cpu"] = CpuColumn,
+            ["memory"] = MemoryColumn, ["memoryPercent"] = MemoryPercentColumn, ["disk"] = DiskColumn, ["network"] = NetworkColumn, ["pid"] = PidColumn,
+            ["lastStarted"] = LastStartedColumn, ["size"] = SizeColumn, ["path"] = PathColumn,
+        };
+        var shown = options.Value.ProjectColumns.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        _columnOptions = ProjectColumns.All.Select(c => new ProjectColumnOption(c.Key, c.Header) { IsVisible = shown.Contains(c.Key) }).ToList();
+        foreach (var option in _columnOptions)
+        {
+            _optionalColumns[option.Key].Visibility = option.IsVisible ? Visibility.Visible : Visibility.Collapsed;
+            option.PropertyChanged += (_, _) => ColumnToggled();
+        }
+        ColumnList.ItemsSource = _columnOptions;
+        _store.SetTrafficWanted(NetworkColumn.Visibility == Visibility.Visible);
+
+        // Rows come and go with their projects; each one's check box and state decide what the bulk buttons may do.
+        foreach (var row in _store.Projects) row.PropertyChanged += Row_PropertyChanged;
+        _store.Projects.CollectionChanged += Projects_CollectionChanged;
+        ((INotifyCollectionChanged)_view).CollectionChanged += (_, _) => QueueUpdateSelection();
+        _store.ConnectionChanged += (_, _) => ShowConnection();
+        ShowConnection();
+
+        // What only this page shows (worker processes, SQL, sizes…) is kept current only while it is on screen - the
+        // page is kept, hidden, while other pages are shown. Coming back reads everything once, at once.
+        IsVisibleChanged += (_, _) => UpdateWatching();
+        Loaded += (_, _) =>
+        {
+            if (_window is null && Window.GetWindow(this) is { } window)
+            {
+                _window = window;
+                window.StateChanged += (_, _) => UpdateWatching();
+            }
+            UpdateWatching();
+        };
+
         // Look for installed IDEs now (vswhere takes a moment) so the first right-click opens at once.
         _ = Task.Run(() => (IdeLocator.Installed, IdeLocator.ManagementStudios));
     }
 
-    private Row? Selected => ProjectsGrid.SelectedItem as Row;
+    // ─── Following the store ──────────────────────────────────────────────
 
-    public async void Refresh()
+    private void UpdateWatching() => _store.SetWatching(IsVisible && _window?.WindowState != WindowState.Minimized);
+
+    private void Projects_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        // Sizing every site walks a lot of files; ignore a slower, older load that finishes late.
-        var version = ++_loadVersion;
-        SetLoading(true);
-        try
-        {
-            var list = await Task.Run(async () =>
-            {
-                using var scope = _services.CreateScope();
-                return await scope.ServiceProvider.GetRequiredService<ListProjectsUseCase>().ExecuteAsync(CancellationToken.None);
-            });
-            if (version != _loadVersion) return;
-
-            Show(list, DateTime.Now);
-        }
-        catch (Exception ex)
-        {
-            if (version != _loadVersion) return;
-            ShowOverlay($"Could not load projects: {ex.Message}");
-        }
-        finally
-        {
-            if (version == _loadVersion) SetLoading(false);
-        }
+        if (e.OldItems is not null) foreach (ProjectRow row in e.OldItems) row.PropertyChanged -= Row_PropertyChanged;
+        if (e.NewItems is not null) foreach (ProjectRow row in e.NewItems) row.PropertyChanged += Row_PropertyChanged;
+        // Also for a row the search hides (the view says nothing about those): "4 of 12 projects" counts them.
+        QueueUpdateSelection();
     }
 
-    private void Show(IReadOnlyList<ProjectStatus> list, DateTime loaded)
+    private void Row_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        var selected = Selected?.Name;
-        ProjectsGrid.ItemsSource = list.Select(p => new Row(p)).ToList();
-        ProjectsGrid.SelectedItem = ProjectsGrid.Items.OfType<Row>().FirstOrDefault(r => r.Name == selected);
-        Subtitle.Text = $"{list.Count} project folder{(list.Count == 1 ? "" : "s")} - their IIS site and database. " +
-                        $"Updated {loaded:HH:mm:ss}.";
-        ShowOverlay(list.Count == 0 ? "No projects found." : null);
+        switch (e.PropertyName)
+        {
+            case nameof(ProjectRow.IsExpanded):
+                if (sender is ProjectRow row && ProjectsGrid.ItemContainerGenerator.ContainerFromItem(row) is DataGridRow container)
+                    ShowDetails(container);
+                break;
+            // Checked or not, and what the row may do now (it comes with every change of state): the bulk buttons.
+            case nameof(ProjectRow.IsChecked) or nameof(ProjectRow.CanStart):
+                QueueUpdateSelection();
+                break;
+        }
     }
 
     /// <summary>
-    /// Makes a (re)load visible: the button reads "Refreshing…", a bar runs along the table and the current
-    /// rows fade until the new list arrives. The centred message is only for an empty table.
+    /// <see cref="UpdateSelection"/>, once for everything that changes together - an operation starting or ending
+    /// changes what every row may do - and before the window is next drawn.
     /// </summary>
-    private void SetLoading(bool loading)
+    private void QueueUpdateSelection()
     {
-        RefreshButton.IsEnabled = !loading;
-        RefreshButton.Content = loading ? "Refreshing…" : "Refresh";
-        LoadingBar.Visibility = loading ? Visibility.Visible : Visibility.Collapsed;
-        ProjectsGrid.Opacity = loading ? 0.5 : 1;
-        if (loading && ProjectsGrid.Items.Count == 0) ShowOverlay("Loading projects…");
+        if (_selectionQueued) return;
+        _selectionQueued = true;
+        Dispatcher.BeginInvoke(() =>
+        {
+            _selectionQueued = false;
+            UpdateSelection();
+        }, DispatcherPriority.Normal);
+    }
+
+    /// <summary>
+    /// The small indicator where Refresh used to be. While what is shown is current there is nothing to say and it
+    /// isn't there; reconnecting leaves everything on screen - only this says so.
+    /// </summary>
+    private void ShowConnection()
+    {
+        var reconnecting = _store.Connection == MonitorConnection.Reconnecting;
+        LiveIndicator.Visibility = reconnecting ? Visibility.Visible : Visibility.Collapsed;
+        LiveText.Text = "Reconnecting…";
+        LiveDot.SetResourceReference(Shape.StrokeProperty, "LogWarn");
+        LiveDot.Fill = Brushes.Transparent;
+        UpdateSelection();
+    }
+
+    // Made when it is about to show, so "last synchronised" is the time of the last read, not of the last change.
+    private void LiveIndicator_ToolTipOpening(object sender, ToolTipEventArgs e)
+    {
+        var last = _store.LastSync is { } at ? $"{Environment.NewLine}Last synchronised {at:HH:mm:ss}." : "";
+        LiveIndicator.ToolTip = (_store.ConnectionDetail ?? "Synchronising again.") + Environment.NewLine +
+                                "What is shown stays as it was until that works again." + last;
     }
 
     private void ShowOverlay(string? text)
@@ -108,19 +187,238 @@ public partial class ProjectsPage : UserControl, IRefreshable
         Overlay.Visibility = text is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    private void Refresh_Click(object sender, RoutedEventArgs e) => Refresh();
+    // ─── Search, counts and check boxes ───────────────────────────────────
 
-    private void Grid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private string SearchText => SearchBox.Text.Trim();
+
+    private bool Passes(ProjectRow row) =>
+        (OnlyRunning.IsChecked != true || row.State == SiteRunState.Running) && (SearchText.Length == 0 || row.Matches(SearchText));
+
+    private IEnumerable<ProjectRow> Shown => _store.Projects.Where(Passes);
+
+    /// <summary>The checked rows the search shows - what the bulk actions act on.</summary>
+    private List<ProjectRow> Checked => Shown.Where(r => r.IsChecked).ToList();
+
+    private void Search_TextChanged(object sender, TextChangedEventArgs e)
     {
-        var any = Selected is not null;
-        OpenSiteButton.IsEnabled = any;
-        RemoveButton.IsEnabled = any;
+        _view.Refresh();
+        UpdateSelection();
     }
+
+    // A switch slides for a moment. What it switches - the table filtered anew, other columns - keeps the UI thread
+    // busy for long enough to turn that slide into a jump, so it follows once the switch has arrived.
+    private static readonly TimeSpan SwitchSlide = TimeSpan.FromMilliseconds(180);
+
+    private async void OnlyRunning_Click(object sender, RoutedEventArgs e)
+    {
+        await Task.Delay(SwitchSlide);
+        _view.Refresh();
+        UpdateSelection();
+    }
+
+    private void Search_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape || SearchBox.Text.Length == 0) return;
+        SearchBox.Clear();
+        e.Handled = true;
+    }
+
+    // Set as a local value: the grid overrides one from a style or binding with its RowDetailsVisibilityMode.
+    private static void ShowDetails(DataGridRow container) =>
+        container.DetailsVisibility = container.Item is ProjectRow { IsExpanded: true } ? Visibility.Visible : Visibility.Collapsed;
+
+    // A row container is made (or reused for another row) - give it that row's details state.
+    private void Grid_LoadingRow(object? sender, DataGridRowEventArgs e) => ShowDetails(e.Row);
+
+    // Select all when not every shown row is checked, else none.
+    private void SelectAll_Click(object sender, RoutedEventArgs e)
+    {
+        var shown = Shown.ToList();
+        var check = !shown.All(r => r.IsChecked);
+        foreach (var row in shown) row.IsChecked = check;
+        UpdateSelection();
+    }
+
+    /// <summary>The counts under the table, the header check box and the bulk buttons, after any change.</summary>
+    private void UpdateSelection()
+    {
+        var total = _store.Projects.Count;
+        var shown = Shown.ToList();
+        var chosen = shown.Where(r => r.IsChecked).ToList();
+        var noun = total == 1 ? "project" : "projects";
+        var loaded = _store.IsLoaded;
+
+        CountText.Text = !loaded ? "" : shown.Count == total ? $"{total} {noun}" : $"{shown.Count} of {total} {noun}";
+        SelectedText.Text = chosen.Count > 0 ? $"Selected {chosen.Count} of {total}" : "";
+        _selectAll.IsChecked = chosen.Count == 0 ? false : chosen.Count == shown.Count ? true : null;
+        _selectAll.IsEnabled = shown.Count > 0;
+
+        // Only what makes sense for some of the checked rows: Start for a stopped one, Stop / Restart for a running one.
+        BulkActions.Visibility = chosen.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        BulkStartButton.IsEnabled = chosen.Any(r => r.CanStart);
+        BulkStopButton.IsEnabled = chosen.Any(r => r.CanStop);
+        BulkRestartButton.IsEnabled = chosen.Any(r => r.CanRestart);
+        BulkRemoveButton.IsEnabled = chosen.Count > 0 && chosen.All(r => r.CanRemove);
+        BulkStartButton.ToolTip = BulkTip("Start", chosen.Count(r => r.CanStart), "stopped");
+        BulkStopButton.ToolTip = BulkTip("Stop", chosen.Count(r => r.CanStop), "running");
+        BulkRestartButton.ToolTip = BulkTip("Restart", chosen.Count(r => r.CanRestart), "running");
+        BulkRemoveButton.ToolTip = $"Remove the {Plural(chosen.Count, "selected project")} - asks first";
+
+        // A message in the middle only while there are no rows to show: before the first snapshot, without projects,
+        // or when the search matches none. Never over rows that are there.
+        ShowOverlay(!loaded ? "Loading projects…"
+            : total == 0 ? _store.Connection == MonitorConnection.Reconnecting && _store.ConnectionDetail is { } problem
+                ? problem : "No projects found."
+            : shown.Count > 0 ? null
+            : OnlyRunning.IsChecked != true ? $"No project matches “{SearchText}”."
+            : SearchText.Length == 0 ? "No project is running."
+            : $"No running project matches “{SearchText}”.");
+    }
+
+    private static string BulkTip(string verb, int count, string state) =>
+        count == 0 ? $"None of the selected sites is {state}." : $"{verb} {Plural(count, $"{state} site")}";
+
+    private static string Plural(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
+
+    // ─── Actions ──────────────────────────────────────────────────────────
+
+    private void BulkStart_Click(object sender, RoutedEventArgs e) => ControlSites(SiteAction.Start, Checked.Where(r => r.CanStart).ToList());
+    private void BulkStop_Click(object sender, RoutedEventArgs e) => ControlSites(SiteAction.Stop, Checked.Where(r => r.CanStop).ToList());
+    private void BulkRestart_Click(object sender, RoutedEventArgs e) => ControlSites(SiteAction.Restart, Checked.Where(r => r.CanRestart).ToList());
+    private void BulkRemove_Click(object sender, RoutedEventArgs e) => Remove(Checked);
+
+    private void RowStart_Click(object sender, RoutedEventArgs e) => OnRow(sender, row => ControlSites(SiteAction.Start, [row]));
+    private void RowStop_Click(object sender, RoutedEventArgs e) => OnRow(sender, row => ControlSites(SiteAction.Stop, [row]));
+    private void RowRestart_Click(object sender, RoutedEventArgs e) => OnRow(sender, row => ControlSites(SiteAction.Restart, [row]));
+    private void RowRemove_Click(object sender, RoutedEventArgs e) => OnRow(sender, row => Remove([row]));
+
+    private static void OnRow(object sender, Action<ProjectRow> action)
+    {
+        if (sender is FrameworkElement { DataContext: ProjectRow row }) action(row);
+    }
+
+    private async void ControlSites(SiteAction action, IReadOnlyList<ProjectRow> rows) => await _store.ControlSitesAsync(action, rows);
+
+    private async void Remove(IReadOnlyList<ProjectRow> rows) => await _store.RemoveAsync(rows);
+
+    // ─── Columns ──────────────────────────────────────────────────────────
+
+    private bool _columnsQueued;
+
+    /// <summary>
+    /// A column was switched in the menu: the table follows when the switch has slid over - once for all the
+    /// switches changed together (Show all, Default) - and the choice is saved.
+    /// </summary>
+    private async void ColumnToggled()
+    {
+        if (_columnsQueued) return;
+        _columnsQueued = true;
+        await Task.Delay(SwitchSlide);
+        _columnsQueued = false;
+
+        foreach (var option in _columnOptions)
+            _optionalColumns[option.Key].Visibility = option.IsVisible ? Visibility.Visible : Visibility.Collapsed;
+        // The sites' traffic is only read while its column is there to show it.
+        _store.SetTrafficWanted(NetworkColumn.Visibility == Visibility.Visible);
+        SaveColumns();
+    }
+
+    private void ShowAllColumns_Click(object sender, RoutedEventArgs e) => SetColumns(_ => true);
+
+    private void HideAllColumns_Click(object sender, RoutedEventArgs e) => SetColumns(_ => false);
+
+    private void DefaultColumns_Click(object sender, RoutedEventArgs e) =>
+        SetColumns(key => AppearanceSettings.DefaultProjectColumns.Contains(key, StringComparer.OrdinalIgnoreCase));
+
+    private void SetColumns(Func<string, bool> visible)
+    {
+        foreach (var option in _columnOptions) option.IsVisible = visible(option.Key);
+    }
+
+    /// <summary>Remembers the shown columns in settings.json; failing only means the next start shows the old ones.</summary>
+    private void SaveColumns()
+    {
+        var keys = _columnOptions.Where(o => o.IsVisible).Select(o => o.Key).ToList();
+        try { _settings.Update(s => s.Appearance.ProjectColumns = keys); }
+        catch (Exception ex) when (ex is SettingsException or IOException or UnauthorizedAccessException)
+        {
+            _log.Fail($"Could not save the columns to {_settings.FilePath}: {ex.Message}");
+        }
+    }
+
+    private void ColumnsPopup_Opened(object sender, EventArgs e) => ColumnsButton.IsHitTestVisible = false;
+
+    // After the click that closed the menu has been handled, so that click doesn't open it again.
+    private void ColumnsPopup_Closed(object sender, EventArgs e) =>
+        Dispatcher.BeginInvoke(() => ColumnsButton.IsHitTestVisible = true, DispatcherPriority.Input);
+
+    // ─── Mouse and keyboard ───────────────────────────────────────────────
+
+    /// <summary>The row <paramref name="source"/> is in, or null for the header, the empty space or a button in the row.</summary>
+    private static ProjectRow? RowAt(object source, bool ignoreButtons)
+    {
+        var node = source as DependencyObject;
+        while (node is not null and not DataGridRow)
+        {
+            if (ignoreButtons && node is ButtonBase) return null;
+            node = node is Visual or Visual3D ? VisualTreeHelper.GetParent(node) : LogicalTreeHelper.GetParent(node);
+        }
+        return (node as DataGridRow)?.Item as ProjectRow;
+    }
+
+    // A double-click on a row (not on its check box or buttons) opens the site.
+    private void Grid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (RowAt(e.OriginalSource, ignoreButtons: true) is { } row) ProjectMenu.Shell(row.Url);
+    }
+
+    // Space checks / unchecks the selected row, like the check box.
+    private void Grid_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Space || ProjectsGrid.SelectedItem is not ProjectRow row) return;
+        row.IsChecked = !row.IsChecked;
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Gives the filler column whatever width the other columns leave, so Actions sits at the right edge - none when
+    /// they don't fit and the table scrolls sideways. Runs after every layout pass (the columns size to their
+    /// content); it only changes the width when it's off, so it settles at once.
+    /// </summary>
+    private void Grid_LayoutUpdated(object? sender, EventArgs e)
+    {
+        _gridViewer ??= FindScrollViewer(ProjectsGrid);
+        if (_gridViewer is not { ViewportWidth: > 0 } viewer) return;
+        var others = ProjectsGrid.Columns.Where(c => c != FillerColumn && c.Visibility == Visibility.Visible).Sum(c => c.ActualWidth);
+        var width = Math.Max(0, Math.Floor(viewer.ViewportWidth - others));
+        if (Math.Abs(FillerColumn.Width.Value - width) >= 1) FillerColumn.Width = new DataGridLength(width);
+        UpdateActionsShift(viewer);
+    }
+
+    private void Grid_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (e.OriginalSource is ScrollViewer viewer && viewer == (_gridViewer ??= FindScrollViewer(ProjectsGrid)))
+            UpdateActionsShift(viewer);
+    }
+
+    /// <summary>
+    /// Keeps the Actions column at the right edge of the visible table: its cells and header move left by as much as
+    /// the table is scrolled short of its right end (a render transform - no new layout pass).
+    /// </summary>
+    private void UpdateActionsShift(ScrollViewer viewer)
+    {
+        var x = -Math.Max(0, Math.Floor(viewer.ExtentWidth - viewer.ViewportWidth - viewer.HorizontalOffset));
+        if (ActionsShift.X != x) ActionsShift.X = x;
+    }
+
+    /// <summary>The Actions column's cells and header are drawn moved by this - see <see cref="UpdateActionsShift"/>.</summary>
+    public TranslateTransform ActionsShift { get; } = new();
 
     // WPF has no sideways wheel scrolling: Shift + wheel scrolls the table horizontally.
     private void Grid_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        if ((Keyboard.Modifiers & ModifierKeys.Shift) == 0 || FindScrollViewer(ProjectsGrid) is not { } viewer) return;
+        _gridViewer ??= FindScrollViewer(ProjectsGrid);
+        if ((Keyboard.Modifiers & ModifierKeys.Shift) == 0 || _gridViewer is not { } viewer) return;
         viewer.ScrollToHorizontalOffset(viewer.HorizontalOffset - e.Delta);
         e.Handled = true;
     }
@@ -136,410 +434,22 @@ public partial class ProjectsPage : UserControl, IRefreshable
         return null;
     }
 
-    private void Grid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-    {
-        if (Selected is not null) OpenSite_Click(sender, e);
-    }
-
-    private void OpenSite_Click(object sender, RoutedEventArgs e)
-    {
-        if (Selected is { } row) Shell(row.Url);
-    }
-
-    // ─── Context menu ─────────────────────────────────────────────────────
-
     // A right-click selects the row under the mouse, like Explorer, so the menu acts on that project.
     private void Grid_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
-        var node = e.OriginalSource as DependencyObject;
-        while (node is not null and not DataGridRow)
-            node = node is Visual or Visual3D ? VisualTreeHelper.GetParent(node) : LogicalTreeHelper.GetParent(node);
-
-        _menuRow = (node as DataGridRow)?.Item as Row;
+        _menuRow = RowAt(e.OriginalSource, ignoreButtons: false);
         if (_menuRow is not null) ProjectsGrid.SelectedItem = _menuRow;
     }
 
     private void Grid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
         // Opened from the keyboard (Menu key / Shift+F10) the cursor position is -1: use the selection.
-        var row = e.CursorLeft < 0 ? Selected : _menuRow;
+        var row = e.CursorLeft < 0 ? ProjectsGrid.SelectedItem as ProjectRow : _menuRow;
         if (row is null || ProjectsGrid.ContextMenu is not { } menu)
         {
             e.Handled = true;
             return;
         }
-
-        menu.Items.Clear();
-        var details = NewMenuItem("Details…", (_, _) => ShowDetails(row));
-        details.FontWeight = FontWeights.SemiBold;
-        menu.Items.Add(details);
-        menu.Items.Add(NewMenuItem("Open site", (_, _) => Shell(row.Url)));
-        menu.Items.Add(NewMenuItem("Open folder", (_, _) => OpenFolder(row)));
-        menu.Items.Add(NewMenuItem("Copy path", (_, _) => CopyPath(row)));
-        menu.Items.Add(new Separator());
-
-        // One submenu with the editors found on this PC - nothing listed that isn't installed.
-        var ides = IdeLocator.Installed;
-        var openWith = new MenuItem { Header = "Open with" };
-        if (ides.Count == 0)
-        {
-            openWith.IsEnabled = false;
-            openWith.ToolTip = "No code editor or IDE found on this PC.";
-        }
-        var solution = IdeLocator.SolutionFor(row.Path);
-        foreach (var ide in ides)
-        {
-            var header = ide.Name + (ide.OpensSolution && solution is not null ? $"  ({System.IO.Path.GetFileName(solution)})" : "");
-            var item = NewMenuItem(header, (_, _) => OpenInIde(ide, row));
-            item.ToolTip = ide.ExePath;
-            openWith.Items.Add(item);
-        }
-        menu.Items.Add(openWith);
-        if (IdeLocator.ManagementStudios.Count > 0)
-        {
-            var projectDatabase = ProjectDatabaseName(row);
-            foreach (var ssms in IdeLocator.ManagementStudios)
-            {
-                // Default: the local SQL Server as sa. Project: this project's database with its own login.
-                // Whether SSMS remembers the password is the SsmsRememberPassword setting.
-                var item = new MenuItem { Header = $"Open with {ssms.Name}", ToolTip = ssms.ExePath };
-                item.Items.Add(NewMenuItem("Default  (local SQL Server, sa)", (_, _) => OpenDatabase(ssms, row, project: false)));
-                item.Items.Add(NewMenuItem(projectDatabase is null ? "Project database" : $"Project  ([{projectDatabase}])",
-                    (_, _) => OpenDatabase(ssms, row, project: true)));
-                menu.Items.Add(item);
-            }
-        }
-
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ExportMenu(row));
-        menu.Items.Add(NewMenuItem("Remove…", (_, _) => Remove(row)));
-    }
-
-    private static void CopyPath(Row row)
-    {
-        try { Clipboard.SetText(row.Path); }
-        catch (Exception ex) { Dialogs.Error($"Could not copy to the clipboard: {ex.Message}"); }
-    }
-
-    private enum ExportParts { Both, Site, Database }
-
-    /// <summary>
-    /// "Export": a backup into the project's backups folder (Documents\DnnManager\backups\&lt;project&gt;) - site and
-    /// database, or just one of them.
-    /// </summary>
-    private MenuItem ExportMenu(Row row)
-    {
-        var export = new MenuItem { Header = "Export" };
-        export.Items.Add(NewMenuItem("Site and database  (.zip + .bacpac)", (_, _) => Backup(row, ExportParts.Both)));
-        export.Items.Add(NewMenuItem("Site files  (.zip)", (_, _) => Backup(row, ExportParts.Site)));
-        export.Items.Add(NewMenuItem("Database  (.bacpac)", (_, _) => Backup(row, ExportParts.Database)));
-        export.Items.Add(new Separator());
-        var backups = _services.GetRequiredService<IProjectRepository>().Build(row.Name).BackupDirectory;
-        var open = NewMenuItem("Open backups folder", (_, _) => Shell(backups));
-        open.IsEnabled = Directory.Exists(backups);
-        export.Items.Add(open);
-        return export;
-    }
-
-    /// <summary>A dated backup: backups\&lt;project&gt;\&lt;project&gt;_&lt;yyyyMMdd_HHmmss&gt;\ with &lt;project&gt;.zip and / or &lt;project&gt;.bacpac.</summary>
-    private async void Backup(Row row, ExportParts parts)
-    {
-        var project = _services.GetRequiredService<IProjectRepository>().Build(row.Name);
-        var folder = ProjectBackups.NewFolder(project, DateTime.Now);
-        var request = new ExportProjectRequest
-        {
-            ProjectName = row.Name,
-            ZipPath = parts == ExportParts.Database ? null : System.IO.Path.Combine(folder, ProjectBackups.SiteZipName(project)),
-            BacpacPath = parts == ExportParts.Site ? null : System.IO.Path.Combine(folder, ProjectBackups.DatabaseName(project, ".bacpac"))
-        };
-        await _runner.RunAsync($"Back up '{row.Name}'",
-            (sp, reporter, ct) => sp.GetRequiredService<ExportProjectUseCase>().ExecuteAsync(request, reporter, ct));
-    }
-
-    private static MenuItem NewMenuItem(string header, RoutedEventHandler click)
-    {
-        var item = new MenuItem { Header = header };
-        item.Click += click;
-        return item;
-    }
-
-    private static void OpenFolder(Row row)
-    {
-        if (Directory.Exists(row.Path)) Shell(row.Path);
-        else Dialogs.Error($"The project folder no longer exists: {row.Path}");
-    }
-
-    private static void OpenInIde(Ide ide, Row row)
-    {
-        if (!Directory.Exists(row.Path))
-        {
-            Dialogs.Error($"The project folder no longer exists: {row.Path}");
-            return;
-        }
-        try { IdeLocator.Open(ide, row.Path); }
-        catch (Exception ex) { Dialogs.Error($"Could not start {ide.Name}: {ex.Message}"); }
-    }
-
-    /// <summary>The name of the database <paramref name="row"/>'s site uses, for the menu; null if it can't be read.</summary>
-    private string? ProjectDatabaseName(Row row)
-    {
-        try
-        {
-            using var scope = _services.CreateScope();
-            var project = scope.ServiceProvider.GetRequiredService<IProjectRepository>().Build(row.Name);
-            var database = scope.ServiceProvider.GetRequiredService<LocalSqlContainer>().ConnectionOf(project).Database;
-            return database.Length > 0 ? database : null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// Opens SSMS signed in to the local SQL Server as sa (<paramref name="project"/> false) or to the project's
-    /// database - the one its web.config uses, or its local one. SSMS remembers the password when the
-    /// SsmsRememberPassword setting is on.
-    /// </summary>
-    private async void OpenDatabase(Ide ssms, Row row, bool project)
-    {
-        try
-        {
-            SiteSqlConnection database;
-            bool onThisMachine;
-            using (var scope = _services.CreateScope())
-            {
-                var sql = scope.ServiceProvider.GetRequiredService<LocalSqlContainer>();
-                database = project
-                    ? sql.ConnectionOf(scope.ServiceProvider.GetRequiredService<IProjectRepository>().Build(row.Name))
-                    : sql.DefaultConnection;
-                onThisMachine = sql.IsOnThisMachine(database.Server);
-            }
-
-            // SQL Server reports a missing database as the same "Login failed for user" as a wrong password, so
-            // check first: open the server when only the database is missing, and say which of the two it is.
-            var log = _services.GetRequiredService<ActivityLog>();
-            var tester = _services.GetRequiredService<ISqlConnectionTester>();
-            if (database.Database.Length > 0 && !(await tester.TestAsync(database, CancellationToken.None, timeoutSeconds: 5)).Success)
-            {
-                var server = await tester.TestAsync(database with { Database = "master" }, CancellationToken.None, timeoutSeconds: 5);
-                if (server.Success)
-                {
-                    log.Warn($"Database [{database.Database}] doesn't exist on {database.Server} - {ssms.Name} opens the server instead. " +
-                             "Set it up with Host project (database) or restore a backup.");
-                    database = database with { Database = "" };
-                }
-                else
-                {
-                    log.Warn($"Can't log in to {database.Server} as '{database.User}': {server.Error} " +
-                             "Check the password in the site's web.config (or Settings → SQL Server for the local container).");
-                }
-            }
-
-            var displayName = !project ? "Local SQL Server"
-                : database.Database.Length > 0 ? $"{row.Name} - {database.Database}" : row.Name;
-            var target = database.Database.Length > 0 ? $"[{database.Database}] on {database.Server}" : database.Server;
-            log.Info($"{ssms.Name}: {target} as {(database.User.Length > 0 ? database.User : "Windows user")}.");
-
-            // SSMS has no password switch, and any connection switch makes it try to connect at once - failing
-            // with an error when a password is needed. So for a SQL login in SSMS 21+ start it bare and fill its
-            // Connect dialog in; otherwise pass what the command line takes.
-            var sqlLogin = database.User.Length > 0 && database.Password.Length > 0;
-            if (!sqlLogin || ssms.MajorVersion < 21)
-            {
-                using var _ = IdeLocator.OpenDatabase(ssms, database, onThisMachine, displayName);
-                if (sqlLogin) LeavePasswordOnClipboard(ssms, database, log);
-                return;
-            }
-
-            var remember = _services.GetRequiredService<IOptions<AppOptions>>().Value.SsmsRememberPassword;
-
-            // Add the connection to an SSMS that's already open rather than starting another one.
-            var process = IdeLocator.FindRunning(ssms);
-            if (process is not null && await SsmsConnectDialog.OpenInRunningAsync(process))
-            {
-                log.Info($"Adding the connection to the {ssms.Name} that's already open.");
-            }
-            else
-            {
-                process?.Dispose();
-                process = IdeLocator.StartManagementStudio(ssms);
-            }
-
-            using var ownedProcess = process;
-            if (process is not null &&
-                await SsmsConnectDialog.SignInAsync(process, database, onThisMachine, displayName,
-                    rememberPassword: remember, TimeSpan.FromSeconds(90)))
-            {
-                log.Success($"Signed in to {target} in {ssms.Name}" + (remember ? " (password remembered there)." : "."));
-                return;
-            }
-            LeavePasswordOnClipboard(ssms, database, log);
-        }
-        catch (Exception ex)
-        {
-            Dialogs.Error($"Could not start {ssms.Name}: {ex.Message}");
-        }
-    }
-
-    private static void LeavePasswordOnClipboard(Ide ssms, SiteSqlConnection database, ActivityLog log)
-    {
-        Clipboard.SetText(database.Password);
-        log.Info($"Connect in {ssms.Name} to {database.Server} as '{database.User}' - the password is on the clipboard " +
-                 "(tick 'Remember Password').");
-    }
-
-    /// <summary>
-    /// The project's details in sections - project, website (IIS), database, web.config. Status values use the
-    /// table's colours; things worth a look (a mismatched version or path, switched-off HTTPS rules) are amber.
-    /// </summary>
-    private async void ShowDetails(Row row)
-    {
-        var s = row.Status;
-        var dir = s.ProjectDirectory;
-        Mouse.OverrideCursor = Cursors.Wait;
-        try
-        {
-            using var scope = _services.CreateScope();
-            var sp = scope.ServiceProvider;
-            var project = sp.GetRequiredService<IProjectRepository>().Build(s.Name);
-            var sql = sp.GetRequiredService<LocalSqlContainer>();
-            var webConfigService = sp.GetRequiredService<IWebConfigService>();
-            var webConfig = System.IO.Path.Combine(dir, "web.config");
-            var hasWebConfig = File.Exists(webConfig);
-
-            // The slow parts - IIS configuration and two SQL queries - off the UI thread.
-            var database = sql.ConnectionOf(project);
-            var site = await Task.Run(() => sp.GetRequiredService<IIisManager>().GetSiteInfo(s.Name));
-            var facts = s.SqlReachable && s.DatabaseExists
-                ? await sp.GetRequiredService<ISqlConnectionTester>().DescribeDatabaseAsync(database, CancellationToken.None, timeoutSeconds: 5)
-                : null;
-
-            var details = new List<DetailsDialog.Detail>();
-
-            details.Add(DetailsDialog.Detail.Section("Project"));
-            details.Add(new("Folder", dir));
-            if (Directory.Exists(dir)) details.Add(new("Created", Directory.GetCreationTime(dir).ToString("g")));
-            details.Add(new("Size", row.Size));
-            details.Add(new("DNN version", s.DnnVersion ?? @"unknown (no bin\DotNetNuke.dll)"));
-            if (GitBranch(dir) is { } branch) details.Add(new("Git branch", branch));
-            if (Solutions(dir) is { Count: > 0 } solutions) details.Add(new("Solution", string.Join(", ", solutions)));
-            var projectBackups = ProjectBackups.List(project);
-            details.Add(new("Backups", projectBackups.Count == 0 ? $"none in {project.BackupDirectory}"
-                : $"{projectBackups.Count} in {project.BackupDirectory} - newest {projectBackups[0].Created:yyyy-MM-dd HH:mm}"));
-
-            details.Add(DetailsDialog.Detail.Section("Website (IIS)"));
-            details.Add(new("Status", row.Iis, row.Iis switch { "Live" => DetailKind.Good, "Offline" => DetailKind.Bad, _ => DetailKind.Normal }));
-            details.Add(new("URL", s.SiteUrl));
-            if (site is not null)
-            {
-                if (!string.Equals(site.State, "Started", StringComparison.OrdinalIgnoreCase))
-                    details.Add(new("IIS state", site.State, DetailKind.Warning));
-                details.Add(new("Bindings", string.Join(Environment.NewLine, site.Bindings)));
-                var samePath = string.Equals(System.IO.Path.GetFullPath(site.PhysicalPath).TrimEnd('\\'),
-                    System.IO.Path.GetFullPath(dir).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
-                details.Add(new("Physical path", samePath ? site.PhysicalPath : $"{site.PhysicalPath}  (not this project's folder)",
-                    samePath ? DetailKind.Normal : DetailKind.Warning));
-                details.Add(new("App pool", $"{site.AppPool}" + (site.AppPoolState is { } ps ? $" - {ps}" : ""),
-                    string.Equals(site.AppPoolState, "Started", StringComparison.OrdinalIgnoreCase) ? DetailKind.Normal : DetailKind.Warning));
-                details.Add(new(".NET / pipeline", $"{site.ClrVersion ?? "?"} / {site.PipelineMode ?? "?"}"));
-                if (site.Identity is { } identity) details.Add(new("Identity", identity));
-            }
-
-            details.Add(DetailsDialog.Detail.Section("Database"));
-            details.Add(new("SQL", row.Sql, row.Sql switch { "Live" => DetailKind.Good, "Offline" => DetailKind.Bad, _ => DetailKind.Warning }));
-            details.Add(new("Database", s.DatabaseExists ? row.Database : $"{row.Database}  (doesn't exist on {database.Server})",
-                s.DatabaseExists || !s.SqlReachable ? DetailKind.Normal : DetailKind.Warning));
-            details.Add(new("Server", $"{database.Server} (user: {(database.User.Length == 0 ? "Windows" : database.User)})"));
-            if (facts is { Success: true, Value: { } f })
-            {
-                details.Add(new("Size", $"{f.SizeMb:N1} MB"));
-                if (f.DnnVersion is { } dbVersion)
-                {
-                    var matches = s.DnnVersion is null || s.DnnVersion == dbVersion;
-                    details.Add(new("DNN version (database)", matches ? dbVersion : $"{dbVersion}  (the files are {s.DnnVersion})",
-                        matches ? DetailKind.Normal : DetailKind.Warning));
-                }
-                if (f.Portals is { } portals) details.Add(new("Portals", portals.ToString()));
-                if (f.PortalAliases.Count > 0) details.Add(new("Portal aliases", string.Join(Environment.NewLine, f.PortalAliases)));
-            }
-            else if (facts is { Success: false })
-            {
-                details.Add(new("Details", $"couldn't be read: {facts.Error}", DetailKind.Warning));
-            }
-
-            details.Add(DetailsDialog.Detail.Section("web.config"));
-            if (!hasWebConfig)
-            {
-                details.Add(new("web.config", "not found", DetailKind.Warning));
-            }
-            else
-            {
-                var conn = webConfigService.ReadSiteSqlServer(webConfig);
-                details.Add(new("Connection", conn is { Success: true, Value: { } c }
-                    ? $"[{c.Database}] on {c.Server} (user: {(c.User.Length == 0 ? "integrated" : c.User)})"
-                    : conn.Error ?? "no SiteSqlServer connection"));
-                if (webConfigService.ReadFacts(webConfig) is { Success: true, Value: { } w })
-                {
-                    if (w.TargetFramework is { } tf) details.Add(new("Target framework", tf));
-                    if (w.Debug is { } debug) details.Add(new("Debug", debug ? "on" : "off"));
-                    if (w.CustomErrors is { } ce) details.Add(new("Custom errors", ce));
-                    details.Add(w.DisabledHttpsRules.Count == 0
-                        ? new("HTTPS redirects", "none switched off by DNN Manager")
-                        : new("HTTPS redirects", $"switched off for local use: {string.Join(", ", w.DisabledHttpsRules)} - " +
-                                                 "switch them back on before deploying", DetailKind.Warning));
-                }
-            }
-
-            Mouse.OverrideCursor = null;
-            DetailsDialog.Show(s.Name, details);
-        }
-        catch (Exception ex)
-        {
-            Mouse.OverrideCursor = null;
-            Dialogs.Error($"Could not read the details of '{s.Name}': {ex.Message}");
-        }
-    }
-
-    private static IReadOnlyList<string> Solutions(string dir) =>
-        Directory.Exists(dir)
-            ? Directory.EnumerateFiles(dir, "*.sln").Concat(Directory.EnumerateFiles(dir, "*.slnx"))
-                .Select(f => System.IO.Path.GetFileName(f)).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList()
-            : Array.Empty<string>();
-
-    /// <summary>The checked-out branch from <c>.git\HEAD</c>; null when the folder isn't a git repository.</summary>
-    private static string? GitBranch(string dir)
-    {
-        var head = System.IO.Path.Combine(dir, ".git", "HEAD");
-        if (!File.Exists(head)) return Directory.Exists(System.IO.Path.Combine(dir, ".git")) || File.Exists(System.IO.Path.Combine(dir, ".git")) ? "(git repository)" : null;
-        try
-        {
-            var text = File.ReadAllText(head).Trim();
-            const string prefix = "ref: refs/heads/";
-            return text.StartsWith(prefix, StringComparison.Ordinal) ? text[prefix.Length..]
-                : text.Length >= 7 ? $"(detached at {text[..7]})" : "(unknown)";
-        }
-        catch
-        {
-            return "(unreadable)";
-        }
-    }
-
-    private void Remove_Click(object sender, RoutedEventArgs e)
-    {
-        if (Selected is { } row) Remove(row);
-    }
-
-    private async void Remove(Row row)
-    {
-        // RemoveProjectUseCase asks about the database and for the final confirmation itself.
-        await _runner.RunAsync($"Remove '{row.Name}'",
-            (sp, reporter, ct) => sp.GetRequiredService<RemoveProjectUseCase>().ExecuteAsync(row.Name, reporter, ct));
-    }
-
-    private static void Shell(string target)
-    {
-        try { Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); }
-        catch (Exception ex) { Dialogs.Error($"Could not open {target}: {ex.Message}"); }
+        _menu.Fill(menu, row);
     }
 }
