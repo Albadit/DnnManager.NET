@@ -22,7 +22,7 @@
 #endif
 
 #define AppName "DNN Manager"
-#define AppExe "dnnmanager.exe"
+#define AppExe "DnnManager.exe"
 #define AppPublisher "Bond for web solutions"
 #define AppUrl "https://github.com/Bond-for-web-solutions/DnnManager.NET"
 ; Identifies the installation for upgrades and uninstall - never change it.
@@ -84,8 +84,13 @@ UninstalledAll=%1 was successfully removed from your computer.%n%nYour settings 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
+[InstallDelete]
+; Up to 2.2.0 the program was dnnmanager.exe. Windows keeps a file name's old casing when it is overwritten, so
+; it is deleted first and the upgrade really installs DnnManager.exe.
+Type: files; Name: "{app}\dnnmanager.exe"
+
 [Files]
-; The app is a self-contained single-file publish (dnnmanager.exe plus a few native DLLs) - no .NET install needed.
+; The app is a self-contained single-file publish (DnnManager.exe plus a few native DLLs) - no .NET install needed.
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]

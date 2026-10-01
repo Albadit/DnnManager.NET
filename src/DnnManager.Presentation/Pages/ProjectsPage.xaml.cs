@@ -20,7 +20,8 @@ using Microsoft.Extensions.Options;
 namespace DnnManager.Presentation.Pages;
 
 /// <summary>
-/// Every project as a table of servers: its IIS site's state, ports and worker process (CPU, memory), with
+/// Every website in IIS as a table of servers - IIS is the list: its state, bindings and worker process (CPU,
+/// memory), what its folder holds (DNN, database), with
 /// start / stop / restart / remove per row or for the checked rows, a search box and a choice of columns.
 /// <para>
 /// The table is a view of the <see cref="ServerStore"/>'s rows and has no Refresh: the store changes the rows in
@@ -30,6 +31,7 @@ namespace DnnManager.Presentation.Pages;
 /// </summary>
 public partial class ProjectsPage : UserControl
 {
+    private readonly IServiceProvider _services;
     private readonly ServerStore _store;
     private readonly SettingsStore _settings;
     private readonly ActivityLog _log;
@@ -51,7 +53,8 @@ public partial class ProjectsPage : UserControl
     {
         _store = store; _settings = settings; _log = log;
         InitializeComponent();
-        _menu = new ProjectMenu(services, runner, (action, row) => ControlSites(action, [row]), row => Remove([row]));
+        _services = services;
+        _menu = new ProjectMenu(services, runner, (action, row) => ControlSites(action, [row]), row => Remove([row]), OpenProject);
 
         // The store's rows, filtered by the search box and sorted by the column the user clicked. A row whose
         // searchable text or sorted-by value changes is looked at again by itself (live shaping): it leaves, comes
@@ -63,6 +66,8 @@ public partial class ProjectsPage : UserControl
             if (live.CanChangeLiveFiltering)
             {
                 live.LiveFilteringProperties.Add(nameof(ProjectRow.SearchKey));
+                // Only DNN sites: one whose DNN install appears or goes comes or leaves.
+                live.LiveFilteringProperties.Add(nameof(ProjectRow.IsDnn));
                 // For "Only show running".
                 live.LiveFilteringProperties.Add(nameof(ProjectRow.State));
                 live.IsLiveFiltering = true;
@@ -123,6 +128,8 @@ public partial class ProjectsPage : UserControl
 
     private void Projects_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        // The open site was removed from IIS: its overview has nothing left to show.
+        if (e.OldItems is not null && ProjectHost.Content is ProjectView { Row: var open } && e.OldItems.Contains(open)) CloseProject();
         if (e.OldItems is not null) foreach (ProjectRow row in e.OldItems) row.PropertyChanged -= Row_PropertyChanged;
         if (e.NewItems is not null) foreach (ProjectRow row in e.NewItems) row.PropertyChanged += Row_PropertyChanged;
         // Also for a row the search hides (the view says nothing about those): "4 of 12 projects" counts them.
@@ -191,7 +198,10 @@ public partial class ProjectsPage : UserControl
 
     private string SearchText => SearchBox.Text.Trim();
 
-    private bool Passes(ProjectRow row) =>
+    // The table lists the DNN sites in IIS - IIS's Default Web Site and other sites without DNN aren't projects.
+    private IEnumerable<ProjectRow> DnnSites => _store.Projects.Where(r => r.IsDnn);
+
+    private bool Passes(ProjectRow row) => row.IsDnn &&
         (OnlyRunning.IsChecked != true || row.State == SiteRunState.Running) && (SearchText.Length == 0 || row.Matches(SearchText));
 
     private IEnumerable<ProjectRow> Shown => _store.Projects.Where(Passes);
@@ -242,7 +252,7 @@ public partial class ProjectsPage : UserControl
     /// <summary>The counts under the table, the header check box and the bulk buttons, after any change.</summary>
     private void UpdateSelection()
     {
-        var total = _store.Projects.Count;
+        var total = DnnSites.Count();
         var shown = Shown.ToList();
         var chosen = shown.Where(r => r.IsChecked).ToList();
         var noun = total == 1 ? "project" : "projects";
@@ -267,8 +277,10 @@ public partial class ProjectsPage : UserControl
         // A message in the middle only while there are no rows to show: before the first snapshot, without projects,
         // or when the search matches none. Never over rows that are there.
         ShowOverlay(!loaded ? "Loading projects…"
-            : total == 0 ? _store.Connection == MonitorConnection.Reconnecting && _store.ConnectionDetail is { } problem
-                ? problem : "No projects found."
+            : total == 0 ? _store.Connection == MonitorConnection.Reconnecting && _store.ConnectionDetail is { } problem ? problem
+                : _store.Runtime == Application.Abstractions.IisServerState.NotInstalled
+                    ? "IIS isn't installed - enable its Windows features on the Environment page."
+                    : "IIS has no DNN websites yet - create one with New project or Host project."
             : shown.Count > 0 ? null
             : OnlyRunning.IsChecked != true ? $"No project matches “{SearchText}”."
             : SearchText.Length == 0 ? "No project is running."
@@ -291,6 +303,7 @@ public partial class ProjectsPage : UserControl
     private void RowStop_Click(object sender, RoutedEventArgs e) => OnRow(sender, row => ControlSites(SiteAction.Stop, [row]));
     private void RowRestart_Click(object sender, RoutedEventArgs e) => OnRow(sender, row => ControlSites(SiteAction.Restart, [row]));
     private void RowRemove_Click(object sender, RoutedEventArgs e) => OnRow(sender, row => Remove([row]));
+
 
     private static void OnRow(object sender, Action<ProjectRow> action)
     {
@@ -366,18 +379,45 @@ public partial class ProjectsPage : UserControl
         return (node as DataGridRow)?.Item as ProjectRow;
     }
 
-    // A double-click on a row (not on its check box or buttons) opens the site.
+    // A double-click on a row (not on its check box or buttons) opens the site's overview.
     private void Grid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (RowAt(e.OriginalSource, ignoreButtons: true) is { } row) ProjectMenu.Shell(row.Url);
+        if (RowAt(e.OriginalSource, ignoreButtons: true) is { } row) OpenProject(row);
     }
 
-    // Space checks / unchecks the selected row, like the check box.
+    private void RowOpen_Click(object sender, RoutedEventArgs e) => OnRow(sender, OpenProject);
+
+    // Space checks / unchecks the selected row, like the check box; Enter opens it.
     private void Grid_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Space || ProjectsGrid.SelectedItem is not ProjectRow row) return;
-        row.IsChecked = !row.IsChecked;
+        if (ProjectsGrid.SelectedItem is not ProjectRow row) return;
+        if (e.Key == Key.Space) row.IsChecked = !row.IsChecked;
+        else if (e.Key == Key.Enter) OpenProject(row);
+        else return;
         e.Handled = true;
+    }
+
+    // ─── A site's overview ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Shows <paramref name="row"/>'s overview in place of the table (which keeps its search, selection and scroll
+    /// position for when it comes back).
+    /// </summary>
+    public void OpenProject(ProjectRow row)
+    {
+        var view = new ProjectView(row, _services, action => ControlSites(action, [row]));
+        view.BackRequested += (_, _) => CloseProject();
+        ProjectHost.Content = view;
+        ProjectHost.Visibility = Visibility.Visible;
+        TableView.Visibility = Visibility.Collapsed;
+    }
+
+    private void CloseProject()
+    {
+        ProjectHost.Content = null;
+        ProjectHost.Visibility = Visibility.Collapsed;
+        TableView.Visibility = Visibility.Visible;
+        ProjectsGrid.Focus();
     }
 
     /// <summary>

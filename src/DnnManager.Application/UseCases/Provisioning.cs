@@ -25,11 +25,15 @@ public sealed class IisSiteProvisioner
     /// folder and starts the site. Failures are reported and return false - a missing website is never
     /// fatal to the calling flow.
     /// </summary>
-    public bool TryCreateSite(DnnProject project, IProgressReporter reporter)
+    public bool TryCreateSite(DnnProject project, IProgressReporter reporter) =>
+        TryCreateSite(project, _opts.HostnameFor(project.Name), _opts.SitePort, reporter);
+
+    /// <summary>The same, bound to <paramref name="hostName"/> on <paramref name="port"/>.</summary>
+    public bool TryCreateSite(DnnProject project, string hostName, int port, IProgressReporter reporter)
     {
         // CreateSite tears down any existing site/pool of this name itself (waiting for its worker to
         // exit), so callers must not call RemoveSite first - that just repeats the whole teardown.
-        var create = _iis.CreateSite(project.Name, project.ProjectDirectory, _opts.HostnameFor(project.Name), _opts.SitePort);
+        var create = _iis.CreateSite(project.Name, project.ProjectDirectory, hostName, port);
         if (!create.Success)
         {
             reporter.Fail($"IIS site creation failed: {create.Error}. Continuing without a website.");
@@ -47,7 +51,7 @@ public sealed class IisSiteProvisioner
                           "The site may return 401/500 errors until the folder permissions are fixed.");
 
         _iis.StartSite(project.Name);
-        reporter.Success($"IIS site '{project.Name}' bound to {_opts.SiteUrlFor(project.Name)}");
+        reporter.Success($"IIS site '{project.Name}' bound to http://{DnnSiteAddress.AliasFor(hostName, port)}");
         return true;
     }
 }
@@ -82,6 +86,27 @@ public sealed class LocalSqlContainer
 
     /// <summary>The local SQL Server itself (no particular database), as sa.</summary>
     public SiteSqlConnection DefaultConnection => new(Server, "", "sa", _opts.Docker.SaPassword);
+
+    /// <summary>
+    /// The database <paramref name="project"/>'s site uses, as its web.config has it - the local container when that is
+    /// where it points; null when web.config has no database of its own yet (DNN's shipped "SQL Server Express File").
+    /// </summary>
+    public DatabaseConnection? DatabaseOf(DnnProject project)
+    {
+        var read = _webConfig.ReadDatabaseConnection(Path.Combine(project.ProjectDirectory, "web.config"));
+        if (!read.Success || read.Value is not { } connection) return null;
+        // DNN's shipped connection (.\SQLExpress with a User Instance) is what a site has until it is installed.
+        if (connection.Kind == DatabaseKind.LocalDbFile && !connection.Server.TrimStart().StartsWith("(localdb)", StringComparison.OrdinalIgnoreCase))
+            return null;
+        return connection is { Kind: DatabaseKind.SqlServer, UsesWindowsAuthentication: false } &&
+               IsLocalContainer(connection.Server, _opts.Docker.DefaultPort)
+            ? connection with { Kind = DatabaseKind.Container }
+            : connection;
+    }
+
+    /// <summary>Database <paramref name="database"/> on the local SQL Server container, as sa - the built-in database profile.</summary>
+    public DatabaseConnection Connection(string database) =>
+        new(DatabaseKind.Container, Server, database, SqlAuthentication.Sql, "sa", _opts.Docker.SaPassword);
 
     /// <summary>
     /// How to reach the database <paramref name="project"/>'s site uses: its web.config connection when that has
@@ -195,7 +220,13 @@ public sealed class LocalSqlContainer
     /// True when a connection string's <paramref name="server"/> (<c>host[,port]</c>) is this machine's
     /// shared container, given the port the container currently publishes.
     /// </summary>
-    public bool IsLocalContainer(string server, int publishedPort)
+    public bool IsLocalContainer(string server, int publishedPort) => IsContainerServer(server, _opts.Docker.ContainerIp, publishedPort);
+
+    /// <summary>
+    /// True when <paramref name="server"/> (<c>host[,port]</c>) is this machine's shared container at
+    /// <paramref name="containerHost"/>, given the port the container publishes.
+    /// </summary>
+    public static bool IsContainerServer(string server, string containerHost, int publishedPort)
     {
         var host = server.Trim();
         int? port = null;
@@ -207,7 +238,7 @@ public sealed class LocalSqlContainer
         }
 
         var isLocalHost =
-            string.Equals(host, _opts.Docker.ContainerIp, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(host, containerHost, StringComparison.OrdinalIgnoreCase) ||
             string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(host, "127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(host, "(local)",   StringComparison.OrdinalIgnoreCase) ||

@@ -1,0 +1,31 @@
+<UserControl x:Class="DnnManager.Presentation.Controls.DatabaseCheckList"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Test connection's checks, one per line: a mark (passed, warning, failed) and what was found. -->
+    <StackPanel>
+        <TextBlock x:Name="Testing" Style="{StaticResource Hint}" Text="Testing the connection…" Visibility="Collapsed" Margin="0" />
+        <ItemsControl x:Name="Lines">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <DockPanel Margin="0,3,0,0">
+                        <TextBlock x:Name="Mark" DockPanel.Dock="Left" Width="20" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
+                                   Margin="0,2,0,0" Text="&#xE73E;" Foreground="{DynamicResource SuccessText}" />
+                        <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextPrimary}">
+                            <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=": " /><Run Text="{Binding Detail, Mode=OneWay}" />
+                        </TextBlock>
+                    </DockPanel>
+                    <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding Outcome}" Value="Warning">
+                            <Setter TargetName="Mark" Property="Text" Value="&#xE7BA;" />
+                            <Setter TargetName="Mark" Property="Foreground" Value="{DynamicResource LogWarn}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Outcome}" Value="Failed">
+                            <Setter TargetName="Mark" Property="Text" Value="&#xE711;" />
+                            <Setter TargetName="Mark" Property="Foreground" Value="{DynamicResource ErrorText}" />
+                        </DataTrigger>
+                    </DataTemplate.Triggers>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </StackPanel>
+</UserControl>

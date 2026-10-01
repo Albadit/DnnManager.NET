@@ -1,6 +1,7 @@
 using System.Xml.Linq;
 using DnnManager.Application.Abstractions;
 using DnnManager.Domain;
+using DnnManager.Infrastructure.Sql;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 
@@ -34,7 +35,8 @@ public sealed class WebConfigService : IWebConfigService
             try { b = new SqlConnectionStringBuilder(raw); }
             catch (Exception ex)
             {
-                return Result<SiteSqlConnection>.Fail($"Failed to parse SiteSqlServer connection string: {ex.Message}. Value: {raw}");
+                // Not the value itself - it can hold a password.
+                return Result<SiteSqlConnection>.Fail($"Failed to parse the SiteSqlServer connection string in {sourcePath}: {ex.Message}");
             }
 
             if (string.IsNullOrWhiteSpace(b.DataSource) || string.IsNullOrWhiteSpace(b.InitialCatalog))
@@ -51,8 +53,7 @@ public sealed class WebConfigService : IWebConfigService
                 }
                 return Result<SiteSqlConnection>.Fail(
                     $"SiteSqlServer is missing Data Source or Initial Catalog. " +
-                    $"DataSource='{b.DataSource}', InitialCatalog='{b.InitialCatalog}'. " +
-                    $"Raw='{raw}' (from {sourcePath}).");
+                    $"DataSource='{b.DataSource}', InitialCatalog='{b.InitialCatalog}' (from {sourcePath}).");
             }
 
             return Result<SiteSqlConnection>.Ok(new SiteSqlConnection(
@@ -68,7 +69,35 @@ public sealed class WebConfigService : IWebConfigService
         }
     }
 
-    public Result WriteSiteSqlServer(string webConfigPath, SiteSqlConnection newConnection)
+    public Result WriteSiteSqlServer(string webConfigPath, SiteSqlConnection newConnection) =>
+        WriteConnectionString(webConfigPath, BuildConnectionString(newConnection));
+
+    public Result WriteDatabaseConnection(string webConfigPath, DatabaseConnection connection) =>
+        WriteConnectionString(webConfigPath, ConnectionStrings.ForSite(connection));
+
+    public Result<DatabaseConnection> ReadDatabaseConnection(string webConfigPath)
+    {
+        try
+        {
+            if (!File.Exists(webConfigPath))
+                return Result<DatabaseConnection>.Fail($"web.config not found: {webConfigPath}");
+            var doc = XDocument.Load(webConfigPath, LoadOptions.PreserveWhitespace);
+            var add = FindConnectionStringElement(doc, webConfigPath, out var sourcePath);
+            var raw = (string?)add?.Attribute("connectionString");
+            if (string.IsNullOrWhiteSpace(raw))
+                return Result<DatabaseConnection>.Fail($"SiteSqlServer is missing or empty in {sourcePath}.");
+            return ConnectionStrings.Parse(raw) is { } connection
+                ? Result<DatabaseConnection>.Ok(connection)
+                : Result<DatabaseConnection>.Fail($"The SiteSqlServer connection string in {sourcePath} can't be read.");
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Failed to read web.config");
+            return Result<DatabaseConnection>.Fail(ex.Message);
+        }
+    }
+
+    private Result WriteConnectionString(string webConfigPath, string connStr)
     {
         try
         {
@@ -76,7 +105,6 @@ public sealed class WebConfigService : IWebConfigService
                 return Result.Fail($"web.config not found: {webConfigPath}");
 
             var doc = XDocument.Load(webConfigPath, LoadOptions.PreserveWhitespace);
-            var connStr = BuildConnectionString(newConnection);
 
             var (connAdd, connSourceFile, connDoc) = FindAndLoadSection(
                 doc, webConfigPath, "connectionStrings", "add", "name", "SiteSqlServer");
@@ -255,6 +283,7 @@ public sealed class WebConfigService : IWebConfigService
         return (inline, webConfigPath, doc);
     }
 
+    // With the builder, a password with ; = or quotes in it is quoted instead of breaking the connection string.
     private static string BuildConnectionString(SiteSqlConnection c) =>
-        $"Data Source={c.Server};Initial Catalog={c.Database};User ID={c.User};Password={c.Password}";
+        new SqlConnectionStringBuilder { DataSource = c.Server, InitialCatalog = c.Database, UserID = c.User, Password = c.Password }.ConnectionString;
 }

@@ -2,11 +2,45 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:c="clr-namespace:DnnManager.Presentation.Controls">
+    <!-- The bottom panel, like VS Code's: Output (what DNN Manager does), Logs (a website's log files and events),
+         Terminal (shells, listed on the right). The tabs on the left of its header; new terminal, search, maximize and
+         hide on the right; copy / paste / clear and back to the newest line in a strip right of the shown tab. -->
     <UserControl.Resources>
         <Style x:Key="PanelButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+            <Setter Property="Foreground" Value="{DynamicResource LogMuted}" />
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
+        </Style>
+        <!-- The strip's tools: in the accent colour, as the terminal's were. -->
+        <Style x:Key="StripButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
             <Setter Property="Foreground" Value="{DynamicResource Accent}" />
         </Style>
-        <!-- A tab in the list on the right: the shown one highlighted. -->
+        <!-- A tab of the header, underlined while shown. -->
+        <Style x:Key="PanelTab" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource LogMuted}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bd" Background="Transparent" Padding="10,0" BorderThickness="0,0,0,1" BorderBrush="Transparent">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource LogHeaderFg}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource LogHeaderFg}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- A terminal in the list on the right: the shown one highlighted. -->
         <Style x:Key="TabItem" TargetType="ListBoxItem">
             <Setter Property="Foreground" Value="{DynamicResource LogMuted}" />
             <Setter Property="Cursor" Value="Hand" />
@@ -14,7 +48,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="Bd" Background="Transparent" Padding="14,3,6,3">
+                        <Border x:Name="Bd" Background="Transparent" Padding="12,3,6,3">
                             <ContentPresenter VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -23,42 +57,126 @@
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter Property="Foreground" Value="{DynamicResource LogHeaderFg}" />
-                                <Setter Property="FontWeight" Value="SemiBold" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SelectionBg}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- An option of the search (Match Case, Whole Word, Regular Expression): framed in the accent colour while on. -->
+        <Style x:Key="SearchOption" TargetType="ToggleButton">
+            <Setter Property="Width" Value="22" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="Margin" Value="2,0,0,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SelectionBg}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- A shell's icon, by its kind ("powershell", "cmd", "bash"), in the colour of the text around it: PowerShell
+             >_ in a slanted box, Command Prompt C:\ in a window, Bash $_ in a hexagon. -->
+        <DataTemplate x:Key="ShellIcon">
+            <Grid Width="16" Height="15">
+                <Grid.Resources>
+                    <Style TargetType="Path">
+                        <Setter Property="StrokeThickness" Value="1.1" />
+                        <Setter Property="StrokeLineJoin" Value="Round" />
+                        <Setter Property="StrokeStartLineCap" Value="Round" />
+                        <Setter Property="StrokeEndLineCap" Value="Round" />
+                        <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ContentControl}}" />
+                        <Setter Property="VerticalAlignment" Value="Center" />
+                        <Setter Property="HorizontalAlignment" Value="Center" />
+                    </Style>
+                </Grid.Resources>
+                <Path x:Name="PowerShell" Data="M4.5,1.5 H15 L11.5,13.5 H1 Z M5,4.8 L8,7.5 L4.2,10.2 M8.4,10.2 H11" />
+                <Border x:Name="Cmd" Visibility="Collapsed" Width="15" Height="13" CornerRadius="1.5" BorderThickness="1.1,2.4,1.1,1.1"
+                        BorderBrush="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ContentControl}}">
+                    <TextBlock Text="C:\" FontFamily="Consolas" FontWeight="Bold" FontSize="7" Margin="1.5,0,0,0" VerticalAlignment="Center" />
+                </Border>
+                <Grid x:Name="Bash" Visibility="Collapsed">
+                    <Path Data="M8,0.6 L14.2,4.1 V10.9 L8,14.4 L1.8,10.9 V4.1 Z" />
+                    <TextBlock Text="$_" FontFamily="Consolas" FontWeight="Bold" FontSize="7.5" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Margin="0.5,0,0,0" />
+                </Grid>
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding}" Value="cmd">
+                    <Setter TargetName="PowerShell" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="Cmd" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding}" Value="bash">
+                    <Setter TargetName="PowerShell" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="Bash" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
     </UserControl.Resources>
 
     <DockPanel Background="{DynamicResource LogBg}">
-        <!-- "Terminal", then: a new terminal with the default shell, the other shells, hide the panel. -->
         <Border DockPanel.Dock="Top" Background="{DynamicResource LogHeaderBg}" BorderBrush="{DynamicResource CardBorder}"
-                BorderThickness="0,0,0,1" Padding="14,2,6,2">
+                BorderThickness="0,0,0,1" Height="34" Padding="6,0,6,0">
             <DockPanel>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                    <Button x:Name="NewButton" Style="{StaticResource PanelButton}" Content="&#xE710;" Click="New_Click" />
-                    <Button x:Name="ShellsButton" Style="{StaticResource PanelButton}" Width="22" FontSize="9" Content="&#xE70D;"
-                            ToolTip="New terminal with another shell" Click="Shells_Click" />
-                    <Button Style="{StaticResource PanelButton}" FontSize="11" Content="&#xE8BB;" Margin="10,0,0,0" ToolTip="Hide the terminal"
-                            Click="Close_Click" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Terminal: a new one with the default shell, or with another shell. -->
+                    <StackPanel x:Name="TerminalTools" Orientation="Horizontal" Visibility="Collapsed">
+                        <Button x:Name="NewButton" Style="{StaticResource PanelButton}" Content="&#xE710;" Click="New_Click" />
+                        <Button x:Name="ShellsButton" Style="{StaticResource PanelButton}" Width="18" FontSize="9" Content="&#xE70D;"
+                                ToolTip="New terminal with another shell" Click="Shells_Click" />
+                    </StackPanel>
+                    <Button Style="{StaticResource PanelButton}" Content="&#xE721;" ToolTip="Search (Ctrl+F)" Click="Search_Click" />
+                    <Border Width="1" Height="16" Margin="6,0" Background="{DynamicResource CardBorder}" />
+                    <!-- Corners outward: maximize; inward: restore (MaximizeIcon's data is swapped in code). -->
+                    <Button x:Name="MaximizeButton" Style="{StaticResource PanelButton}" ToolTip="Maximize the panel (Ctrl+Shift+M)" Click="Maximize_Click">
+                        <Path x:Name="MaximizeIcon" Data="M1,4.5 V1 H4.5 M7.5,1 H11 V4.5 M11,7.5 V11 H7.5 M4.5,11 H1 V7.5" StrokeThickness="1.3"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    </Button>
+                    <Button Style="{StaticResource PanelButton}" FontSize="11" Content="&#xE8BB;" ToolTip="Hide the panel (Ctrl+`)" Click="Close_Click" />
                 </StackPanel>
-                <TextBlock Text="Terminal" Foreground="{DynamicResource LogHeaderFg}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton x:Name="OutputTab" Style="{StaticResource PanelTab}" GroupName="PanelTabs" Content="Output" IsChecked="True"
+                                 Checked="PanelTab_Checked" ToolTip="What DNN Manager does - each step of its operations, errors and warnings" />
+                    <RadioButton x:Name="LogsTab" Style="{StaticResource PanelTab}" GroupName="PanelTabs" Content="Logs"
+                                 Checked="PanelTab_Checked" ToolTip="A website's logs - DNN, IIS and Windows events - as they are written" />
+                    <RadioButton x:Name="TerminalTab" Style="{StaticResource PanelTab}" GroupName="PanelTabs" Content="Terminal"
+                                 Checked="PanelTab_Checked" ToolTip="Command-line shells - PowerShell, Command Prompt, Git Bash" />
+                </StackPanel>
             </DockPanel>
         </Border>
 
-        <!-- The tabs: Activity (what DNN Manager itself does - always there), then the open shells. -->
-        <Border x:Name="TabsPane" DockPanel.Dock="Right" Width="176" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1,0,0,0">
-            <ListBox x:Name="Tabs" Background="Transparent" BorderThickness="0" Margin="0,6,0,0" ItemContainerStyle="{StaticResource TabItem}"
+        <!-- Terminal: the open shells, on the right - as wide as you drag its left edge (ListResizer). -->
+        <Border x:Name="TerminalList" DockPanel.Dock="Right" Width="176" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1,0,0,0"
+                Visibility="Collapsed">
+            <ListBox x:Name="Tabs" Background="Transparent" BorderThickness="0" Margin="0,4,0,0" ItemContainerStyle="{StaticResource TabItem}"
                      SelectionChanged="Tabs_SelectionChanged" PreviewKeyDown="Tabs_PreviewKeyDown"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <!-- Hover: what the tab is (a terminal: its shell, process ID, program and folder). Double-click,
-                             F2 or the right-click menu renames a terminal; the bin ends it. -->
+                        <!-- Hover: the shell, process ID, program and folder. Double-click, F2 or the right-click
+                             menu renames it; the bin ends it. -->
                         <DockPanel Background="Transparent" MinHeight="24" MouseLeftButtonDown="Tab_MouseLeftButtonDown"
-                                   ContextMenuOpening="Tab_ContextMenuOpening" ToolTipService.ShowDuration="30000">
+                                   ToolTipService.ShowDuration="30000">
                             <DockPanel.ToolTip>
                                 <ToolTip DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
                                     <StackPanel MaxWidth="520">
@@ -87,9 +205,23 @@
                                     <MenuItem Header="Close terminal" Click="CloseTab_Click" />
                                 </ContextMenu>
                             </DockPanel.ContextMenu>
-                            <Button DockPanel.Dock="Right" Style="{StaticResource PanelButton}" Width="24" Height="24" FontSize="12"
-                                    Content="&#xE74D;" ToolTip="Close this terminal (ends what runs in it)" Click="CloseTab_Click"
-                                    Visibility="{Binding CanClose, Converter={StaticResource BoolToVis}}" />
+                            <!-- Only while the mouse is on the terminal (Hidden, not Collapsed: the name doesn't move). -->
+                            <Button DockPanel.Dock="Right" Width="22" Height="22" FontSize="11"
+                                    Content="&#xE74D;" ToolTip="Close this terminal (ends what runs in it)" Click="CloseTab_Click">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource PanelButton}">
+                                        <Setter Property="Visibility" Value="Hidden" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                            <!-- Its shell's own icon. -->
+                            <ContentControl DockPanel.Dock="Left" Content="{Binding Icon}" ContentTemplate="{StaticResource ShellIcon}"
+                                            Focusable="False" VerticalAlignment="Center" Margin="0,0,8,0" />
                             <Grid>
                                 <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                            Visibility="{Binding IsNotRenaming, Converter={StaticResource BoolToVis}}" />
@@ -104,30 +236,89 @@
             </ListBox>
         </Border>
 
-        <!-- Tools for the shown tab; at the bottom, back to the newest line. -->
+        <!-- The terminal list's left edge: drag it to make the list wider or narrower; lit while the mouse is on it. -->
+        <Thumb x:Name="ListResizer" DockPanel.Dock="Right" Width="4" Cursor="SizeWE" Visibility="Collapsed"
+               DragDelta="ListResizer_DragDelta" ToolTip="Drag to resize the list of terminals">
+            <Thumb.Template>
+                <ControlTemplate TargetType="Thumb">
+                    <Border x:Name="Bd" Background="Transparent" />
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Accent}" />
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Accent}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Thumb.Template>
+        </Thumb>
+
+        <!-- The shown tab's tools; at the bottom, back to the newest line. -->
         <DockPanel DockPanel.Dock="Right" Margin="0,6,4,6" LastChildFill="False">
-            <Button x:Name="CopyButton" DockPanel.Dock="Top" Style="{StaticResource PanelButton}" Content="&#xE8C8;" Click="Copy_Click" />
-            <Button x:Name="PasteButton" DockPanel.Dock="Top" Style="{StaticResource PanelButton}" Content="&#xE77F;"
+            <Button x:Name="CopyButton" DockPanel.Dock="Top" Style="{StaticResource StripButton}" Content="&#xE8C8;" Click="Copy_Click" />
+            <Button x:Name="PasteButton" DockPanel.Dock="Top" Style="{StaticResource StripButton}" Content="&#xE77F;"
                     ToolTip="Paste (Ctrl+V, or right-click)" Click="Paste_Click" />
-            <Button x:Name="ClearButton" DockPanel.Dock="Top" Style="{StaticResource PanelButton}" Content="&#xE74D;"
-                    ToolTip="Clear the activity log" Click="Clear_Click" />
-            <Button DockPanel.Dock="Bottom" Style="{StaticResource PanelButton}" Content="&#xE74B;" ToolTip="Scroll to the bottom"
+            <Button x:Name="ClearButton" DockPanel.Dock="Top" Style="{StaticResource StripButton}" Content="&#xE74D;"
+                    ToolTip="Clear the output" Click="Clear_Click" />
+            <Button DockPanel.Dock="Bottom" Style="{StaticResource StripButton}" Content="&#xE74B;" ToolTip="Scroll to the bottom"
                     Click="ScrollToBottom_Click" />
         </DockPanel>
 
         <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <!-- Read-only rich text: lines can be selected and copied (Ctrl+A / Ctrl+C, right-click → Copy). It has a
-                 scrollbar of its own. -->
-            <c:LogView x:Name="LogList" Grid.ColumnSpan="2" Background="Transparent" BorderThickness="0"
+            <!-- Output: read-only rich text, lines can be selected and copied. -->
+            <c:LogView x:Name="LogList" Background="Transparent" BorderThickness="0"
                        Foreground="{DynamicResource LogFg}" SelectionBrush="{DynamicResource Accent}" />
-            <!-- The shown shell's TerminalView, and the scrollbar through the lines that scrolled off its top. -->
-            <ContentControl x:Name="TerminalHost" Focusable="False" Visibility="Collapsed" />
-            <ScrollBar x:Name="TerminalScroll" Grid.Column="1" Orientation="Vertical" SmallChange="1" Visibility="Collapsed"
-                       ValueChanged="TerminalScroll_ValueChanged" />
+
+            <c:LogsView x:Name="Logs" Visibility="Collapsed" />
+
+            <!-- Terminal: the shown shell and its scrollbar. -->
+            <Grid x:Name="TerminalPane" Visibility="Collapsed">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ContentControl x:Name="TerminalHost" Focusable="False" />
+                <ScrollBar x:Name="TerminalScroll" Grid.Column="1" Orientation="Vertical" SmallChange="1"
+                           ValueChanged="TerminalScroll_ValueChanged" />
+                <TextBlock x:Name="NoTerminal" Grid.ColumnSpan="2" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{DynamicResource LogMuted}" Text="No terminal open - + starts one." Visibility="Collapsed" />
+            </Grid>
+
+            <!-- Search (Ctrl+F): over the top right of the shown tab, like VS Code's. -->
+            <Border x:Name="SearchBar" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,20,0" Padding="4"
+                    Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource InputBorder}" BorderThickness="1" CornerRadius="4"
+                    Panel.ZIndex="10" Visibility="Collapsed">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.3" />
+                </Border.Effect>
+                <StackPanel Orientation="Horizontal">
+                    <!-- The text, with the three options inside the box on its right, as in VS Code. -->
+                    <Grid>
+                        <TextBox x:Name="SearchBox" Width="260" MinHeight="26" Padding="6,2,78,2" TextChanged="SearchBox_TextChanged"
+                                 PreviewKeyDown="SearchBox_PreviewKeyDown" ToolTip="Find (Enter: next, Shift+Enter: previous, Esc: close)" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,3,0">
+                            <ToggleButton x:Name="MatchCase" Style="{StaticResource SearchOption}" ToolTip="Match Case (Alt+C)"
+                                          Click="SearchOption_Click">
+                                <TextBlock Text="Aa" />
+                            </ToggleButton>
+                            <ToggleButton x:Name="WholeWord" Style="{StaticResource SearchOption}" ToolTip="Match Whole Word (Alt+W)"
+                                          Click="SearchOption_Click">
+                                <TextBlock Text="ab" TextDecorations="Underline" />
+                            </ToggleButton>
+                            <ToggleButton x:Name="UseRegex" Style="{StaticResource SearchOption}" ToolTip="Use Regular Expression (Alt+R)"
+                                          Click="SearchOption_Click">
+                                <TextBlock Text=".*" FontWeight="Bold" />
+                            </ToggleButton>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock x:Name="SearchCount" MinWidth="70" Margin="8,0,4,0" VerticalAlignment="Center" FontSize="12"
+                               Foreground="{DynamicResource TextMuted}" Text="No results" />
+                    <Button Style="{StaticResource PanelButton}" Content="&#xE70E;" ToolTip="Previous match (Shift+Enter)" Click="SearchPrevious_Click" />
+                    <Button Style="{StaticResource PanelButton}" Content="&#xE70D;" ToolTip="Next match (Enter)" Click="SearchNext_Click" />
+                    <Button Style="{StaticResource PanelButton}" FontSize="10" Content="&#xE8BB;" ToolTip="Close (Esc)" Click="SearchClose_Click" />
+                </StackPanel>
+            </Border>
         </Grid>
     </DockPanel>
 </UserControl>

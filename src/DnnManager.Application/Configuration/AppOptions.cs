@@ -24,12 +24,16 @@ public sealed class AppOptions
         Theme = other.Theme;
         SsmsRememberPassword = other.SsmsRememberPassword;
         KeepDnnPackages = other.KeepDnnPackages;
+        DnnDefaults = other.DnnDefaults;
+        DatabaseProfiles = other.DatabaseProfiles;
+        DefaultDatabaseProfile = other.DefaultDatabaseProfile;
         // As a whole, so nobody reads half of the old container's settings and half of the new one's.
         Docker = other.Docker;
         GitHubReleaseApis = other.GitHubReleaseApis;
         RequiredIisFeatures = other.RequiredIisFeatures;
         ProjectColumns = other.ProjectColumns;
         Terminal = other.Terminal;
+        SaveResourcesWhileMinimized = other.SaveResourcesWhileMinimized;
         Changed?.Invoke();
     }
 
@@ -45,6 +49,15 @@ public sealed class AppOptions
     public bool SsmsRememberPassword { get; set; }
     /// <summary>Keep downloaded DNN install packages in the user's packages folder and reuse them.</summary>
     public bool KeepDnnPackages { get; set; }
+    /// <summary>What a new project's DNN install starts with; the host password is in the Credential Manager.</summary>
+    public DnnDefaultsSettings DnnDefaults { get; set; } = new();
+    /// <summary>The saved database connections for new projects (no passwords).</summary>
+    public IReadOnlyList<DatabaseProfileSettings> DatabaseProfiles { get; set; } = Array.Empty<DatabaseProfileSettings>();
+    /// <summary>"container", or the id of the profile a new project starts with.</summary>
+    public string DefaultDatabaseProfile { get; set; } = DatabaseProfileSettings.ContainerId;
+
+    /// <summary>The host account's e-mail for a new project: the default's, or <c>host@</c> and the hostname suffix.</summary>
+    public string DefaultHostEmail => DnnDefaults.HostEmail.Length > 0 ? DnnDefaults.HostEmail : $"host@{HostnameSuffix}";
     public DockerOptions Docker { get; set; } = new();
     // Empty here: the defaults live in UserSettings, which fills these in.
     public IReadOnlyList<string> GitHubReleaseApis { get; set; } = Array.Empty<string>();
@@ -53,6 +66,11 @@ public sealed class AppOptions
     public IReadOnlyList<string> ProjectColumns { get; set; } = Array.Empty<string>();
     /// <summary>The terminal's settings at startup; the Settings page changes (and saves) them while the app runs.</summary>
     public TerminalSettings Terminal { get; set; } = new();
+    /// <summary>
+    /// While the window is minimized, pause what only it shows and, while nothing runs, let Windows run the app on its
+    /// power-saving setting (the presentation's EfficiencyMode). On by default; set in Settings - General.
+    /// </summary>
+    public bool SaveResourcesWhileMinimized { get; set; } = true;
 
     /// <summary>The host header a project's IIS site is bound to: <c>{project}.{HostnameSuffix}</c>.</summary>
     public string HostnameFor(string projectName) => $"{projectName}.{HostnameSuffix}";

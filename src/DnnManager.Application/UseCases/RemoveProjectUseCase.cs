@@ -6,6 +6,13 @@ using Microsoft.Extensions.Options;
 
 namespace DnnManager.Application.UseCases;
 
+/// <summary>An IIS site to remove, with the folder it serves.</summary>
+/// <param name="InProjectsFolder">
+/// The folder is one of the projects folder's - a DNN Manager project, whose files are deleted with it. Any other
+/// site's files are left where they are: only its IIS site (and the database its web.config names) go.
+/// </param>
+public sealed record SiteToRemove(string Name, string Directory, bool InProjectsFolder);
+
 public sealed class RemoveProjectUseCase
 {
     private readonly AppOptions _opts;
@@ -15,6 +22,9 @@ public sealed class RemoveProjectUseCase
     private readonly IWebConfigService _webConfig;
     private readonly IFileLockService _locks;
     private readonly IUserPrompt _prompt;
+    private readonly LocalSqlContainer _container;
+    private readonly IDatabaseProvisioner _databases;
+    private readonly IProjectRecords _records;
     private readonly ILogger<RemoveProjectUseCase> _log;
 
     public RemoveProjectUseCase(
@@ -25,6 +35,9 @@ public sealed class RemoveProjectUseCase
         IWebConfigService webConfig,
         IFileLockService locks,
         IUserPrompt prompt,
+        LocalSqlContainer container,
+        IDatabaseProvisioner databases,
+        IProjectRecords records,
         ILogger<RemoveProjectUseCase> log)
     {
         _opts = opts.Value;
@@ -34,19 +47,23 @@ public sealed class RemoveProjectUseCase
         _webConfig = webConfig;
         _locks = locks;
         _prompt = prompt;
+        _container = container;
+        _databases = databases;
+        _records = records;
         _log = log;
     }
 
     /// <summary>
-    /// Removes the projects after asking once for all of them - whether to drop their databases too, then for the
+    /// Removes the sites after asking once for all of them - whether to drop their databases too, then for the
     /// final confirmation. Goes on past a project that fails; fails when any did.
     /// </summary>
-    public async Task<Result> ExecuteAsync(IReadOnlyList<string> projectNames, IProgressReporter reporter, CancellationToken ct)
+    public async Task<Result> ExecuteAsync(IReadOnlyList<SiteToRemove> sites, IProgressReporter reporter, CancellationToken ct)
     {
-        if (projectNames.Count == 0) return Result.Ok();
+        if (sites.Count == 0) return Result.Ok();
         var nl = Environment.NewLine;
-        var single = projectNames.Count == 1;
-        var projects = projectNames.Select(_projects.Build).ToList();
+        var single = sites.Count == 1;
+        var projects = sites.Select(s => _projects.Build(s.Name, s.Directory)).ToList();
+        var keepsFiles = sites.Where(s => !s.InProjectsFolder).Select(s => s.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var dropDb = await _prompt.ConfirmAsync(single
             ? "Also drop the project's database?"
@@ -59,11 +76,15 @@ public sealed class RemoveProjectUseCase
             var keeps = Directory.Exists(projects[0].BackupDirectory)
                 ? $"{nl}{nl}Its backups in {projects[0].BackupDirectory} are kept."
                 : "";
-            question = $"Remove project '{projects[0].Name}' permanently?{keeps}";
+            var files = keepsFiles.Contains(projects[0].Name)
+                ? $"{nl}{nl}Its files in {projects[0].ProjectDirectory} are kept - they are outside the projects folder. Only the IIS site goes."
+                : "";
+            question = $"Remove project '{projects[0].Name}' permanently?{files}{keeps}";
         }
         else
         {
-            var list = string.Join(nl, projects.Select(p => $"• {p.Name}"));
+            var list = string.Join(nl, projects.Select(p => keepsFiles.Contains(p.Name)
+                ? $"• {p.Name}  (IIS site only - its files outside the projects folder are kept)" : $"• {p.Name}"));
             var keeps = projects.Any(p => Directory.Exists(p.BackupDirectory)) ? $"{nl}{nl}Their backups are kept." : "";
             question = $"Remove these {projects.Count} projects permanently?{nl}{nl}{list}{keeps}";
         }
@@ -75,7 +96,7 @@ public sealed class RemoveProjectUseCase
         {
             ct.ThrowIfCancellationRequested();
             if (!single) reporter.Step($"Removing '{project.Name}'");
-            var result = await RemoveAsync(project, dropDb, reporter, ct);
+            var result = await RemoveAsync(project, dropDb, !keepsFiles.Contains(project.Name), reporter, ct);
             if (!result.Success)
             {
                 if (!single) reporter.Fail($"'{project.Name}': {result.Error}");
@@ -87,7 +108,7 @@ public sealed class RemoveProjectUseCase
             : Result.Fail($"{failed.Count} of {projects.Count} projects weren't removed completely: {string.Join(", ", failed)}.");
     }
 
-    private async Task<Result> RemoveAsync(DnnProject project, bool dropDb, IProgressReporter reporter, CancellationToken ct)
+    private async Task<Result> RemoveAsync(DnnProject project, bool dropDb, bool deleteFiles, IProgressReporter reporter, CancellationToken ct)
     {
         var projectName = project.Name;
         try
@@ -117,14 +138,48 @@ public sealed class RemoveProjectUseCase
             if (dropDb)
             {
                 reporter.Step("Step 3: Drop project database");
-                // Drop the database the site uses (web.config SiteSqlServer), falling back to the
-                // database named like the project. Read it before the directory is deleted below.
-                var dbName = DeveloperDb.FromWebConfig(project, _webConfig) ?? _opts.DatabaseNameFor(projectName);
-                var drop = await _sql.DropDatabaseAsync(dbName, ct);
-                if (drop.Success)
-                    reporter.Success($"Database [{dbName}] dropped (if it existed).");
+                // Drop the database the site uses (web.config SiteSqlServer) where it is, falling back - for a project of
+                // the projects folder - to the database named like it on the local container. Read before the directory
+                // is deleted below. A site from elsewhere without a web.config database has none DNN Manager may drop.
+                var database = _container.DatabaseOf(project);
+                var dbName = database?.Database ?? DeveloperDb.FromWebConfig(project, _webConfig) ?? (deleteFiles ? _opts.DatabaseNameFor(projectName) : null);
+                if (database is { Kind: DatabaseKind.LocalDbFile })
+                {
+                    reporter.Info(deleteFiles
+                        ? $@"Its database is the file App_Data\{database.Database} - it goes with the project's folder."
+                        : $@"Its database is the file App_Data\{database.Database} - it stays with its files.");
+                }
+                else if (database is { Kind: DatabaseKind.SqlServer })
+                {
+                    // Not on the container: dropped on its own server, signed in as the site does (or as DNN Manager's
+                    // Windows account).
+                    var drop = await _databases.DropDatabaseAsync(database, ct);
+                    if (drop.Success)
+                        reporter.Success($"Database [{database.Database}] dropped on {database.Server} (if it existed).");
+                    else
+                        reporter.Fail(drop.Error!);
+                }
+                else if (dbName is null)
+                {
+                    reporter.Info("No database named in its web.config - none dropped.");
+                }
                 else
-                    reporter.Fail($"Could not drop database [{dbName}]: {drop.Error}");
+                {
+                    var drop = await _sql.DropDatabaseAsync(dbName, ct);
+                    if (drop.Success)
+                        reporter.Success($"Database [{dbName}] dropped (if it existed).");
+                    else
+                        reporter.Fail($"Could not drop database [{dbName}]: {drop.Error}");
+                }
+            }
+
+            // What DNN Manager remembered about it (how DNN was installed) goes with the site.
+            _records.Remove(projectName);
+            if (!deleteFiles)
+            {
+                reporter.Info($"{project.ProjectDirectory} is outside the projects folder - its files are kept.");
+                reporter.Step("Removal complete");
+                return Result.Ok();
             }
 
             reporter.Step("Step 4: Delete project directory");

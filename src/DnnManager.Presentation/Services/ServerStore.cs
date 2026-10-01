@@ -55,7 +55,7 @@ public sealed class ServerStore
     {
         _monitor = monitor; _runner = runner; _log = log; _logger = logger;
         _runner.PropertyChanged += OnRunnerChanged;
-        // Another projects folder in the settings brings other projects: the app's own doing, like an operation's.
+        // Other settings (the projects folder) change what the sites' folders are read as: the app's own doing.
         options.Value.Changed += () => Linger(null);
     }
 
@@ -111,6 +111,12 @@ public sealed class ServerStore
     /// <summary>The network column is shown: the sites' HTTP traffic is read.</summary>
     public void SetTrafficWanted(bool wanted) => _monitor.TrafficWanted = wanted;
 
+    /// <summary>
+    /// The window is minimized and resources are to be saved (<see cref="EfficiencyMode"/>): this PC's figures aren't
+    /// read and folder sizes wait until it is restored. The sites are followed as always.
+    /// </summary>
+    public void SetSaving(bool saving) => _monitor.SavingResources = saving;
+
     // ─── Applying what the monitor reports ────────────────────────────────
 
     private void Apply(IReadOnlyList<MonitorEvent> events)
@@ -139,7 +145,7 @@ public sealed class ServerStore
             case ProjectRemoved removed when _rows.Remove(removed.Name, out var gone):
                 Projects.Remove(gone);
                 _explained.Remove(gone.Name);
-                NoteOutsideChange($"Project folder '{gone.Name}' is gone.", gone);
+                NoteOutsideChange($"Site '{gone.Name}' was removed from IIS.", gone);
                 break;
             case Infrastructure.Monitoring.RuntimeChanged runtime:
                 var was = Runtime;
@@ -152,7 +158,8 @@ public sealed class ServerStore
             case HostStatsChanged host:
                 SystemStats = host.Stats;
                 SystemStatsChanged?.Invoke(this, EventArgs.Empty);
-                // These arrive every two seconds, whatever else happens: the clock for "started 5 minutes ago".
+                // These arrive every two seconds, whatever else happens: the clock for "started 5 minutes ago". (Not
+                // while resources are saved - the first one after that brings every row up to date.)
                 foreach (var shown in Projects) shown.UpdateLastStarted();
                 break;
             case Infrastructure.Monitoring.ConnectionChanged connection:
@@ -169,11 +176,11 @@ public sealed class ServerStore
         if (_rows.ContainsKey(project.Name)) return;
         var row = new ProjectRow(project) { IsBusy = _runner.IsBusy };
         _rows[project.Name] = row;
-        // Kept in name order, as the folders are listed.
+        // Kept in name order.
         var index = 0;
         while (index < Projects.Count && string.Compare(Projects[index].Name, project.Name, StringComparison.OrdinalIgnoreCase) < 0) index++;
         Projects.Insert(index, row);
-        NoteOutsideChange($"New project folder '{project.Name}'.");
+        NoteOutsideChange($"Site '{project.Name}' was added to IIS.");
     }
 
     // ─── Changes made outside the app ─────────────────────────────────────
@@ -193,8 +200,8 @@ public sealed class ServerStore
     }
 
     /// <summary>
-    /// A line in the activity log for something that happened without DNN Manager doing it - a folder deleted in
-    /// Explorer, IIS stopped in a terminal.
+    /// A line in the activity log for something that happened without DNN Manager doing it - a site removed in
+    /// IIS Manager, IIS stopped in a terminal.
     /// </summary>
     /// <param name="row">The row the change is on, if it is on one.</param>
     private void NoteOutsideChange(string? message, ProjectRow? row = null)
@@ -227,8 +234,6 @@ public sealed class ServerStore
     private static string? SiteChange(string name, SiteRunState before, SiteRunState now)
     {
         if (before == SiteRunState.Unknown || now == SiteRunState.Unknown || OnItsWay(now)) return null;
-        if (now == SiteRunState.NoSite) return $"Site '{name}' was removed from IIS.";
-        if (before == SiteRunState.NoSite) return $"Site '{name}' was added to IIS.";
         return now == SiteRunState.Running
             ? $"Site '{name}' is running - started outside DNN Manager."
             : $"Site '{name}' stopped - outside DNN Manager.";
@@ -281,13 +286,14 @@ public sealed class ServerStore
     /// Runs one of the store's operations. It is <see cref="_operation"/> for exactly as long as the runner runs it -
     /// what changes meanwhile is known to be its doing - and what it changed is read back before this returns.
     /// </summary>
-    private async Task RunAsync(Operation operation, string title,
+    private async Task<bool> RunAsync(Operation operation, string title,
         Func<IServiceProvider, IProgressReporter, CancellationToken, Task<Result>> work, Func<Task> readBack)
     {
         _operation = operation;
+        bool done;
         try
         {
-            await _runner.RunAsync(title, work);
+            done = await _runner.RunAsync(title, work);
         }
         finally
         {
@@ -297,6 +303,7 @@ public sealed class ServerStore
         await readBack();
         // Counted again from here: what was read back may show only the beginning of what it did.
         Linger(operation);
+        return done;
     }
 
     /// <summary>
@@ -328,13 +335,14 @@ public sealed class ServerStore
 
     /// <summary>
     /// Removes the projects of <paramref name="rows"/> - RemoveProjectUseCase asks about the databases and to
-    /// confirm; once it has started on them the rows say "Removing…". A removed project's row goes when its folder
+    /// confirm; once it has started on them the rows say "Removing…". A removed project's row goes when its IIS site
     /// is gone; a row that stays (the user said no, or it failed) is as it was.
     /// </summary>
     public async Task RemoveAsync(IReadOnlyList<ProjectRow> rows)
     {
         if (rows.Count == 0 || _runner.IsBusy) return;
         var names = rows.Select(r => r.Name).ToList();
+        var sites = rows.Select(r => new SiteToRemove(r.Name, r.Path, r.Project.InProjectsFolder)).ToList();
         var finished = false;
         void Started()
         {
@@ -346,7 +354,7 @@ public sealed class ServerStore
         {
             await RunAsync(new Operation(rows), names.Count == 1 ? $"Remove '{names[0]}'" : $"Remove {names.Count} projects",
                 (sp, reporter, ct) => sp.GetRequiredService<RemoveProjectUseCase>()
-                    .ExecuteAsync(names, new StartSignal(reporter, () => _dispatcher.InvokeAsync(Started)), ct),
+                    .ExecuteAsync(sites, new StartSignal(reporter, () => _dispatcher.InvokeAsync(Started)), ct),
                 _monitor.SyncAsync);
         }
         finally
@@ -354,6 +362,36 @@ public sealed class ServerStore
             finished = true;
             foreach (var row in rows) row.Pending = null;
         }
+    }
+
+    /// <summary>
+    /// Clears the cache of <paramref name="row"/>'s site - ClearSiteCacheUseCase asks first; once it has started the
+    /// row says "Clearing cache…". The table stays as it is: only that site is read again.
+    /// </summary>
+    public async Task ClearCacheAsync(ProjectRow row)
+    {
+        if (_runner.IsBusy) return;
+        var (name, path) = (row.Name, row.Path);
+        var finished = false;
+        void Started()
+        {
+            if (!finished) row.Pending = "Clearing cache…";
+        }
+
+        bool cleared;
+        try
+        {
+            cleared = await RunAsync(new Operation([row]), $"Clear the cache of '{name}'",
+                (sp, reporter, ct) => sp.GetRequiredService<ClearSiteCacheUseCase>()
+                    .ExecuteAsync(name, path, new StartSignal(reporter, () => _dispatcher.InvokeAsync(Started)), ct),
+                _monitor.SyncSitesAsync);
+        }
+        finally
+        {
+            finished = true;
+            row.Pending = null;
+        }
+        if (cleared) Toast.Show($"The cache of '{name}' was cleared.", ToastKind.Success);
     }
 
     /// <summary>

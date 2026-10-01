@@ -44,6 +44,17 @@ public sealed class HostResourceMonitor
         return new HostResources(total, total - available, cpu, disk.Root, disk.TotalBytes, disk.UsedBytes);
     }
 
+    /// <summary>
+    /// Measures the CPU use from now on, as if this were the first sample: after a pause in the sampling (the window
+    /// was minimized) the next sample tells the use of the last moment, not an average over the whole pause.
+    /// </summary>
+    public void Restart()
+    {
+        (long Idle, long Total)? now = null;
+        if (NativeMethods.GetSystemTimes(out var idle, out var kernel, out var user)) now = (idle, kernel + user);
+        lock (_lock) _previous = now;
+    }
+
     /// <param name="path">A path on the drive to report, e.g. the projects folder.</param>
     public static DiskUse SampleDisk(string path)
     {

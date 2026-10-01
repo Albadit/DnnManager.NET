@@ -19,7 +19,7 @@
                             <TextBlock TextWrapping="Wrap" Margin="0,0,0,6"
                                        Text="Those rules are switched off (enabled=&quot;false&quot;), not deleted, with a &quot;Disabled by DNN Manager&quot; comment above each one in web.config." />
                             <TextBlock TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource LogWarn}"
-                                       Text="&#x26A0; The Activity log then warns you: switch them back on before deploying the site to production." />
+                                       Text="&#x26A0; The Output tab then warns you: switch them back on before deploying the site to production." />
                         </StackPanel>
                     </TextBlock.ToolTip>
                 </TextBlock>

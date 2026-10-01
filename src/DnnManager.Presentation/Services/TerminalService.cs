@@ -1,5 +1,7 @@
 using System.Windows.Media;
 using DnnManager.Application.Configuration;
+using DnnManager.Infrastructure.SiteLogs;
+using DnnManager.Presentation.Pages.Projects;
 using Microsoft.Extensions.Options;
 
 namespace DnnManager.Presentation.Services;
@@ -55,6 +57,9 @@ public sealed class TerminalService
     /// <summary>A page asks for a terminal in a folder - the window opens the panel with a new shell there.</summary>
     public event Action<string>? OpenRequested;
 
+    /// <summary>A page asks for a site's logs - the window opens the panel on its Logs tab with that log (the newest when null).</summary>
+    internal event Action<ProjectRow, SiteLogSource?>? LogsRequested;
+
     /// <summary>The shells found on this PC - Command Prompt is always there.</summary>
     public IReadOnlyList<TerminalShell> Shells => _shells.Value;
 
@@ -73,6 +78,8 @@ public sealed class TerminalService
     }
 
     public void OpenIn(string directory) => OpenRequested?.Invoke(directory);
+
+    internal void ShowLogs(ProjectRow site, SiteLogSource? source = null) => LogsRequested?.Invoke(site, source);
 
     private static IReadOnlyList<TerminalShell> FindShells()
     {

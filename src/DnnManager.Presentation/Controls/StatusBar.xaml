@@ -21,7 +21,7 @@
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,14,0">
                 <!-- A prompt (>_) and its name. -->
                 <ToggleButton x:Name="ActivityButton" Style="{StaticResource IconToggleButton}" Width="NaN" Height="24"
-                              ToolTip="Show the terminal (activity log and shells)" Click="Activity_Click">
+                              ToolTip="Show the panel - output, logs and terminals (Ctrl+`)" Click="Activity_Click">
                     <StackPanel Orientation="Horizontal" Margin="8,0">
                         <Path Data="M1,1.5 L5,5 L1,8.5 M7,9.25 H13" StrokeThickness="1.6" VerticalAlignment="Center"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"

@@ -36,6 +36,9 @@ internal sealed class TerminalSession : IDisposable
     /// <summary>The screen changed - redraw it.</summary>
     public event EventHandler? Changed;
 
+    /// <summary>The shell printed something - raised on the UI thread for each batch of its output, before <see cref="Changed"/>.</summary>
+    public event EventHandler? Output;
+
     /// <summary>The shell ended by itself (e.g. <c>exit</c>).</summary>
     public event EventHandler? Exited;
 
@@ -81,6 +84,7 @@ internal sealed class TerminalSession : IDisposable
             _flushQueued = false;
         }
         if (_disposed) return;
+        Output?.Invoke(this, EventArgs.Empty);
         Buffer.Feed(text);
         Changed?.Invoke(this, EventArgs.Empty);
     }

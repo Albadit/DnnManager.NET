@@ -55,6 +55,12 @@
                                 <TextBlock x:Name="Arrow" DockPanel.Dock="Right" Text="&#xE76C;" Visibility="Collapsed"
                                            FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10"
                                            Margin="16,0,0,0" VerticalAlignment="Center" />
+                                <!-- Its shortcut (InputGestureText), when it has one. -->
+                                <TextBlock x:Name="Gesture" DockPanel.Dock="Right" Text="{TemplateBinding InputGestureText}"
+                                           Foreground="{DynamicResource TextMuted}" Margin="24,0,0,0" VerticalAlignment="Center" />
+                                <!-- Its icon, when it has one (e.g. the terminal's shells). -->
+                                <ContentPresenter x:Name="IconHost" DockPanel.Dock="Left" ContentSource="Icon" Margin="0,0,10,0"
+                                                  VerticalAlignment="Center" />
                                 <ContentPresenter ContentSource="Header" VerticalAlignment="Center" />
                             </DockPanel>
                         </Border>
@@ -73,6 +79,12 @@
                         </Trigger>
                         <Trigger Property="HasItems" Value="True">
                             <Setter TargetName="Arrow" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="InputGestureText" Value="">
+                            <Setter TargetName="Gesture" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="Icon" Value="{x:Null}">
+                            <Setter TargetName="IconHost" Property="Visibility" Value="Collapsed" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />

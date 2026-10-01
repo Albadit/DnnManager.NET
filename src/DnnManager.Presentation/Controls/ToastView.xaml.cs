@@ -11,6 +11,9 @@ public partial class ToastView : UserControl
 {
     private readonly DispatcherTimer _timer = new();
     private Action? _action;
+    // Shown (or still showing) while the window is minimized (EfficiencyMode): its time starts once the window is back -
+    // a toast doesn't go away unseen.
+    private bool _timeWaits;
 
     public ToastView()
     {
@@ -49,12 +52,16 @@ public partial class ToastView : UserControl
         Opacity = 1;
         Visibility = Visibility.Visible;
         _timer.Interval = duration;
-        if (duration > TimeSpan.Zero) _timer.Start();
+        _timeWaits = false;
+        if (duration <= TimeSpan.Zero) return;
+        if (EfficiencyMode.GetIsSaving(this)) _timeWaits = true;
+        else _timer.Start();
     }
 
     public void Hide()
     {
         _timer.Stop();
+        _timeWaits = false;
         if (!IsVisible) return;
         var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(250));
         fade.Completed += (_, _) =>
@@ -63,6 +70,24 @@ public partial class ToastView : UserControl
             if (Opacity == 0) Visibility = Visibility.Collapsed;
         };
         BeginAnimation(OpacityProperty, fade);
+    }
+
+    // Minimized while counting down: the time stops. Restored: the toast gets its whole time again.
+    protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.Property != EfficiencyMode.IsSavingProperty) return;
+        if ((bool)e.NewValue)
+        {
+            if (!_timer.IsEnabled) return;
+            _timer.Stop();
+            _timeWaits = true;
+        }
+        else if (_timeWaits)
+        {
+            _timeWaits = false;
+            _timer.Start();
+        }
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Hide();

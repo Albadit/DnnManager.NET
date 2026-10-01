@@ -3,24 +3,35 @@ using DnnManager.Application.Abstractions;
 namespace DnnManager.Infrastructure.Monitoring;
 
 /// <summary>
-/// What the monitor knows about one project. Immutable - a change makes a new one, sent in a
-/// <see cref="ProjectChanged"/> with the facets that differ.
+/// What the monitor knows about one project - an IIS site, and what is in the folder it serves. Immutable - a change
+/// makes a new one, sent in a <see cref="ProjectChanged"/> with the facets that differ.
 /// </summary>
 public sealed record ProjectState
 {
+    /// <summary>The IIS site's name.</summary>
     public required string Name { get; init; }
+    /// <summary>The folder the site serves (its physical path in IIS).</summary>
     public required string Directory { get; init; }
+    /// <summary>Where a browser opens it, from its bindings; empty when it has no web binding.</summary>
     public required string SiteUrl { get; init; }
+    /// <summary>The folder is one of the projects folder's - a DNN Manager project, whose folder it may delete.</summary>
+    public bool InProjectsFolder { get; init; }
     /// <summary>From <c>bin\DotNetNuke.dll</c>; null when the folder holds no DNN.</summary>
     public string? DnnVersion { get; init; }
-    /// <summary>The database the site uses: from its web.config, else the one named like the project.</summary>
-    public required string DatabaseName { get; init; }
+    /// <summary>
+    /// The database the site uses: from its web.config - else, for a DNN install or a project being set up, the one
+    /// named like it. Null for a site without one.
+    /// </summary>
+    public string? DatabaseName { get; init; }
     /// <summary>The folder's size; null until it has been measured.</summary>
     public long? SizeBytes { get; init; }
-    /// <summary>The project's IIS site; null when it has none.</summary>
-    public IisSiteRuntime? Site { get; init; }
-    /// <summary>False while IIS's sites haven't been read yet (they couldn't be) - no <see cref="Site"/> then says nothing.</summary>
-    public bool SiteKnown { get; init; } = true;
+    /// <summary>The IIS site as IIS has it now.</summary>
+    public required IisSiteRuntime Site { get; init; }
+    /// <summary>
+    /// The site's database isn't on the local SQL container - another SQL Server, Windows authentication or a LocalDB
+    /// file - so the container's list of databases says nothing about it.
+    /// </summary>
+    public bool DatabaseElsewhere { get; init; }
     /// <summary>Whether the SQL Server answers; null until it has been asked.</summary>
     public bool? SqlReachable { get; init; }
     public bool DatabaseExists { get; init; }
@@ -35,9 +46,9 @@ public sealed record ProjectState
 public enum ProjectFacets
 {
     None = 0,
-    /// <summary>Name, folder, DNN version, database name.</summary>
+    /// <summary>Name, folder, address, DNN version, database name.</summary>
     Metadata = 1,
-    /// <summary>The IIS site: whether it exists, its state, ports, app pool and worker process IDs.</summary>
+    /// <summary>The IIS site: its state, bindings, app pool and worker process IDs.</summary>
     Site = 2,
     /// <summary>The worker processes' CPU, memory and I/O.</summary>
     Stats = 4,

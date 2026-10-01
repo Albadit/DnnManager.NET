@@ -6,10 +6,10 @@ using DnnManager.Presentation.Services;
 namespace DnnManager.Presentation.Pages.Projects;
 
 /// <summary>A project's IIS site as the Projects table shows it.</summary>
-public enum SiteRunState { NoSite, Stopped, Starting, Running, Stopping, Unknown }
+public enum SiteRunState { Stopped, Starting, Running, Stopping, Unknown }
 
 /// <summary>
-/// One row of the Projects table. It lives in the <see cref="ServerStore"/> for as long as its project exists and is
+/// One row of the Projects table: an IIS site. It lives in the <see cref="ServerStore"/> for as long as the site exists and is
 /// changed in place: <see cref="Apply"/> takes the project as the monitor now knows it and raises change
 /// notifications for the facet that differs only - so one site stopping redraws one row's state, not the table. The
 /// check box, the expanded details and what the row's buttons may do right now are the row's own.
@@ -21,12 +21,16 @@ public sealed class ProjectRow : INotifyPropertyChanged
     private const string NotYet = "…";
 
     // The properties each facet shows, for the change notifications.
-    private static readonly string[] MetadataProperties = [nameof(Name), nameof(Url), nameof(Path), nameof(Dnn), nameof(Database)];
-    private static readonly string[] SiteProperties = [nameof(IdText), nameof(IdSort), nameof(PortsText), nameof(AppPoolText), nameof(PidText)];
+    private static readonly string[] MetadataProperties =
+        [nameof(Name), nameof(Url), nameof(HasUrl), nameof(Path), nameof(IsDnn), nameof(Dnn), nameof(Database)];
+    private static readonly string[] SiteProperties =
+    [
+        nameof(IdText), nameof(IdSort), nameof(PortsText), nameof(AppPoolText), nameof(PidText), nameof(BindingsText),
+        nameof(HostsText)
+    ];
     private static readonly string[] StateProperties =
     [
-        nameof(State), nameof(StateText), nameof(IsTransitioning), nameof(ShowStart), nameof(ShowStop), nameof(ShowNoSite),
-        nameof(ShowProgress)
+        nameof(State), nameof(StateText), nameof(IsTransitioning), nameof(ShowStart), nameof(ShowStop), nameof(ShowProgress)
     ];
     // What the row's buttons may do - also depends on whether an operation is running anywhere.
     private static readonly string[] ActionProperties = [nameof(CanStart), nameof(CanStop), nameof(CanRestart), nameof(CanRemove)];
@@ -57,13 +61,18 @@ public sealed class ProjectRow : INotifyPropertyChanged
     public ProjectState Project => _project;
 
     public string Name => _project.Name;
-    public string Url => _project.SiteUrl;
+    /// <summary>Where a browser opens the site, from its bindings; "-" without a web binding.</summary>
+    public string Url => _project.SiteUrl.Length > 0 ? _project.SiteUrl : None;
+    public bool HasUrl => _project.SiteUrl.Length > 0;
+    /// <summary>The folder the site serves - its physical path in IIS.</summary>
     public string Path => _project.Directory;
+    public bool IsDnn => _project.DnnVersion is not null;
     public string Dnn => _project.DnnVersion ?? "(none)";
-    public string Database => _project.DatabaseName;
+    public string Database => _project.DatabaseName ?? None;
     // "Live" when the database is on the SQL Server, "Offline" when the server doesn't answer, "(none)" when the
-    // server is up but the database doesn't exist.
-    public string Sql => _project.SqlReachable switch
+    // server is up but the database doesn't exist; "External" for one on another server (or a LocalDB file), which
+    // isn't followed; "-" for a site without a database.
+    public string Sql => _project.DatabaseName is null ? None : _project.DatabaseElsewhere ? "External" : _project.SqlReachable switch
     {
         null => NotYet,
         false => "Offline",
@@ -74,7 +83,7 @@ public sealed class ProjectRow : INotifyPropertyChanged
 
     // ─── IIS site ─────────────────────────────────────────────────────────
 
-    private IisSiteRuntime? Site => _project.Site;
+    private IisSiteRuntime Site => _project.Site;
 
     // A started site whose app pool is stopped answers 503: for the user that is a stopped site (Start starts the pool).
     private bool PoolStopped => Site is { State: "Started", AppPoolState: "Stopped" };
@@ -83,8 +92,7 @@ public sealed class ProjectRow : INotifyPropertyChanged
     {
         get
         {
-            // No site - or, while IIS's sites couldn't be read at all, no telling.
-            if (Site is not { } site) return _project.SiteKnown ? SiteRunState.NoSite : SiteRunState.Unknown;
+            var site = Site;
             // An app pool on its way down is the site on its way down, whatever the site says itself: until the
             // worker process has ended it can't be started again.
             if (site.AppPoolState == "Stopping") return SiteRunState.Stopping;
@@ -126,19 +134,25 @@ public sealed class ProjectRow : INotifyPropertyChanged
         SiteRunState.Stopped => PoolStopped ? "App pool stopped" : "Stopped",
         SiteRunState.Starting => "Starting…",
         SiteRunState.Stopping => "Stopping…",
-        SiteRunState.NoSite => "No IIS site",
-        // IIS runs but doesn't tell this site's state (it doesn't know the site yet) - or couldn't be read at all.
-        _ => _project.SiteKnown ? "State unknown" : "Unknown - IIS can't be read"
+        // IIS runs but doesn't tell this site's state (it doesn't know the site yet).
+        _ => "State unknown"
     };
 
     /// <summary>For the status dot: amber while something is changing.</summary>
     public bool IsTransitioning => Pending is not null || State is SiteRunState.Starting or SiteRunState.Stopping;
 
-    public string IdText => Site?.Id.ToString() ?? None;
-    public long IdSort => Site?.Id ?? -1;
-    public string PortsText => Site is { Ports.Count: > 0 } ? string.Join(", ", Site.Ports) : None;
-    public string AppPoolText => Site is null ? None : Site.AppPoolState is { } state ? $"{Site.AppPool} - {state}" : Site.AppPool;
-    public string PidText => Site is { WorkerProcessIds.Count: > 0 } ? string.Join(", ", Site.WorkerProcessIds) : None;
+    public string IdText => Site.Id.ToString();
+    public long IdSort => Site.Id;
+    public string PortsText => Site.Ports.Count > 0 ? string.Join(", ", Site.Ports) : None;
+    public string AppPoolText => Site.AppPool.Length == 0 ? None : Site.AppPoolState is { } state ? $"{Site.AppPool} - {state}" : Site.AppPool;
+    public string PidText => Site.WorkerProcessIds.Count > 0 ? string.Join(", ", Site.WorkerProcessIds) : None;
+    /// <summary>Each binding as "https *:443:example.com", one per line.</summary>
+    public string BindingsText => Site.Bindings.Count > 0 ? string.Join(Environment.NewLine, Site.Bindings) : None;
+    /// <summary>The host names the site answers to.</summary>
+    public string HostsText => string.Join(", ", Site.Bindings.Select(b => b.Host).Where(h => h.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>The IIS site as the monitor last read it - its bindings, app pool and folder.</summary>
+    public IisSiteRuntime IisSite => Site;
 
     // ─── Worker processes ────────────────────────────────────────────────
 
@@ -195,10 +209,9 @@ public sealed class ProjectRow : INotifyPropertyChanged
 
     private bool Idle => !_busy && Pending is null;
 
-    // Running (or starting): Stop and Restart. Stopped (or stopping, or unknown): Start. No site: neither.
+    // Running (or starting): Stop and Restart. Stopped (or stopping, or unknown): Start.
     public bool ShowStart => Pending is null && State is SiteRunState.Stopped or SiteRunState.Stopping or SiteRunState.Unknown;
     public bool ShowStop => Pending is null && State is SiteRunState.Running or SiteRunState.Starting;
-    public bool ShowNoSite => Pending is null && State == SiteRunState.NoSite;
     public bool ShowProgress => Pending is not null;
 
     public bool CanStart => Idle && State is SiteRunState.Stopped or SiteRunState.Unknown;
@@ -210,19 +223,18 @@ public sealed class ProjectRow : INotifyPropertyChanged
     public IReadOnlyList<KeyValuePair<string, string>> Details =>
     [
         new("Site", Url),
-        new("Folder", Path),
+        new("Physical path", Path),
         new("App pool", AppPoolText),
-        new("Port(s)", PortsText),
+        new("Bindings", BindingsText),
         // Its IIS log folder is named after it (W3SVC<id>).
         new("Site ID", IdText),
-        new("Database", _project.SqlReachable switch
+        new("Database", _project.DatabaseName is null ? None : _project.DatabaseElsewhere ? $"{Database} (not on the local SQL container)" : _project.SqlReachable switch
         {
             null => Database,
             false => $"{Database} (the SQL Server doesn't answer)",
             true => _project.DatabaseExists ? $"{Database} (live)" : $"{Database} (doesn't exist)"
         }),
         new("DNN version", Dnn),
-        new("Size", Size),
         new("Worker process", PidText == None ? "none - started on the first request" : $"PID {PidText}, since {Stats?.Started:g}"),
     ];
 
@@ -232,7 +244,7 @@ public sealed class ProjectRow : INotifyPropertyChanged
     /// "running" the moment Stop is pressed, only once it has stopped.
     /// </summary>
     public string SearchKey => _searchKey ??=
-        string.Join('\n', Name, Url, Path, Dnn, Database, Sql, SettledStateText, IdText, PortsText, PidText);
+        string.Join('\n', Name, Url, HostsText, Path, Dnn, Database, Sql, SettledStateText, IdText, PortsText, PidText);
 
     public bool Matches(string text) => SearchKey.Contains(text, StringComparison.OrdinalIgnoreCase);
 
@@ -273,7 +285,7 @@ public sealed class ProjectRow : INotifyPropertyChanged
             _searchKey = null;
             Raise(nameof(SearchKey));
         }
-        if ((changed & (shown | ProjectFacets.Size)) != 0 || Stats?.Started != workerStarted) Raise(nameof(Details));
+        if ((changed & shown) != 0 || Stats?.Started != workerStarted) Raise(nameof(Details));
     }
 
     private static string Ago(TimeSpan span) => span switch

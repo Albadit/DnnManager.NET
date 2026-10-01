@@ -1,6 +1,7 @@
 <UserControl x:Class="DnnManager.Presentation.Pages.ProjectsPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:s="clr-namespace:DnnManager.Presentation.Services">
     <UserControl.Resources>
         <!-- "Live" green, "Offline" red, anything else ("(none)") in the normal colour. -->
         <Style x:Key="SqlText" TargetType="TextBlock">
@@ -43,13 +44,26 @@
                     <Setter Property="Stroke" Value="{DynamicResource SuccessText}" />
                     <Setter Property="Fill" Value="{DynamicResource SuccessText}" />
                 </DataTrigger>
-                <DataTrigger Binding="{Binding State}" Value="NoSite">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                </DataTrigger>
+
                 <DataTrigger Binding="{Binding IsTransitioning}" Value="True">
                     <Setter Property="Stroke" Value="{DynamicResource LogWarn}" />
                     <Setter Property="Fill" Value="{DynamicResource LogWarn}" />
                     <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <!-- The pulse - only while it can be seen: while it runs WPF draws about 60 frames a second. Not while
+                     the window is minimized (EfficiencyMode), and not on a dot that isn't on screen - the page not shown,
+                     or a row the table has let go of (bound to its site until it is garbage collected, it would pulse
+                     unseen). Shown again, a site still changing pulses again. One binding (EfficiencyMode.WhileSeen),
+                     not a MultiDataTrigger: that starts the storyboard once per condition, and each copy it replaces
+                     goes on ticking until it is garbage collected. -->
+                <DataTrigger Value="True">
+                    <DataTrigger.Binding>
+                        <MultiBinding Converter="{x:Static s:EfficiencyMode.WhileSeen}">
+                            <Binding Path="IsTransitioning" />
+                            <Binding Path="IsVisible" RelativeSource="{RelativeSource Self}" />
+                            <Binding Path="(s:EfficiencyMode.IsSaving)" RelativeSource="{RelativeSource Self}" />
+                        </MultiBinding>
+                    </DataTrigger.Binding>
                     <DataTrigger.EnterActions>
                         <BeginStoryboard x:Name="Pulse">
                             <Storyboard RepeatBehavior="Forever" AutoReverse="True">
@@ -61,6 +75,20 @@
                         <StopStoryboard BeginStoryboardName="Pulse" />
                     </DataTrigger.ExitActions>
                 </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- A row's progress bar: moving only while it is shown - and not while the window is minimized
+             (EfficiencyMode), where its animation would keep WPF drawing frames nobody sees. -->
+        <Style x:Key="RowProgress" TargetType="ProgressBar">
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding ShowProgress}" Value="True" />
+                        <Condition Binding="{Binding (s:EfficiencyMode.IsSaving), RelativeSource={RelativeSource Self}}" Value="False" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="IsIndeterminate" Value="True" />
+                </MultiDataTrigger>
             </Style.Triggers>
         </Style>
 
@@ -147,7 +175,9 @@
         </Style>
     </UserControl.Resources>
 
-    <DockPanel Margin="28,24,28,12">
+    <Grid>
+    <!-- The table; while a site is open, its overview (ProjectView) takes the page instead - the table keeps its state. -->
+    <DockPanel x:Name="TableView" Margin="28,24,28,12">
         <!-- Title. The table keeps itself up to date (ServerStore), so there is nothing to press and, while that works,
              nothing to say: top right only shows when it doesn't - "Reconnecting…", with the reason in its tooltip. -->
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
@@ -161,7 +191,7 @@
             <StackPanel>
                 <TextBlock Style="{StaticResource PageTitle}" Text="Projects" />
                 <TextBlock Style="{StaticResource PageSubtitle}" Margin="0,4,0,0"
-                           Text="Every project folder, its IIS site and its database." />
+                           Text="Every DNN website in IIS - its state, bindings, DNN install and database." />
             </StackPanel>
         </DockPanel>
 
@@ -182,7 +212,7 @@
             <StackPanel Orientation="Horizontal">
                 <TextBox x:Name="SearchBox" Style="{StaticResource SearchBox}" Tag="Search projects" Width="280"
                          TextChanged="Search_TextChanged" PreviewKeyDown="Search_PreviewKeyDown"
-                         ToolTip="Name, site, ID, port, status, DNN version, database or path - Esc clears it" />
+                         ToolTip="Name, address, host name, ID, port, status, DNN version, database or path - Esc clears it" />
                 <ToggleButton x:Name="ColumnsButton" Style="{StaticResource IconToggleButton}" Margin="8,0,0,0" ToolTip="Columns"
                               IsChecked="{Binding IsOpen, ElementName=ColumnsPopup, Mode=TwoWay}">
                     <!-- Three columns, like a table header. -->
@@ -267,13 +297,19 @@
                             <DataTemplate>
                                 <Grid Background="Transparent" ToolTip="{Binding StateText}">
                                     <Ellipse Style="{StaticResource StatusDot}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    <TextBlock Text="–" Foreground="{DynamicResource TextMuted}" HorizontalAlignment="Center"
-                                               Visibility="{Binding ShowNoSite, Converter={StaticResource BoolToVis}}" />
                                 </Grid>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" FontWeight="SemiBold" Width="Auto" MinWidth="150" />
+                    <!-- The site's name opens its overview (so does a double-click on the row, or Enter). -->
+                    <DataGridTemplateColumn Header="Name" SortMemberPath="Name" Width="Auto" MinWidth="150">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource LinkButton}" Content="{Binding Name}" FontWeight="SemiBold" HorizontalAlignment="Left"
+                                        VerticalAlignment="Center" Focusable="False" Click="RowOpen_Click" ToolTip="Open the site's overview" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
 
                     <!-- The optional columns, the ones most looked at first - the order of the Columns menu too
                          (ProjectColumns.All). -->
@@ -314,7 +350,7 @@
 
                     <!-- Sized in code (FitFiller): a star width would make the grid squeeze the other columns instead of scrolling. -->
                     <DataGridTemplateColumn x:Name="FillerColumn" Width="0" MinWidth="0" CanUserResize="False" CanUserSort="False" />
-                    <!-- Running: Stop and Restart. Stopped: Start. Changing: a progress bar. Always: Remove.
+                    <!-- Running: Stop and Restart. Stopped: Start. Changing: a progress bar. Always: Remove (the rest is on the right-click menu).
                          Stays at the right edge while the table scrolls sideways (ActionsShift). -->
                     <DataGridTemplateColumn Header="Actions" Width="Auto" MinWidth="120" CanUserResize="False" CanUserSort="False"
                                             CellStyle="{StaticResource ActionsCell}" HeaderStyle="{StaticResource ActionsHeader}">
@@ -330,14 +366,14 @@
                                             <Button Style="{StaticResource RowAction}" Content="&#xE72C;" ToolTip="Restart (recycles the app pool)" Click="RowRestart_Click"
                                                     IsEnabled="{Binding CanRestart}" Visibility="{Binding ShowStop, Converter={StaticResource BoolToVis}}" />
                                         </StackPanel>
-                                        <TextBlock Text="No site" Foreground="{DynamicResource TextMuted}" FontSize="12" VerticalAlignment="Center"
-                                                   ToolTip="No IIS site - set one up on Host project"
-                                                   Visibility="{Binding ShowNoSite, Converter={StaticResource BoolToVis}}" />
-                                        <!-- Only moving while it is shown: hidden, its animation would run on for nothing. -->
-                                        <ProgressBar Height="3" Margin="4,0" IsIndeterminate="{Binding ShowProgress}" VerticalAlignment="Center"
+
+                                        <!-- Only moving while it is shown (RowProgress): hidden, its animation would run on for nothing. -->
+                                        <ProgressBar Style="{StaticResource RowProgress}" Height="3" Margin="4,0" VerticalAlignment="Center"
                                                      Foreground="{DynamicResource Accent}" Background="{DynamicResource GridLine}" BorderThickness="0"
                                                      ToolTip="{Binding StateText}" Visibility="{Binding ShowProgress, Converter={StaticResource BoolToVis}}" />
                                     </Grid>
+                                    <!-- The site's less frequent tools: clear its cache, view its logs. -->
+
                                     <Border Width="1" Height="18" Margin="8,0" Background="{DynamicResource CardBorder}" />
                                     <Button Style="{StaticResource IconButton}" Content="&#xE74D;" Foreground="{DynamicResource ErrorText}"
                                             ToolTip="Remove…" Click="RowRemove_Click" IsEnabled="{Binding CanRemove}" />
@@ -379,4 +415,6 @@
             </Border>
         </Grid>
     </DockPanel>
+    <ContentControl x:Name="ProjectHost" Focusable="False" Visibility="Collapsed" />
+    </Grid>
 </UserControl>

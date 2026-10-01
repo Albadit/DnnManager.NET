@@ -11,6 +11,7 @@ namespace DnnManager.Infrastructure.Settings;
 ///     settings.*.json                          settings.json copies made before a migration or a reset
 ///   logs\        the activity log, one file per day
 ///   packages\    downloaded DNN install packages, when they are kept for reuse
+///   projects\    what DNN Manager remembers about the projects it set up (how DNN was installed), one file each
 /// </code>
 /// </summary>
 public sealed class AppDataPaths
@@ -38,6 +39,8 @@ public sealed class AppDataPaths
     public string LogsDirectory => Path.Combine(Root, "logs");
     /// <summary>Downloaded DNN install packages kept for reuse (setting <c>projects.keepDnnPackages</c>), one folder per repository.</summary>
     public string PackagesDirectory => Path.Combine(Root, "packages");
+    /// <summary>One <c>&lt;site&gt;.json</c> per project DNN Manager set up: how DNN was installed, when.</summary>
+    public string ProjectRecordsDirectory => Path.Combine(Root, "projects");
 
     /// <summary>The same folder under its old name (<c>Documents\DNN Manager</c>).</summary>
     public string OldRoot => Path.Combine(Path.GetDirectoryName(Root)!, OldFolderName);

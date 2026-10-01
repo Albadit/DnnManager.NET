@@ -8,6 +8,9 @@ public sealed class ExportProjectRequest
 {
     public required string ProjectName { get; init; }
 
+    /// <summary>The folder the site serves (its IIS physical path); null for the project's folder in the projects folder.</summary>
+    public string? ProjectDirectory { get; init; }
+
     /// <summary>The <c>.zip</c> to write the site's files to, or null to leave them out.</summary>
     public string? ZipPath { get; init; }
 
@@ -46,7 +49,7 @@ public sealed class ExportProjectUseCase
 
     public async Task<Result> ExecuteAsync(ExportProjectRequest req, IProgressReporter reporter, CancellationToken ct)
     {
-        var project = _projects.Build(req.ProjectName);
+        var project = req.ProjectDirectory is { } directory ? _projects.Build(req.ProjectName, directory) : _projects.Build(req.ProjectName);
         if (!Directory.Exists(project.ProjectDirectory))
             return Result.Fail($"Project folder not found: {project.ProjectDirectory}");
 

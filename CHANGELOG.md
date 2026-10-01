@@ -2,6 +2,160 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## v2.3.0 - 2026-10-01
+
+**New project installs DNN for you**: the first visit shows your new site, signed
+in as the host account you chose - no installation wizard - on the local SQL
+container, SQL Server / SQL Server Express or a LocalDB file, tested before
+anything is created. The bottom panel works like VS Code's (Output, Logs,
+Terminal, search), a site opens in an overview with tabs, and the app is light
+on resources while minimized.
+
+### Upgrading from v2.2.x
+
+- Install over v2.2.x as usual - settings are kept; the new keys
+  (`projects.dnnDefaults`, `projects.databaseProfiles`,
+  `projects.defaultDatabaseProfile`, `window.saveResourcesWhileMinimized`) are
+  added with their defaults on the first start.
+- The program is now `DnnManager.exe`. Shortcuts made by Setup are updated; a
+  shortcut or script of your own that names `dnnmanager.exe` still works
+  (Windows file names ignore case).
+
+### Changed
+
+- **The program is `DnnManager.exe`** (was `dnnmanager.exe`); Setup replaces the
+  old file when it upgrades.
+- **DNN defaults** start as host `host` / `Admin@123`, `admin@admin.com`,
+  website *My Website*, English, *Default Website* - the password while none
+  is saved in the Windows Credential Manager.
+- **Projects shows IIS, not the projects folder.** Every DNN website configured
+  in IIS is a row - also one serving a folder elsewhere; sites without DNN (such
+  as IIS's own *Default Web Site*) aren't listed -, and what the row shows comes
+  from IIS: name, state, app pool,
+  bindings (host names, ports, protocols, SSL certificate), physical path. The
+  DNN version and the database are read from the folder the site serves. A
+  folder in the projects folder without an IIS site is no longer a row (set it
+  up with **Host project**). The site's address is its https binding when it
+  has a certificate, else its http one.
+- **Remove…** deletes files only for a site in the projects folder; for a site
+  whose folder is elsewhere only its IIS site goes (and the database its
+  web.config names, if you say so).
+
+- **The bottom panel works like VS Code's** - three tabs in its header:
+  **Output** (what DNN Manager does - was *Activity*), **Logs** (new) and
+  **Terminal**, which now holds only shells, listed on the right - each with
+  its shell's icon (PowerShell, Command Prompt, Bash), also in the shell menu;
+  the list can be resized by dragging its edge, and a terminal's bin shows on
+  hover. Opening the Terminal tab with no shell open starts one. **Ctrl+`** shows
+  or hides the panel.
+- **The site overview has tabs** - **General**, **IIS**, **DNN**, **Database**
+  and **Advanced**, one shown at a time. **DNN** shows how DNN was installed,
+  its version, the host account (username and e-mail - never a password) and
+  the first portal's name and alias, then the portals; **Database** the
+  connection type, server, database and authentication, with **Test
+  connection**; **Advanced** the web.config.
+- **New project** sets the site's **host name and port** (they follow the
+  project's name until you type your own), and the Output tab names each step:
+  *Testing database connection*, *Creating project directory*, *Creating IIS
+  application pool and website*, *Creating database*, *Configuring DNN*,
+  *Running DNN installation*, *Creating portal*, *Creating host account*,
+  *Starting website*, *DNN installation completed*. A database that already
+  exists is only dropped after you confirm it.
+- **Remove…** drops a project's database where it is: on the local container,
+  on another SQL Server (through the site's own connection), or - a LocalDB
+  file - with the folder.
+- The Projects table's **SQL** column says *External* for a site whose database
+  isn't on the local SQL container.
+
+### Added
+
+- **Automatic DNN setup** - **New project** installs DNN for you, so the first
+  visit shows the new site instead of DNN's installation wizard: DNN's own
+  unattended install (`Install.aspx?mode=install`) with the host account,
+  website name, language and site template you chose, its progress in the
+  Output tab, every line of it checked (DNN reports success even when a
+  package or the portal failed). Then the host signs in without being asked
+  to change the password, and the install template - which holds the password
+  - and DNN's installer pages are deleted. Checked first, before anything is
+  created: the host password (7 to 128 characters, no `<` or `&#` - DNN fails
+  silently or its login form refuses them), the folder's depth, the database.
+  **Manual DNN setup** is still there and leaves DNN's wizard for the first
+  visit.
+- **Database choice** for a new project: the local SQL container (as before),
+  **SQL Server / SQL Server Express** with Windows or SQL Server
+  authentication (with Windows authentication the site's app pool identity is
+  made a login and the database's owner), or a **LocalDB database file** (the
+  package's own `App_Data\Database.mdf`). **Test connection** shows each
+  check - server reachable, signed in, version, can create (or owns) the
+  database, the site's login - and **Save as profile…** keeps the connection.
+- **DNN defaults** - **Settings → Projects**: install mode, host username and
+  password, e-mail, website name, language and site template that each new
+  project starts with; and the **database profiles**, with the one new projects
+  use. The passwords are kept in the Windows Credential Manager, not in
+  `settings.json` (new keys `projects.dnnDefaults`, `projects.databaseProfiles`,
+  `projects.defaultDatabaseProfile`).
+- **Change host password…** - on the overview's **DNN** tab: a new password for
+  a host account, stored the way DNN's membership provider does, then the site
+  restarts. The current password is never shown (DNN keeps only a hash).
+- **Tests** - `tests\DnnManager.IntegrationTests` (MSTest): fast tests of the
+  install's parts and of what New project refuses, and integration tests that
+  create projects with automatic setup on a clean DNN 10.3.3 - IIS Express for
+  IIS, with LocalDB (Windows authentication and a database file) and a SQL
+  Server container (as sa and as a login of its own) - and check the site, the
+  host's sign-in, the database, a restart and changing the password; and that
+  manual setup leaves DNN's wizard. See *Tests* in the README.
+
+- **Site tools** - on a site's right-click menu (and a **⋮** on its overview):
+  **Clear website cache…** (DNN's cached files and bundled
+  CSS / JavaScript, then an app pool recycle - asked first, with a notification
+  when done) and **View logs** ▸ with the site's logs.
+- **Logs tab** - a website's DNN logs, IIS request logs, HTTP.sys errors and
+  the Windows events about it (ASP.NET, its app pool, worker process crashes),
+  chosen at the top - any IIS site, right there. Only the end of a large file is
+  read; new lines and events appear as they are written. Its text can be
+  selected across lines and copied.
+- **Search** - **Ctrl+F** in the bottom panel searches Output, Logs or the
+  terminal: highlights, *2 / 14*, next / previous (**Enter**, **Shift+Enter**,
+  **F3**), Match Case / Match Whole Word / Use Regular Expression (**Alt+C**,
+  **Alt+W**, **Alt+R**), following new output; closing it leaves the text as it
+  was.
+- **Maximize the panel** - its button (or **Ctrl+Shift+M**) gives it the page's
+  room, its tabs still there; again restores it.
+- **Site overview** - click a site's name (or double-click its row, or press
+  Enter) for an overview in place of the table: state and Start / Stop /
+  Restart, the IIS website and its app pool, its bindings as links, and the
+  folder's, database's and web.config's facts. Replaces the *Details…* window.
+- **DNN portals** - for a DNN site the overview lists every portal of its
+  installation, from its database (one IIS site can serve several): ID, name,
+  status, its primary alias as a link that opens in the browser - https when the
+  site serves that host over https - and its other aliases.
+- **Efficiency mode while minimized** - with the window minimized, DNN Manager
+  stops what only the window shows: the progress bars and a changing site's
+  pulsing dot (WPF kept drawing about 60 frames a second for them, unseen),
+  this PC's figures in the status bar, drawing terminals (their output is still
+  read), following a log file (read on at once when restored - no line is lost)
+  and folder-size walks; a toast that comes meanwhile waits to be seen. Once
+  nothing runs - no operation, no terminal printing - Windows is asked to run
+  it power-efficiently (EcoQoS); an operation always runs at full speed. Sites
+  are still followed (Windows' notifications, the reconciliation every 30
+  seconds), and restoring the window brings everything up to date at once,
+  without a loading screen. Minimized and idle, the app now uses about a
+  seventh of the processor cycles it did, and during an operation the progress
+  bars stand still (new lines on an open Output tab are still drawn).
+  On by default: **Settings → General → Save resources while minimized**
+  (`window.saveResourcesWhileMinimized`).
+
+### Fixed
+
+- A changing site's pulsing status dot no longer runs while the Projects page
+  isn't shown.
+
+### Security
+
+- No password in the Output tab, the log file or an error message: a
+  connection string that couldn't be written is no longer quoted in the error,
+  and database connections print without their password.
+
 ## v2.2.0 - 2026-10-01
 
 DNN Manager now works like Docker Desktop: **Projects** is a live server table

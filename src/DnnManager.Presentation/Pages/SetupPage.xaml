@@ -6,7 +6,7 @@
         <StackPanel Margin="28,24,28,20">
             <TextBlock Style="{StaticResource PageTitle}" Text="New project" />
             <TextBlock Style="{StaticResource PageSubtitle}"
-                       Text="Creates a project from a fresh DNN download or from a .zip of an existing site (with its .bacpac / .bak), with its IIS website, hostname and database." />
+                       Text="Creates a project from a fresh DNN download - installed for you, so the first visit shows your new site - or from a .zip of an existing site (with its .bacpac / .bak), with its IIS website, hostname and database." />
 
             <Border Style="{StaticResource Card}">
                 <StackPanel>
@@ -89,8 +89,166 @@
                 </StackPanel>
             </Border>
 
+            <Border x:Name="IisCard" Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource CardTitle}" Text="IIS" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="120" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Host name" Margin="0,0,0,4" />
+                            <TextBox x:Name="HostNameBox" TextChanged="HostName_TextChanged" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Port" Margin="0,0,0,4" />
+                            <TextBox x:Name="PortBox" TextChanged="Field_Changed" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock x:Name="IisHint" Style="{StaticResource Hint}" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="InstallCard" Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource CardTitle}" Text="DNN installation" />
+                    <RadioButton x:Name="AutomaticInstall" GroupName="Install" Checked="Install_Checked">
+                        <StackPanel>
+                            <TextBlock Text="Automatic setup (recommended)" FontWeight="SemiBold" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                       Text="DNN Manager installs DNN with the account and website below - the first visit shows your new site, not DNN's installation wizard." />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="ManualInstall" GroupName="Install" Checked="Install_Checked" Margin="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Manual DNN setup" FontWeight="SemiBold" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                       Text="DNN's own installation wizard opens on the first visit, for you to fill in." />
+                        </StackPanel>
+                    </RadioButton>
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="AccountCard" Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource CardTitle}" Text="DNN account and website" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Host username" Margin="0,0,0,4" />
+                            <TextBox x:Name="HostUserBox" TextChanged="Field_Changed" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <DockPanel Margin="0,0,0,4">
+                                <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="Generate" FontSize="12"
+                                        ToolTip="A strong random password - shown, so you can copy it" Click="GeneratePassword_Click" />
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Host password" Margin="0" />
+                            </DockPanel>
+                            <c:PasswordInput x:Name="HostPasswordBox" PasswordChanged="Password_Changed" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="1">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Host e-mail" />
+                            <TextBox x:Name="HostEmailBox" TextChanged="Field_Changed" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Grid.Column="2">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Website name" />
+                            <TextBox x:Name="WebsiteNameBox" TextChanged="WebsiteName_TextChanged" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="2">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Language" />
+                            <ComboBox x:Name="LanguageCombo" SelectionChanged="Selection_Changed" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="2" Grid.Column="2">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Site template" />
+                            <ComboBox x:Name="TemplateCombo" SelectionChanged="Selection_Changed" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock x:Name="AccountError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
+                    <TextBlock x:Name="AccountHint" Style="{StaticResource Hint}" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="DatabaseCard" Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource CardTitle}" Text="Database" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Profile" Margin="0,0,0,4" />
+                            <ComboBox x:Name="ProfileCombo" DisplayMemberPath="Name" SelectionChanged="Profile_Changed" />
+                        </StackPanel>
+                        <StackPanel x:Name="TypePanel" Grid.Column="2">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Type" Margin="0,0,0,4" />
+                            <ComboBox x:Name="TypeCombo" SelectionChanged="Type_Changed">
+                                <ComboBoxItem Content="SQL Server / SQL Server Express database" Tag="sqlServer" />
+                                <ComboBoxItem Content="SQL Server Express LocalDB (file)" Tag="localDbFile" />
+                            </ComboBox>
+                        </StackPanel>
+                        <StackPanel x:Name="ServerPanel" Grid.Row="1">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Server" />
+                            <TextBox x:Name="ServerBox" TextChanged="Database_Changed" />
+                        </StackPanel>
+                        <!-- Next to the profile for the local container, which has no type or server to choose. -->
+                        <StackPanel x:Name="DatabasePanel" Grid.Row="1" Grid.Column="2">
+                            <TextBlock x:Name="DatabaseLabel" Style="{StaticResource FieldLabel}" Text="Database" />
+                            <TextBox x:Name="DatabaseBox" TextChanged="DatabaseName_TextChanged" />
+                        </StackPanel>
+                    </Grid>
+                    <StackPanel x:Name="AuthPanel">
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Authentication" />
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="WindowsAuth" GroupName="DbAuth" Content="Windows authentication" Checked="Auth_Checked" />
+                            <RadioButton x:Name="SqlAuth" GroupName="DbAuth" Content="SQL Server authentication" Margin="20,0,0,0" Checked="Auth_Checked" />
+                        </StackPanel>
+                    </StackPanel>
+                    <Grid x:Name="LoginPanel" Visibility="Collapsed">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Username" />
+                            <TextBox x:Name="DbUserBox" TextChanged="Database_Changed" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Password" />
+                            <c:PasswordInput x:Name="DbPasswordBox" PasswordChanged="Password_Changed" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock x:Name="DatabaseHint" Style="{StaticResource Hint}" />
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <Button x:Name="TestButton" Content="Test connection" Click="TestConnection_Click" />
+                        <Button x:Name="SaveProfileButton" Style="{StaticResource LinkButton}" Content="Save as profile…" Margin="16,0,0,0"
+                                VerticalAlignment="Center" ToolTip="Keep this connection for next time - its password goes to the Windows Credential Manager"
+                                Click="SaveProfile_Click" />
+                    </StackPanel>
+                    <c:DatabaseCheckList x:Name="CheckList" Margin="0,10,0,0" />
+                    <TextBlock x:Name="DatabaseError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
+                </StackPanel>
+            </Border>
+
             <StackPanel Orientation="Horizontal">
-                <Button x:Name="RunButton" Style="{StaticResource Primary}" Content="Set up project" IsEnabled="False" Click="Run_Click" />
+                <Button x:Name="RunButton" Style="{StaticResource Primary}" Content="Create project" IsEnabled="False" Click="Run_Click" />
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

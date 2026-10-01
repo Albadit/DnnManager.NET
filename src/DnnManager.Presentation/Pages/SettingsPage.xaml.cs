@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Infrastructure.Settings;
 using DnnManager.Infrastructure.Startup;
@@ -27,6 +28,14 @@ public partial class SettingsPage : UserControl
         ["projects.sitePort"] = "Site port",
         ["projects.hostnameSuffix"] = "Hostname suffix",
         ["projects.dnnReleaseSources"] = "DNN repositories",
+        ["projects.dnnDefaults.installMode"] = "Installation",
+        ["projects.dnnDefaults.hostUsername"] = "Host username:",
+        ["projects.dnnDefaults.hostEmail"] = "Host e-mail",
+        ["projects.dnnDefaults.websiteName"] = "Website name",
+        ["projects.dnnDefaults.language"] = "Language",
+        ["projects.dnnDefaults.template"] = "Site template",
+        ["projects.databaseProfiles"] = "Database profiles",
+        ["projects.defaultDatabaseProfile"] = "Database for new projects",
         ["sqlServer.host"] = "Server host",
         ["sqlServer.port"] = "Port",
         ["sqlServer.saPassword"] = "SA password",
@@ -42,6 +51,11 @@ public partial class SettingsPage : UserControl
     private readonly LiveSettings _live;
     private readonly TerminalService _terminal;
     private readonly StartupTask _startup;
+    private readonly ISecretStore _secrets;
+    // The saved database profiles as the form has them (Remove takes one out until Save), and the default host password
+    // as it is in the Credential Manager - both are compared with the form to see what Save has to change.
+    private List<DatabaseProfileSettings> _profiles = [];
+    private string _savedHostPassword = "";
     // Each category (the Tag of its entry in the list): its panel, and the words the search box finds it by.
     private readonly Dictionary<string, (FrameworkElement Panel, string Keywords)> _categories;
     // Set while the form is being filled in, so that doesn't count as an edit.
@@ -54,7 +68,7 @@ public partial class SettingsPage : UserControl
     private string _savedForm = "";
 
     public SettingsPage(IOptions<AppOptions> options, OperationRunner runner, SettingsStore store, LiveSettings live,
-        AppDataPaths paths, TerminalService terminal, StartupTask startup)
+        AppDataPaths paths, TerminalService terminal, StartupTask startup, ISecretStore secrets)
     {
         _options = options.Value;
         _runner = runner;
@@ -62,12 +76,13 @@ public partial class SettingsPage : UserControl
         _live = live;
         _terminal = terminal;
         _startup = startup;
+        _secrets = secrets;
         InitializeComponent();
 
         _categories = new Dictionary<string, (FrameworkElement, string)>
         {
-            ["General"] = (GeneralPanel, "general start sign in startup theme light dark system appearance terminal shell powershell command prompt git bash font family size settings file settings.json folder"),
-            ["Projects"] = (ProjectsPanel, "projects folder base directory hostname suffix site port address url"),
+            ["General"] = (GeneralPanel, "general start sign in startup theme light dark system appearance efficiency efficient save resources minimized minimize power battery eco terminal shell powershell command prompt git bash font family size settings file settings.json folder"),
+            ["Projects"] = (ProjectsPanel, "projects folder base directory hostname suffix site port address url dnn defaults install installation automatic manual setup wizard host account username password e-mail email website name language culture template database profiles sql server localdb express windows authentication"),
             ["Releases"] = (ReleasesPanel, "dnn releases repositories github versions install packages keep download"),
             ["Sql"] = (SqlPanel, "sql server connection host port sa password ssms management studio remember"),
             ["Docker"] = (DockerPanel, "docker container name volume edition mssql_pid collation"),
@@ -91,10 +106,13 @@ public partial class SettingsPage : UserControl
         };
 
         foreach (var box in new[] { BaseDirectory, SitePort, HostnameSuffix, ReleaseApis, ContainerName, ContainerIp,
-                                    VolumeName, DefaultPort, Collation, MssqlPid })
+                                    VolumeName, DefaultPort, Collation, MssqlPid, HostUsername, HostEmail, WebsiteName })
             box.TextChanged += (_, _) => Edited();
         SaPassword.PasswordChanged += (_, _) => Edited();
-        foreach (var box in new[] { SsmsRememberPassword, KeepDnnPackages })
+        HostPassword.PasswordChanged += (_, _) => Edited();
+        foreach (var language in DnnAccountRules.Languages) DnnLanguage.Items.Add(new ComboBoxItem { Content = LanguageName(language), Tag = language });
+        foreach (var template in DnnAccountRules.Templates) DnnTemplate.Items.Add(new ComboBoxItem { Content = template, Tag = template });
+        foreach (var box in new[] { SsmsRememberPassword, KeepDnnPackages, SaveResourcesWhileMinimized })
         {
             box.Checked += (_, _) => Edited();
             box.Unchecked += (_, _) => Edited();
@@ -300,6 +318,19 @@ public partial class SettingsPage : UserControl
         MssqlPid.Text = docker.Edition;
         Collation.Text = docker.Collation;
         SsmsRememberPassword.IsChecked = saved.Ssms.RememberPassword;
+        SaveResourcesWhileMinimized.IsChecked = saved.Window.SaveResourcesWhileMinimized;
+        var dnn = p.DnnDefaults;
+        InstallAutomatic.IsChecked = dnn.Automatic;
+        InstallManual.IsChecked = !dnn.Automatic;
+        HostUsername.Text = dnn.HostUsername;
+        HostEmail.Text = dnn.HostEmail;
+        WebsiteName.Text = dnn.WebsiteName;
+        Select(DnnLanguage, dnn.Language);
+        Select(DnnTemplate, dnn.Template);
+        _savedHostPassword = _secrets.Read(SecretNames.DefaultHostPassword) ?? DnnDefaultsSettings.DefaultHostPassword;
+        HostPassword.Password = _savedHostPassword;
+        _profiles = p.DatabaseProfiles.Select(profile => profile.Copy()).ToList();
+        ShowProfiles(p.DefaultDatabaseProfile);
         _loading = false;
 
         _savedForm = FormSnapshot();
@@ -327,8 +358,11 @@ public partial class SettingsPage : UserControl
             string.Join('\n', ReleaseApis.Text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)),
             KeepDnnPackages.IsChecked == true, ContainerIp.Text.Trim(), DefaultPort.Text.Trim(), SaPassword.Password,
             ContainerName.Text.Trim(), VolumeName.Text.Trim(), MssqlPid.Text.Trim(), Collation.Text.Trim(),
-            SsmsRememberPassword.IsChecked == true, ChosenTheme,
-            terminal.Enabled, terminal.DefaultShell, terminal.FontFamily, terminal.FontSize);
+            SsmsRememberPassword.IsChecked == true, ChosenTheme, SaveResourcesWhileMinimized.IsChecked == true,
+            terminal.Enabled, terminal.DefaultShell, terminal.FontFamily, terminal.FontSize,
+            InstallAutomatic.IsChecked == true, HostUsername.Text.Trim(), HostPassword.Password, HostEmail.Text.Trim(), WebsiteName.Text.Trim(),
+            (DnnLanguage.SelectedItem as ComboBoxItem)?.Tag, (DnnTemplate.SelectedItem as ComboBoxItem)?.Tag,
+            string.Join(',', _profiles.Select(profile => profile.Id)), (DefaultDatabaseProfile.SelectedItem as ProfileChoice)?.Id);
     }
 
     /// <summary>The form has edits that aren't saved - leaving the page would lose them.</summary>
@@ -405,17 +439,42 @@ public partial class SettingsPage : UserControl
         _live.Apply(settings);
         ThemeManager.Initialize(settings.Appearance.Theme);
         _terminal.Apply(settings.Terminal);
+        var secretsSaved = SaveSecrets(settings);
         _savedForm = FormSnapshot();
         ShowError(null);
         SetDirty(false);
-        if (await ApplyStartAtSignInAsync()) Toast.Show("Settings saved - they apply from now on.", ToastKind.Success);
+        if (await ApplyStartAtSignInAsync() && secretsSaved) Toast.Show("Settings saved - they apply from now on.", ToastKind.Success);
+    }
+
+    /// <summary>
+    /// The secrets that go with the saved settings, in the Windows Credential Manager: the default host password as the
+    /// form has it, and no password left behind for a removed profile. False (with a toast) when Windows refused.
+    /// </summary>
+    private bool SaveSecrets(UserSettings settings)
+    {
+        var password = HostPassword.Password;
+        if (password != _savedHostPassword)
+        {
+            var stored = password.Length > 0 ? _secrets.Write(SecretNames.DefaultHostPassword, password) : _secrets.Delete(SecretNames.DefaultHostPassword);
+            if (!stored.Success)
+            {
+                Toast.Show($"The other settings are saved, but the host password isn't: {stored.Error}", ToastKind.Error);
+                return false;
+            }
+            _savedHostPassword = password;
+        }
+        var kept = settings.Projects.DatabaseProfiles.Select(profile => profile.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var removed in _options.DatabaseProfiles.Where(profile => !kept.Contains(profile.Id)).ToList())
+            _secrets.Delete(SecretNames.DatabaseProfilePassword(removed.Id));
+        return true;
     }
 
     /// <summary>The category that edits the settings key <paramref name="key"/>, e.g. <c>sqlServer.port</c>.</summary>
     private static string? CategoryOf(string key) => key switch
     {
         "projects.dnnReleaseSources" => "Releases",
-        _ when key.StartsWith("terminal.", StringComparison.Ordinal) || key.StartsWith("appearance.", StringComparison.Ordinal) => "General",
+        _ when key.StartsWith("terminal.", StringComparison.Ordinal) || key.StartsWith("appearance.", StringComparison.Ordinal) ||
+               key.StartsWith("window.", StringComparison.Ordinal) => "General",
         _ when key.StartsWith("projects.", StringComparison.Ordinal) => "Projects",
         _ when key.StartsWith("sqlServer.", StringComparison.Ordinal) => "Sql",
         _ when key.StartsWith("docker.", StringComparison.Ordinal) => "Docker",
@@ -454,8 +513,23 @@ public partial class SettingsPage : UserControl
         docker.Edition = MssqlPid.Text.Trim();
         docker.Collation = Collation.Text.Trim();
 
+        p.DnnDefaults = new DnnDefaultsSettings
+        {
+            InstallMode = InstallAutomatic.IsChecked == true ? "automatic" : "manual",
+            HostUsername = HostUsername.Text.Trim(),
+            HostEmail = HostEmail.Text.Trim(),
+            WebsiteName = WebsiteName.Text.Trim(),
+            Language = (DnnLanguage.SelectedItem as ComboBoxItem)?.Tag as string ?? "en-US",
+            Template = (DnnTemplate.SelectedItem as ComboBoxItem)?.Tag as string ?? DnnAccountRules.Templates[0]
+        };
+        if (HostPassword.Password.Length > 0 && DnnAccountRules.PasswordProblem(HostPassword.Password) is { } passwordProblem)
+            return ($"Host password: {passwordProblem}", "Projects");
+        p.DatabaseProfiles = _profiles.Select(profile => profile.Copy()).ToList();
+        p.DefaultDatabaseProfile = (DefaultDatabaseProfile.SelectedItem as ProfileChoice)?.Id ?? DatabaseProfileSettings.ContainerId;
+
         settings.Ssms.RememberPassword = SsmsRememberPassword.IsChecked == true;
         settings.Appearance.Theme = ChosenTheme;
+        settings.Window.SaveResourcesWhileMinimized = SaveResourcesWhileMinimized.IsChecked == true;
         settings.Terminal = ChosenTerminal;
         return (null, null);
     }
@@ -494,6 +568,76 @@ public partial class SettingsPage : UserControl
         var suffix = HostnameSuffix.Text.Trim().Trim('.');
         var port = int.TryParse(SitePort.Text.Trim(), out var p) && p is > 0 and <= 65535 ? p : 80;
         UrlPreview.Text = $"Sites answer at http://<project>.{suffix}{(port == 80 ? "" : $":{port}")}";
+        ShowDefaultsHint();
+    }
+
+    // ─── DNN defaults and database profiles ───────────────────────────────
+
+    /// <summary>A database New project can start with: the local container or a saved profile.</summary>
+    private sealed record ProfileChoice(string Id, string Name);
+
+    /// <summary>A saved profile in the list, with what it connects to in words.</summary>
+    public sealed record ProfileRow(DatabaseProfileSettings Profile)
+    {
+        public string Name => Profile.Name;
+
+        public string Summary =>
+            (Profile.Type.Equals("localDbFile", StringComparison.OrdinalIgnoreCase) ? "SQL Server Express LocalDB (file)" : "SQL Server") +
+            $" · {Profile.Server} · " +
+            (Profile.Authentication.Equals("sql", StringComparison.OrdinalIgnoreCase) ? $"SQL Server authentication ({Profile.UserName})" : "Windows authentication");
+    }
+
+    private void ShowProfiles(string defaultId)
+    {
+        DatabaseProfiles.ItemsSource = _profiles.Select(profile => new ProfileRow(profile)).ToList();
+        NoProfiles.Visibility = _profiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        var choices = new List<ProfileChoice> { new(DatabaseProfileSettings.ContainerId, "Local SQL container (Docker)") };
+        choices.AddRange(_profiles.Select(profile => new ProfileChoice(profile.Id, profile.Name)));
+        DefaultDatabaseProfile.ItemsSource = choices;
+        DefaultDatabaseProfile.SelectedItem = choices.FirstOrDefault(c => c.Id.Equals(defaultId, StringComparison.OrdinalIgnoreCase)) ?? choices[0];
+    }
+
+    private void RemoveProfile_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: ProfileRow row }) return;
+        var defaultId = (DefaultDatabaseProfile.SelectedItem as ProfileChoice)?.Id ?? DatabaseProfileSettings.ContainerId;
+        _profiles.Remove(row.Profile);
+        _loading = true;
+        ShowProfiles(defaultId);
+        _loading = false;
+        Edited();
+    }
+
+    private void Install_Checked(object sender, RoutedEventArgs e) => Edited();
+
+    private void Defaults_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        ShowDefaultsHint();
+        Edited();
+    }
+
+    private void ShowDefaultsHint()
+    {
+        if (DnnDefaultsHint is null) return; // raised during InitializeComponent
+        var suffix = HostnameSuffix.Text.Trim().Trim('.');
+        var language = (DnnLanguage.SelectedItem as ComboBoxItem)?.Tag as string ?? "en-US";
+        DnnDefaultsHint.Text = $"An empty e-mail is host@{suffix}; an empty website name is the project's name. The password is kept in the " +
+                               $"Windows Credential Manager of your account, not in settings.json (empty: {DnnDefaultsSettings.DefaultHostPassword})." +
+                               (language == "en-US" ? "" : $" {LanguageName(language)}: DNN downloads its language pack while installing (needs internet).");
+    }
+
+    /// <summary>"nl-NL" → "Nederlands (nl-NL)".</summary>
+    private static string LanguageName(string culture)
+    {
+        try
+        {
+            var info = System.Globalization.CultureInfo.GetCultureInfo(culture);
+            return $"{char.ToUpper(info.NativeName[0])}{info.NativeName[1..]} ({culture})";
+        }
+        catch (System.Globalization.CultureNotFoundException)
+        {
+            return culture;
+        }
     }
 
     private void ShowError(string? error)

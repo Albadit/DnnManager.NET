@@ -11,8 +11,9 @@ using Microsoft.Win32;
 namespace DnnManager.Infrastructure.Monitoring;
 
 /// <summary>
-/// The one place that knows the current state of the projects, their IIS sites, IIS itself and this PC, and keeps it
-/// current by itself - the Projects page has no Refresh. Modelled on how Docker Desktop follows its engine: take a
+/// The one place that knows the current state of the IIS sites (the Projects table's rows - IIS is the list, every
+/// site in it is a project, whatever folder it serves), what their folders hold, IIS itself and this PC, and keeps
+/// it current by itself - the Projects page has no Refresh. Modelled on how Docker Desktop follows its engine: take a
 /// snapshot, follow the events, and reconcile now and then because an event stream is never guaranteed complete
 /// (<c>docker events</c> only replays the last 256).
 ///
@@ -28,7 +29,7 @@ namespace DnnManager.Infrastructure.Monitoring;
 /// <item>IIS started or stopped - the service control manager reports the web service's status (<see cref="ServiceStatusSource"/>).</item>
 /// <item>A site or app pool added, removed or changed, from any tool - <c>applicationHost.config</c> being written (<see cref="FolderChangeSource"/>).</item>
 /// <item>An app pool that failed, was disabled or recycled - what IIS writes to the System event log (<see cref="EventLogSource"/>).</item>
-/// <item>A project folder made, removed or renamed - the projects folder being watched (<see cref="FolderChangeSource"/>).</item>
+/// <item>A folder in the projects folder made, removed or renamed - the sites' folders are read again (<see cref="FolderChangeSource"/>).</item>
 /// <item>The PC waking up - <see cref="SystemEvents.PowerModeChanged"/>.</item>
 /// <item>DNN Manager's own operations - they ask for a sync when they finish (<see cref="SyncAsync"/>, <see cref="SyncSitesAsync"/>).</item>
 /// </list>
@@ -42,15 +43,19 @@ namespace DnnManager.Infrastructure.Monitoring;
 /// <item>The sites' state, as a reconciliation: 5 s on the Projects page, 30 s otherwise. IIS has no notification for
 /// a site's running state, so this is what catches a stop or start that touched nothing else.</item>
 /// <item>* The SQL Server and its databases: 10 s.</item>
-/// <item>* The project folders, each one's web.config database and DNN version: 30 s. (Not watched per project: a
-/// watcher inside a project folder would be in the way of removing it.)</item>
+/// <item>* What each site's folder holds - its DNN version and its web.config's database: 30 s, and when the site
+/// turns up or serves another folder. (Not watched per folder: a watcher inside a project folder would be in the way
+/// of removing it.)</item>
 /// <item>* The folder sizes: 10 minutes, and after an operation - they are a walk over every file.</item>
 /// </list>
 /// <para>The intervals are counted from when a read was last asked for or finished, whichever is later, on a clock
 /// that only goes forward (<see cref="Now"/>) - so a slow read isn't asked for twice, and setting the PC's date or
 /// time doesn't stop or hurry anything.</para>
+/// <para><b>While the window is minimized</b> (and the user wants resources saved meanwhile - <see cref="SavingResources"/>)
+/// this PC's figures aren't read, folder-size walks wait, and the loop looks at what is due every 5 s instead of every
+/// second. The notifications, the reconciliation every 30 s and the retries go on.</para>
 ///
-/// <para><b>Start.</b> <see cref="Start"/> reads the sites and the project folders once and publishes them as
+/// <para><b>Start.</b> <see cref="Start"/> reads the sites and their folders once and publishes them as
 /// <see cref="ProjectAdded"/> events, then <see cref="MonitorConnection.Live"/>; database state and sizes follow as
 /// they arrive, each as a change to the rows already shown.</para>
 ///
@@ -67,7 +72,12 @@ namespace DnnManager.Infrastructure.Monitoring;
 public sealed class ServerStateMonitor : IDisposable
 {
     private static readonly TimeSpan Tick = TimeSpan.FromSeconds(1);
+    // The loop's tick while resources are saved: nothing it does then is needed sooner, and every tick wakes the PC's
+    // processor up.
+    private static readonly TimeSpan SavingTick = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan HostEvery = TimeSpan.FromSeconds(2);
+    // After a pause, the CPU use is measured over at least this long before it is shown - a shorter span is a guess.
+    private static readonly TimeSpan HostFirstAfter = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan DiskEvery = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan StatsEvery = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan TrafficEvery = TimeSpan.FromSeconds(5);
@@ -115,7 +125,7 @@ public sealed class ServerStateMonitor : IDisposable
     private readonly HashSet<string> _sizesWanted = new(StringComparer.OrdinalIgnoreCase);
     // What couldn't be read or listened to: a key per thing, with the message shown while reconnecting.
     private readonly Dictionary<string, string> _problems = new();
-    private IReadOnlyDictionary<string, IisSiteRuntime>? _sites;
+
     private IReadOnlySet<string>? _databases;
     private bool? _sqlReachable;
     private IisServerState? _runtime;
@@ -136,8 +146,11 @@ public sealed class ServerStateMonitor : IDisposable
     private int _sitesFailures;
     // The worker processes seen at the last look - a different set means a site's workers changed.
     private HashSet<int>? _workers;
-    private volatile bool _active, _trafficWanted;
+    private volatile bool _active, _trafficWanted, _saving;
     private int _started, _resuming;
+    // The loop's timer, once it runs - its period changes with SavingResources (under _tickLock).
+    private readonly object _tickLock = new();
+    private PeriodicTimer? _timer;
 
     public ServerStateMonitor(IOptions<AppOptions> options, IProjectRepository repository, IIisManager iis,
         IWebConfigService webConfig, IServiceScopeFactory scopes, ProcessSampler processes, HostResourceMonitor host,
@@ -194,6 +207,32 @@ public sealed class ServerStateMonitor : IDisposable
         {
             _trafficWanted = value;
             if (value) Volatile.Write(ref _trafficAt, Never);
+        }
+    }
+
+    /// <summary>
+    /// The window is minimized and resources are to be saved meanwhile: this PC's figures aren't read (only the
+    /// status bar shows them), folder-size walks wait (only the table shows them), and the loop looks at what is due
+    /// every 5 s - the sites' reconciliation every 30 s, the notifications and the retries go on. Turning it off reads
+    /// the figures at the first tick half a second or more later, with the CPU use of that moment rather than an
+    /// average over the pause, and does the walks that waited.
+    /// </summary>
+    public bool SavingResources
+    {
+        get => _saving;
+        set
+        {
+            if (_saving == value) return;
+            _saving = value;
+            SetTick(value ? SavingTick : Tick);
+            if (value) return;
+
+            _host.Restart();
+            Volatile.Write(ref _diskAt, Never);
+            DueAfter(ref _hostAt, HostEvery, HostFirstAfter);
+            bool walksWaiting;
+            lock (_gate) walksWaiting = _sizesWanted.Count > 0;
+            if (walksWaiting) _sizesJob.Request();
         }
     }
 
@@ -284,7 +323,7 @@ public sealed class ServerStateMonitor : IDisposable
                 Publish(events);
             }
 
-            using var timer = new PeriodicTimer(Tick);
+            using var timer = StartTimer();
             Done(ref _lastTick);
             while (await timer.WaitForNextTickAsync(_stop.Token))
             {
@@ -293,6 +332,23 @@ public sealed class ServerStateMonitor : IDisposable
             }
         }
         catch (OperationCanceledException) { }
+    }
+
+    /// <summary>The loop's timer, ticking as often as <see cref="SavingResources"/> asks for.</summary>
+    private PeriodicTimer StartTimer()
+    {
+        lock (_tickLock) return _timer = new PeriodicTimer(_saving ? SavingTick : Tick);
+    }
+
+    /// <summary>Changes how often the loop ticks - from now: the next tick is a whole <paramref name="period"/> away.</summary>
+    private void SetTick(TimeSpan period)
+    {
+        lock (_tickLock)
+        {
+            if (_timer is null || _stop.IsCancellationRequested) return;
+            try { _timer.Period = period; }
+            catch (ObjectDisposedException) { } // the loop has ended
+        }
     }
 
     private async Task OnTickAsync()
@@ -305,7 +361,7 @@ public sealed class ServerStateMonitor : IDisposable
             return;
         }
 
-        if (Due(ref _hostAt, HostEvery, now))
+        if (!_saving && Due(ref _hostAt, HostEvery, now))
         {
             if (Due(ref _diskAt, DiskEvery, now)) _disk = HostResourceMonitor.SampleDisk(_options.BaseDirectory);
             var host = _host.Sample(_disk);
@@ -342,6 +398,10 @@ public sealed class ServerStateMonitor : IDisposable
     }
 
     private static void Done(ref long last) => Volatile.Write(ref last, Now);
+
+    /// <summary>Makes a read done every <paramref name="every"/> due at the first tick <paramref name="after"/> or more from now.</summary>
+    private static void DueAfter(ref long last, TimeSpan every, TimeSpan after) =>
+        Volatile.Write(ref last, Now - (long)(every - Tick / 2 - after).TotalMilliseconds);
 
     /// <summary>Tries again what failed: sources that aren't listening, and reads that couldn't be done.</summary>
     private void Retry()
@@ -512,7 +572,7 @@ public sealed class ServerStateMonitor : IDisposable
             Volatile.Write(ref _sitesReadSince, Never);
         }
 
-        var retry = false;
+        bool retry = false, added = false;
         lock (_gate)
         {
             var events = new List<MonitorEvent>();
@@ -531,10 +591,15 @@ public sealed class ServerStateMonitor : IDisposable
             }
             else
             {
+                // IIS is what there is: a row per site, gone with its site.
                 _sitesFailures = 0;
-                _sites = sites;
-                foreach (var project in _projects.Values.ToList())
-                    ApplySite(project, sites.GetValueOrDefault(project.Name), events);
+                foreach (var (name, site) in sites) added |= ApplySite(name, site, events);
+                foreach (var gone in _projects.Keys.Where(name => !sites.ContainsKey(name)).ToList())
+                {
+                    _projects.Remove(gone);
+                    _sizesWanted.Remove(gone);
+                    events.Add(new ProjectRemoved(gone));
+                }
                 ClearProblem(SitesKey, events);
                 ClearProblem(SourceKey(ChangeKind.Iis), events);
                 Synced();
@@ -542,29 +607,73 @@ public sealed class ServerStateMonitor : IDisposable
             Publish(events);
         }
         Done(ref _sitesAt);
+        // A new site's size: walked now - or, while resources are saved, once that ends.
+        if (added && !_saving) _sizesJob.Request();
         if (retry) _ = Task.Delay(QuickRetry, ct).ContinueWith(_ => _sitesJob.Request(), TaskContinuationOptions.OnlyOnRanToCompletion);
         return Task.CompletedTask;
     }
 
-    private void ApplySite(ProjectState project, IisSiteRuntime? site, List<MonitorEvent> events)
+    /// <summary>
+    /// Takes IIS's site <paramref name="name"/> as it is now: a new row for a site not known yet, a change for one
+    /// that differs. What its folder holds (DNN version, database) is read when the site turns up or serves another
+    /// folder; the timed read of the folders catches what changes inside one. True when it was new.
+    /// </summary>
+    private bool ApplySite(string name, IisSiteRuntime site, List<MonitorEvent> events)
     {
-        if (project.SiteKnown && (site is null ? project.Site is null : site.SameAs(project.Site))) return;
-        var next = project with { Site = site, SiteKnown = true };
+        var url = site.BrowseUrl ?? "";
+        if (!_projects.TryGetValue(name, out var known))
+        {
+            var folder = ReadFolder(name, site.PhysicalPath);
+            var project = new ProjectState
+            {
+                Name = name,
+                Directory = site.PhysicalPath,
+                SiteUrl = url,
+                InProjectsFolder = folder.InProjectsFolder,
+                DnnVersion = folder.DnnVersion,
+                DatabaseName = folder.Database,
+                DatabaseElsewhere = folder.Elsewhere,
+                Site = site,
+                SqlReachable = folder.Elsewhere ? null : _sqlReachable,
+                DatabaseExists = !folder.Elsewhere && DatabaseExists(folder.Database),
+            };
+            _projects[name] = project;
+            _sizesWanted.Add(name);
+            events.Add(new ProjectAdded(project));
+            return true;
+        }
+
+        if (known.Name == name && site.SameAs(known.Site)) return false;
+        var next = known with { Name = name, Site = site, SiteUrl = url };
         var changed = ProjectFacets.Site;
-        // Without worker processes there are no figures for them; without a site no traffic.
-        if (project.Stats is not null && site is not { WorkerProcessIds.Count: > 0 })
+        if (known.Name != name || url != known.SiteUrl) changed |= ProjectFacets.Metadata;
+        if (!string.Equals(site.PhysicalPath, known.Directory, StringComparison.OrdinalIgnoreCase))
+        {
+            // Another folder: another DNN, database and size.
+            var folder = ReadFolder(name, site.PhysicalPath);
+            next = next with
+            {
+                Directory = site.PhysicalPath, InProjectsFolder = folder.InProjectsFolder, DnnVersion = folder.DnnVersion,
+                DatabaseName = folder.Database, DatabaseElsewhere = folder.Elsewhere,
+                SqlReachable = folder.Elsewhere ? null : _sqlReachable,
+                DatabaseExists = !folder.Elsewhere && DatabaseExists(folder.Database), SizeBytes = null
+            };
+            changed |= ProjectFacets.Metadata | ProjectFacets.Sql | ProjectFacets.Size;
+            _sizesWanted.Add(name);
+        }
+        // Without worker processes there are no figures for them.
+        if (known.Stats is not null && site.WorkerProcessIds.Count == 0)
         {
             next = next with { Stats = null };
             changed |= ProjectFacets.Stats;
         }
-        if (project.Traffic is not null && site is null)
-        {
-            next = next with { Traffic = null };
-            changed |= ProjectFacets.Traffic;
-        }
+        // Only the name's capitals can differ here - keep the dictionary's key in step.
+        if (known.Name != name) _projects.Remove(known.Name);
         Replace(next, changed, events);
+        return false;
     }
 
+    private bool DatabaseExists(string? database) => database is not null && _databases?.Contains(database) == true;
     /// <summary>
     /// A read threw what it wasn't written for: said like anything else that can't be read, and tried again like it
     /// (<see cref="Retry"/>) - not a table that quietly stays as it was.
@@ -580,94 +689,92 @@ public sealed class ServerStateMonitor : IDisposable
         }
     }
 
-    // ─── The project folders ──────────────────────────────────────────────
+    // ─── What the sites' folders hold ─────────────────────────────────────
 
-    private Task ReadProjectsAsync(CancellationToken ct)
+    /// <summary>
+    /// What the folder a site serves holds: a DNN install (its version), the database its web.config names, and
+    /// whether it is one of the projects folder's. Never throws - a folder that can't be read holds nothing known.
+    /// </summary>
+    private (string? DnnVersion, string? Database, bool InProjectsFolder, bool Elsewhere) ReadFolder(string name, string directory)
     {
-        List<(string Name, string Directory, string? DnnVersion, string Database)> found;
+        var inProjectsFolder = IsInProjectsFolder(directory);
+        string? version = null, database = null;
+        var elsewhere = false;
         try
         {
-            found = _repository.ListAllProjectDirectories().Select(name =>
+            if (directory.Length > 0 && Directory.Exists(directory))
             {
-                var project = _repository.Build(name);
-                // The database the site uses comes from its web.config; before the DNN wizard wires that up, the one
-                // named like the project, as setup creates it.
-                return (name, project.ProjectDirectory, DnnInstall.Version(project.ProjectDirectory),
-                    DeveloperDb.FromWebConfig(project, _webConfig) ?? _options.DatabaseNameFor(name));
-            }).ToList();
+                version = DnnInstall.Version(directory);
+                var read = _webConfig.ReadDatabaseConnection(Path.Combine(directory, "web.config"));
+                // DNN's shipped connection (.\SQLExpress, a User Instance file) means it isn't wired up yet: the database
+                // named like the site, on the container, as setup creates it.
+                if (read is { Success: true, Value: { } c } &&
+                    !(c.Kind == DatabaseKind.LocalDbFile && !Sql.ConnectionStrings.IsLocalDb(c.Server)))
+                {
+                    database = c.Database.Length > 0 ? c.Database : null;
+                    elsewhere = c.Kind == DatabaseKind.LocalDbFile || c.UsesWindowsAuthentication ||
+                                !LocalSqlContainer.IsContainerServer(c.Server, _options.Docker.ContainerIp, _options.Docker.DefaultPort);
+                }
+            }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            lock (_gate)
-            {
-                var events = new List<MonitorEvent>();
-                SetProblem(ProjectsKey, $"The projects folder {_options.BaseDirectory} can't be read: {ex.Message}", events);
-                Publish(events);
-            }
-            Done(ref _projectsAt);
-            return Task.CompletedTask;
+            _log.LogDebug(ex, "Could not read the folder of site {Site}", name);
         }
+        // Before the DNN install wizard wires its web.config up, a DNN site uses the database named like it, as
+        // setup creates it. Any other site has no database DNN Manager knows of.
+        database ??= version is not null || inProjectsFolder ? _options.DatabaseNameFor(name) : null;
+        return (version, database, inProjectsFolder, elsewhere);
+    }
 
-        var added = false;
+    private bool IsInProjectsFolder(string directory)
+    {
+        if (directory.Length == 0 || _options.BaseDirectory.Length == 0) return false;
+        try
+        {
+            var root = Path.GetFullPath(_options.BaseDirectory).TrimEnd('\\') + "\\";
+            return Path.GetFullPath(directory).StartsWith(root, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Reads every site's folder again (a DNN installed, a web.config pointed at another database, the projects
+    /// folder moved in the settings) and publishes what differs.
+    /// </summary>
+    private Task ReadProjectsAsync(CancellationToken ct)
+    {
+        List<(string Name, string Directory)> sites;
+        lock (_gate) sites = _projects.Values.Select(p => (p.Name, p.Directory)).ToList();
+        var read = sites.ToDictionary(s => s.Name, s => ReadFolder(s.Name, s.Directory), StringComparer.OrdinalIgnoreCase);
+
         lock (_gate)
         {
             var events = new List<MonitorEvent>();
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var (name, directory, dnnVersion, database) in found)
+            foreach (var (name, folder) in read)
             {
-                seen.Add(name);
-                var exists = _databases?.Contains(database) == true;
-                if (!_projects.TryGetValue(name, out var known))
+                // Gone, or moved to another folder meanwhile (the sites read has read that one).
+                if (!_projects.TryGetValue(name, out var known) || known.Directory != sites.First(s => s.Name == name).Directory) continue;
+                if (known.DnnVersion == folder.DnnVersion && known.DatabaseName == folder.Database &&
+                    known.InProjectsFolder == folder.InProjectsFolder && known.DatabaseElsewhere == folder.Elsewhere) continue;
+                var exists = !folder.Elsewhere && DatabaseExists(folder.Database);
+                Replace(known with
                 {
-                    // A new project starts with what is already known about its site and the SQL Server.
-                    var project = new ProjectState
-                    {
-                        Name = name,
-                        Directory = directory,
-                        SiteUrl = _options.SiteUrlFor(name),
-                        DnnVersion = dnnVersion,
-                        DatabaseName = database,
-                        Site = _sites?.GetValueOrDefault(name),
-                        SiteKnown = _sites is not null,
-                        SqlReachable = _sqlReachable,
-                        DatabaseExists = exists,
-                    };
-                    _projects[name] = project;
-                    _sizesWanted.Add(name);
-                    events.Add(new ProjectAdded(project));
-                    added = true;
-                }
-                else if (known.Name != name || known.Directory != directory || known.DnnVersion != dnnVersion ||
-                         known.DatabaseName != database || known.SiteUrl != _options.SiteUrlFor(name))
-                {
-                    var changed = ProjectFacets.Metadata;
-                    if (exists != known.DatabaseExists) changed |= ProjectFacets.Sql;
-                    // Only the name's capitals can differ here - keep the dictionary's key in step.
-                    _projects.Remove(known.Name);
-                    Replace(known with
-                    {
-                        Name = name, Directory = directory, SiteUrl = _options.SiteUrlFor(name),
-                        DnnVersion = dnnVersion, DatabaseName = database, DatabaseExists = exists
-                    }, changed, events);
-                }
-            }
-
-            foreach (var gone in _projects.Keys.Where(name => !seen.Contains(name)).ToList())
-            {
-                _projects.Remove(gone);
-                _sizesWanted.Remove(gone);
-                events.Add(new ProjectRemoved(gone));
+                    DnnVersion = folder.DnnVersion, DatabaseName = folder.Database, InProjectsFolder = folder.InProjectsFolder,
+                    DatabaseElsewhere = folder.Elsewhere, SqlReachable = folder.Elsewhere ? null : _sqlReachable, DatabaseExists = exists
+                }, exists != known.DatabaseExists || known.DatabaseName != folder.Database || known.DatabaseElsewhere != folder.Elsewhere
+                    ? ProjectFacets.Metadata | ProjectFacets.Sql : ProjectFacets.Metadata, events);
             }
             ClearProblem(ProjectsKey, events);
             ClearProblem(SourceKey(ChangeKind.Projects), events);
-            Synced();
             Publish(events);
         }
         Done(ref _projectsAt);
-        if (added) _sizesJob.Request();
         return Task.CompletedTask;
     }
-
     // ─── The SQL Server ───────────────────────────────────────────────────
 
     private async Task ReadSqlAsync(CancellationToken ct)
@@ -684,7 +791,9 @@ public sealed class ServerStateMonitor : IDisposable
             _sqlReachable = databases is not null;
             foreach (var project in _projects.Values.ToList())
             {
-                var exists = databases?.Contains(project.DatabaseName) == true;
+                // The container's list says nothing about a database somewhere else.
+                if (project.DatabaseElsewhere) continue;
+                var exists = project.DatabaseName is { } name && databases?.Contains(name) == true;
                 if (project.SqlReachable == _sqlReachable && project.DatabaseExists == exists) continue;
                 Replace(project with { SqlReachable = _sqlReachable, DatabaseExists = exists }, ProjectFacets.Sql, events);
             }
@@ -695,18 +804,23 @@ public sealed class ServerStateMonitor : IDisposable
 
     // ─── Folder sizes ─────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Every folder's size is to be walked again - now, or while resources are saved (nobody sees the sizes) once that
+    /// ends (<see cref="SavingResources"/>): the folders stay marked until then.
+    /// </summary>
     private void QueueAllSizes()
     {
         lock (_gate)
             foreach (var name in _projects.Keys) _sizesWanted.Add(name);
         Done(ref _sizesAt);
-        _sizesJob.Request();
+        if (!_saving) _sizesJob.Request();
     }
 
-    // One project at a time: it is a walk over tens of thousands of files, and nobody is waiting for it.
+    // One project at a time: it is a walk over tens of thousands of files, and nobody is waiting for it. Saving
+    // resources stops it between two projects - the rest stay marked for later.
     private Task ReadSizesAsync(CancellationToken ct)
     {
-        while (!ct.IsCancellationRequested)
+        while (!ct.IsCancellationRequested && !_saving)
         {
             string name, directory;
             lock (_gate)
@@ -807,7 +921,7 @@ public sealed class ServerStateMonitor : IDisposable
             var events = new List<MonitorEvent>();
             foreach (var project in _projects.Values.ToList())
             {
-                var now = project.Site is null ? null : traffic.GetValueOrDefault(project.Name);
+                var now = traffic.GetValueOrDefault(project.Name);
                 if (!Equals(project.Traffic, now)) Replace(project with { Traffic = now }, ProjectFacets.Traffic, events);
             }
             Publish(events);

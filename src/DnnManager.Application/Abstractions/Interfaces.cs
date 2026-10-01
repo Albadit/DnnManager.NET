@@ -24,7 +24,12 @@ public interface IUserPrompt
 public interface IProjectRepository
 {
     IReadOnlyList<string> ListAllProjectDirectories();
+
+    /// <summary>The project named <paramref name="projectName"/>, in its folder in the projects folder.</summary>
     DnnProject Build(string projectName);
+
+    /// <summary>The project of the IIS site <paramref name="siteName"/>, in the folder the site serves - wherever that is.</summary>
+    DnnProject Build(string siteName, string directory);
     bool ProjectExists(string projectName);
 
     /// <summary>
@@ -69,6 +74,27 @@ public interface IIisManager
     /// <summary>Recycles the site's app pool (a new worker process) and starts the site if it's stopped.</summary>
     Result RestartSite(string siteName);
 
+    /// <summary>
+    /// Recycles the site's app pool when it runs - what it holds in memory (ASP.NET's and DNN's caches) is gone; a
+    /// stopped pool stays stopped. Ok when there is nothing to recycle.
+    /// </summary>
+    Result RecycleAppPool(string siteName);
+
+    /// <summary>The folder IIS writes the site's request logs to (<c>…\W3SVC&lt;id&gt;</c>); null when there is no such site.</summary>
+    string? GetLogDirectory(string siteName);
+
+    /// <summary>
+    /// The Windows account the site runs as - what it signs in to SQL Server with under Windows authentication, e.g.
+    /// <c>IIS APPPOOL\mysite</c>.
+    /// </summary>
+    string AppPoolIdentity(string siteName);
+
+    /// <summary>
+    /// Loads the user profile of the site's app pool identity and gives it that profile's environment - what a LocalDB
+    /// database needs: LocalDB keeps every Windows account's instance in its profile.
+    /// </summary>
+    Result EnableUserProfile(string siteName);
+
     /// <summary>True when IIS is installed and its configuration is reachable on this machine.
     /// Lets setup skip website creation gracefully instead of failing when IIS is absent.</summary>
     bool IsAvailable();
@@ -87,8 +113,8 @@ public interface IIisManager
     IReadOnlyDictionary<string, string> GetSiteStates();
 
     /// <summary>
-    /// Like <see cref="GetSiteStates"/>, with what the Projects table shows live: the site's ID, ports, app pool
-    /// and the pool's worker processes. Null when IIS's configuration couldn't be read - which is not the same as
+    /// Every site with what the Projects table shows live: its ID, state, bindings, folder, app pool and the pool's
+    /// worker processes. Null when IIS's configuration couldn't be read - which is not the same as
     /// "there are no sites", so a caller can keep what it knew.
     /// </summary>
     IReadOnlyDictionary<string, IisSiteRuntime>? GetSiteRuntimes();
@@ -126,22 +152,89 @@ public sealed record IisSiteInfo(
     string? PipelineMode,
     string? Identity);
 
-/// <param name="State">IIS's state of the site: "Started", "Starting", "Stopping", "Stopped" or "Unknown" (e.g. IIS is stopped).</param>
-/// <param name="Ports">The ports of its bindings, lowest first.</param>
+/// <summary>
+/// An IIS site as IIS has it configured and running - what the Projects table is made of: every site in IIS is a
+/// row, whatever folder it serves.
+/// </summary>
+/// <param name="State">IIS's state of the site: "Started", "Starting", "Stopping", "Stopped" or "Unknown".</param>
 /// <param name="WorkerProcessIds">The app pool's w3wp.exe processes - none until the site gets its first request.</param>
+/// <param name="Bindings">How it is reached: protocol, address, port and host name of each binding.</param>
+/// <param name="PhysicalPath">The folder its root application serves (environment variables expanded).</param>
 public sealed record IisSiteRuntime(
     long Id,
     string State,
-    IReadOnlyList<int> Ports,
     string AppPool,
     string? AppPoolState,
-    IReadOnlyList<int> WorkerProcessIds)
+    IReadOnlyList<int> WorkerProcessIds,
+    IReadOnlyList<IisBinding> Bindings,
+    string PhysicalPath)
 {
+    /// <summary>The ports of its bindings, lowest first.</summary>
+    public IReadOnlyList<int> Ports { get; } = Bindings.Select(b => b.Port).OfType<int>().Distinct().Order().ToList();
+
+    /// <summary>
+    /// Where a browser opens it: an https binding with a certificate first, then an http one, then an https one
+    /// without a certificate - each with a host name before one without. Null for a site without web bindings.
+    /// </summary>
+    public string? BrowseUrl =>
+        Bindings.Where(b => b.IsWeb)
+            .OrderBy(b => (b.IsHttps && b.HasCertificate ? 0 : b.IsHttps ? 2 : 1) + (b.Host.Length > 0 ? 0 : 3))
+            .FirstOrDefault()?.Url;
+
+    /// <summary>Whether a browser can reach <paramref name="host"/> over https here: an https binding for that host, or for any.</summary>
+    public bool ServesHttps(string host) =>
+        Bindings.Any(b => b.IsHttps && (b.Host.Length == 0 || b.Host.Equals(host, StringComparison.OrdinalIgnoreCase)));
+
     /// <summary>The same site in the same state - the lists compared by what is in them.</summary>
     public bool SameAs(IisSiteRuntime? other) =>
         other is not null && Id == other.Id && State == other.State && AppPool == other.AppPool &&
-        AppPoolState == other.AppPoolState && Ports.SequenceEqual(other.Ports) &&
-        WorkerProcessIds.SequenceEqual(other.WorkerProcessIds);
+        AppPoolState == other.AppPoolState && PhysicalPath == other.PhysicalPath &&
+        Bindings.SequenceEqual(other.Bindings) && WorkerProcessIds.SequenceEqual(other.WorkerProcessIds);
+}
+
+/// <summary>One of a site's IIS bindings.</summary>
+/// <param name="Protocol">"http", "https", or another (net.tcp…) that browsers don't use.</param>
+/// <param name="Address">The IP address it listens on; "*" for all of them.</param>
+/// <param name="Port">Null for a binding that isn't "address:port:host" (net.pipe…).</param>
+/// <param name="Host">The host name it answers to; empty for any.</param>
+/// <param name="HasCertificate">An https binding with an SSL certificate assigned.</param>
+public sealed record IisBinding(string Protocol, string Address, int? Port, string Host, bool HasCertificate)
+{
+    public bool IsHttps => Protocol.Equals("https", StringComparison.OrdinalIgnoreCase);
+    public bool IsWeb => IsHttps || Protocol.Equals("http", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The address a browser opens it at - its host name (localhost when it answers any), with the port when it
+    /// isn't the protocol's own. Null when it isn't a web binding.
+    /// </summary>
+    public string? Url
+    {
+        get
+        {
+            if (!IsWeb || Port is not { } port) return null;
+            var scheme = IsHttps ? "https" : "http";
+            var host = Host.Length > 0 ? Host : "localhost";
+            return port == (IsHttps ? 443 : 80) ? $"{scheme}://{host}" : $"{scheme}://{host}:{port}";
+        }
+    }
+
+    public override string ToString() => $"{Protocol} {Address}:{Port}:{Host}";
+}
+
+/// <summary>A portal (a site) of a DNN installation - one DNN install can hold several, each with its own addresses.</summary>
+/// <param name="Expired">Its expiry date has passed - DNN no longer serves it.</param>
+/// <param name="Aliases">The addresses it answers to, its primary one first.</param>
+public sealed record DnnPortal(int Id, string Name, bool Expired, IReadOnlyList<DnnPortalAlias> Aliases)
+{
+    /// <summary>The primary alias, or the first when none is marked primary; null when it has none.</summary>
+    public DnnPortalAlias? Primary => Aliases.FirstOrDefault(a => a.IsPrimary) ?? Aliases.FirstOrDefault();
+}
+
+/// <param name="HttpAlias">As DNN stores it: a host, optionally with a port and a path ("example.com/child").</param>
+public sealed record DnnPortalAlias(string HttpAlias, bool IsPrimary)
+{
+    /// <summary>The host name alone, without port or path.</summary>
+    public string Host => HttpAlias.Split('/', 2)[0].Split(':', 2)[0];
 }
 
 /// <summary>Bytes a site received and sent over HTTP since IIS started.</summary>
@@ -275,7 +368,7 @@ public interface IProjectScaffolder
 }
 
 /// <param name="DnnVersion">The newest row of DNN's Version table, e.g. "9.13.9"; null when it isn't a DNN database.</param>
-public sealed record DatabaseFacts(double SizeMb, string? DnnVersion, int? Portals, IReadOnlyList<string> PortalAliases);
+public sealed record DatabaseFacts(double SizeMb, string? DnnVersion, int? Portals);
 
 /// <param name="Debug">&lt;compilation debug&gt;; null when not set.</param>
 /// <param name="DisabledHttpsRules">HTTPS redirect rules DNN Manager switched off for local development.</param>
@@ -292,13 +385,19 @@ public interface ISqlConnectionTester
     Task<Result<string>> TestAsync(SiteSqlConnection connection, CancellationToken ct, int timeoutSeconds = 15);
 
     /// <summary>
-    /// Size of <paramref name="database"/>'s database and, when it holds a DNN site, the DNN version recorded in it,
-    /// its portals and their aliases.
+    /// Size of <paramref name="database"/>'s database and, when it holds a DNN site, the DNN version recorded in it
+    /// and how many portals it has (<see cref="ListPortalsAsync"/> lists them).
     /// </summary>
     Task<Result<DatabaseFacts>> DescribeDatabaseAsync(SiteSqlConnection database, CancellationToken ct, int timeoutSeconds = 15);
 
     /// <summary>The names of all databases on <paramref name="server"/>'s SQL Server.</summary>
     Task<Result<IReadOnlyList<string>>> ListDatabasesAsync(SiteSqlConnection server, CancellationToken ct, int timeoutSeconds = 15);
+
+    /// <summary>
+    /// The portals of the DNN installation <paramref name="database"/> belongs to, each with its aliases - empty when
+    /// the database holds no DNN.
+    /// </summary>
+    Task<Result<IReadOnlyList<DnnPortal>>> ListPortalsAsync(SiteSqlConnection database, CancellationToken ct, int timeoutSeconds = 15);
 }
 
 /// <param name="SwitchedOff">Rules switched off just now.</param>
@@ -318,6 +417,15 @@ public interface IWebConfigService
     /// appSettings/add[@key='SiteSqlServer'] to point at a new database.
     /// </summary>
     Result WriteSiteSqlServer(string webConfigPath, SiteSqlConnection newConnection);
+
+    /// <summary>Points the site at <paramref name="connection"/>: SiteSqlServer as DNN reads it, for any kind of database.</summary>
+    Result WriteDatabaseConnection(string webConfigPath, DatabaseConnection connection);
+
+    /// <summary>
+    /// The site's SiteSqlServer as a connection: integrated security or a SQL login, or a LocalDB file. A server isn't
+    /// recognised as the local container here - <c>LocalSqlContainer.ConnectionOf</c> does that.
+    /// </summary>
+    Result<DatabaseConnection> ReadDatabaseConnection(string webConfigPath);
 
     /// <summary>
     /// Removes the IIS URL Rewrite section (system.webServer/rewrite). Those rules are

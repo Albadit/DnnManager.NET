@@ -1,7 +1,7 @@
 <Window x:Class="DnnManager.Presentation.Controls.MessageDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="DNN Manager" Icon="pack://application:,,,/dnnmanager;component/src/DnnManager.Presentation/Assets/dnn.ico" Width="480" SizeToContent="Height"
+        Title="DNN Manager" Icon="pack://application:,,,/DnnManager;component/src/DnnManager.Presentation/Assets/dnn.ico" Width="480" SizeToContent="Height"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
         Background="{DynamicResource WindowBg}" Foreground="{DynamicResource TextPrimary}">
     <DockPanel>

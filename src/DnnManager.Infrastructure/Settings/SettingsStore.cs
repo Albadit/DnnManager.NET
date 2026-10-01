@@ -351,7 +351,7 @@ public sealed class SettingsStore
 
     // Windows Security's "Controlled folder access" blocks apps it doesn't know from writing to Documents.
     private static string AccessHint(Exception ex) => ex is UnauthorizedAccessException
-        ? " If Windows Security's Controlled folder access is on, allow dnnmanager.exe through it."
+        ? " If Windows Security's Controlled folder access is on, allow DnnManager.exe through it."
         : "";
 
     private static string FirstSentence(string message)

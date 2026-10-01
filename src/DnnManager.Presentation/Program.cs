@@ -82,6 +82,7 @@ internal static class Program
         builder.Services.AddSingleton<DnnReleaseCatalog>();
         builder.Services.AddSingleton<ServerStore>();
         builder.Services.AddSingleton<TerminalService>();
+        builder.Services.AddSingleton<EfficiencyMode>();
         builder.Services.AddSingleton<MainWindow>();
 
         using var host = builder.Build();

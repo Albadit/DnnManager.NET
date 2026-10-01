@@ -1,0 +1,29 @@
+<UserControl x:Class="DnnManager.Presentation.Controls.LogsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:DnnManager.Presentation.Controls">
+    <!-- A website's log: which site (every IIS site, chosen here) and which of its logs at the top, the log below -
+         its newest lines, then new ones as they are written. Its text can be selected and copied. -->
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Padding="10,5,6,5" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1">
+            <DockPanel>
+                <Button x:Name="FolderButton" DockPanel.Dock="Right" Style="{StaticResource IconButton}" Foreground="{DynamicResource Accent}"
+                        Content="&#xE838;" ToolTip="Open the log's folder" Click="OpenFolder_Click" IsEnabled="False" />
+                <ComboBox x:Name="SiteBox" Width="190" ToolTip="Website" DisplayMemberPath="Name" SelectionChanged="Site_SelectionChanged" />
+                <ComboBox x:Name="LogBox" Width="300" Margin="8,0,0,0" ToolTip="Log" SelectionChanged="Log_SelectionChanged" />
+                <TextBlock x:Name="Description" Margin="12,0,8,0" Foreground="{DynamicResource LogMuted}" FontSize="12"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+        </Border>
+        <Grid>
+            <!-- Draws only the lines on screen, however long the log; scrolls itself (CanContentScroll). -->
+            <ScrollViewer x:Name="Scroller" CanContentScroll="True" Focusable="False"
+                          HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                <c:LogTextView x:Name="LogText" />
+            </ScrollViewer>
+            <TextBlock x:Name="Hint" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource LogMuted}"
+                       TextWrapping="Wrap" TextAlignment="Center" MaxWidth="520"
+                       Text="Choose a website and one of its logs above - or View logs on a site's ⋮ menu on Projects." />
+        </Grid>
+    </DockPanel>
+</UserControl>

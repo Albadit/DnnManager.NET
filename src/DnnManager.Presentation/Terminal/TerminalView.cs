@@ -12,7 +12,7 @@ namespace DnnManager.Presentation.Terminal;
 /// Mouse wheel scrolls back through the output; drag selects text; Ctrl+C copies a selection (and interrupts the
 /// program when nothing is selected); Ctrl+V or a right-click pastes (a right-click copies when text is selected).
 /// </summary>
-internal sealed class TerminalView : FrameworkElement
+internal sealed class TerminalView : FrameworkElement, Controls.ISearchTarget
 {
     private static readonly Thickness Padding = new(8, 6, 4, 6);
 
@@ -37,6 +37,11 @@ internal sealed class TerminalView : FrameworkElement
     private int? _viewTop;
     // A selection from where the mouse went down to where it is: (line, column) in scrollback + screen lines.
     private (int Line, int Column)? _selectionStart, _selectionEnd;
+    // A search's matches (line, column, length) in scrollback + screen lines, in reading order, and the current one.
+    private IReadOnlyList<(int Line, int Column, int Length)> _matches = [];
+    private int _currentMatch = -1;
+    // The screen changed while the window was minimized (EfficiencyMode) and wasn't drawn - it is once restored.
+    private bool _changedUnseen;
 
     public TerminalView(TerminalSession session)
     {
@@ -49,10 +54,12 @@ internal sealed class TerminalView : FrameworkElement
         KeyboardNavigation.SetTabNavigation(this, KeyboardNavigationMode.None);
         KeyboardNavigation.SetDirectionalNavigation(this, KeyboardNavigationMode.None);
 
+        // The output is always read and kept in the buffer (a shell whose output isn't read stalls); only drawing it
+        // waits while nobody can see it.
         session.Changed += (_, _) =>
         {
-            InvalidateVisual();
-            ScrollChanged?.Invoke(this, EventArgs.Empty); // more scrollback, or a new size
+            if (EfficiencyMode.GetIsSaving(this)) _changedUnseen = true;
+            else ShowChanges();
         };
         // The ANSI colours differ per theme. Followed only while shown, so a closed terminal's view can be collected.
         Loaded += (_, _) => { OnThemeChanged(null, EventArgs.Empty); ThemeManager.Changed += OnThemeChanged; };
@@ -61,6 +68,23 @@ internal sealed class TerminalView : FrameworkElement
     }
 
     private TerminalBuffer Buffer => _session.Buffer;
+
+    /// <summary>Draws the screen as it is now, and tells the scrollbar and a search that it changed.</summary>
+    private void ShowChanges()
+    {
+        InvalidateVisual();
+        ScrollChanged?.Invoke(this, EventArgs.Empty); // more scrollback, or a new size
+        ContentChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    // The window is back from minimized: what the shell printed meanwhile is drawn, once.
+    protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.Property != EfficiencyMode.IsSavingProperty || (bool)e.NewValue || !_changedUnseen) return;
+        _changedUnseen = false;
+        ShowChanges();
+    }
 
     /// <summary>The font, from the settings. The grid is measured again with it.</summary>
     public void SetFont(FontFamily family, double size)
@@ -157,6 +181,8 @@ internal sealed class TerminalView : FrameworkElement
                 start = end;
             }
 
+            DrawMatches(dc, lineIndex, y);
+
             if (selFrom is { } from && selTo is { } to && lineIndex >= from.Line && lineIndex <= to.Line)
             {
                 var a = lineIndex == from.Line ? from.Column : 0;
@@ -188,6 +214,71 @@ internal sealed class TerminalView : FrameworkElement
                 dc.DrawRectangle(null, new Pen(foreground, 1), rect);
             }
         }
+    }
+
+    // The search's matches on this line, under the text's colours: the current one stronger.
+    private void DrawMatches(DrawingContext dc, int lineIndex, double y)
+    {
+        if (_matches.Count == 0) return;
+        // The first match on this line or after it (they are in reading order).
+        int lo = 0, hi = _matches.Count;
+        while (lo < hi)
+        {
+            var mid = (lo + hi) / 2;
+            if (_matches[mid].Line < lineIndex) lo = mid + 1; else hi = mid;
+        }
+        for (var i = lo; i < _matches.Count && _matches[i].Line == lineIndex; i++)
+        {
+            var (_, column, length) = _matches[i];
+            dc.PushOpacity(0.55);
+            dc.DrawRectangle((Brush)FindResource(i == _currentMatch ? "SearchCurrentBg" : "SearchMatchBg"), null,
+                new Rect(Padding.Left + column * _cellWidth, y, length * _cellWidth, _cellHeight));
+            dc.Pop();
+        }
+    }
+
+    // ─── Search ───────────────────────────────────────────────────────────
+
+    /// <summary>Every match of <paramref name="query"/> in the output and its scrollback, highlighted; their number.</summary>
+    public int Find(Controls.SearchQuery query)
+    {
+        var matches = new List<(int, int, int)>();
+        if (!query.IsEmpty)
+        {
+            var text = new StringBuilder();
+            for (var index = 0; index < Buffer.TotalLines; index++)
+            {
+                var line = Buffer.Line(index);
+                text.Clear();
+                foreach (var cell in line) text.Append(cell.Char == '\0' ? ' ' : cell.Char);
+                foreach (var (at, length) in query.Matches(text.ToString()))
+                    matches.Add((index, at, length));
+            }
+        }
+        _matches = matches;
+        _currentMatch = -1;
+        InvalidateVisual();
+        return matches.Count;
+    }
+
+    /// <summary>The output changed - a search looks again.</summary>
+    public event EventHandler? ContentChanged;
+
+    /// <summary>Marks match <paramref name="index"/>, and scrolls it into view (in the middle) when it is out of view.</summary>
+    public void ShowMatch(int index, bool reveal = true)
+    {
+        if (index < 0 || index >= _matches.Count) return;
+        _currentMatch = index;
+        var line = _matches[index].Line;
+        if (reveal && (line < ViewTop || line >= ViewTop + Buffer.Rows)) ScrollTo(line - Buffer.Rows / 2);
+        InvalidateVisual();
+    }
+
+    public void ClearSearch()
+    {
+        _matches = [];
+        _currentMatch = -1;
+        InvalidateVisual();
     }
 
     private FormattedText Text(string text, Brush brush, Typeface typeface) => new(text, CultureInfo.InvariantCulture,

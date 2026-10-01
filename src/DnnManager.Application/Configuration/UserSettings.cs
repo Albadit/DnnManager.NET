@@ -1,3 +1,5 @@
+using DnnManager.Application.Abstractions;
+
 namespace DnnManager.Application.Configuration;
 
 /// <summary>
@@ -23,6 +25,7 @@ public sealed class UserSettings
     public IisSettings Iis { get; set; } = new();
     public AppearanceSettings Appearance { get; set; } = new();
     public TerminalSettings Terminal { get; set; } = new();
+    public WindowSettings Window { get; set; } = new();
 
     /// <summary>The values that aren't allowed, each with the key it is about; empty when the settings are usable.</summary>
     public IReadOnlyList<SettingsProblem> Validate()
@@ -44,6 +47,36 @@ public sealed class UserSettings
         foreach (var source in Projects.DnnReleaseSources)
             Check(Uri.TryCreate(source, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https",
                 "projects.dnnReleaseSources", $"has an invalid URL: {source}");
+
+        var dnn = Projects.DnnDefaults;
+        Check(DnnDefaultsSettings.InstallModes.Contains(dnn.InstallMode, StringComparer.OrdinalIgnoreCase),
+            "projects.dnnDefaults.installMode", $"must be one of: {string.Join(", ", DnnDefaultsSettings.InstallModes)}.");
+        Check(DnnAccountRules.UserNameProblem(dnn.HostUsername) is null,
+            "projects.dnnDefaults.hostUsername", DnnAccountRules.UserNameProblem(dnn.HostUsername) ?? "");
+        Check(dnn.HostEmail.Length == 0 || DnnAccountRules.EmailProblem(dnn.HostEmail) is null,
+            "projects.dnnDefaults.hostEmail", "must be an e-mail address, or empty for host@ plus the hostname suffix.");
+        Check(dnn.WebsiteName.Length <= 128, "projects.dnnDefaults.websiteName", "can have at most 128 characters.");
+        Check(DnnAccountRules.Languages.Contains(dnn.Language),
+            "projects.dnnDefaults.language", $"must be one of: {string.Join(", ", DnnAccountRules.Languages)}.");
+        Check(DnnAccountRules.Templates.Contains(dnn.Template),
+            "projects.dnnDefaults.template", $"must be one of: {string.Join(", ", DnnAccountRules.Templates)}.");
+
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var profile in Projects.DatabaseProfiles)
+        {
+            Check(Has(profile.Id) && profile.Id != DatabaseProfileSettings.ContainerId && ids.Add(profile.Id),
+                "projects.databaseProfiles", $"has a profile without an id of its own: '{profile.Name}'.");
+            Check(Has(profile.Name), "projects.databaseProfiles", "has a profile without a name.");
+            Check(DatabaseProfileSettings.Types.Contains(profile.Type, StringComparer.OrdinalIgnoreCase),
+                "projects.databaseProfiles", $"'{profile.Name}' has type '{profile.Type}' - must be one of: {string.Join(", ", DatabaseProfileSettings.Types)}.");
+            Check(Has(profile.Server), "projects.databaseProfiles", $"'{profile.Name}' has no server.");
+            Check(DatabaseProfileSettings.Authentications.Contains(profile.Authentication, StringComparer.OrdinalIgnoreCase),
+                "projects.databaseProfiles", $"'{profile.Name}' has authentication '{profile.Authentication}' - must be one of: {string.Join(", ", DatabaseProfileSettings.Authentications)}.");
+            Check(!profile.Authentication.Equals("sql", StringComparison.OrdinalIgnoreCase) || Has(profile.UserName),
+                "projects.databaseProfiles", $"'{profile.Name}' uses SQL Server authentication but has no user name.");
+        }
+        Check(Projects.DefaultDatabaseProfile == DatabaseProfileSettings.ContainerId || ids.Contains(Projects.DefaultDatabaseProfile),
+            "projects.defaultDatabaseProfile", $"must be \"{DatabaseProfileSettings.ContainerId}\" or the id of a database profile.");
 
         Check(Has(SqlServer.Host), "sqlServer.host", "is required.");
         Check(IsPort(SqlServer.Port), "sqlServer.port", "must be a number between 1 and 65535.");
@@ -70,6 +103,9 @@ public sealed class UserSettings
         HostnameSuffix = Projects.HostnameSuffix.Trim().Trim('.'),
         GitHubReleaseApis = Projects.DnnReleaseSources.ToList(),
         KeepDnnPackages = Projects.KeepDnnPackages,
+        DnnDefaults = Projects.DnnDefaults.Copy(),
+        DatabaseProfiles = Projects.DatabaseProfiles.Select(p => p.Copy()).ToList(),
+        DefaultDatabaseProfile = Projects.DefaultDatabaseProfile,
         Theme = Appearance.Theme,
         ProjectColumns = Appearance.ProjectColumns.ToList(),
         Terminal = new TerminalSettings
@@ -80,6 +116,7 @@ public sealed class UserSettings
             FontSize = Terminal.FontSize
         },
         SsmsRememberPassword = Ssms.RememberPassword,
+        SaveResourcesWhileMinimized = Window.SaveResourcesWhileMinimized,
         Docker = new DockerOptions
         {
             ContainerName = Docker.ContainerName,
@@ -112,6 +149,66 @@ public sealed class ProjectSettings
     /// next project with that version, instead of downloading it again.
     /// </summary>
     public bool KeepDnnPackages { get; set; }
+
+    /// <summary>What a new project's automatic DNN install uses unless changed for it (Settings → Projects → DNN defaults).</summary>
+    public DnnDefaultsSettings DnnDefaults { get; set; } = new();
+
+    /// <summary>Saved database connections offered for new projects. Their passwords are in the Windows Credential Manager.</summary>
+    public List<DatabaseProfileSettings> DatabaseProfiles { get; set; } = [];
+
+    /// <summary>The database a new project starts with: "container" (the local SQL container) or a profile's id.</summary>
+    public string DefaultDatabaseProfile { get; set; } = DatabaseProfileSettings.ContainerId;
+}
+
+/// <summary>
+/// The defaults of a new project's DNN install. The host password isn't here: it is kept in the Windows Credential
+/// Manager - <see cref="DefaultHostPassword"/> while none is saved there.
+/// </summary>
+public sealed class DnnDefaultsSettings
+{
+    public static readonly string[] InstallModes = ["automatic", "manual"];
+
+    /// <summary>The host password a new project starts with while none is saved in the Windows Credential Manager.</summary>
+    public const string DefaultHostPassword = "Admin@123";
+
+    /// <summary>"automatic" (DNN Manager installs DNN) or "manual" (DNN's installation wizard on the first visit).</summary>
+    public string InstallMode { get; set; } = "automatic";
+    public string HostUsername { get; set; } = "host";
+    /// <summary>Empty: <c>host@</c> and the hostname suffix, e.g. host@dnndev.me.</summary>
+    public string HostEmail { get; set; } = "admin@admin.com";
+    /// <summary>Empty: the project's name.</summary>
+    public string WebsiteName { get; set; } = "My Website";
+    /// <summary>DNN's install culture, e.g. "en-US" - another one has DNN download its language pack while installing.</summary>
+    public string Language { get; set; } = "en-US";
+    /// <summary>"Default Website" or "Blank Website".</summary>
+    public string Template { get; set; } = "Default Website";
+
+    public bool Automatic => InstallMode.Equals("automatic", StringComparison.OrdinalIgnoreCase);
+
+    public DnnDefaultsSettings Copy() => (DnnDefaultsSettings)MemberwiseClone();
+}
+
+/// <summary>A saved database connection for new projects. Its password, if any, is in the Windows Credential Manager.</summary>
+public sealed class DatabaseProfileSettings
+{
+    /// <summary>The built-in profile: the local SQL Server container from the SQL Server and Docker settings.</summary>
+    public const string ContainerId = "container";
+
+    public static readonly string[] Types = ["sqlServer", "localDbFile"];
+    public static readonly string[] Authentications = ["windows", "sql"];
+
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    /// <summary>"sqlServer" (SQL Server or SQL Server Express) or "localDbFile" (LocalDB with the site's own database file).</summary>
+    public string Type { get; set; } = "sqlServer";
+    /// <summary>e.g. <c>.\SQLEXPRESS</c>, <c>localhost,1433</c> or <c>(LocalDB)\MSSQLLocalDB</c>.</summary>
+    public string Server { get; set; } = "";
+    /// <summary>"windows" or "sql".</summary>
+    public string Authentication { get; set; } = "windows";
+    /// <summary>The SQL Server login, for "sql" authentication.</summary>
+    public string UserName { get; set; } = "";
+
+    public DatabaseProfileSettings Copy() => (DatabaseProfileSettings)MemberwiseClone();
 }
 
 /// <summary>
@@ -200,6 +297,18 @@ public sealed class TerminalSettings
     /// <summary>The font of the terminal and the activity log; empty for the default (Cascadia Mono, or Consolas).</summary>
     public string FontFamily { get; set; } = "";
     public int FontSize { get; set; } = 13;
+}
+
+/// <summary>How DNN Manager's window behaves. Set on the Settings page (General); applies at once.</summary>
+public sealed class WindowSettings
+{
+    /// <summary>
+    /// While the window is minimized, stop what only it shows - animations, this PC's figures, redrawing terminals,
+    /// following a log, folder-size walks - and, while nothing runs, let Windows run DNN Manager on its power-saving
+    /// setting (EcoQoS). Restoring the window brings everything up to date at once. Off: everything goes on as while
+    /// the window is shown.
+    /// </summary>
+    public bool SaveResourcesWhileMinimized { get; set; } = true;
 }
 
 /// <summary>A value in <c>settings.json</c> that isn't allowed: <paramref name="Key"/> is its path, e.g. <c>projects.sitePort</c>.</summary>

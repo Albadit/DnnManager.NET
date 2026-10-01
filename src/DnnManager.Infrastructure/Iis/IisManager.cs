@@ -266,6 +266,82 @@ public sealed class IisManager : IIisManager
         catch (Exception ex) { return Result.Fail(ex.Message); }
     }
 
+    public Result RecycleAppPool(string siteName)
+    {
+        try
+        {
+            using var sm = new ServerManager();
+            var site = sm.Sites[siteName];
+            if (site is null) return Result.Fail($"Site '{siteName}' not found");
+            if (PoolOf(sm, site) is { State: ObjectState.Started } pool) pool.Recycle();
+            return Result.Ok();
+        }
+        catch (Exception ex) { return Result.Fail(ex.Message); }
+    }
+
+    public string? GetLogDirectory(string siteName)
+    {
+        try
+        {
+            using var sm = new ServerManager();
+            if (sm.Sites[siteName] is not { } site) return null;
+            // The site's own setting, else the default for all sites; IIS adds a folder per site, by its ID.
+            var directory = site.LogFile.Directory;
+            if (string.IsNullOrEmpty(directory)) directory = sm.SiteDefaults.LogFile.Directory;
+            if (string.IsNullOrEmpty(directory)) directory = @"%SystemDrive%\inetpub\logs\LogFiles";
+            return Path.Combine(Environment.ExpandEnvironmentVariables(directory), $"W3SVC{site.Id}");
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Could not read the log folder of IIS site {Site}", siteName);
+            return null;
+        }
+    }
+
+    public string AppPoolIdentity(string siteName)
+    {
+        try
+        {
+            using var sm = new ServerManager();
+            var poolName = sm.Sites[siteName] is { } site && PoolOf(sm, site) is { } found ? found.Name : siteName;
+            var pool = sm.ApplicationPools[poolName];
+            return pool?.ProcessModel.IdentityType switch
+            {
+                ProcessModelIdentityType.SpecificUser => pool.ProcessModel.UserName,
+                ProcessModelIdentityType.NetworkService => @"NT AUTHORITY\NETWORK SERVICE",
+                ProcessModelIdentityType.LocalService => @"NT AUTHORITY\LOCAL SERVICE",
+                ProcessModelIdentityType.LocalSystem => @"NT AUTHORITY\SYSTEM",
+                _ => $@"IIS APPPOOL\{poolName}"
+            };
+        }
+        catch (Exception ex)
+        {
+            // Every site DNN Manager creates runs as its own pool's identity.
+            _log.LogWarning(ex, "Could not read the identity of IIS site {Site}", siteName);
+            return $@"IIS APPPOOL\{siteName}";
+        }
+    }
+
+    public Result EnableUserProfile(string siteName)
+    {
+        try
+        {
+            using var sm = new ServerManager();
+            var pool = sm.Sites[siteName] is { } site ? PoolOf(sm, site) : sm.ApplicationPools[siteName];
+            if (pool is null) return Result.Fail($"IIS site '{siteName}' has no app pool.");
+            pool.ProcessModel.LoadUserProfile = true;
+            // Points the identity's environment (LOCALAPPDATA…) at its profile - where LocalDB looks for its instance.
+            pool.ProcessModel.SetAttributeValue("setProfileEnvironment", true);
+            sm.CommitChanges();
+            return Result.Ok();
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "IIS EnableUserProfile failed");
+            return Result.Fail(ex.Message);
+        }
+    }
+
     private static ApplicationPool? PoolOf(ServerManager sm, Site site) =>
         site.Applications["/"]?.ApplicationPoolName is { Length: > 0 } name ? sm.ApplicationPools[name] : null;
 
@@ -330,9 +406,8 @@ public sealed class IisManager : IIisManager
                     workers[pool.Name] = pids;
                 }
 
-                var ports = site.Bindings.Select(b => BindingParts(b.BindingInformation).Port)
-                    .OfType<int>().Distinct().Order().ToList();
-                map[site.Name] = new IisSiteRuntime(site.Id, state, ports, pool?.Name ?? "", poolState, pids);
+                map[site.Name] = new IisSiteRuntime(site.Id, state, pool?.Name ?? "", poolState, pids,
+                    site.Bindings.Select(ToBinding).ToList(), PhysicalPathOf(site));
             }
         }
         catch (Exception ex)
@@ -369,6 +444,26 @@ public sealed class IisManager : IIisManager
             _log.LogWarning(ex, "Could not read the IIS site traffic counters");
         }
         return traffic;
+    }
+
+    private static IisBinding ToBinding(Binding binding)
+    {
+        var info = binding.BindingInformation ?? "";
+        var parts = info.Split(':');
+        var (port, host) = BindingParts(info);
+        // A web binding is "address:port:host"; other protocols (net.tcp "808:*") have their own form.
+        var address = parts.Length >= 3 ? string.Join(':', parts[..^2]) : "*";
+        bool certificate;
+        try { certificate = binding.Protocol == "https" && binding.CertificateHash is { Length: > 0 }; }
+        catch { certificate = false; }
+        return new IisBinding(binding.Protocol, address.Length == 0 ? "*" : address, port, host == "*" ? "" : host, certificate);
+    }
+
+    /// <summary>The folder the site's root application serves; empty when it has none.</summary>
+    private static string PhysicalPathOf(Site site)
+    {
+        try { return Environment.ExpandEnvironmentVariables(site.Applications["/"]?.VirtualDirectories["/"]?.PhysicalPath ?? ""); }
+        catch { return ""; }
     }
 
     // BindingInformation is "ip:port:host"; the IP can hold colons (IPv6), so read from the end.

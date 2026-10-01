@@ -10,7 +10,8 @@ namespace DnnManager.Presentation.Controls;
 /// <summary>
 /// The bar along the bottom of the window: this PC's memory, CPU and disk use, the running operation with Cancel,
 /// the switch for the terminal panel and the app's version. The figures are the <see cref="ServerStore"/>'s - they
-/// arrive there every two seconds (the disk every ten) and only this bar hears about them.
+/// arrive there every two seconds (the disk every ten; not while the window is minimized - see
+/// <see cref="EfficiencyMode"/>) and only this bar hears about them.
 /// </summary>
 public partial class StatusBar : UserControl
 {
@@ -32,7 +33,7 @@ public partial class StatusBar : UserControl
         set
         {
             ActivityButton.IsChecked = value;
-            ActivityButton.ToolTip = value ? "Hide the terminal" : "Show the terminal (activity log and shells)";
+            ActivityButton.ToolTip = value ? "Hide the panel (Ctrl+`)" : "Show the panel - output, logs and terminals (Ctrl+`)";
         }
     }
 
@@ -79,8 +80,21 @@ public partial class StatusBar : UserControl
         if (e.PropertyName != nameof(OperationRunner.Current)) return;
         var busy = _runner.IsBusy;
         OperationPanel.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
-        OperationProgress.IsIndeterminate = busy;
         OperationText.Text = busy ? $"{_runner.Current}…" : "";
+        ShowProgress();
+    }
+
+    /// <summary>
+    /// The bar moves while an operation runs - but not while the window is minimized (<see cref="EfficiencyMode"/>):
+    /// nobody sees it then, and its animation alone keeps WPF drawing about 60 frames a second.
+    /// </summary>
+    private void ShowProgress() => OperationProgress.IsIndeterminate = _runner.IsBusy && !EfficiencyMode.GetIsSaving(this);
+
+    protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        // Minimized or restored while an operation runs: the bar stops, or moves again.
+        if (e.Property == EfficiencyMode.IsSavingProperty && _runner is not null) ShowProgress();
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => _runner.Cancel();

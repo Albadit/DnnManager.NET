@@ -139,11 +139,15 @@
                                 <RadioButton x:Name="ThemeSystem" GroupName="Theme" Content="Use system settings" Tag="system" Margin="20,4,0,4" Checked="Theme_Checked" />
                             </StackPanel>
 
+                            <TextBlock Style="{StaticResource GroupLabel}" Text="Efficiency" />
+                            <CheckBox x:Name="SaveResourcesWhileMinimized" Content="Save resources while minimized" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
+                                       Text="While the window is minimized, what only it shows pauses - animations, this PC's figures, redrawing terminals, following a log - and once nothing is running, Windows runs DNN Manager in its efficiency mode. Your sites are still followed and operations run at full speed; restoring the window brings everything up to date at once." />
 
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Terminal" />
                             <CheckBox x:Name="TerminalEnabled" Content="Enable the terminal" Click="Terminal_Changed" />
                             <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
-                                       Text="Shells in the panel at the bottom of the window, next to the activity log - opened with its + button. They run with Administrator rights, like DNN Manager. Off: the panel only shows the activity log." />
+                                       Text="Shells on the Terminal tab of the panel at the bottom of the window - opened with its + button. They run with Administrator rights, like DNN Manager. Off: the Terminal tab is hidden." />
                             <StackPanel x:Name="TerminalOptions" Margin="22,4,0,0">
                                 <TextBlock Style="{StaticResource FieldLabel}" Text="Default shell" />
                                 <ComboBox x:Name="DefaultShell" Width="240" HorizontalAlignment="Left" SelectionChanged="Terminal_Changed" />
@@ -158,7 +162,7 @@
                                         <ComboBox x:Name="TerminalFontSize" Width="90" SelectionChanged="Terminal_Changed" />
                                     </StackPanel>
                                 </StackPanel>
-                                <TextBlock Style="{StaticResource Hint}" Text="Also the font of the activity log." />
+                                <TextBlock Style="{StaticResource Hint}" Text="Also the font of the Output and Logs tabs." />
                             </StackPanel>
 
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Settings file" />
@@ -197,6 +201,76 @@
                                 </StackPanel>
                             </Grid>
                             <TextBlock x:Name="UrlPreview" Style="{StaticResource Hint}" />
+
+                            <TextBlock Style="{StaticResource GroupLabel}" Text="DNN defaults" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4"
+                                       Text="What a new project starts with - New project lets you change each of them for that project." />
+                            <RadioButton x:Name="InstallAutomatic" GroupName="InstallMode" Checked="Install_Checked"
+                                         Content="Automatic setup (recommended) - DNN Manager installs DNN, the first visit shows the new site" />
+                            <RadioButton x:Name="InstallManual" GroupName="InstallMode" Checked="Install_Checked"
+                                         Content="Manual DNN setup - DNN's installation wizard on the first visit" />
+                            <Grid Margin="0,6,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Host username" />
+                                    <TextBox x:Name="HostUsername" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Host password" />
+                                    <c:PasswordInput x:Name="HostPassword" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="1">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Host e-mail" />
+                                    <TextBox x:Name="HostEmail" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="2">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Website name" />
+                                    <TextBox x:Name="WebsiteName" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="2">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Language" />
+                                    <ComboBox x:Name="DnnLanguage" SelectionChanged="Defaults_Changed" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="2" Grid.Column="2">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Site template" />
+                                    <ComboBox x:Name="DnnTemplate" SelectionChanged="Defaults_Changed" />
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock x:Name="DnnDefaultsHint" Style="{StaticResource Hint}" />
+
+                            <TextBlock Style="{StaticResource GroupLabel}" Text="Database profiles" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6"
+                                       Text="Saved database connections New project offers - save one there with Save as profile. Their passwords are in the Windows Credential Manager." />
+                            <ItemsControl x:Name="DatabaseProfiles">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{StaticResource Card}" Padding="12,8" Margin="0,0,0,6">
+                                            <DockPanel>
+                                                <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="Remove" VerticalAlignment="Center"
+                                                        Tag="{Binding}" Click="RemoveProfile_Click" ToolTip="Remove this profile (and its saved password) when you save" />
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding Summary}" Style="{StaticResource Hint}" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock x:Name="NoProfiles" Style="{StaticResource Hint}" Margin="0"
+                                       Text="No saved profiles yet - the local SQL container is always there." />
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Database for new projects" />
+                            <ComboBox x:Name="DefaultDatabaseProfile" Width="320" HorizontalAlignment="Left" DisplayMemberPath="Name"
+                                      SelectionChanged="Defaults_Changed" />
                         </StackPanel>
 
                         <StackPanel x:Name="ReleasesPanel" Visibility="Collapsed">

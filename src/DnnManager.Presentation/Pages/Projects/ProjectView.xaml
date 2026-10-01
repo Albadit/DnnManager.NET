@@ -1,0 +1,418 @@
+<UserControl x:Class="DnnManager.Presentation.Pages.Projects.ProjectView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:p="clr-namespace:DnnManager.Presentation.Pages.Projects"
+             xmlns:s="clr-namespace:DnnManager.Presentation.Services"
+             xmlns:c="clr-namespace:DnnManager.Presentation.Controls">
+    <!-- One IIS site, in tabs: General (its folder), IIS (state, app pool, bindings), DNN (how it was installed, its host
+         accounts and portals with links to their addresses), Database (where it is, Test connection) and Advanced (its
+         web.config). DataContext: the table's ProjectRow, so the state follows the site live. -->
+    <UserControl.Resources>
+        <!-- Running: a green dot. Stopped: a hollow ring. Changing: amber. -->
+        <Style x:Key="StatusDot" TargetType="Ellipse">
+            <Setter Property="Width" Value="9" />
+            <Setter Property="Height" Value="9" />
+            <Setter Property="StrokeThickness" Value="1.5" />
+            <Setter Property="Stroke" Value="{DynamicResource TextMuted}" />
+            <Setter Property="Fill" Value="Transparent" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding State}" Value="Running">
+                    <Setter Property="Stroke" Value="{DynamicResource SuccessText}" />
+                    <Setter Property="Fill" Value="{DynamicResource SuccessText}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTransitioning}" Value="True">
+                    <Setter Property="Stroke" Value="{DynamicResource LogWarn}" />
+                    <Setter Property="Fill" Value="{DynamicResource LogWarn}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="Label" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+            <Setter Property="Margin" Value="0,4,16,4" />
+        </Style>
+        <Style x:Key="Value" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,4" />
+        </Style>
+        <Style x:Key="HeaderButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+        </Style>
+        <Style x:Key="Glyph" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <!-- A link that opens and closes something: "Show 2 more aliases". -->
+        <Style x:Key="LinkToggle" TargetType="ToggleButton">
+            <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <TextBlock x:Name="Text" Background="Transparent" FontSize="12"
+                                   Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Text" Property="TextDecorations" Value="Underline" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <BooleanToVisibilityConverter x:Key="Visible" />
+        <!-- A tab of the overview: its name, underlined while shown. -->
+        <Style x:Key="SectionTab" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bd" Background="Transparent" Padding="2,6,2,8" Margin="0,0,22,0" BorderThickness="0,0,0,2" BorderBrush="Transparent">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- A label and its value (selectable), or a section heading - the facts of every tab. -->
+        <DataTemplate x:Key="FactTemplate" DataType="{x:Type p:ProjectFact}">
+            <Grid x:Name="Row" Margin="0,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="Label" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="Label" Text="{Binding Label}" Foreground="{DynamicResource TextMuted}" />
+                <!-- Read-only text box so a value (a path, a database name…) can be selected and copied. -->
+                <TextBox x:Name="Value" Grid.Column="2" Text="{Binding Value, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
+                         BorderThickness="0" Background="Transparent" Padding="0" MinHeight="0" VerticalContentAlignment="Top" />
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Kind}" Value="{x:Static p:FactKind.Section}">
+                    <Setter TargetName="Row" Property="Margin" Value="0,12,0,4" />
+                    <Setter TargetName="Label" Property="Grid.ColumnSpan" Value="3" />
+                    <Setter TargetName="Label" Property="FontWeight" Value="SemiBold" />
+                    <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource TextPrimary}" />
+                    <Setter TargetName="Value" Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Kind}" Value="{x:Static p:FactKind.Good}">
+                    <Setter TargetName="Value" Property="Foreground" Value="{DynamicResource SuccessText}" />
+                    <Setter TargetName="Value" Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Kind}" Value="{x:Static p:FactKind.Bad}">
+                    <Setter TargetName="Value" Property="Foreground" Value="{DynamicResource ErrorText}" />
+                    <Setter TargetName="Value" Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Kind}" Value="{x:Static p:FactKind.Warning}">
+                    <Setter TargetName="Value" Property="Foreground" Value="{DynamicResource LogWarn}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+        <!-- Moving while the site's operation runs - not while the window is minimized (EfficiencyMode), where its
+             animation would keep WPF drawing frames nobody sees. -->
+        <Style x:Key="SiteProgress" TargetType="ProgressBar">
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding ShowProgress}" Value="True" />
+                        <Condition Binding="{Binding (s:EfficiencyMode.IsSaving), RelativeSource={RelativeSource Self}}" Value="False" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="IsIndeterminate" Value="True" />
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <DockPanel Margin="28,20,28,12">
+        <!-- Back, the site's name and state; its actions on the right. -->
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,18">
+            <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}" Content="&#xE72B;" Width="32" Height="32" Margin="0,2,10,0"
+                    VerticalAlignment="Top" ToolTip="Back to the projects (Esc)" Click="Back_Click" />
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,4,0,0">
+                <Button Style="{StaticResource HeaderButton}" Click="Start_Click" IsEnabled="{Binding CanStart}"
+                        Visibility="{Binding ShowStart, Converter={StaticResource Visible}}">
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE768;" /><TextBlock Text="Start" /></StackPanel>
+                </Button>
+                <Button Style="{StaticResource HeaderButton}" Click="Stop_Click" IsEnabled="{Binding CanStop}"
+                        Visibility="{Binding ShowStop, Converter={StaticResource Visible}}">
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE71A;" /><TextBlock Text="Stop" /></StackPanel>
+                </Button>
+                <Button Style="{StaticResource HeaderButton}" Click="Restart_Click" IsEnabled="{Binding CanRestart}"
+                        Visibility="{Binding ShowStop, Converter={StaticResource Visible}}" ToolTip="Recycles the app pool">
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE72C;" /><TextBlock Text="Restart" /></StackPanel>
+                </Button>
+                <Button Style="{StaticResource HeaderButton}" Click="OpenSite_Click" IsEnabled="{Binding HasUrl}">
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE774;" /><TextBlock Text="Open site" /></StackPanel>
+                </Button>
+                <Button Style="{StaticResource HeaderButton}" Click="OpenFolder_Click">
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE838;" /><TextBlock Text="Open folder" /></StackPanel>
+                </Button>
+                <Button x:Name="MoreButton" Style="{StaticResource HeaderButton}" Click="More_Click" ToolTip="More actions (clear cache, view logs)">
+                    <TextBlock Style="{StaticResource Glyph}" Text="&#xE712;" Margin="0" RenderTransformOrigin="0.5,0.5">
+                        <TextBlock.RenderTransform>
+                            <RotateTransform Angle="90" />
+                        </TextBlock.RenderTransform>
+                    </TextBlock>
+                </Button>
+            </StackPanel>
+            <StackPanel>
+                <TextBlock Style="{StaticResource PageTitle}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                    <Ellipse Style="{StaticResource StatusDot}" />
+                    <TextBlock Text="{Binding StateText}" Foreground="{DynamicResource TextPrimary}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    <TextBlock Text="·" Foreground="{DynamicResource TextMuted}" Margin="8,0" VerticalAlignment="Center"
+                               Visibility="{Binding HasUrl, Converter={StaticResource Visible}}" />
+                    <Button Style="{StaticResource LinkButton}" Content="{Binding Url}" Tag="{Binding Url}" Click="Link_Click" VerticalAlignment="Center"
+                            Visibility="{Binding HasUrl, Converter={StaticResource Visible}}" />
+                    <ProgressBar Style="{StaticResource SiteProgress}" Width="60" Height="3" Margin="12,0,0,0" VerticalAlignment="Center"
+                                 Foreground="{DynamicResource Accent}" Background="{DynamicResource GridLine}" BorderThickness="0"
+                                 Visibility="{Binding ShowProgress, Converter={StaticResource Visible}}" />
+                </StackPanel>
+            </StackPanel>
+        </DockPanel>
+
+        <!-- The tabs. -->
+        <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1" Margin="0,0,0,16">
+            <StackPanel Orientation="Horizontal">
+                <RadioButton x:Name="GeneralTab" Style="{StaticResource SectionTab}" GroupName="Sections" Content="General" IsChecked="True" Checked="Section_Checked" />
+                <RadioButton x:Name="IisTab" Style="{StaticResource SectionTab}" GroupName="Sections" Content="IIS" Checked="Section_Checked" />
+                <RadioButton x:Name="DnnTab" Style="{StaticResource SectionTab}" GroupName="Sections" Content="DNN" Checked="Section_Checked" />
+                <RadioButton x:Name="DatabaseTab" Style="{StaticResource SectionTab}" GroupName="Sections" Content="Database" Checked="Section_Checked" />
+                <RadioButton x:Name="AdvancedTab" Style="{StaticResource SectionTab}" GroupName="Sections" Content="Advanced" Checked="Section_Checked" />
+            </StackPanel>
+        </Border>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MaxWidth="1100" />
+                </Grid.ColumnDefinitions>
+                <!-- General: the project's folder. -->
+                <StackPanel x:Name="GeneralSection">
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource CardTitle}" Text="Project" />
+                            <TextBlock x:Name="FactsState" Style="{StaticResource Hint}" Margin="0" Text="Reading…" />
+                            <ItemsControl x:Name="GeneralFacts" Grid.IsSharedSizeScope="True" ItemTemplate="{StaticResource FactTemplate}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- IIS: the website, its app pool and its bindings. -->
+                <StackPanel x:Name="IisSection" Visibility="Collapsed">
+                    <!-- The IIS website and its app pool. -->
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource CardTitle}" Text="IIS website" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Style="{StaticResource Label}" Text="Website status" />
+                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                    <Ellipse Style="{StaticResource StatusDot}" />
+                                    <TextBlock Style="{StaticResource Value}" Text="{Binding StateText}" Margin="8,4,0,4" />
+                                </StackPanel>
+                                <TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="Application pool" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding AppPoolText}" />
+                                <TextBlock Grid.Row="2" Style="{StaticResource Label}" Text="Physical path" />
+                                <DockPanel Grid.Row="2" Grid.Column="1">
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="Open" Margin="12,4,0,4" VerticalAlignment="Top"
+                                            Click="OpenFolder_Click" />
+                                    <TextBlock Style="{StaticResource Value}" Text="{Binding Path}" />
+                                </DockPanel>
+                                <TextBlock Grid.Row="3" Style="{StaticResource Label}" Text="Site ID" />
+                                <TextBlock Grid.Row="3" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding IdText}" />
+                                <TextBlock Grid.Row="4" Style="{StaticResource Label}" Text="Worker process" />
+                                <TextBlock Grid.Row="4" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding PidText}" />
+                                <TextBlock Grid.Row="5" Style="{StaticResource Label}" Text="App pool settings" />
+                                <TextBlock x:Name="PoolSettings" Grid.Row="5" Grid.Column="1" Style="{StaticResource Value}" Text="…" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- How the site is reached. -->
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource CardTitle}" Text="Bindings" />
+                            <Grid>
+                                <StackPanel>
+                                    <!-- The same columns as each binding's row below; all as wide as the card. -->
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="80" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="70" />
+                                            <ColumnDefinition Width="140" />
+                                            <ColumnDefinition Width="160" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Style="{StaticResource Label}" Text="Protocol" />
+                                        <TextBlock Grid.Column="1" Style="{StaticResource Label}" Text="Address (host name)" />
+                                        <TextBlock Grid.Column="2" Style="{StaticResource Label}" Text="Port" />
+                                        <TextBlock Grid.Column="3" Style="{StaticResource Label}" Text="IP address" />
+                                        <TextBlock Grid.Column="4" Style="{StaticResource Label}" Text="SSL" />
+                                    </Grid>
+                                    <ItemsControl ItemsSource="{Binding IisSite.Bindings}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="80" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="70" />
+                                                        <ColumnDefinition Width="140" />
+                                                        <ColumnDefinition Width="160" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Style="{StaticResource Value}" Text="{Binding Protocol}" />
+                                                    <!-- A web binding is a link to the address it serves. -->
+                                                    <Button x:Name="Host" Grid.Column="1" Style="{StaticResource LinkButton}" Content="{Binding Url}"
+                                                            Tag="{Binding Url}" Click="Link_Click" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                                                    <!-- Another protocol (net.tcp…): its binding as IIS has it. -->
+                                                    <TextBlock x:Name="NoLink" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding}" Visibility="Collapsed"
+                                                               Foreground="{DynamicResource TextMuted}" />
+                                                    <TextBlock Grid.Column="2" Style="{StaticResource Value}" Text="{Binding Port}" />
+                                                    <TextBlock Grid.Column="3" Style="{StaticResource Value}" Text="{Binding Address}" />
+                                                    <TextBlock x:Name="Ssl" Grid.Column="4" Style="{StaticResource Value}" Text="-" Foreground="{DynamicResource TextMuted}" />
+                                                </Grid>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding IsWeb}" Value="False">
+                                                        <Setter TargetName="Host" Property="Visibility" Value="Collapsed" />
+                                                        <Setter TargetName="NoLink" Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsHttps}" Value="True">
+                                                        <Setter TargetName="Ssl" Property="Text" Value="No certificate" />
+                                                        <Setter TargetName="Ssl" Property="Foreground" Value="{DynamicResource LogWarn}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding HasCertificate}" Value="True">
+                                                        <Setter TargetName="Ssl" Property="Text" Value="Certificate assigned" />
+                                                        <Setter TargetName="Ssl" Property="Foreground" Value="{DynamicResource SuccessText}" />
+                                                    </DataTrigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+
+                <!-- DNN: how it was installed, its host accounts and portals. -->
+                <StackPanel x:Name="DnnSection" Visibility="Collapsed">
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource CardTitle}" Text="DNN" />
+                            <TextBlock x:Name="DnnState" Style="{StaticResource Hint}" Margin="0" Text="Reading…" />
+                            <ItemsControl x:Name="DnnFacts" Grid.IsSharedSizeScope="True" ItemTemplate="{StaticResource FactTemplate}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                <Button x:Name="ChangePasswordButton" Content="Change host password…" IsEnabled="False" Click="ChangePassword_Click" />
+                            </StackPanel>
+                            <TextBlock x:Name="PasswordHint" Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- A DNN installation's portals - one IIS site can serve several. -->
+                    <Border Style="{StaticResource Card}" Visibility="{Binding IsDnn, Converter={StaticResource Visible}}">
+                        <StackPanel>
+                            <TextBlock x:Name="PortalsTitle" Style="{StaticResource CardTitle}" Text="DNN portals" />
+                            <TextBlock x:Name="PortalsState" Style="{StaticResource Hint}" Margin="0,0,0,4" Text="Reading the portals from the database…" />
+                            <ItemsControl x:Name="Portals">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type p:PortalItem}">
+                                        <Border BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Padding="0,10">
+                                            <StackPanel>
+                                                <DockPanel>
+                                                    <TextBlock x:Name="Status" DockPanel.Dock="Right" Text="{Binding Status}" FontSize="12"
+                                                               Foreground="{DynamicResource SuccessText}" VerticalAlignment="Center" />
+                                                    <TextBlock Foreground="{DynamicResource TextPrimary}" TextTrimming="CharacterEllipsis">
+                                                        <Run Text="{Binding IdText, Mode=OneWay}" Foreground="{DynamicResource TextMuted}" />
+                                                        <Run Text="  " />
+                                                        <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" />
+                                                    </TextBlock>
+                                                </DockPanel>
+                                                <Button Style="{StaticResource LinkButton}" Content="{Binding Primary.Url}" Tag="{Binding Primary.Url}"
+                                                        Click="Link_Click" HorizontalAlignment="Left" Margin="0,6,0,0"
+                                                        Visibility="{Binding HasPrimary, Converter={StaticResource Visible}}"
+                                                        ToolTip="The portal's primary alias - opens in your browser" />
+                                                <TextBlock Style="{StaticResource Hint}" Text="No alias - DNN doesn't serve it at any address."
+                                                           Visibility="{Binding HasNoAlias, Converter={StaticResource Visible}}" />
+                                                <ToggleButton x:Name="More" Style="{StaticResource LinkToggle}" Content="{Binding MoreText}" Margin="0,6,0,0"
+                                                              HorizontalAlignment="Left" IsChecked="{Binding ShowOthers, Mode=TwoWay}"
+                                                              Visibility="{Binding HasOthers, Converter={StaticResource Visible}}" />
+                                                <ItemsControl ItemsSource="{Binding Others}" Margin="14,4,0,0"
+                                                              Visibility="{Binding ShowOthers, Converter={StaticResource Visible}}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Button Style="{StaticResource LinkButton}" Content="{Binding Url}" Tag="{Binding Url}"
+                                                                    Click="Link_Click" HorizontalAlignment="Left" Margin="0,3" />
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding Expired}" Value="True">
+                                                <Setter TargetName="Status" Property="Foreground" Value="{DynamicResource ErrorText}" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+
+                <!-- Database: where it is and how the site signs in; Test connection. -->
+                <StackPanel x:Name="DatabaseSection" Visibility="Collapsed">
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource CardTitle}" Text="Database" />
+                            <TextBlock x:Name="DatabaseState" Style="{StaticResource Hint}" Margin="0" Text="Reading…" />
+                            <ItemsControl x:Name="DatabaseFacts" Grid.IsSharedSizeScope="True" ItemTemplate="{StaticResource FactTemplate}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                <Button x:Name="TestButton" Content="Test connection" IsEnabled="False" Click="TestConnection_Click" />
+                            </StackPanel>
+                            <c:DatabaseCheckList x:Name="CheckList" Margin="0,10,0,0" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Advanced: the site's web.config. -->
+                <StackPanel x:Name="AdvancedSection" Visibility="Collapsed">
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource CardTitle}" Text="web.config" />
+                            <ItemsControl x:Name="AdvancedFacts" Grid.IsSharedSizeScope="True" ItemTemplate="{StaticResource FactTemplate}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

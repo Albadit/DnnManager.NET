@@ -27,6 +27,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<DailyLogFile>();
         services.AddSingleton<ProcessRunner>();
         services.AddSingleton<IProjectRepository, FileSystemProjectRepository>();
+        services.AddSingleton<IProjectRecords, ProjectRecords>();
         services.AddSingleton<IIisManager, IisManager>();
         services.AddSingleton<ISqlServerService, SqlServerService>();
         services.AddSingleton<IDockerComposeService, DockerComposeService>();
@@ -38,6 +39,9 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IWebConfigService, WebConfigService>();
         services.AddSingleton<IRemoteSqlBackupService, RemoteSqlBackupService>();
         services.AddSingleton<ISqlConnectionTester, SqlConnectionTester>();
+        services.AddSingleton<IDatabaseProvisioner, DatabaseProvisioner>();
+        services.AddSingleton<IDnnInstaller, Dnn.DnnInstaller>();
+        services.AddSingleton<ISecretStore, WindowsCredentialStore>();
         services.AddSingleton<IBacpacService, SqlPackageService>();
         services.AddSingleton<HostResourceMonitor>();
         services.AddSingleton<ProcessSampler>();
@@ -57,6 +61,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IChangeSource>(_ => new EventLogSource(ChangeKind.Iis, "IIS's events", "System",
             "*[System[Provider[@Name='Microsoft-Windows-WAS' or @Name='Microsoft-Windows-IIS-W3SVC']]]"));
         services.AddSingleton<ServerStateMonitor>();
+        services.AddSingleton<SiteLogs.SiteLogCatalog>();
 
         services.AddHttpClient<IDnnReleaseService, GitHubDnnReleaseService>();
         services.AddHttpClient<IDnnPackageInstaller, DnnPackageInstaller>();

@@ -41,6 +41,9 @@
     <SolidColorBrush x:Key="StatusBarBg"      Color="#13151A" />
 
     <SolidColorBrush x:Key="LogBg"            Color="#14161B" />
+    <!-- Search (Ctrl+F in the bottom panel): every match, and the current one. -->
+    <SolidColorBrush x:Key="SearchMatchBg"    Color="#6B5317" />
+    <SolidColorBrush x:Key="SearchCurrentBg"  Color="#C2862B" />
     <SolidColorBrush x:Key="LogHeaderBg"      Color="#1C1F26" />
     <SolidColorBrush x:Key="LogHeaderFg"      Color="#FFFFFF" />
     <SolidColorBrush x:Key="LogFg"            Color="#D4D7DE" />

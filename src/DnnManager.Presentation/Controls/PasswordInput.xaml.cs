@@ -30,6 +30,9 @@ public partial class PasswordInput : UserControl
     /// <summary>Raised whenever the password changes, typed or set.</summary>
     public event RoutedEventHandler? PasswordChanged;
 
+    /// <summary>Shows the password - e.g. one just generated, so it can be read and copied.</summary>
+    public void Reveal() => Eye.IsChecked = true;
+
     /// <summary>Puts the keyboard focus in whichever box is showing.</summary>
     private void FocusInput()
     {

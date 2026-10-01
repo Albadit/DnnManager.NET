@@ -27,6 +27,9 @@ public sealed class FileSystemProjectRepository : IProjectRepository
             Path.Combine(_paths.BackupsDirectory, projectName));
     }
 
+    public DnnProject Build(string siteName, string directory) =>
+        new(siteName, directory, Path.Combine(_paths.BackupsDirectory, siteName));
+
     public IReadOnlyList<string> ListProjectsWithBackups()
     {
         if (!Directory.Exists(_paths.BackupsDirectory)) return Array.Empty<string>();

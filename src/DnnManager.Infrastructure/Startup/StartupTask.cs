@@ -26,7 +26,7 @@ public sealed class StartupTask
     {
         var query = await _process.RunAsync(Schtasks, ["/Query", "/TN", TaskName, "/XML"], ct);
         if (!query.Success) return null;
-        // <Command>C:\…\dnnmanager.exe</Command>
+        // <Command>C:\…\DnnManager.exe</Command>
         const string open = "<Command>", close = "</Command>";
         var start = query.StdOut.IndexOf(open, StringComparison.OrdinalIgnoreCase);
         var end = start < 0 ? -1 : query.StdOut.IndexOf(close, start, StringComparison.OrdinalIgnoreCase);

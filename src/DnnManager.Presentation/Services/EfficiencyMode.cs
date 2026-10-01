@@ -1,0 +1,197 @@
+using System.ComponentModel;
+using System.Globalization;
+using System.Windows;
+using System.Windows.Data;
+using System.Windows.Threading;
+using DnnManager.Application.Configuration;
+using DnnManager.Infrastructure.Processes;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+
+namespace DnnManager.Presentation.Services;
+
+/// <summary>
+/// "Save resources while minimized" (Settings - General, on by default). A minimized window shows nothing, but WPF
+/// keeps running whatever animates in it at about 60 frames a second, and the app keeps reading what only the window
+/// shows - so while it is minimized that stops, and once nothing runs either, Windows is asked to run the app on its
+/// most power-efficient setting (EcoQoS).
+/// <para>
+/// <b>Paused while minimized.</b> Each part of the window follows <see cref="IsSavingProperty"/>, which the window
+/// passes down to everything in it: the progress bars of the status bar, the rows and a site's overview, a changing
+/// site's pulsing dot, redrawing a terminal (its output is still read and kept), following a log file (read on at
+/// once when restored - no line is lost) and a toast's time to go away (it starts when the window is back). The
+/// monitor stops reading this PC's figures and holds back folder-size walks (<see cref="ServerStore.SetSaving"/>).
+/// <b>Not paused:</b> what Windows reports about IIS and the projects folder, the sites' reconciliation every
+/// 30 seconds, operations with their progress and log lines, and the day's log file.
+/// </para>
+/// <para>
+/// <b>EcoQoS</b> (<see cref="PowerThrottling"/>) only once the window has been minimized for 5 seconds, no operation
+/// runs or ended in the last 5 seconds, and no terminal printed anything for 10 seconds: it makes CPU-bound work
+/// slower, and a busy shell's output has to be read at full speed or the shell stalls. It ends at once when the window
+/// is restored, an operation starts or a terminal prints. The priority class, I/O and memory priority, the working set
+/// and the garbage collector are never touched.
+/// </para>
+/// <para>
+/// <b>Restoring</b> brings everything up to date at once, without a loading screen: Windows decides the app's speed
+/// again first, the figures are read within about a second, a log reads what was written meanwhile, a terminal draws
+/// once, and the Projects page reads what it shows (it follows the window itself). With the setting off nothing of
+/// this happens - everything runs as while the window is shown.
+/// </para>
+/// </summary>
+public sealed class EfficiencyMode
+{
+    // How long the window has to be minimized, and how long ago an operation has to have ended (what it changed is
+    // still being read back), before EcoQoS.
+    private static readonly TimeSpan SettleFor = TimeSpan.FromSeconds(5);
+    // How long no terminal may have printed before EcoQoS.
+    private static readonly TimeSpan QuietFor = TimeSpan.FromSeconds(10);
+    private const long Never = long.MinValue;
+
+    /// <summary>
+    /// Set on the main window while resources are saved, and inherited by everything in it - so a part of the window
+    /// (a style's trigger, a control's code) follows it without being told: <c>(s:EfficiencyMode.IsSaving)</c>.
+    /// </summary>
+    public static readonly DependencyProperty IsSavingProperty = DependencyProperty.RegisterAttached("IsSaving", typeof(bool),
+        typeof(EfficiencyMode), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.Inherits));
+
+    public static bool GetIsSaving(DependencyObject element) => (bool)element.GetValue(IsSavingProperty);
+
+    public static void SetIsSaving(DependencyObject element, bool value) => element.SetValue(IsSavingProperty, value);
+
+    /// <summary>
+    /// For a trigger that starts an endless animation: true while its condition (the first value) holds and the
+    /// element can be seen - it is on screen (its IsVisible, the second) and the window isn't minimized (its
+    /// <see cref="IsSavingProperty"/>, the third). One binding, so the animation is started once: a MultiDataTrigger
+    /// starts it once per condition, and each copy it replaces goes on ticking, unseen, until it is garbage collected.
+    /// </summary>
+    public static IMultiValueConverter WhileSeen { get; } = new WhileSeenConverter();
+
+    private sealed class WhileSeenConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture) => values is [true, true, false];
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture) => throw new NotSupportedException();
+    }
+
+    private readonly AppOptions _options;
+    private readonly OperationRunner _runner;
+    private readonly ServerStore _store;
+    private readonly ILogger<EfficiencyMode> _logger;
+    // Looks again when EcoQoS may start - one tick per wait, not a polling timer.
+    private readonly DispatcherTimer _check;
+    private Window? _window;
+    // On the clock of Now: since when resources are saved, when the last operation ended, when a terminal last printed.
+    private long _savingSince, _operationEnded = Never, _lastOutput = Never;
+    private bool _eco, _ecoRefused;
+
+    public EfficiencyMode(IOptions<AppOptions> options, OperationRunner runner, ServerStore store, ILogger<EfficiencyMode> logger)
+    {
+        _options = options.Value; _runner = runner; _store = store; _logger = logger;
+        _check = new DispatcherTimer(DispatcherPriority.Background, System.Windows.Application.Current.Dispatcher);
+        _check.Tick += (_, _) =>
+        {
+            _check.Stop();
+            Update();
+        };
+        // Saved on the Settings page: applies at once.
+        _options.Changed += Update;
+        _runner.PropertyChanged += OnRunnerChanged;
+    }
+
+    /// <summary>The window is minimized and the setting is on: what only the window shows is paused.</summary>
+    public bool IsSaving { get; private set; }
+
+    /// <summary><see cref="IsSaving"/> changed. Raised on the UI thread.</summary>
+    public event EventHandler? Changed;
+
+    /// <summary>Follows <paramref name="window"/> - the main window - from now on: minimized or not.</summary>
+    public void Attach(Window window)
+    {
+        _window = window;
+        window.StateChanged += (_, _) => Update();
+        Update();
+    }
+
+    /// <summary>
+    /// A terminal printed something (UI thread, once per batch of output): no EcoQoS for the next 10 seconds, and
+    /// none from now if it was on - the shell's output has to be read at full speed.
+    /// </summary>
+    public void NoteTerminalOutput()
+    {
+        _lastOutput = Now;
+        // Not on: the wait that may be running looks at the time of the last output when it ends - nothing to do now.
+        if (_eco) Update();
+    }
+
+    // ─── Following the window, the operations and the terminals ───────────
+
+    private static long Now => Environment.TickCount64;
+
+    private void OnRunnerChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(OperationRunner.Current)) return;
+        if (!_runner.IsBusy) _operationEnded = Now;
+        Update();
+    }
+
+    /// <summary>Brings everything in line with the window's state, the setting, the operation and the terminals - now.</summary>
+    private void Update()
+    {
+        var saving = _window is not null && _options.SaveResourcesWhileMinimized && _window.WindowState == WindowState.Minimized;
+        if (saving != IsSaving)
+        {
+            IsSaving = saving;
+            _savingSince = Now;
+            // Restored: Windows decides the app's speed again before anything is brought up to date.
+            if (!saving) SetEcoQoS(false);
+            _store.SetSaving(saving);
+            SetIsSaving(_window!, saving);
+            _logger.LogDebug("Saving resources while minimized: {Saving}", saving);
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+
+        _check.Stop();
+        if (EcoQoSFrom() is not { } from)
+        {
+            SetEcoQoS(false);
+            return;
+        }
+        var now = Now;
+        if (now >= from)
+        {
+            SetEcoQoS(true);
+            return;
+        }
+        SetEcoQoS(false);
+        _check.Interval = TimeSpan.FromMilliseconds(from - now);
+        _check.Start();
+    }
+
+    // ─── EcoQoS ───────────────────────────────────────────────────────────
+
+    /// <summary>When EcoQoS may start, on the clock of <see cref="Now"/>; null while it may not at all.</summary>
+    private long? EcoQoSFrom()
+    {
+        if (!IsSaving || _runner.IsBusy || _ecoRefused) return null;
+        var from = _savingSince + (long)SettleFor.TotalMilliseconds;
+        if (_operationEnded != Never) from = Math.Max(from, _operationEnded + (long)SettleFor.TotalMilliseconds);
+        if (_lastOutput != Never) from = Math.Max(from, _lastOutput + (long)QuietFor.TotalMilliseconds);
+        return from;
+    }
+
+    private void SetEcoQoS(bool on)
+    {
+        if (on == _eco) return;
+        if (on)
+        {
+            _eco = PowerThrottling.TryEnterEcoQoS();
+            // This Windows hasn't got it: not asked again.
+            _ecoRefused = !_eco;
+            if (_ecoRefused) _logger.LogInformation("Windows refused EcoQoS (error {Error}) - the app runs as usual while minimized.", PowerThrottling.LastError);
+            return;
+        }
+        // Should Windows refuse, it is tried again with the next change.
+        _eco = !PowerThrottling.Reset();
+        if (_eco) _logger.LogWarning("Could not end EcoQoS (error {Error}).", PowerThrottling.LastError);
+    }
+}

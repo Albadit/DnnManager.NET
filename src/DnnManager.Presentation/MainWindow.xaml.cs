@@ -4,7 +4,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media.Animation;
+using System.Windows.Input;
 using DnnManager.Application.Configuration;
+using DnnManager.Infrastructure.SiteLogs;
 using DnnManager.Presentation.Pages;
 using DnnManager.Presentation.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -37,11 +39,14 @@ public partial class MainWindow : Window
     private readonly HashSet<UserControl> _stale = new();
 
     public MainWindow(IServiceProvider services, ActivityLog log, OperationRunner runner, IOptions<AppOptions> options,
-        DnnReleaseCatalog releases, ServerStore store, TerminalService terminal)
+        DnnReleaseCatalog releases, ServerStore store, TerminalService terminal, SiteLogCatalog logs, EfficiencyMode efficiency)
     {
         _services = services; _log = log; _runner = runner;
         InitializeComponent();
         Toast.Attach(ToastHost);
+        // Minimized, what only the window shows pauses (its parts follow EfficiencyMode.IsSaving). Attached before the
+        // pages follow the window's state, so restoring it ends EcoQoS before they catch up.
+        efficiency.Attach(this);
         // Ask GitHub for the DNN versions now, in the background, so New project has them when it's opened.
         releases.Preload();
 
@@ -68,10 +73,11 @@ public partial class MainWindow : Window
             releases.Preload();
         };
 
-        // The terminal panel (activity log + shells). Closed at first - the status bar shows the running operation, its
+        // The bottom panel (Activity, Logs, Terminal). Closed at first - the status bar shows the running operation, its
         // progress and Cancel; its terminal button opens the panel, and a click on the operation opens it on Activity.
-        TerminalPanel.Attach(_log, terminal);
+        TerminalPanel.Attach(_log, terminal, store, logs, efficiency);
         TerminalPanel.CloseRequested += (_, _) => SetLogOpen(false);
+        TerminalPanel.MaximizeToggled += (_, _) => SetPanelMaximized(!_panelMaximized);
         StatusBar.ActivityToggled += (_, _) => SetLogOpen(!LogOpen);
         StatusBar.OperationClicked += (_, _) =>
         {
@@ -84,13 +90,23 @@ public partial class MainWindow : Window
             SetLogOpen(true);
             TerminalPanel.NewTerminal(directory: directory);
         };
-        Closed += (_, _) => TerminalPanel.CloseAll();
+        // "View logs" on a site: the Logs tab with that log.
+        terminal.LogsRequested += (site, source) =>
+        {
+            SetLogOpen(true);
+            TerminalPanel.ShowLogs(site, source);
+        };
+        Closed += (_, _) =>
+        {
+            TerminalPanel.CloseAll();
+            TerminalPanel.StopLogs();
+        };
         SetLogOpen(false);
         ThemeManager.Track(this);
 
         _runner.PropertyChanged += OnRunnerChanged;
         // A failed operation is said where it is seen - its steps are in the activity log, which may be closed.
-        _runner.Failed += (title, error) => Toast.Show($"{title} failed: {error}", ToastKind.Error, "Show activity", () =>
+        _runner.Failed += (title, error) => Toast.Show($"{title} failed: {error}", ToastKind.Error, "Show output", () =>
         {
             SetLogOpen(true);
             TerminalPanel.ShowActivity();
@@ -268,6 +284,55 @@ public partial class MainWindow : Window
 
     private bool LogOpen => TerminalPanel.Visibility == Visibility.Visible;
 
+    // Ctrl+` shows or hides the panel, Ctrl+Shift+M gives it the window (or takes it back) - like VS Code.
+    protected override void OnPreviewKeyDown(KeyEventArgs e)
+    {
+        base.OnPreviewKeyDown(e);
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key == Key.Oem3 && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            SetLogOpen(!LogOpen);
+            e.Handled = true;
+        }
+        else if (key == Key.M && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            if (!LogOpen) SetLogOpen(true);
+            SetPanelMaximized(!_panelMaximized);
+            e.Handled = true;
+        }
+    }
+
+    // The panel has the window: the page is hidden and the panel takes its room (the sidebar and status bar stay).
+    private bool _panelMaximized;
+    private GridLength _restoredLogHeight;
+
+    private void SetPanelMaximized(bool maximized)
+    {
+        if (maximized == _panelMaximized) return;
+        _panelMaximized = maximized;
+        TerminalPanel.IsMaximized = maximized;
+        if (maximized)
+        {
+            _restoredLogHeight = LogRow.Height;
+            PageRow.MinHeight = 0;
+            PageRow.Height = new GridLength(0);
+            PageHost.Visibility = Visibility.Collapsed;
+            LogSplitter.Visibility = Visibility.Collapsed;
+            SplitterRow.Height = new GridLength(0);
+            LogRow.Height = new GridLength(1, GridUnitType.Star);
+        }
+        else
+        {
+            PageRow.Height = new GridLength(1, GridUnitType.Star);
+            PageRow.MinHeight = 200;
+            PageHost.Visibility = Visibility.Visible;
+            if (!LogOpen) return;
+            LogSplitter.Visibility = Visibility.Visible;
+            SplitterRow.Height = new GridLength(5);
+            LogRow.Height = _restoredLogHeight;
+        }
+    }
+
     /// <summary>
     /// Hides or shows the terminal panel (the activity log and the shells). Hidden, it takes no room at all - the
     /// shells keep running, and the status bar still shows the running operation, its progress and Cancel.
@@ -275,6 +340,8 @@ public partial class MainWindow : Window
     private void SetLogOpen(bool open)
     {
         StatusBar.IsActivityOpen = open;
+        // Hiding the panel gives the page its room back.
+        if (!open) SetPanelMaximized(false);
         if (open == LogOpen) return;
         if (open)
         {
