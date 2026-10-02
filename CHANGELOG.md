@@ -2,7 +2,22 @@
 
 All notable changes to DnnManager.NET are documented here.
 
-## Unreleased
+## v2.4.0 - 2026-10-02
+
+**Sites stay fast**: keep warm stops IIS from shutting an idle DNN site down, so
+its next page opens at once instead of after DNN starting up again. The
+database server is one setting, a **Troubleshoot** page restarts or resets DNN
+Manager, and **Cancel** undoes what an operation had already done.
+
+### Upgrading from v2.3.x
+
+- Install over v2.3.x as usual. The settings are upgraded to version 3 on the
+  first start (see *Database profiles are gone* below); the new keys
+  (`projects.keepWarm`, `appearance.uiScale`, `appearance.fontSize`) are added
+  with their defaults.
+- The **Environment** page moved into **Settings**: **Docker container**,
+  **Database server** and **IIS** each end with a **Test and set up** card.
+- **Clone project** is now **Clone…** on a project's right-click menu.
 
 ### Added
 
@@ -24,6 +39,20 @@ All notable changes to DnnManager.NET are documented here.
   and pages, and gives a site its own. Defaults in **Settings → Projects → Keep
   warm** (`projects.keepWarm`). Plain HTTP requests: switching it on asks
   nothing, and needs no mail server, extension or change in IIS or DNN.
+- **Troubleshoot** (the bug next to the gear) - **Restart** restarts DNN
+  Manager; **Clean up data** deletes what is ticked from `Documents\DnnManager`,
+  each with its size (logs, kept DNN packages, settings copies and - never
+  ticked for you - project backups); **Reset to factory defaults** puts DNN
+  Manager back as it was installed. Projects - their IIS sites, folders and
+  databases - are never touched.
+- **Cancel puts everything back** - what the operation had made is taken away
+  again, the last first (the IIS site and app pool, the database, files and
+  folders, an edited `web.config`), each step shown in **Output**; what can't
+  be put back is named there.
+- **UI scale** (80-175 %) and **font size** (11-18 px) in **Settings →
+  General**, applied at once.
+- **Open with…** lists the installed editors and, in the same submenu, each
+  installed SQL Server Management Studio.
 
 ### Changed
 
@@ -41,6 +70,21 @@ All notable changes to DnnManager.NET are documented here.
   `DnnManager/database-server/password` in the Windows Credential Manager, and
   `projects.databaseProfiles` / `projects.defaultDatabaseProfile` are removed
   with the other profiles' passwords. Existing projects keep their databases.
+- **Efficiency mode also while the window can't be seen** - covered by other
+  windows, on another virtual desktop or behind the lock screen, not only
+  minimized - and it is Windows' own *Efficiency mode* (the leaf in Task
+  Manager). Terminal shells still start at Normal priority.
+- **Bottom panel** - long Output lines wrap at the panel's width; copy and paste
+  are **Ctrl+C** / **Ctrl+V** and the right-click menu on every tab.
+- The Projects table shows the **URL** column by default; the Actions column is
+  tighter.
+- **The README is short** - what DNN Manager is, a quick start and how to build
+  it; the details moved to `docs/user-guide.md` and `docs/development.md`.
+
+### Removed
+
+- The **Environment** and **Clone project** pages - moved into Settings and the
+  project menu.
 
 ## v2.3.0 - 2026-10-01
 

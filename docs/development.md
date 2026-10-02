@@ -97,7 +97,7 @@ One file, no .NET runtime needed on the target machine:
 ```bash
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:PortableExe=true -o publish
 
-.\publish\DnnManager-2.3.0-x64.exe
+.\publish\DnnManager-2.4.0-x64.exe
 ```
 
 `-p:PortableExe=true` names the exe `DnnManager-<version>-x64.exe` (without it,
