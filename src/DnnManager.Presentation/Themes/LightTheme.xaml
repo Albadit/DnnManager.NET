@@ -18,6 +18,8 @@
     <SolidColorBrush x:Key="TextMuted"        Color="#656D76" />
     <SolidColorBrush x:Key="ErrorText"        Color="#C62828" />
     <SolidColorBrush x:Key="SuccessText"      Color="#1A7F37" />
+    <!-- Keep warm's flame while a site is kept warm. -->
+    <SolidColorBrush x:Key="KeepWarmFg"       Color="#D9480F" />
 
     <SolidColorBrush x:Key="Accent"           Color="#2F6FEB" />
     <SolidColorBrush x:Key="AccentHover"      Color="#2159C9" />

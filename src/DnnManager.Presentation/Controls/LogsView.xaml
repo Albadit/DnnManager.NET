@@ -11,19 +11,19 @@
                         Content="&#xE838;" ToolTip="Open the log's folder" Click="OpenFolder_Click" IsEnabled="False" />
                 <ComboBox x:Name="SiteBox" Width="190" ToolTip="Website" DisplayMemberPath="Name" SelectionChanged="Site_SelectionChanged" />
                 <ComboBox x:Name="LogBox" Width="300" Margin="8,0,0,0" ToolTip="Log" SelectionChanged="Log_SelectionChanged" />
-                <TextBlock x:Name="Description" Margin="12,0,8,0" Foreground="{DynamicResource LogMuted}" FontSize="12"
+                <TextBlock x:Name="Description" Margin="12,0,8,0" Foreground="{DynamicResource LogMuted}" FontSize="{DynamicResource TextCaption}"
                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
             </DockPanel>
         </Border>
         <Grid>
             <!-- Draws only the lines on screen, however long the log; scrolls itself (CanContentScroll). -->
             <ScrollViewer x:Name="Scroller" CanContentScroll="True" Focusable="False"
-                          HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                <c:LogTextView x:Name="LogText" />
+                          HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <c:LogView x:Name="LogText" />
             </ScrollViewer>
             <TextBlock x:Name="Hint" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource LogMuted}"
                        TextWrapping="Wrap" TextAlignment="Center" MaxWidth="520"
-                       Text="Choose a website and one of its logs above - or View logs on a site's ⋮ menu on Projects." />
+                       Text="Choose a website and one of its logs above." />
         </Grid>
     </DockPanel>
 </UserControl>

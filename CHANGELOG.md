@@ -2,6 +2,45 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## Unreleased
+
+### Added
+
+- **Keep warm** - the flame in a site's Actions (also on its right-click menu and
+  its overview's **IIS** tab) keeps the site warm while DNN Manager runs,
+  minimized too, so its next page opens at once instead of after DNN starting
+  up again (3-10 s). IIS shuts an idle site's worker process down after its
+  idle time-out (20 minutes by default): DNN Manager requests DNN's own
+  `KeepAlive.aspx` before that - every 5 minutes, sooner for a shorter idle
+  time-out, not while the site is in use - and warms the site up (its home page)
+  as soon as its worker process is gone after a recycle, a crash or IIS starting.
+  No browser and nothing changed in IIS. It holds back while the site or IIS is
+  stopped, an operation runs on it, a debugger is attached (Visual Studio's
+  managed attach too) or the site's SQL container is down; a site that keeps
+  failing or crashing is left alone until **Check now**. Requests never go to
+  DNN's installer, however a page or a redirect is written. The
+  flame shows how it is going; the overview shows the idle time-out, interval
+  and pages, and gives a site its own. Defaults in **Settings → Projects → Keep
+  warm** (`projects.keepWarm`). Switching it on for a site that sends e-mail
+  through a real mail server asks first - DNN's scheduler keeps running too.
+
+### Changed
+
+- **The database server is a setting, not a choice on New project.** Settings
+  → **Database server** (was *SQL Server*) has the **connection type** new
+  projects get their database on: the *Local SQL container (Docker)*, *SQL
+  Server / SQL Server Express* (server, Windows or SQL Server authentication,
+  login) or a *SQL Server Express LocalDB (file)*. New project has no Database
+  card any more: the database is named like the project and tested on that
+  server before anything is created.
+- **Database profiles are gone** - and **Save as profile…** with them. The
+  settings are upgraded to version 3 on the first start: the profile new
+  projects started with becomes the database server (`sqlServer.type`,
+  `server`, `authentication`, `userName`), its password moves to
+  `DnnManager/database-server/password` in the Windows Credential Manager, and
+  `projects.databaseProfiles` / `projects.defaultDatabaseProfile` are removed
+  with the other profiles' passwords. Existing projects keep their databases.
+
 ## v2.3.0 - 2026-10-01
 
 **New project installs DNN for you**: the first visit shows your new site, signed

@@ -44,6 +44,7 @@ internal static class ProjectColumns
     /// </summary>
     public static IReadOnlyList<(string Key, string Header)> All { get; } =
     [
+        ("url", "Site"),
         ("dnn", "DNN version"),
         ("database", "Database"),
         ("sql", "SQL"),
@@ -52,7 +53,6 @@ internal static class ProjectColumns
         ("pid", "PID"),
         ("lastStarted", "Last started"),
         ("status", "Status"),
-        ("url", "Site"),
         ("ports", "Port(s)"),
         ("id", "Site ID"),
         ("size", "Size"),

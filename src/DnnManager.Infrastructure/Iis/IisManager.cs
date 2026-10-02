@@ -388,8 +388,9 @@ public sealed class IisManager : IIisManager
         try
         {
             using var sm = new ServerManager();
-            // Several sites can share a pool - read each pool's workers once.
+            // Several sites can share a pool - read each pool's workers and idle time-out once.
             var workers = new Dictionary<string, IReadOnlyList<int>>(StringComparer.OrdinalIgnoreCase);
+            var idleTimeouts = new Dictionary<string, TimeSpan?>(StringComparer.OrdinalIgnoreCase);
             foreach (var site in sm.Sites)
             {
                 // The state and the workers are asked of the running IIS. While it is stopped they read as stopped;
@@ -400,14 +401,18 @@ public sealed class IisManager : IIisManager
                 string? poolState = null;
                 try { poolState = pool?.State.ToString(); } catch { /* unknown */ }
                 IReadOnlyList<int> pids = [];
+                TimeSpan? idleTimeout = null;
                 if (pool is not null && !workers.TryGetValue(pool.Name, out pids!))
                 {
                     try { pids = pool.WorkerProcesses.Select(w => w.ProcessId).ToList(); } catch { pids = []; }
                     workers[pool.Name] = pids;
+                    // Configuration, not the running IIS - it reads the same while IIS is stopped.
+                    try { idleTimeouts[pool.Name] = pool.ProcessModel.IdleTimeout; } catch { idleTimeouts[pool.Name] = null; }
                 }
+                if (pool is not null) idleTimeout = idleTimeouts.GetValueOrDefault(pool.Name);
 
                 map[site.Name] = new IisSiteRuntime(site.Id, state, pool?.Name ?? "", poolState, pids,
-                    site.Bindings.Select(ToBinding).ToList(), PhysicalPathOf(site));
+                    site.Bindings.Select(ToBinding).ToList(), PhysicalPathOf(site)) { IdleTimeout = idleTimeout };
             }
         }
         catch (Exception ex)
@@ -420,6 +425,26 @@ public sealed class IisManager : IIisManager
     }
 
     // IIS's "Web Service" performance counters have one instance per site, named like it.
+    public IReadOnlyDictionary<string, long> GetRequestsServed()
+    {
+        var served = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            const string category = "Web Service";
+            if (!PerformanceCounterCategory.Exists(category)) return served;
+            // Every kind of request (GET, HEAD, POST…) - not "Total Get Requests" alone.
+            if (new PerformanceCounterCategory(category).ReadCategory()["Total Method Requests"] is not { } requests) return served;
+            foreach (System.Collections.DictionaryEntry entry in requests)
+                served[(string)entry.Key] = ((InstanceData)entry.Value!).RawValue;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException
+                                       or System.ComponentModel.Win32Exception or FormatException)
+        {
+            _log.LogWarning(ex, "Could not read the IIS request counters");
+        }
+        return served;
+    }
+
     public IReadOnlyDictionary<string, SiteTraffic> GetSiteTraffic()
     {
         var traffic = new Dictionary<string, SiteTraffic>(StringComparer.OrdinalIgnoreCase);

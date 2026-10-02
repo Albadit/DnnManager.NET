@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 
 namespace DnnManager.Infrastructure.Settings;
@@ -10,7 +11,9 @@ namespace DnnManager.Infrastructure.Settings;
 public interface ISettingsMigration
 {
     int FromVersion { get; }
-    void Apply(JsonObject root);
+
+    /// <param name="secrets">The Windows Credential Manager, for a migration that moves a secret; null to leave secrets alone.</param>
+    void Apply(JsonObject root, ISecretStore? secrets);
 }
 
 /// <summary>
@@ -22,17 +25,18 @@ public static class SettingsMigrations
     public static readonly IReadOnlyList<ISettingsMigration> All =
     [
         new V0ToV1(),
-        new V1ToV2()
+        new V1ToV2(),
+        new V2ToV3()
     ];
 
     /// <summary>Runs the migrations that take <paramref name="root"/> from <paramref name="version"/> to the current one.</summary>
-    public static void Apply(JsonObject root, int version)
+    public static void Apply(JsonObject root, int version, ISecretStore? secrets)
     {
         for (var v = version; v < UserSettings.CurrentVersion; v++)
         {
             var migration = All.SingleOrDefault(m => m.FromVersion == v)
                 ?? throw new InvalidOperationException($"No settings migration from version {v}.");
-            migration.Apply(root);
+            migration.Apply(root, secrets);
             if (root.ContainsKey("version")) root["version"] = v + 1;
             else root.Insert(0, "version", v + 1); // first in the file, where people look for it
         }
@@ -47,7 +51,7 @@ public static class SettingsMigrations
     {
         public int FromVersion => 0;
 
-        public void Apply(JsonObject root)
+        public void Apply(JsonObject root, ISecretStore? secrets)
         {
             root.Remove("Logging");
             if (root["DnnManager"] is not JsonObject old)
@@ -119,7 +123,7 @@ public static class SettingsMigrations
     {
         public int FromVersion => 1;
 
-        public void Apply(JsonObject root)
+        public void Apply(JsonObject root, ISecretStore? secrets)
         {
             if (root["sqlServer"] is not JsonObject sql) return;
             sql.Remove("databaseNameSuffix");
@@ -130,5 +134,54 @@ public static class SettingsMigrations
                 sql.Remove(key);
             }
         }
+    }
+
+    /// <summary>
+    /// Version 3 drops the database profiles: there is one database server, chosen in Settings → Database server.
+    /// The profile new projects started with (<c>projects.defaultDatabaseProfile</c>) becomes it - its type, server,
+    /// authentication and login go to <c>sqlServer</c>, and its password to the server's name in the Credential
+    /// Manager. <c>projects.databaseProfiles</c> and <c>projects.defaultDatabaseProfile</c> are removed, with every
+    /// profile's password. Without a chosen profile the server is the local container, as before. The Projects table's
+    /// Site column, a default one from now on, is added at the front of <c>appearance.projectColumns</c>.
+    /// </summary>
+    private sealed class V2ToV3 : ISettingsMigration
+    {
+        public int FromVersion => 2;
+
+        public void Apply(JsonObject root, ISecretStore? secrets)
+        {
+            var sql = V0ToV1.Section(root, "sqlServer");
+            var projects = root["projects"] as JsonObject;
+            var profiles = (projects?["databaseProfiles"] as JsonArray)?.OfType<JsonObject>().ToList() ?? [];
+            var chosenId = Text(projects?["defaultDatabaseProfile"]);
+            var chosen = profiles.FirstOrDefault(p => Text(p["id"]) is { Length: > 0 } id &&
+                                                      id.Equals(chosenId, StringComparison.OrdinalIgnoreCase));
+
+            sql["type"] = chosen is null ? SqlServerSettings.ContainerType : Text(chosen["type"]) ?? "sqlServer";
+            if (chosen is not null)
+            {
+                V0ToV1.Move(chosen, "server", sql, "server");
+                V0ToV1.Move(chosen, "authentication", sql, "authentication");
+                V0ToV1.Move(chosen, "userName", sql, "userName");
+            }
+
+            if (secrets is not null)
+            {
+                if (chosen is not null && secrets.Read(SecretNames.LegacyDatabaseProfilePassword(Text(chosen["id"])!)) is { Length: > 0 } password)
+                    secrets.Write(SecretNames.DatabaseServerPassword, password);
+                foreach (var id in profiles.Select(p => Text(p["id"])).OfType<string>().Where(id => id.Length > 0))
+                    secrets.Delete(SecretNames.LegacyDatabaseProfilePassword(id));
+            }
+
+            projects?.Remove("databaseProfiles");
+            projects?.Remove("defaultDatabaseProfile");
+
+            if (root["appearance"] is JsonObject appearance && appearance["projectColumns"] is JsonArray columns &&
+                !columns.Any(c => Text(c) is { } key && key.Equals("url", StringComparison.OrdinalIgnoreCase)))
+                columns.Insert(0, "url");
+        }
+
+        private static string? Text(JsonNode? node) =>
+            node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
     }
 }

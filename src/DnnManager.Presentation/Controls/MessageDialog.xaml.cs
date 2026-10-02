@@ -5,8 +5,8 @@ using DnnManager.Presentation.Services;
 namespace DnnManager.Presentation.Controls;
 
 /// <summary>
-/// The app's message box: a question (Yes / No) or a warning (OK), in the app's theme rather than the plain
-/// Windows one. The default answer is the primary button - Enter picks it, Esc answers No.
+/// The app's message box: a question (two buttons named for what they do) or a warning (OK), in the app's theme
+/// rather than the plain Windows one. The default answer is the primary button - Enter picks it, Esc the other one.
 /// </summary>
 public partial class MessageDialog : Window
 {
@@ -23,12 +23,15 @@ public partial class MessageDialog : Window
         Glyph.SetResourceReference(TextBlock.ForegroundProperty, kind == Kind.Question ? "Accent" : "LogWarn");
     }
 
-    /// <summary>Asks <paramref name="question"/>; true for Yes. Closing the window counts as No.</summary>
-    public static bool Ask(string question, bool defaultYes)
+    /// <summary>
+    /// Asks <paramref name="question"/> with buttons labelled <paramref name="yesText"/> and <paramref name="noText"/>
+    /// (e.g. "Remove project" / "Cancel"); true for the first. Closing the window counts as the second.
+    /// </summary>
+    public static bool Ask(string question, string yesText, string noText, bool defaultYes)
     {
         var dialog = Create(question, Kind.Question);
-        var yes = dialog.AddButton("Yes", primary: defaultYes, answer: true);
-        var no = dialog.AddButton("No", primary: !defaultYes, answer: false);
+        var yes = dialog.AddButton(yesText, primary: defaultYes, answer: true);
+        var no = dialog.AddButton(noText, primary: !defaultYes, answer: false);
         no.IsCancel = true;
         (defaultYes ? yes : no).IsDefault = true;
         dialog.Loaded += (_, _) => (defaultYes ? yes : no).Focus();

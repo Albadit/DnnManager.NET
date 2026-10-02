@@ -5,7 +5,7 @@
          boxes around content (Card, InfoBanner, WarnBanner), each used as Style="{StaticResource …}". -->
 
     <Style TargetType="TextBlock" x:Key="PageTitle">
-        <Setter Property="FontSize" Value="22" />
+        <Setter Property="FontSize" Value="{DynamicResource TextDisplay}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
     </Style>
@@ -15,7 +15,7 @@
         <Setter Property="Margin" Value="0,4,0,16" />
     </Style>
     <Style TargetType="TextBlock" x:Key="CardTitle">
-        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontSize" Value="{DynamicResource TextHeading}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
         <Setter Property="Margin" Value="0,0,0,10" />
@@ -26,7 +26,7 @@
     </Style>
     <Style TargetType="TextBlock" x:Key="Hint">
         <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="{DynamicResource TextCaption}" />
         <Setter Property="TextWrapping" Value="Wrap" />
         <Setter Property="Margin" Value="0,4,0,0" />
     </Style>

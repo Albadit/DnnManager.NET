@@ -24,13 +24,13 @@
 
             <Style TargetType="Window">
                 <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontSize" Value="{DynamicResource TextBody}" />
             </Style>
 
             <!-- Sidebar navigation entries (RadioButtons so exactly one page is selected). -->
             <Style TargetType="RadioButton" x:Key="NavItem">
                 <Setter Property="Foreground" Value="{DynamicResource SidebarFg}" />
-                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontSize" Value="{DynamicResource TextMedium}" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="Margin" Value="0,1" />
                 <Setter Property="Template">

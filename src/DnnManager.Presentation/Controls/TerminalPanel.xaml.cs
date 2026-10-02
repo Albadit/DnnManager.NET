@@ -149,11 +149,8 @@ public partial class TerminalPanel : UserControl
         Logs.Visibility = pane == Pane.Logs ? Visibility.Visible : Visibility.Collapsed;
         TerminalPane.Visibility = TerminalList.Visibility = ListResizer.Visibility = TerminalTools.Visibility =
             pane == Pane.Terminal ? Visibility.Visible : Visibility.Collapsed;
-        // The strip: copy on every tab, paste for a terminal, clear for the output.
-        PasteButton.Visibility = pane == Pane.Terminal ? Visibility.Visible : Visibility.Collapsed;
+        // Clearing is for the output only.
         ClearButton.Visibility = pane == Pane.Activity ? Visibility.Visible : Visibility.Collapsed;
-        CopyButton.ToolTip = pane == Pane.Terminal ? "Copy the selected text (Ctrl+C, or right-click)"
-            : pane == Pane.Logs ? "Copy the selected text (Ctrl+C, or right-click)" : "Copy the selected text, or the whole output when nothing is selected";
         // Logs has its own bar at the top: the search sits under it.
         SearchBar.Margin = new Thickness(0, pane == Pane.Logs ? 46 : 6, 20, 0);
 
@@ -296,7 +293,6 @@ public partial class TerminalPanel : UserControl
         var none = _tabs.Count == 0;
         NoTerminal.Visibility = none ? Visibility.Visible : Visibility.Collapsed;
         TerminalScroll.Visibility = none ? Visibility.Collapsed : Visibility.Visible;
-        PasteButton.IsEnabled = !none;
     }
 
     /// <summary>Puts the keyboard in the shown terminal, once it is laid out.</summary>
@@ -352,32 +348,6 @@ public partial class TerminalPanel : UserControl
         FrameworkElement { DataContext: Tab tab } => tab,
         _ => null
     };
-
-    // Activity: the selected part of the log, or - with nothing selected - the whole log with timestamps. Logs: the
-    // selected line. Terminal: the selected text.
-    private void Copy_Click(object sender, RoutedEventArgs e)
-    {
-        switch (_pane)
-        {
-            case Pane.Terminal:
-                (TerminalHost.Content as TerminalView)?.Copy();
-                FocusTerminal();
-                break;
-            case Pane.Logs:
-                Logs.Copy();
-                break;
-            default:
-                var text = LogList.Selection.IsEmpty ? _log.ToText() : LogList.Selection.Text.TrimEnd();
-                if (text.Length > 0) Clipboard.SetText(text);
-                break;
-        }
-    }
-
-    private void Paste_Click(object sender, RoutedEventArgs e)
-    {
-        (TerminalHost.Content as TerminalView)?.Paste();
-        FocusTerminal();
-    }
 
     private void Clear_Click(object sender, RoutedEventArgs e) => _log.Clear();
 
@@ -628,21 +598,4 @@ public partial class TerminalPanel : UserControl
         if (!_syncingScroll && TerminalHost.Content is TerminalView view) view.ScrollTo((int)Math.Round(e.NewValue));
     }
 
-    // The newest line of whatever is shown: the terminal's prompt, the log's end, or the end of the activity log.
-    private void ScrollToBottom_Click(object sender, RoutedEventArgs e)
-    {
-        switch (_pane)
-        {
-            case Pane.Terminal:
-                (TerminalHost.Content as TerminalView)?.ScrollToBottom();
-                FocusTerminal();
-                break;
-            case Pane.Logs:
-                Logs.ScrollToEnd();
-                break;
-            default:
-                LogList.ScrollToEnd();
-                break;
-        }
-    }
 }

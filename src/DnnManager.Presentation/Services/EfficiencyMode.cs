@@ -11,12 +11,14 @@ using Microsoft.Extensions.Options;
 namespace DnnManager.Presentation.Services;
 
 /// <summary>
-/// "Save resources while minimized" (Settings - General, on by default). A minimized window shows nothing, but WPF
-/// keeps running whatever animates in it at about 60 frames a second, and the app keeps reading what only the window
-/// shows - so while it is minimized that stops, and once nothing runs either, Windows is asked to run the app on its
-/// most power-efficient setting (EcoQoS).
+/// "Save resources while minimized" (Settings - General, on by default). A window that can't be seen - minimized, or
+/// covered completely by other windows, on another virtual desktop or behind a locked screen (<see cref="WindowOcclusion"/>,
+/// as Chromium apps such as Docker Desktop decide it) - shows nothing, but WPF keeps running whatever animates in it at
+/// about 60 frames a second, and the app keeps reading what only the window shows - so while it can't be seen that
+/// stops, and once nothing runs either, the app goes into Windows' efficiency mode (EcoQoS and Idle priority - Task
+/// Manager shows its leaf).
 /// <para>
-/// <b>Paused while minimized.</b> Each part of the window follows <see cref="IsSavingProperty"/>, which the window
+/// <b>Paused while it can't be seen.</b> Each part of the window follows <see cref="IsSavingProperty"/>, which the window
 /// passes down to everything in it: the progress bars of the status bar, the rows and a site's overview, a changing
 /// site's pulsing dot, redrawing a terminal (its output is still read and kept), following a log file (read on at
 /// once when restored - no line is lost) and a toast's time to go away (it starts when the window is back). The
@@ -25,14 +27,15 @@ namespace DnnManager.Presentation.Services;
 /// 30 seconds, operations with their progress and log lines, and the day's log file.
 /// </para>
 /// <para>
-/// <b>EcoQoS</b> (<see cref="PowerThrottling"/>) only once the window has been minimized for 5 seconds, no operation
+/// <b>Efficiency mode</b> (<see cref="PowerThrottling"/>) once the window hasn't been seen for a second, no operation
 /// runs or ended in the last 5 seconds, and no terminal printed anything for 10 seconds: it makes CPU-bound work
 /// slower, and a busy shell's output has to be read at full speed or the shell stalls. It ends at once when the window
-/// is restored, an operation starts or a terminal prints. The priority class, I/O and memory priority, the working set
-/// and the garbage collector are never touched.
+/// can be seen again (restored, uncovered, clicked), an operation starts or a terminal prints - before anything can be
+/// opened from the window, so nothing DNN Manager opens inherits the Idle priority. I/O and memory priority, the working set and the garbage
+/// collector are never touched.
 /// </para>
 /// <para>
-/// <b>Restoring</b> brings everything up to date at once, without a loading screen: Windows decides the app's speed
+/// <b>Seen again</b>, everything is brought up to date at once, without a loading screen: Windows decides the app's speed
 /// again first, the figures are read within about a second, a log reads what was written meanwhile, a terminal draws
 /// once, and the Projects page reads what it shows (it follows the window itself). With the setting off nothing of
 /// this happens - everything runs as while the window is shown.
@@ -40,8 +43,9 @@ namespace DnnManager.Presentation.Services;
 /// </summary>
 public sealed class EfficiencyMode
 {
-    // How long the window has to be minimized, and how long ago an operation has to have ended (what it changed is
-    // still being read back), before EcoQoS.
+    // How long the window has to be out of sight before efficiency mode - a moment, so a quick Alt+Tab doesn't toggle it.
+    private static readonly TimeSpan HiddenFor = TimeSpan.FromSeconds(1);
+    // How long ago an operation has to have ended (what it changed is still being read back) before efficiency mode.
     private static readonly TimeSpan SettleFor = TimeSpan.FromSeconds(5);
     // How long no terminal may have printed before EcoQoS.
     private static readonly TimeSpan QuietFor = TimeSpan.FromSeconds(10);
@@ -80,6 +84,7 @@ public sealed class EfficiencyMode
     // Looks again when EcoQoS may start - one tick per wait, not a polling timer.
     private readonly DispatcherTimer _check;
     private Window? _window;
+    private WindowOcclusion? _occlusion;
     // On the clock of Now: since when resources are saved, when the last operation ended, when a terminal last printed.
     private long _savingSince, _operationEnded = Never, _lastOutput = Never;
     private bool _eco, _ecoRefused;
@@ -98,7 +103,7 @@ public sealed class EfficiencyMode
         _runner.PropertyChanged += OnRunnerChanged;
     }
 
-    /// <summary>The window is minimized and the setting is on: what only the window shows is paused.</summary>
+    /// <summary>The window can't be seen (minimized or covered) and the setting is on: what only the window shows is paused.</summary>
     public bool IsSaving { get; private set; }
 
     /// <summary><see cref="IsSaving"/> changed. Raised on the UI thread.</summary>
@@ -109,6 +114,9 @@ public sealed class EfficiencyMode
     {
         _window = window;
         window.StateChanged += (_, _) => Update();
+        _occlusion = new WindowOcclusion(window);
+        _occlusion.Changed += (_, _) => Update();
+        window.Closed += (_, _) => _occlusion.Dispose();
         Update();
     }
 
@@ -137,7 +145,8 @@ public sealed class EfficiencyMode
     /// <summary>Brings everything in line with the window's state, the setting, the operation and the terminals - now.</summary>
     private void Update()
     {
-        var saving = _window is not null && _options.SaveResourcesWhileMinimized && _window.WindowState == WindowState.Minimized;
+        var saving = _window is not null && _options.SaveResourcesWhileMinimized &&
+                     (_window.WindowState == WindowState.Minimized || _occlusion?.IsOccluded == true);
         if (saving != IsSaving)
         {
             IsSaving = saving;
@@ -173,7 +182,7 @@ public sealed class EfficiencyMode
     private long? EcoQoSFrom()
     {
         if (!IsSaving || _runner.IsBusy || _ecoRefused) return null;
-        var from = _savingSince + (long)SettleFor.TotalMilliseconds;
+        var from = _savingSince + (long)HiddenFor.TotalMilliseconds;
         if (_operationEnded != Never) from = Math.Max(from, _operationEnded + (long)SettleFor.TotalMilliseconds);
         if (_lastOutput != Never) from = Math.Max(from, _lastOutput + (long)QuietFor.TotalMilliseconds);
         return from;
@@ -184,7 +193,7 @@ public sealed class EfficiencyMode
         if (on == _eco) return;
         if (on)
         {
-            _eco = PowerThrottling.TryEnterEcoQoS();
+            _eco = PowerThrottling.TryEnter();
             // This Windows hasn't got it: not asked again.
             _ecoRefused = !_eco;
             if (_ecoRefused) _logger.LogInformation("Windows refused EcoQoS (error {Error}) - the app runs as usual while minimized.", PowerThrottling.LastError);

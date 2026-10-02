@@ -42,6 +42,7 @@ public sealed class HostExistingProjectUseCase
     private readonly IPrerequisiteChecker _prereq;
     private readonly IUserPrompt _prompt;
     private readonly ILogger<HostExistingProjectUseCase> _log;
+    private readonly OperationUndo _undo;
 
     public HostExistingProjectUseCase(
         IOptions<AppOptions> opts,
@@ -54,7 +55,8 @@ public sealed class HostExistingProjectUseCase
         IHttpConnectivityChecker http,
         IPrerequisiteChecker prereq,
         IUserPrompt prompt,
-        ILogger<HostExistingProjectUseCase> log)
+        ILogger<HostExistingProjectUseCase> log,
+        OperationUndo undo)
     {
         _opts = opts.Value;
         _projects = projects;
@@ -67,6 +69,7 @@ public sealed class HostExistingProjectUseCase
         _prereq = prereq;
         _prompt = prompt;
         _log = log;
+        _undo = undo;
     }
 
     public async Task<Result> ExecuteAsync(HostExistingProjectRequest req, IProgressReporter reporter, CancellationToken ct)
@@ -105,7 +108,7 @@ public sealed class HostExistingProjectUseCase
                 }
                 else
                 {
-                    reporter.Fail("IIS is not available on this machine - enable it on the Environment page and retry.");
+                    reporter.Fail("IIS is not available on this machine - enable it in Settings → IIS and retry.");
                 }
             }
 
@@ -159,6 +162,8 @@ public sealed class HostExistingProjectUseCase
     /// </summary>
     private IReadOnlyList<string> DisableHttpsRedirects(string webConfigPath, IProgressReporter reporter)
     {
+        // The site's own file: a cancel puts it back as it was.
+        if (File.Exists(webConfigPath)) _undo.RestoreFileOnUndo(webConfigPath);
         var result = _webConfig.DisableHttpsRedirectRules(webConfigPath);
         if (!result.Success)
         {
@@ -225,12 +230,18 @@ public sealed class HostExistingProjectUseCase
             // Restoring replaces the database, so an existing one is only overwritten on an explicit yes.
             var fileName = Path.GetFileName(backupFile);
             if (exists.Value &&
-                !await _prompt.ConfirmAsync($"Database [{db.DatabaseName}] already exists - replace it with {fileName}?", false, ct))
+                !await _prompt.ConfirmAsync($"Database [{db.DatabaseName}] already exists - replace it with {fileName}?",
+                    "Replace database", "Keep existing", false, ct))
             {
                 reporter.Info($"Kept the existing database [{db.DatabaseName}] - {fileName} was not restored.");
             }
             else
             {
+                // A database that is restored into new is dropped again by a cancel; one that was there is replaced.
+                if (exists.Value)
+                    _undo.CannotUndo($"database [{db.DatabaseName}] was replaced by {fileName}, as you chose - what was in it is gone.");
+                else
+                    _undo.Add($"Drop database [{db.DatabaseName}]", () => _sql.DropDatabaseAsync(db.DatabaseName, CancellationToken.None));
                 reporter.Info($"Restoring [{db.DatabaseName}] from {fileName}…");
                 var restore = await _sqlContainer.RestoreAsync(db, backupFile, reporter, ct);
                 if (!restore.Success)
@@ -257,6 +268,7 @@ public sealed class HostExistingProjectUseCase
         }
         else
         {
+            _undo.Add($"Drop database [{db.DatabaseName}]", () => _sql.DropDatabaseAsync(db.DatabaseName, CancellationToken.None));
             var create = await _sql.CreateDatabaseAsync(db, ct);
             if (!create.Success)
                 return Result.Fail($"Database creation reported an error: {create.Error}");
@@ -274,8 +286,10 @@ public sealed class HostExistingProjectUseCase
                 ? $"web.config currently connects to [{currentConn.Database}] on {currentConn.Server}."
                 : "web.config has no usable SiteSqlServer connection yet.");
 
-            if (await _prompt.ConfirmAsync($"Point web.config at [{db.DatabaseName}] on {db.Server}?", true, ct))
+            if (await _prompt.ConfirmAsync($"Point web.config at [{db.DatabaseName}] on {db.Server}?",
+                    "Update web.config", "Leave as is", true, ct))
             {
+                _undo.RestoreFileOnUndo(webConfigPath);
                 var write = _webConfig.WriteSiteSqlServer(webConfigPath,
                     new SiteSqlConnection(db.Server, db.DatabaseName, "sa", _opts.Docker.SaPassword));
                 if (write.Success)
@@ -286,7 +300,7 @@ public sealed class HostExistingProjectUseCase
             else
             {
                 reporter.Info($"web.config left unchanged. Connect with: server '{db.Server}', " +
-                              $"database '{db.DatabaseName}', user 'sa' and the SA password from Settings → SQL Server.");
+                              $"database '{db.DatabaseName}', user 'sa' and the SA password from Settings → Database server.");
             }
         }
 

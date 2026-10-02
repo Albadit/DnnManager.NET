@@ -72,6 +72,7 @@ public sealed class UntouchedIis : IIisManager
     public IReadOnlyDictionary<string, string> GetSiteStates() => new Dictionary<string, string>();
     public IReadOnlyDictionary<string, IisSiteRuntime>? GetSiteRuntimes() => new Dictionary<string, IisSiteRuntime>();
     public IReadOnlyDictionary<string, SiteTraffic> GetSiteTraffic() => new Dictionary<string, SiteTraffic>();
+    public IReadOnlyDictionary<string, long> GetRequestsServed() => new Dictionary<string, long>();
     public IisSiteInfo? GetSiteInfo(string siteName) => null;
 }
 
@@ -80,7 +81,7 @@ public sealed class TestPrompt : IUserPrompt
 {
     public List<string> Questions { get; } = [];
 
-    public Task<bool> ConfirmAsync(string question, bool defaultYes = false, CancellationToken ct = default)
+    public Task<bool> ConfirmAsync(string question, string yes, string no, bool defaultYes = false, CancellationToken ct = default)
     {
         lock (Questions) Questions.Add(question);
         return Task.FromResult(false);

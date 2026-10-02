@@ -185,7 +185,7 @@
                         Margin="0,10,2,0" Background="Transparent" ToolTip="Reconnecting" ToolTipService.ShowDuration="30000"
                         ToolTipOpening="LiveIndicator_ToolTipOpening" Visibility="Collapsed">
                 <Ellipse x:Name="LiveDot" Width="8" Height="8" StrokeThickness="1.5" VerticalAlignment="Center" />
-                <TextBlock x:Name="LiveText" Foreground="{DynamicResource TextMuted}" FontSize="12" Margin="8,0,0,0"
+                <TextBlock x:Name="LiveText" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextCaption}" Margin="8,0,0,0"
                            VerticalAlignment="Center" />
             </StackPanel>
             <StackPanel>
@@ -224,7 +224,7 @@
                        VerticalOffset="4" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade"
                        Opened="ColumnsPopup_Opened" Closed="ColumnsPopup_Closed">
                     <Border Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource InputBorder}" BorderThickness="1"
-                            CornerRadius="6" Padding="14,10" Margin="0,0,8,8" MinWidth="220">
+                            CornerRadius="6" Padding="14,10" Margin="0,0,8,8" MinWidth="220" LayoutTransform="{DynamicResource UiScale}">
                         <Border.Effect>
                             <DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.25" />
                         </Border.Effect>
@@ -313,6 +313,29 @@
 
                     <!-- The optional columns, the ones most looked at first - the order of the Columns menu too
                          (ProjectColumns.All). -->
+                    <!-- The address opens the site in the browser; "-" for a site without a web binding. -->
+                    <DataGridTemplateColumn x:Name="UrlColumn" Header="Site" SortMemberPath="Url" Width="Auto" MinWidth="180">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Grid VerticalAlignment="Center">
+                                    <Button Style="{StaticResource LinkButton}" Content="{Binding Url}" HorizontalAlignment="Left" Focusable="False"
+                                            Click="OpenSite_Click" ToolTip="Open the site in the browser"
+                                            Visibility="{Binding HasUrl, Converter={StaticResource BoolToVis}}" />
+                                    <TextBlock Text="{Binding Url}" Foreground="{DynamicResource TextMuted}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HasUrl}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn x:Name="DnnColumn" Header="DNN" Binding="{Binding Dnn}" Width="Auto" MinWidth="70" />
                     <DataGridTextColumn x:Name="DatabaseColumn" Header="Database" Binding="{Binding Database}" Width="Auto" MinWidth="120" />
                     <!-- Live (green) / Offline (red) / (none) - see ProjectRow.Sql. -->
@@ -332,7 +355,6 @@
                     </DataGridTemplateColumn>
                     <DataGridTextColumn x:Name="StatusColumn" Header="Status" Binding="{Binding StateText}" SortMemberPath="State" Width="Auto" MinWidth="90"
                                         ElementStyle="{StaticResource StateText}" />
-                    <DataGridTextColumn x:Name="UrlColumn" Header="Site" Binding="{Binding Url}" Width="Auto" MinWidth="180" />
                     <DataGridTextColumn x:Name="PortsColumn" Header="Port(s)" Binding="{Binding PortsText}" Width="Auto" MinWidth="70" />
                     <DataGridTextColumn x:Name="IdColumn" Header="Site ID" Binding="{Binding IdText}" SortMemberPath="IdSort" Width="Auto" MinWidth="64"
                                         ElementStyle="{StaticResource Muted}" />
@@ -346,12 +368,20 @@
                                         Width="Auto" MinWidth="130" ElementStyle="{StaticResource Numeric}" />
                     <DataGridTextColumn x:Name="NetworkColumn" Header="Network I/O" Binding="{Binding NetworkText}" SortMemberPath="NetworkSort"
                                         Width="Auto" MinWidth="130" ElementStyle="{StaticResource Numeric}" />
-                    <DataGridTextColumn x:Name="PathColumn" Header="Path" Binding="{Binding Path}" Width="Auto" MinWidth="200" />
+                    <!-- The folder opens in Explorer. -->
+                    <DataGridTemplateColumn x:Name="PathColumn" Header="Path" SortMemberPath="Path" Width="Auto" MinWidth="200">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource LinkButton}" Content="{Binding Path}" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                        Focusable="False" Click="OpenFolder_Click" ToolTip="Open the folder in Explorer" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
 
                     <!-- Sized in code (FitFiller): a star width would make the grid squeeze the other columns instead of scrolling. -->
                     <DataGridTemplateColumn x:Name="FillerColumn" Width="0" MinWidth="0" CanUserResize="False" CanUserSort="False" />
-                    <!-- Running: Stop and Restart. Stopped: Start. Changing: a progress bar. Always: Remove (the rest is on the right-click menu).
-                         Stays at the right edge while the table scrolls sideways (ActionsShift). -->
+                    <!-- Running: Stop and Restart. Stopped: Start. Changing: a progress bar. Always: keep warm (the flame) and Remove
+                         (the rest is on the right-click menu). Stays at the right edge while the table scrolls sideways (ActionsShift). -->
                     <DataGridTemplateColumn Header="Actions" Width="Auto" MinWidth="120" CanUserResize="False" CanUserSort="False"
                                             CellStyle="{StaticResource ActionsCell}" HeaderStyle="{StaticResource ActionsHeader}">
                         <DataGridTemplateColumn.CellTemplate>
@@ -372,7 +402,11 @@
                                                      Foreground="{DynamicResource Accent}" Background="{DynamicResource GridLine}" BorderThickness="0"
                                                      ToolTip="{Binding StateText}" Visibility="{Binding ShowProgress, Converter={StaticResource BoolToVis}}" />
                                     </Grid>
-                                    <!-- The site's less frequent tools: clear its cache, view its logs. -->
+                                    <!-- Keep warm: the flame switches it; its look and tooltip say how it is going (ProjectRow.KeepWarmLook). -->
+                                    <Button Style="{StaticResource RowAction}" Click="RowKeepWarm_Click" IsEnabled="{Binding CanToggleKeepWarm}"
+                                            ToolTip="{Binding KeepWarmTip}" ToolTipService.ShowOnDisabled="True" Margin="2,0,0,0">
+                                        <ContentControl Style="{StaticResource KeepWarmFlame}" />
+                                    </Button>
 
                                     <Border Width="1" Height="18" Margin="8,0" Background="{DynamicResource CardBorder}" />
                                     <Button Style="{StaticResource IconButton}" Content="&#xE74D;" Foreground="{DynamicResource ErrorText}"
@@ -386,7 +420,7 @@
                 <DataGrid.RowDetailsTemplate>
                     <DataTemplate>
                         <!-- As wide as the visible table, so the facts wrap instead of widening what scrolls. -->
-                        <Border Padding="96,4,16,12" BorderBrush="{DynamicResource GridLine}" BorderThickness="0,1,0,0" HorizontalAlignment="Left"
+                        <Border Padding="20,4,16,12" BorderBrush="{DynamicResource GridLine}" BorderThickness="0,1,0,0" HorizontalAlignment="Left"
                                 Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
                             <ItemsControl ItemsSource="{Binding Details}">
                                 <ItemsControl.ItemsPanel>
@@ -397,7 +431,7 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Width="250" Margin="0,8,16,0">
-                                            <TextBlock Text="{Binding Key}" Foreground="{DynamicResource TextMuted}" FontSize="11.5" />
+                                            <TextBlock Text="{Binding Key}" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextHint}" />
                                             <TextBlock Text="{Binding Value}" Foreground="{DynamicResource TextPrimary}" TextTrimming="CharacterEllipsis"
                                                        ToolTip="{Binding Value}" Margin="0,2,0,0" />
                                         </StackPanel>
@@ -411,7 +445,7 @@
             <!-- Only shown while the table is empty (the first snapshot, no projects, or no match) - never over rows. -->
             <Border x:Name="Overlay" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="16,10" CornerRadius="6"
                     Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" Visibility="Collapsed">
-                <TextBlock x:Name="OverlayText" Foreground="{DynamicResource TextPrimary}" FontSize="14" TextWrapping="Wrap" MaxWidth="520" />
+                <TextBlock x:Name="OverlayText" Foreground="{DynamicResource TextPrimary}" FontSize="{DynamicResource TextMedium}" TextWrapping="Wrap" MaxWidth="520" />
             </Border>
         </Grid>
     </DockPanel>

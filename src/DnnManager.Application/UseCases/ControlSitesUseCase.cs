@@ -21,7 +21,7 @@ public sealed class ControlSitesUseCase
         // A site can't start (or even report its state) while IIS itself is stopped - say what to do instead.
         var server = _iis.GetServerState();
         if (server == IisServerState.NotInstalled)
-            return Task.FromResult(Result.Fail("IIS isn't installed - check the Environment page."));
+            return Task.FromResult(Result.Fail("IIS isn't installed - set it up in Settings → IIS."));
         if (action != SiteAction.Stop && server is IisServerState.Stopped or IisServerState.Stopping)
             return Task.FromResult(Result.Fail("IIS is stopped - start it first (bottom-left of the window)."));
 

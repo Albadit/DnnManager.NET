@@ -79,7 +79,7 @@ public partial class IisStatus : UserControl
             _ => "IIS unknown"
         };
         State.ToolTip = StateText.Text + " - " + (state == IisServerState.NotInstalled
-            ? "the IIS web service (W3SVC) isn't installed; enable the IIS features on the Environment page."
+            ? "the IIS web service (W3SVC) isn't installed; enable the IIS features in Settings → IIS."
             : "the IIS web service (W3SVC), which every site runs in.");
 
         var (stroke, fill) = pending is not null ? ("LogWarn", "LogWarn") : state switch

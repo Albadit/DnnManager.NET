@@ -27,19 +27,22 @@ public sealed class ImportProjectUseCase
     private readonly IProjectScaffolder _scaffolder;
     private readonly HostExistingProjectUseCase _host;
     private readonly ILogger<ImportProjectUseCase> _log;
+    private readonly OperationUndo _undo;
 
     public ImportProjectUseCase(
         IProjectRepository projects,
         IProjectFileCopier copier,
         IProjectScaffolder scaffolder,
         HostExistingProjectUseCase host,
-        ILogger<ImportProjectUseCase> log)
+        ILogger<ImportProjectUseCase> log,
+        OperationUndo undo)
     {
         _projects = projects;
         _copier = copier;
         _scaffolder = scaffolder;
         _host = host;
         _log = log;
+        _undo = undo;
     }
 
     public async Task<Result> ExecuteAsync(ImportProjectRequest req, IProgressReporter reporter, CancellationToken ct)
@@ -56,6 +59,8 @@ public sealed class ImportProjectUseCase
                                "or use 'Host project' for a folder that's already there.");
 
         reporter.Step($"Extracting {Path.GetFileName(req.ZipPath)}");
+        // A cancel later on (the IIS site, the database) takes the new folder away too - after the rest.
+        _undo.DeleteFolderOnUndo(project.ProjectDirectory);
         try
         {
             Directory.CreateDirectory(project.ProjectDirectory);

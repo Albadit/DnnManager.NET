@@ -73,6 +73,19 @@ public enum MonitorConnection
 /// <summary>A change in what the monitor knows. They arrive in order, in batches - see <see cref="ServerStateMonitor.Changed"/>.</summary>
 public abstract record MonitorEvent;
 
+/// <summary>What the <see cref="ServerStateMonitor"/> tells as it happens - for what follows it besides the window (keep warm).</summary>
+public interface IServerStateFeed
+{
+    /// <summary>What changed, in order - raised on a background thread under the monitor's lock: hand it on and return.</summary>
+    event Action<IReadOnlyList<MonitorEvent>>? Changed;
+
+    /// <summary>The PC woke up and everything has been read again.</summary>
+    event Action? Resumed;
+
+    /// <summary>Reads the sites again now - e.g. to see the worker process a request just started - and publishes what differs.</summary>
+    Task SyncSitesAsync();
+}
+
 public sealed record ProjectAdded(ProjectState Project) : MonitorEvent;
 
 /// <param name="Project">The project as it is now.</param>

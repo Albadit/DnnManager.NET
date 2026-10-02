@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using DnnManager.Application.Abstractions;
 
 namespace DnnManager.Application.Configuration;
@@ -15,7 +16,7 @@ namespace DnnManager.Application.Configuration;
 public sealed class UserSettings
 {
     /// <summary>The settings layout this build reads and writes.</summary>
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
 
     public int Version { get; set; } = CurrentVersion;
     public ProjectSettings Projects { get; set; } = new();
@@ -61,23 +62,25 @@ public sealed class UserSettings
         Check(DnnAccountRules.Templates.Contains(dnn.Template),
             "projects.dnnDefaults.template", $"must be one of: {string.Join(", ", DnnAccountRules.Templates)}.");
 
-        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var profile in Projects.DatabaseProfiles)
-        {
-            Check(Has(profile.Id) && profile.Id != DatabaseProfileSettings.ContainerId && ids.Add(profile.Id),
-                "projects.databaseProfiles", $"has a profile without an id of its own: '{profile.Name}'.");
-            Check(Has(profile.Name), "projects.databaseProfiles", "has a profile without a name.");
-            Check(DatabaseProfileSettings.Types.Contains(profile.Type, StringComparer.OrdinalIgnoreCase),
-                "projects.databaseProfiles", $"'{profile.Name}' has type '{profile.Type}' - must be one of: {string.Join(", ", DatabaseProfileSettings.Types)}.");
-            Check(Has(profile.Server), "projects.databaseProfiles", $"'{profile.Name}' has no server.");
-            Check(DatabaseProfileSettings.Authentications.Contains(profile.Authentication, StringComparer.OrdinalIgnoreCase),
-                "projects.databaseProfiles", $"'{profile.Name}' has authentication '{profile.Authentication}' - must be one of: {string.Join(", ", DatabaseProfileSettings.Authentications)}.");
-            Check(!profile.Authentication.Equals("sql", StringComparison.OrdinalIgnoreCase) || Has(profile.UserName),
-                "projects.databaseProfiles", $"'{profile.Name}' uses SQL Server authentication but has no user name.");
-        }
-        Check(Projects.DefaultDatabaseProfile == DatabaseProfileSettings.ContainerId || ids.Contains(Projects.DefaultDatabaseProfile),
-            "projects.defaultDatabaseProfile", $"must be \"{DatabaseProfileSettings.ContainerId}\" or the id of a database profile.");
+        var keepWarm = Projects.KeepWarm;
+        Check(KeepWarmSettings.MinutesProblem(keepWarm.PingMinutes) is null,
+            "projects.keepWarm.pingMinutes", KeepWarmSettings.MinutesProblem(keepWarm.PingMinutes) ?? "");
+        Check(KeepWarmSettings.PathProblem(keepWarm.WarmUpPath) is null,
+            "projects.keepWarm.warmUpPath", KeepWarmSettings.PathProblem(keepWarm.WarmUpPath) ?? "");
+        Check(KeepWarmSettings.PathProblem(keepWarm.PingPath) is null,
+            "projects.keepWarm.pingPath", KeepWarmSettings.PathProblem(keepWarm.PingPath) ?? "");
 
+        Check(SqlServerSettings.Types.Contains(SqlServer.Type, StringComparer.OrdinalIgnoreCase),
+            "sqlServer.type", $"must be one of: {string.Join(", ", SqlServerSettings.Types)}.");
+        if (!SqlServer.IsContainer)
+            Check(Has(SqlServer.Server), "sqlServer.server", "is required.");
+        if (SqlServer.Type.Equals("sqlServer", StringComparison.OrdinalIgnoreCase))
+        {
+            Check(SqlServerSettings.Authentications.Contains(SqlServer.Authentication, StringComparer.OrdinalIgnoreCase),
+                "sqlServer.authentication", $"must be one of: {string.Join(", ", SqlServerSettings.Authentications)}.");
+            Check(!SqlServer.UsesSqlAuthentication || Has(SqlServer.UserName),
+                "sqlServer.userName", "is required for SQL Server authentication.");
+        }
         Check(Has(SqlServer.Host), "sqlServer.host", "is required.");
         Check(IsPort(SqlServer.Port), "sqlServer.port", "must be a number between 1 and 65535.");
         Check(!string.IsNullOrEmpty(SqlServer.SaPassword), "sqlServer.saPassword", "is required.");
@@ -91,6 +94,10 @@ public sealed class UserSettings
 
         Check(AppearanceSettings.Themes.Contains(Appearance.Theme, StringComparer.OrdinalIgnoreCase),
             "appearance.theme", $"must be one of: {string.Join(", ", AppearanceSettings.Themes)}.");
+        Check(Appearance.UiScale is >= AppearanceSettings.MinUiScale and <= AppearanceSettings.MaxUiScale, "appearance.uiScale",
+            $"must be a percentage between {AppearanceSettings.MinUiScale} and {AppearanceSettings.MaxUiScale}.");
+        Check(Appearance.FontSize is >= AppearanceSettings.MinFontSize and <= AppearanceSettings.MaxFontSize, "appearance.fontSize",
+            $"must be a number between {AppearanceSettings.MinFontSize} and {AppearanceSettings.MaxFontSize}.");
         Check(Terminal.FontSize is >= TerminalSettings.MinFontSize and <= TerminalSettings.MaxFontSize, "terminal.fontSize",
             $"must be a number between {TerminalSettings.MinFontSize} and {TerminalSettings.MaxFontSize}.");
         return problems;
@@ -104,8 +111,19 @@ public sealed class UserSettings
         GitHubReleaseApis = Projects.DnnReleaseSources.ToList(),
         KeepDnnPackages = Projects.KeepDnnPackages,
         DnnDefaults = Projects.DnnDefaults.Copy(),
-        DatabaseProfiles = Projects.DatabaseProfiles.Select(p => p.Copy()).ToList(),
-        DefaultDatabaseProfile = Projects.DefaultDatabaseProfile,
+        KeepWarm = new KeepWarmSettings
+        {
+            PingMinutes = Projects.KeepWarm.PingMinutes,
+            WarmUpPath = KeepWarmSettings.NormalizePath(Projects.KeepWarm.WarmUpPath),
+            PingPath = KeepWarmSettings.NormalizePath(Projects.KeepWarm.PingPath)
+        },
+        DatabaseServer = new DatabaseServerOptions
+        {
+            Type = SqlServer.Type,
+            Server = SqlServer.Server.Trim(),
+            Authentication = SqlServer.Authentication,
+            UserName = SqlServer.UserName.Trim()
+        },
         Theme = Appearance.Theme,
         ProjectColumns = Appearance.ProjectColumns.ToList(),
         Terminal = new TerminalSettings
@@ -153,11 +171,99 @@ public sealed class ProjectSettings
     /// <summary>What a new project's automatic DNN install uses unless changed for it (Settings → Projects → DNN defaults).</summary>
     public DnnDefaultsSettings DnnDefaults { get; set; } = new();
 
-    /// <summary>Saved database connections offered for new projects. Their passwords are in the Windows Credential Manager.</summary>
-    public List<DatabaseProfileSettings> DatabaseProfiles { get; set; } = [];
+    /// <summary>How a site switched to "keep warm" is kept warm, unless it has its own values (Settings → Projects → Keep warm).</summary>
+    public KeepWarmSettings KeepWarm { get; set; } = new();
+}
 
-    /// <summary>The database a new project starts with: "container" (the local SQL container) or a profile's id.</summary>
-    public string DefaultDatabaseProfile { get; set; } = DatabaseProfileSettings.ContainerId;
+/// <summary>
+/// Keep warm: while DNN Manager runs, a site switched on with the flame in its row is requested now and then, so IIS
+/// doesn't shut its worker process down for being idle (after 20 minutes, by default) and the next page opens at once
+/// instead of after DNN starting up again. A site can have its own values (its overview, IIS tab).
+/// </summary>
+public sealed class KeepWarmSettings
+{
+    public const int MinPingMinutes = 1, MaxPingMinutes = 60;
+
+    /// <summary>The intervals the settings and a site's overview offer, in minutes.</summary>
+    public static readonly int[] PingIntervals = [1, 2, 5, 10, 15, 20, 30, 60];
+
+    public const string DefaultWarmUpPath = "/", DefaultPingPath = "/KeepAlive.aspx";
+
+    /// <summary>
+    /// Minutes between two requests at most - fewer when the site's app pool shuts down sooner than twice that, and
+    /// none while the site is in use anyway (it served other requests meanwhile).
+    /// </summary>
+    public int PingMinutes { get; set; } = 5;
+
+    /// <summary>
+    /// The page requested when the site has no worker process (it was recycled or shut down): DNN starts up and the
+    /// page is compiled, so the next visit is fast. Same-site redirects are followed.
+    /// </summary>
+    public string WarmUpPath { get; set; } = DefaultWarmUpPath;
+
+    /// <summary>
+    /// The page requested to keep a running site warm - DNN's <c>KeepAlive.aspx</c> is tiny and reads nothing from the
+    /// database. <c>/</c> keeps the home page's caches warm too, as Azure's Always On does.
+    /// </summary>
+    public string PingPath { get; set; } = DefaultPingPath;
+
+    public KeepWarmSettings Copy() => (KeepWarmSettings)MemberwiseClone();
+
+    /// <summary>
+    /// <paramref name="path"/> as it is requested: trimmed, starting with a <c>/</c>. Empty stays empty (no value).
+    /// </summary>
+    public static string NormalizePath(string? path)
+    {
+        var trimmed = (path ?? "").Trim();
+        return trimmed.Length == 0 || trimmed.StartsWith('/') ? trimmed : "/" + trimmed;
+    }
+
+    /// <summary>
+    /// What is wrong with <paramref name="path"/> as a page to request on the site; null when it can be requested. Never
+    /// a page of DNN's installer: requesting it can install or upgrade DNN.
+    /// </summary>
+    public static string? PathProblem(string? path)
+    {
+        var p = NormalizePath(path);
+        if (p.Length == 0) return "is required, e.g. /KeepAlive.aspx.";
+        if (p.Length > 2000) return "can have at most 2000 characters.";
+        if (p.StartsWith("//", StringComparison.Ordinal) || p.Contains("://", StringComparison.Ordinal))
+            return "must be a page of the site, e.g. /KeepAlive.aspx - not an address.";
+        if (p.Any(c => char.IsWhiteSpace(c) || char.IsControl(c))) return "can't contain spaces.";
+        if (p.Contains('\\')) return "must use / between folders.";
+        if (p.Contains('#')) return "can't contain #.";
+        if (p.Split('?', 2)[0].Split('/').Any(segment => segment is "." or ".."))
+            return "can't contain . or .. folders.";
+        if (IsInstallerPath(p) || p.Contains("mode=", StringComparison.OrdinalIgnoreCase))
+            return "can't be a page of DNN's installer - requesting it can install or upgrade DNN.";
+        return null;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="pathAndQuery"/> is - or may be - a page of DNN's installer: a folder named Install anywhere
+    /// in it, however it is written (dot segments, %-escapes, trailing dots or spaces Windows ignores), or something that
+    /// can't be read as a path at all. Requesting the installer can install or upgrade DNN: such a page is never requested.
+    /// </summary>
+    public static bool IsInstallerPath(string pathAndQuery)
+    {
+        // Read as the path of one fixed address - not as a reference, where //Install/… would be a host named Install.
+        if (!Uri.TryCreate("http://localhost" + (pathAndQuery.StartsWith('/') ? "" : "/") + pathAndQuery, UriKind.Absolute, out var uri))
+            return true;
+        var path = uri.AbsolutePath;
+        // Escapes inside escapes too (%2549 is %49 is I) - IIS decodes until nothing changes.
+        for (var i = 0; i < 4; i++)
+        {
+            var unescaped = Uri.UnescapeDataString(path);
+            if (unescaped == path) break;
+            path = unescaped;
+        }
+        return path.Replace('\\', '/').Split('/')
+            .Any(segment => segment.TrimEnd('.', ' ').Equals("install", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>What is wrong with <paramref name="minutes"/> as an interval; null when it is allowed.</summary>
+    public static string? MinutesProblem(int minutes) =>
+        minutes is >= MinPingMinutes and <= MaxPingMinutes ? null : $"must be between {MinPingMinutes} and {MaxPingMinutes} minutes.";
 }
 
 /// <summary>
@@ -188,41 +294,38 @@ public sealed class DnnDefaultsSettings
     public DnnDefaultsSettings Copy() => (DnnDefaultsSettings)MemberwiseClone();
 }
 
-/// <summary>A saved database connection for new projects. Its password, if any, is in the Windows Credential Manager.</summary>
-public sealed class DatabaseProfileSettings
-{
-    /// <summary>The built-in profile: the local SQL Server container from the SQL Server and Docker settings.</summary>
-    public const string ContainerId = "container";
-
-    public static readonly string[] Types = ["sqlServer", "localDbFile"];
-    public static readonly string[] Authentications = ["windows", "sql"];
-
-    public string Id { get; set; } = "";
-    public string Name { get; set; } = "";
-    /// <summary>"sqlServer" (SQL Server or SQL Server Express) or "localDbFile" (LocalDB with the site's own database file).</summary>
-    public string Type { get; set; } = "sqlServer";
-    /// <summary>e.g. <c>.\SQLEXPRESS</c>, <c>localhost,1433</c> or <c>(LocalDB)\MSSQLLocalDB</c>.</summary>
-    public string Server { get; set; } = "";
-    /// <summary>"windows" or "sql".</summary>
-    public string Authentication { get; set; } = "windows";
-    /// <summary>The SQL Server login, for "sql" authentication.</summary>
-    public string UserName { get; set; } = "";
-
-    public DatabaseProfileSettings Copy() => (DatabaseProfileSettings)MemberwiseClone();
-}
-
 /// <summary>
-/// The shared SQL Server DNN Manager connects to. The Docker container (see <see cref="DockerSettings"/>) publishes it
-/// on <see cref="Port"/> with <see cref="SaPassword"/>.
+/// The SQL Server new projects get their database on (Settings → Database server): the local Docker container, a SQL
+/// Server / SQL Server Express instance, or a LocalDB file. <see cref="Host"/>, <see cref="Port"/> and
+/// <see cref="SaPassword"/> are the container's - it publishes SQL Server there (see <see cref="DockerSettings"/>).
+/// A project keeps the database it was made with when this changes.
 /// </summary>
 public sealed class SqlServerSettings
 {
+    public const string ContainerType = "container";
+    public static readonly string[] Types = [ContainerType, "sqlServer", "localDbFile"];
+    public static readonly string[] Authentications = ["windows", "sql"];
+
+    /// <summary>
+    /// "container" (the local SQL Server container, signed in to as sa), "sqlServer" (SQL Server or SQL Server Express)
+    /// or "localDbFile" (LocalDB with the site's own database file).
+    /// </summary>
+    public string Type { get; set; } = ContainerType;
     public string Host { get; set; } = "localhost";
     public int Port { get; set; } = 1433;
     public string SaPassword { get; set; } = "Admin@123";
+    /// <summary>For "sqlServer" and "localDbFile": e.g. <c>.\SQLEXPRESS</c>, <c>localhost,1433</c> or <c>(LocalDB)\MSSQLLocalDB</c>.</summary>
+    public string Server { get; set; } = @".\SQLEXPRESS";
+    /// <summary>For "sqlServer": "windows" or "sql".</summary>
+    public string Authentication { get; set; } = "windows";
+    /// <summary>The SQL Server login, for "sql" authentication. Its password is in the Windows Credential Manager.</summary>
+    public string UserName { get; set; } = "";
+
+    [JsonIgnore] public bool IsContainer => Type.Equals(ContainerType, StringComparison.OrdinalIgnoreCase);
+    [JsonIgnore] public bool UsesSqlAuthentication => Authentication.Equals("sql", StringComparison.OrdinalIgnoreCase);
 }
 
-/// <summary>The Docker container the Environment page sets up for the shared SQL Server.</summary>
+/// <summary>The Docker container Settings → Docker container sets up for the shared SQL Server.</summary>
 public sealed class DockerSettings
 {
     public string ContainerName { get; set; } = "dnn-sqlserver";
@@ -240,7 +343,7 @@ public sealed class SsmsSettings
 
 public sealed class IisSettings
 {
-    /// <summary>The IIS Windows features the Environment page checks (and can enable).</summary>
+    /// <summary>The IIS Windows features Settings → IIS checks (and can enable).</summary>
     public List<IisFeatureSetting> RequiredFeatures { get; set; } =
     [
         new() { Name = "IIS-WebServerRole",        Label = "IIS Web Server" },
@@ -269,14 +372,34 @@ public sealed class AppearanceSettings
     /// <summary>"system" (follow the Windows app theme), "light" or "dark". Set in Settings - General.</summary>
     public string Theme { get; set; } = "system";
 
+    /// <summary>The UI scales Settings - General offers, in percent.</summary>
+    public static readonly int[] UiScales = [80, 90, 100, 110, 125, 150, 175];
+    public const int MinUiScale = 50, MaxUiScale = 200;
+
+    /// <summary>The font sizes Settings - General offers, in pixels; 13 is the default.</summary>
+    public static readonly int[] FontSizes = [11, 12, 13, 14, 15, 16, 17, 18];
+    public const double MinFontSize = 8, MaxFontSize = 32;
+
+    /// <summary>
+    /// Everything in the window - text, icons and spacing - at this percentage, like a browser's zoom. Set in
+    /// Settings - General; applies at once.
+    /// </summary>
+    public int UiScale { get; set; } = 100;
+
+    /// <summary>
+    /// The size of the app's text in pixels (13 by default); titles and hints keep their proportions to it. The
+    /// terminal has its own (terminal.fontSize). Set in Settings - General; applies at once.
+    /// </summary>
+    public double FontSize { get; set; } = 13;
+
     /// <summary>
     /// The columns the Projects table starts with (and its Columns menu's "Default" goes back to) - what is looked at
-    /// every day while working on DNN sites: which DNN version a site runs, its database and whether that is there,
-    /// what its worker process costs, the process ID to attach a debugger to, and since when it runs (it starts
-    /// again with every recycle and rebuild). The site's ID, address, ports, I/O, size and path are one click away,
-    /// in the row's details and the Columns menu.
+    /// every day while working on DNN sites: the site's address (a click opens it), which DNN version it runs, its
+    /// database and whether that is there, what its worker process costs, the process ID to attach a debugger to, and
+    /// since when it runs (it starts again with every recycle and rebuild). The site's ID, ports, I/O, size and path
+    /// are one click away, in the row's details and the Columns menu.
     /// </summary>
-    public static readonly IReadOnlyList<string> DefaultProjectColumns = ["dnn", "database", "sql", "cpu", "memory", "pid", "lastStarted"];
+    public static readonly IReadOnlyList<string> DefaultProjectColumns = ["url", "dnn", "database", "sql", "cpu", "memory", "pid", "lastStarted"];
 
     /// <summary>
     /// The optional columns the Projects table shows, set by its Columns button. Name, status and actions are always

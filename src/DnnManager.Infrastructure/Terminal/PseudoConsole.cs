@@ -72,7 +72,7 @@ public sealed class PseudoConsole : IDisposable
             // (DNN Manager launched from a script) would write there instead of to the pseudo console.
             startup.StartupInfo.Flags = StartfUseStdHandles;
             if (!CreateProcess(null, new System.Text.StringBuilder(commandLine), IntPtr.Zero, IntPtr.Zero, false,
-                    ExtendedStartupInfoPresent, IntPtr.Zero, Directory.Exists(workingDirectory) ? workingDirectory : null,
+                    ExtendedStartupInfoPresent | NormalPriorityClass, IntPtr.Zero, Directory.Exists(workingDirectory) ? workingDirectory : null,
                     ref startup, out var info))
                 throw new Win32Exception();
 
@@ -127,6 +127,9 @@ public sealed class PseudoConsole : IDisposable
     // ─── Win32 ────────────────────────────────────────────────────────────
 
     private const uint ExtendedStartupInfoPresent = 0x00080000;
+    // A shell runs at Normal priority even when it is started while DNN Manager is in efficiency mode (Idle priority),
+    // which it would inherit for its whole life otherwise.
+    private const uint NormalPriorityClass = 0x00000020;
     private const int ProcThreadAttributePseudoConsole = 0x00020016;
     private const int StartfUseStdHandles = 0x00000100;
 

@@ -13,11 +13,13 @@ public sealed class IisSiteProvisioner
 {
     private readonly AppOptions _opts;
     private readonly IIisManager _iis;
+    private readonly OperationUndo _undo;
 
-    public IisSiteProvisioner(IOptions<AppOptions> opts, IIisManager iis)
+    public IisSiteProvisioner(IOptions<AppOptions> opts, IIisManager iis, OperationUndo undo)
     {
         _opts = opts.Value;
         _iis = iis;
+        _undo = undo;
     }
 
     /// <summary>
@@ -31,6 +33,17 @@ public sealed class IisSiteProvisioner
     /// <summary>The same, bound to <paramref name="hostName"/> on <paramref name="port"/>.</summary>
     public bool TryCreateSite(DnnProject project, string hostName, int port, IProgressReporter reporter)
     {
+        // A cancel takes a new site away again; one that was there is replaced, and can't be brought back as it was.
+        if (_iis.GetSiteStates().ContainsKey(project.Name))
+            _undo.CannotUndo($"the IIS site '{project.Name}' that was there before was replaced by a new one.");
+        else
+            _undo.Add($"Remove the IIS site and app pool '{project.Name}'", async () =>
+            {
+                var removed = _iis.RemoveSite(project.Name);
+                if (removed.Success) await _iis.RemoveAppPoolProfileAsync(project.Name, CancellationToken.None);
+                return removed;
+            });
+
         // CreateSite tears down any existing site/pool of this name itself (waiting for its worker to
         // exit), so callers must not call RemoveSite first - that just repeats the whole teardown.
         var create = _iis.CreateSite(project.Name, project.ProjectDirectory, hostName, port);
@@ -187,7 +200,7 @@ public sealed class LocalSqlContainer
         {
             reporter.Fail($"Cannot connect to SQL Server at {Server}: {test.Error}");
             return Result<int>.Fail($"SQL Server at {Server} is not reachable - start the SQL Server container " +
-                                    "(Environment → Set up container) and check the SQL Server settings.");
+                                    "(Settings → Docker container → Set up docker-compose) and check Settings → Database server.");
         }
         reporter.Success($"Connected to SQL Server at {Server} ({test.Value}).");
         return Result<int>.Ok(_opts.Docker.DefaultPort);

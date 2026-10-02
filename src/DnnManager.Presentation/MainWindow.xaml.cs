@@ -29,9 +29,8 @@ public partial class MainWindow : Window
         ["Projects"]      = typeof(ProjectsPage),
         ["Setup"]         = typeof(SetupPage),
         ["Existing"]      = typeof(ExistingFolderPage),
-        ["Clone"]         = typeof(ClonePage),
-        ["Environment"]   = typeof(EnvironmentPage),
         ["Settings"]      = typeof(SettingsPage),
+        ["Troubleshoot"]  = typeof(TroubleshootPage),
     };
 
     private readonly Dictionary<string, UserControl> _pages = new();
@@ -126,7 +125,7 @@ public partial class MainWindow : Window
         if (PageHost.Content is SettingsPage { HasUnsavedChanges: true })
         {
             if (type == typeof(SettingsPage)) return; // back on Settings after "No" below - keep the page and its edits
-            if (!Dialogs.Confirm("The settings have unsaved changes. Leave the page and lose them?"))
+            if (!Dialogs.Confirm("The settings have unsaved changes. Leave the page and lose them?", "Discard changes", "Stay"))
             {
                 Dispatcher.BeginInvoke(() => NavSettings.IsChecked = true);
                 return;
@@ -367,13 +366,13 @@ public partial class MainWindow : Window
     private void OnClosing(object? sender, CancelEventArgs e)
     {
         if (PageHost.Content is SettingsPage { HasUnsavedChanges: true } &&
-            !Dialogs.Confirm("The settings have unsaved changes. Quit and lose them?"))
+            !Dialogs.Confirm("The settings have unsaved changes. Quit and lose them?", "Quit and discard", "Stay"))
         {
             e.Cancel = true;
             return;
         }
         if (!_runner.IsBusy) return;
-        if (!Dialogs.Confirm($"'{_runner.Current}' is still running. Quit anyway?"))
+        if (!Dialogs.Confirm($"'{_runner.Current}' is still running. Quit anyway?", "Quit anyway", "Keep running"))
         {
             e.Cancel = true;
             return;

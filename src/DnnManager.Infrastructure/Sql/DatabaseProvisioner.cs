@@ -56,7 +56,7 @@ public sealed partial class DatabaseProvisioner : IDatabaseProvisioner
             checks.Add(Failed("Sign in", "Enter the SQL Server login's user name."));
             return;
         }
-        if (string.IsNullOrWhiteSpace(c.Database))
+        if (!options.ServerOnly && string.IsNullOrWhiteSpace(c.Database))
         {
             checks.Add(Failed("Database", "Enter the database's name."));
             return;
@@ -101,6 +101,15 @@ public sealed partial class DatabaseProvisioner : IDatabaseProvisioner
         if (!azure && major < options.MinimumMajorVersion)
         {
             checks.Add(Failed("Version", $"{ProductName(major)} is too old for this DNN version - it needs {ProductName(options.MinimumMajorVersion)} or later."));
+            return;
+        }
+
+        if (options.ServerOnly)
+        {
+            var mayCreate = await ScalarAsync<int>(conn, "SELECT HAS_PERMS_BY_NAME(NULL, NULL, 'CREATE ANY DATABASE')", ct) == 1;
+            checks.Add(mayCreate
+                ? Passed("Create databases", $"{login} may create databases - new projects get theirs here.")
+                : Failed("Create databases", $"{login} may not create databases - give it the dbcreator role, or create each project's database first with {login} as its owner."));
             return;
         }
 
@@ -329,6 +338,22 @@ public sealed partial class DatabaseProvisioner : IDatabaseProvisioner
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return Result<IReadOnlyList<DnnHostAccount>>.Fail(FirstLine(ex.Message));
+        }
+    }
+
+    public async Task<Result<string?>> ReadHostSettingAsync(DatabaseConnection connection, string name, CancellationToken ct)
+    {
+        try
+        {
+            await using var conn = await OpenAsync(connection, connection.Database, ct);
+            var q = await QualifierAsync(conn, "HostSettings", ct);
+            if (q is null) return Result<string?>.Ok(null);
+            return Result<string?>.Ok(await ScalarAsync<string>(conn,
+                $"SELECT TOP 1 SettingValue FROM dbo.[{q}HostSettings] WHERE SettingName = @name", ct, ("@name", name)));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return Result<string?>.Fail(FirstLine(ex.Message));
         }
     }
 

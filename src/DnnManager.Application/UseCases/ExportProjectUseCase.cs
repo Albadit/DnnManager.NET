@@ -32,19 +32,22 @@ public sealed class ExportProjectUseCase
     private readonly IBacpacService _bacpac;
     private readonly LocalSqlContainer _sqlContainer;
     private readonly ILogger<ExportProjectUseCase> _log;
+    private readonly OperationUndo _undo;
 
     public ExportProjectUseCase(
         IProjectRepository projects,
         IProjectFileCopier copier,
         IBacpacService bacpac,
         LocalSqlContainer sqlContainer,
-        ILogger<ExportProjectUseCase> log)
+        ILogger<ExportProjectUseCase> log,
+        OperationUndo undo)
     {
         _projects = projects;
         _copier = copier;
         _bacpac = bacpac;
         _sqlContainer = sqlContainer;
         _log = log;
+        _undo = undo;
     }
 
     public async Task<Result> ExecuteAsync(ExportProjectRequest req, IProgressReporter reporter, CancellationToken ct)
@@ -61,8 +64,13 @@ public sealed class ExportProjectUseCase
         var inside = Path.GetFullPath(project.ProjectDirectory).TrimEnd('\\') + "\\";
         if (new[] { zipPath, bacpacPath }.Any(p => p is not null && p.StartsWith(inside, StringComparison.OrdinalIgnoreCase)))
             return Result.Fail("Choose a location outside the project folder - the export would end up inside the site.");
+        // A cancel deletes what was written so far, and the backup folder made for it.
         foreach (var path in new[] { zipPath, bacpacPath }.OfType<string>())
+        {
+            _undo.DeleteFolderOnUndo(Path.GetDirectoryName(path)!);
+            _undo.RestoreFileOnUndo(path);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        }
 
         try
         {

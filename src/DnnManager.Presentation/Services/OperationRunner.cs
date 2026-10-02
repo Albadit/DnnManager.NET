@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using DnnManager.Application.Abstractions;
+using DnnManager.Application.UseCases;
 using DnnManager.Domain;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -10,7 +11,8 @@ namespace DnnManager.Presentation.Services;
 /// <summary>
 /// Runs one use case at a time on the thread pool (IIS, file copies and SqlPackage block), in its own
 /// DI scope, with its output going to the activity log. Only one runs at a time - starting another
-/// while one is running is refused - and <see cref="Cancel"/> backs the log's Cancel button.
+/// while one is running is refused - and <see cref="Cancel"/> backs the log's Cancel button. A cancelled
+/// operation is taken back: what it noted in its <see cref="OperationUndo"/> is undone, the last first.
 /// </summary>
 public sealed class OperationRunner : INotifyPropertyChanged
 {
@@ -59,14 +61,14 @@ public sealed class OperationRunner : INotifyPropertyChanged
         _cts = cts;
         Current = title;
         _log.Header(title);
+        // Outside the operation, so what it noted to undo is still there when it was cancelled.
+        using var scope = _services.CreateScope();
         try
         {
-            var result = await Task.Run(async () =>
-            {
-                using var scope = _services.CreateScope();
-                return await operation(scope.ServiceProvider, _reporter, cts.Token);
-            });
+            var result = await Task.Run(() => operation(scope.ServiceProvider, _reporter, cts.Token));
 
+            // Cancelled - also when the operation turned the cancel into an ordinary failure.
+            if (!result.Success && cts.IsCancellationRequested) return await UndoAsync(scope, title);
             if (result.Success)
             {
                 _log.Success($"{title} - finished.");
@@ -79,8 +81,12 @@ public sealed class OperationRunner : INotifyPropertyChanged
         }
         catch (OperationCanceledException)
         {
-            _log.Fail($"{title} - cancelled.");
-            return false;
+            return await UndoAsync(scope, title);
+        }
+        catch (Exception ex) when (cts.IsCancellationRequested)
+        {
+            _logger.LogInformation(ex, "{Title} ended with an error after it was cancelled", title);
+            return await UndoAsync(scope, title);
         }
         catch (Exception ex)
         {
@@ -94,6 +100,27 @@ public sealed class OperationRunner : INotifyPropertyChanged
             _cts = null;
             Current = null;
         }
+    }
+
+    /// <summary>
+    /// After a cancel: takes back what the operation did (<see cref="OperationUndo"/>), each step in the log, so the PC is
+    /// as it was before it started. Always false - the operation didn't happen.
+    /// </summary>
+    private async Task<bool> UndoAsync(IServiceScope scope, string title)
+    {
+        var undo = scope.ServiceProvider.GetRequiredService<OperationUndo>();
+        if (undo.IsEmpty)
+        {
+            _log.Fail($"{title} - cancelled. Nothing had been changed yet.");
+            return false;
+        }
+        Current = $"Undoing '{title}'";
+        _reporter.Step("Cancelled - putting everything back as it was");
+        var allUndone = await Task.Run(() => undo.RunAsync(_reporter));
+        _log.Fail(allUndone
+            ? $"{title} - cancelled. Everything it had done is undone."
+            : $"{title} - cancelled. Not everything could be undone - see above.");
+        return false;
     }
 
     public void Cancel()

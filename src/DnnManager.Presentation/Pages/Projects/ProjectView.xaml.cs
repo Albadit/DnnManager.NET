@@ -2,12 +2,16 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using DnnManager.Application.Abstractions;
+using DnnManager.Application.Configuration;
 using DnnManager.Application.UseCases;
+using DnnManager.Infrastructure.KeepWarm;
 using DnnManager.Presentation.Controls;
 using DnnManager.Presentation.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace DnnManager.Presentation.Pages.Projects;
 
@@ -58,9 +62,9 @@ public sealed class PortalItem : INotifyPropertyChanged
 }
 
 /// <summary>
-/// A site's overview - opened from the Projects table - in tabs. What IIS has (state, app pool, folder, bindings) follows
-/// the site live through its row; for a DNN site how it was installed, its host accounts and the portals of its
-/// installation (each with links to its addresses) are read from its database, which Test connection checks; the
+/// A site's overview - opened from the Projects table - in tabs. What IIS has (state, app pool, folder, bindings) and its
+/// keep warm follow the site live through its row; for a DNN site how it was installed, its host accounts and the portals
+/// of its installation (each with links to its addresses) are read from its database, which Test connection checks; the
 /// folder's and the web.config's facts. No password is shown anywhere - the host password can only be changed.
 /// </summary>
 public partial class ProjectView : UserControl
@@ -77,6 +81,13 @@ public partial class ProjectView : UserControl
         DataContext = row;
         Loaded += (_, _) => Focus();
         Focusable = true;
+        // The keep-warm card follows the row while the overview is shown - and lets it go when it closes.
+        Loaded += (_, _) =>
+        {
+            _row.PropertyChanged += Row_PropertyChanged;
+            ShowKeepWarm(fillValues: true);
+        };
+        Unloaded += (_, _) => _row.PropertyChanged -= Row_PropertyChanged;
         _ = LoadAsync();
     }
 
@@ -125,6 +136,142 @@ public partial class ProjectView : UserControl
     private void Link_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { Tag: string url } && url.Length > 0) ProjectMenu.Shell(url);
+    }
+
+    // ─── Keep warm ────────────────────────────────────────────────────────
+
+    // Set while the site's own values are filled in, so that doesn't count as an edit.
+    private bool _showingKeepWarm;
+
+    private KeepWarmService KeepWarm => _services.GetRequiredService<KeepWarmService>();
+    private KeepWarmSettings KeepWarmDefaults => _services.GetRequiredService<IOptions<AppOptions>>().Value.KeepWarm;
+
+    private void Row_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        // Its status, or the site's bindings and app pool (the idle time-out) - what the facts are made of.
+        if (e.PropertyName is nameof(ProjectRow.KeepWarm) or nameof(ProjectRow.BindingsText) or nameof(ProjectRow.AppPoolText))
+            ShowKeepWarm(fillValues: false);
+    }
+
+    /// <summary>How the site is kept warm - and, when <paramref name="fillValues"/>, the site's own values in their fields.</summary>
+    private void ShowKeepWarm(bool fillValues)
+    {
+        var defaults = KeepWarmDefaults;
+        var record = KeepWarm.RecordOf(_row.Name);
+        KeepWarmFacts.ItemsSource = KeepWarmFactsOf(_row.Name, KeepWarmPlan.For(defaults, record, _row.IisSite));
+        if (!fillValues) return;
+
+        _showingKeepWarm = true;
+        KeepWarmInterval.Items.Clear();
+        KeepWarmInterval.Items.Add(new ComboBoxItem { Content = $"Settings ({KeepWarmRules.Span(TimeSpan.FromMinutes(defaults.PingMinutes))})" });
+        var minutes = KeepWarmSettings.PingIntervals.ToList();
+        if (record?.PingMinutes is { } own && !minutes.Contains(own)) minutes.Add(own);
+        foreach (var m in minutes.Order())
+            KeepWarmInterval.Items.Add(new ComboBoxItem { Content = KeepWarmRules.Span(TimeSpan.FromMinutes(m)), Tag = m });
+        KeepWarmInterval.SelectedItem = KeepWarmInterval.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag as int? == record?.PingMinutes)
+                                        ?? KeepWarmInterval.Items[0];
+        KeepWarmPingPath.Text = record?.PingPath ?? "";
+        KeepWarmWarmUpPath.Text = record?.WarmUpPath ?? "";
+        ShowKeepWarmError(null);
+        KeepWarmPingLabel.Text = $"Keep-alive page (empty: {defaults.PingPath})";
+        KeepWarmWarmUpLabel.Text = $"Warm-up page (empty: {defaults.WarmUpPath})";
+        _showingKeepWarm = false;
+    }
+
+    private static List<ProjectFact> KeepWarmFactsOf(string site, KeepWarmPlan plan)
+    {
+        var setting = TimeSpan.FromMinutes(plan.PingMinutes);
+        // Not skipped while in use when the idle time-out is too short for two intervals (about a minute).
+        var inUse = KeepWarmRules.MaySkipWhenInUse(site, plan.Interval, plan.IdleTimeout) ? ", none while the site is in use" : "";
+        var whose = plan.OwnInterval ? "this site's" : "the settings'";
+        var list = new List<ProjectFact>
+        {
+            new("IIS idle time-out", plan.IdleTimeout switch
+            {
+                null => "unknown - the app pool's settings couldn't be read",
+                { } idle when idle <= TimeSpan.Zero => "none - IIS never shuts the site's worker process down for being idle",
+                { } idle => $"{KeepWarmRules.Span(idle)} - IIS shuts the site's worker process down after that long without a request"
+            }),
+            new("Requests", plan.Interval < setting
+                ? $"every {KeepWarmRules.Span(plan.Interval)} at most{inUse} - {KeepWarmRules.Span(setting)} ({whose}) would come too close to the idle time-out"
+                : $"every {KeepWarmRules.Span(plan.Interval)} at most ({whose}){inUse}")
+        };
+        if (plan.Target is { } target)
+        {
+            list.Add(new("Keep-alive page", target.DisplayUrl(plan.PingPath) + (plan.OwnPingPath ? "" : "  (the settings')")));
+            list.Add(new("Warm-up page", target.DisplayUrl(plan.WarmUpPath) + (plan.OwnWarmUpPath ? "" : "  (the settings')") +
+                                         " - when the site has no worker process"));
+            list.Add(new("Sent to", $"{target.ConnectHost}:{target.Port} as {target.HostHeader} - this PC, whatever DNS says"));
+        }
+        else
+        {
+            list.Add(new("Requests go to", "nowhere - the site has no http or https binding to request", FactKind.Warning));
+        }
+        return list;
+    }
+
+    private async void KeepWarmSwitch_Click(object sender, RoutedEventArgs e)
+    {
+        // The switch shows what the site does, not the click: it follows once that has changed (a question may come first).
+        KeepWarmSwitch.SetCurrentValue(ToggleButton.IsCheckedProperty, _row.KeepWarmOn);
+        await _services.GetRequiredService<ServerStore>().ToggleKeepWarmAsync(_row);
+    }
+
+    private void KeepWarmCheck_Click(object sender, RoutedEventArgs e) => _services.GetRequiredService<ServerStore>().CheckKeepWarm(_row);
+
+    private void KeepWarmInterval_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_showingKeepWarm && IsLoaded) SaveKeepWarmValues();
+    }
+
+    private void KeepWarmPath_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        SaveKeepWarmValues();
+        e.Handled = true;
+    }
+
+    // Leaving the field for another one or a button - not switching to another window, nor its own context menu (that is
+    // keyboard focus only): a half-typed page isn't saved.
+    private void KeepWarmPath_LostFocus(object sender, RoutedEventArgs e) => SaveKeepWarmValues();
+
+    /// <summary>
+    /// Saves the site's own interval and pages when they differ from what is saved - each page only when it is allowed:
+    /// one that isn't keeps what was saved (and says why), and doesn't stop the others from being saved.
+    /// </summary>
+    private void SaveKeepWarmValues()
+    {
+        if (_showingKeepWarm) return;
+        var record = KeepWarm.RecordOf(_row.Name);
+        var minutes = (KeepWarmInterval.SelectedItem as ComboBoxItem)?.Tag as int?;
+        var ping = KeepWarmPingPath.Text.Trim();
+        var warmUp = KeepWarmWarmUpPath.Text.Trim();
+        var pingProblem = ping.Length > 0 ? KeepWarmSettings.PathProblem(ping) : null;
+        var warmUpProblem = warmUp.Length > 0 ? KeepWarmSettings.PathProblem(warmUp) : null;
+        ShowKeepWarmError(pingProblem is not null ? $"Keep-alive page {pingProblem}"
+            : warmUpProblem is not null ? $"Warm-up page {warmUpProblem}"
+            : null);
+
+        static string? Own(string path) => path.Length == 0 ? null : KeepWarmSettings.NormalizePath(path);
+        var pingPath = pingProblem is null ? Own(ping) : record?.PingPath;
+        var warmUpPath = warmUpProblem is null ? Own(warmUp) : record?.WarmUpPath;
+        if (record?.PingMinutes == minutes && record?.PingPath == pingPath && record?.WarmUpPath == warmUpPath) return;
+        KeepWarm.SetOwnValues(_row.Name, minutes, warmUpPath, pingPath);
+
+        // Shown as saved - with the / a page was given - before the service has taken them over. A page that isn't
+        // allowed stays as typed, under its message.
+        _showingKeepWarm = true;
+        if (pingProblem is null) KeepWarmPingPath.Text = pingPath ?? "";
+        if (warmUpProblem is null) KeepWarmWarmUpPath.Text = warmUpPath ?? "";
+        _showingKeepWarm = false;
+        var saved = (record ?? new KeepWarmRecord(_row.Name, false)) with { PingMinutes = minutes, PingPath = pingPath, WarmUpPath = warmUpPath };
+        KeepWarmFacts.ItemsSource = KeepWarmFactsOf(_row.Name, KeepWarmPlan.For(KeepWarmDefaults, saved, _row.IisSite));
+    }
+
+    private void ShowKeepWarmError(string? error)
+    {
+        KeepWarmError.Text = error ?? "";
+        KeepWarmError.Visibility = error is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
     // ─── Reading what IIS's state doesn't tell ────────────────────────────

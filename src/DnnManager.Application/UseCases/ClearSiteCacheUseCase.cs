@@ -29,7 +29,8 @@ public sealed class ClearSiteCacheUseCase
             ? "DNN's cached files and bundled CSS / JavaScript are deleted and its app pool is recycled"
             : "Its app pool is recycled, which empties what it holds in memory";
         if (!await _prompt.ConfirmAsync($"Clear the cache of '{siteName}'?{Environment.NewLine}{Environment.NewLine}{what} - " +
-                                        "the site restarts, and its next request takes longer while it builds everything anew.", false, ct))
+                                        "the site restarts, and its next request takes longer while it builds everything anew.",
+                                        "Clear cache", "Cancel", false, ct))
             return Result.Aborted();
 
         if (isDnn)
