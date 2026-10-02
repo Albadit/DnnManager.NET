@@ -4,9 +4,9 @@
              xmlns:p="clr-namespace:DnnManager.Presentation.Pages.Projects"
              xmlns:s="clr-namespace:DnnManager.Presentation.Services"
              xmlns:c="clr-namespace:DnnManager.Presentation.Controls">
-    <!-- One IIS site, in tabs: General (its folder), IIS (state, app pool, bindings), DNN (how it was installed, its host
-         accounts and portals with links to their addresses), Database (where it is, Test connection) and Advanced (its
-         web.config). DataContext: the table's ProjectRow, so the state follows the site live. -->
+    <!-- One IIS site, in tabs: General (its folder), IIS (state, app pool, keep warm, bindings), DNN (how it was installed,
+         its host accounts and portals with links to their addresses), Database (where it is, Test connection) and Advanced
+         (its web.config). DataContext: the table's ProjectRow, so the state follows the site live. -->
     <UserControl.Resources>
         <!-- Running: a green dot. Stopped: a hollow ring. Changing: amber. -->
         <Style x:Key="StatusDot" TargetType="Ellipse">
@@ -53,7 +53,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
-                        <TextBlock x:Name="Text" Background="Transparent" FontSize="12"
+                        <TextBlock x:Name="Text" Background="Transparent" FontSize="{DynamicResource TextCaption}"
                                    Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" />
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -255,6 +255,56 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- Keep warm: switched here too; how it is going, how it is done, and the site's own values. -->
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <DockPanel>
+                                <CheckBox x:Name="KeepWarmSwitch" DockPanel.Dock="Right" Style="{StaticResource ToggleSwitch}" VerticalAlignment="Top"
+                                          IsChecked="{Binding KeepWarmOn, Mode=OneWay}" IsEnabled="{Binding CanToggleKeepWarm}"
+                                          ToolTip="{Binding KeepWarmTip}" ToolTipService.ShowOnDisabled="True" Click="KeepWarmSwitch_Click" />
+                                <TextBlock Style="{StaticResource CardTitle}" Text="Keep warm" />
+                            </DockPanel>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,10"
+                                       Text="While DNN Manager runs - minimized too - it requests the site before IIS would shut it down for being idle, and warms it up again after a recycle, so its next page opens at once instead of after DNN starting up (3 to 10 seconds). No browser: a small request DNN answers in milliseconds, none while the site is in use." />
+                            <DockPanel>
+                                <Button x:Name="KeepWarmCheckButton" DockPanel.Dock="Right" Content="Check now" Margin="12,0,0,0" VerticalAlignment="Center"
+                                        IsEnabled="{Binding KeepWarmOn}" Click="KeepWarmCheck_Click"
+                                        ToolTip="Requests the site now - also after it failed too often - and shows how it answers." />
+                                <ContentControl Style="{StaticResource KeepWarmFlame}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding KeepWarmText}" Foreground="{DynamicResource TextPrimary}" TextWrapping="Wrap"
+                                           Margin="8,0,0,0" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <ItemsControl x:Name="KeepWarmFacts" Grid.IsSharedSizeScope="True" ItemTemplate="{StaticResource FactTemplate}" Margin="0,10,0,0" />
+
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="This site's own values" Margin="0,14,0,0"
+                                       Foreground="{DynamicResource TextPrimary}" FontWeight="SemiBold" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="180" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Interval" />
+                                    <ComboBox x:Name="KeepWarmInterval" SelectionChanged="KeepWarmInterval_SelectionChanged" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock x:Name="KeepWarmPingLabel" Style="{StaticResource FieldLabel}" Text="Keep-alive page" />
+                                    <TextBox x:Name="KeepWarmPingPath" KeyDown="KeepWarmPath_KeyDown" LostFocus="KeepWarmPath_LostFocus" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock x:Name="KeepWarmWarmUpLabel" Style="{StaticResource FieldLabel}" Text="Warm-up page" />
+                                    <TextBox x:Name="KeepWarmWarmUpPath" KeyDown="KeepWarmPath_KeyDown" LostFocus="KeepWarmPath_LostFocus" />
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock x:Name="KeepWarmError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
+                            <TextBlock Style="{StaticResource Hint}"
+                                       Text="Empty, or Settings: the value in Settings → Projects → Keep warm. A page is saved when you press Enter or leave its field." />
+                        </StackPanel>
+                    </Border>
+
                     <!-- How the site is reached. -->
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
@@ -347,7 +397,7 @@
                                         <Border BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Padding="0,10">
                                             <StackPanel>
                                                 <DockPanel>
-                                                    <TextBlock x:Name="Status" DockPanel.Dock="Right" Text="{Binding Status}" FontSize="12"
+                                                    <TextBlock x:Name="Status" DockPanel.Dock="Right" Text="{Binding Status}" FontSize="{DynamicResource TextCaption}"
                                                                Foreground="{DynamicResource SuccessText}" VerticalAlignment="Center" />
                                                     <TextBlock Foreground="{DynamicResource TextPrimary}" TextTrimming="CharacterEllipsis">
                                                         <Run Text="{Binding IdText, Mode=OneWay}" Foreground="{DynamicResource TextMuted}" />

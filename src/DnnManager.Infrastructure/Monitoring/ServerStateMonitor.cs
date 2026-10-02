@@ -69,7 +69,7 @@ namespace DnnManager.Infrastructure.Monitoring;
 /// means the same - everything is read again. In all these cases the table stays as it is; the reads that follow
 /// only change what differs.</para>
 /// </summary>
-public sealed class ServerStateMonitor : IDisposable
+public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
 {
     private static readonly TimeSpan Tick = TimeSpan.FromSeconds(1);
     // The loop's tick while resources are saved: nothing it does then is needed sooner, and every tick wakes the PC's
@@ -175,6 +175,12 @@ public sealed class ServerStateMonitor : IDisposable
     /// batch on (to the UI thread) and returns - it must not block or call back into the monitor.
     /// </summary>
     public event Action<IReadOnlyList<MonitorEvent>>? Changed;
+
+    /// <summary>
+    /// The PC woke up (or the process was suspended for a while) and everything has been read again - what that read
+    /// found has been published. Raised on a background thread, without the monitor's lock.
+    /// </summary>
+    public event Action? Resumed;
 
     /// <summary>
     /// The Projects page is on screen: the timed reads that only it shows run, and turning this on reads everything
@@ -535,6 +541,8 @@ public sealed class ServerStateMonitor : IDisposable
             Done(ref _lastTick);
             Volatile.Write(ref _resuming, 0);
         }
+        try { Resumed?.Invoke(); }
+        catch (Exception ex) { _log.LogWarning(ex, "A handler of the resume failed"); }
     }
 
     private void SetResyncing(bool resyncing)

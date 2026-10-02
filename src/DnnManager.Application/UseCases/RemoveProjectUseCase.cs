@@ -25,7 +25,9 @@ public sealed class RemoveProjectUseCase
     private readonly LocalSqlContainer _container;
     private readonly IDatabaseProvisioner _databases;
     private readonly IProjectRecords _records;
+    private readonly IKeepWarmRecords _keepWarm;
     private readonly ILogger<RemoveProjectUseCase> _log;
+    private readonly OperationUndo _undo;
 
     public RemoveProjectUseCase(
         IOptions<AppOptions> opts,
@@ -38,7 +40,9 @@ public sealed class RemoveProjectUseCase
         LocalSqlContainer container,
         IDatabaseProvisioner databases,
         IProjectRecords records,
-        ILogger<RemoveProjectUseCase> log)
+        IKeepWarmRecords keepWarm,
+        ILogger<RemoveProjectUseCase> log,
+        OperationUndo undo)
     {
         _opts = opts.Value;
         _projects = projects;
@@ -50,7 +54,9 @@ public sealed class RemoveProjectUseCase
         _container = container;
         _databases = databases;
         _records = records;
+        _keepWarm = keepWarm;
         _log = log;
+        _undo = undo;
     }
 
     /// <summary>
@@ -67,7 +73,8 @@ public sealed class RemoveProjectUseCase
 
         var dropDb = await _prompt.ConfirmAsync(single
             ? "Also drop the project's database?"
-            : $"Also drop the databases of these {projects.Count} projects?", false, ct);
+            : $"Also drop the databases of these {projects.Count} projects?",
+            single ? "Drop database" : "Drop databases", single ? "Keep database" : "Keep databases", false, ct);
 
         // Backups live outside the project folder, so removing the project keeps them.
         string question;
@@ -88,7 +95,7 @@ public sealed class RemoveProjectUseCase
             var keeps = projects.Any(p => Directory.Exists(p.BackupDirectory)) ? $"{nl}{nl}Their backups are kept." : "";
             question = $"Remove these {projects.Count} projects permanently?{nl}{nl}{list}{keeps}";
         }
-        if (!await _prompt.ConfirmAsync(question, false, ct))
+        if (!await _prompt.ConfirmAsync(question, single ? "Remove project" : $"Remove {projects.Count} projects", "Cancel", false, ct))
             return Result.Aborted();
 
         var failed = new List<string>();
@@ -124,6 +131,10 @@ public sealed class RemoveProjectUseCase
                 return iisResult;
             }
             reporter.Success($"IIS site and app pool '{projectName}' removed (if they existed).");
+            // Removing can't be taken back - a cancel says what is already gone.
+            _undo.CannotUndo($"the IIS site and app pool '{projectName}' were removed.");
+            // Whether it was kept warm goes with its site - a new site of the same name starts cold.
+            _keepWarm.Remove(projectName);
 
             // The app pool's virtual identity got a Windows user profile auto-created at
             // C:\Users\<project>. Delete it now that the pool is gone so it doesn't linger. The
@@ -155,7 +166,10 @@ public sealed class RemoveProjectUseCase
                     // Windows account).
                     var drop = await _databases.DropDatabaseAsync(database, ct);
                     if (drop.Success)
+                    {
+                        _undo.CannotUndo($"database [{database.Database}] on {database.Server} was dropped.");
                         reporter.Success($"Database [{database.Database}] dropped on {database.Server} (if it existed).");
+                    }
                     else
                         reporter.Fail(drop.Error!);
                 }
@@ -167,7 +181,10 @@ public sealed class RemoveProjectUseCase
                 {
                     var drop = await _sql.DropDatabaseAsync(dbName, ct);
                     if (drop.Success)
+                    {
+                        _undo.CannotUndo($"database [{dbName}] was dropped.");
                         reporter.Success($"Database [{dbName}] dropped (if it existed).");
+                    }
                     else
                         reporter.Fail($"Could not drop database [{dbName}]: {drop.Error}");
                 }
@@ -183,6 +200,7 @@ public sealed class RemoveProjectUseCase
             }
 
             reporter.Step("Step 4: Delete project directory");
+            _undo.CannotUndo($"whatever was already deleted from {project.ProjectDirectory}.");
             var deleted = await DeleteProjectFolderAsync(project.ProjectDirectory, reporter, ct);
             if (!deleted.Success) return deleted;
 
@@ -232,7 +250,7 @@ public sealed class RemoveProjectUseCase
             if (await _prompt.ConfirmAsync(
                     $"These programs are using {folder}:{Environment.NewLine}{Environment.NewLine}{names}" +
                     $"{Environment.NewLine}{Environment.NewLine}Close them and delete the folder? Unsaved work in them is lost.",
-                    true, ct))
+                    "Close and delete", "Don't close", true, ct))
             {
                 var stillRunning = await _locks.CloseAsync(closable, ct);
                 foreach (var locker in closable.Except(stillRunning)) reporter.Success($"Closed {locker.Name} ({locker.ExeName}).");

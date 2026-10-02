@@ -4,7 +4,7 @@
              xmlns:c="clr-namespace:DnnManager.Presentation.Controls">
     <UserControl.Resources>
         <Style x:Key="CategoryTitle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="20" />
+            <Setter Property="FontSize" Value="{DynamicResource TextTitle}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
             <Setter Property="Margin" Value="0,0,0,6" />
@@ -12,7 +12,7 @@
         <!-- A group of settings within a category, e.g. "Theme". -->
         <Style x:Key="GroupLabel" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
-            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontSize" Value="{DynamicResource TextMedium}" />
             <Setter Property="Margin" Value="0,22,0,8" />
         </Style>
         <!-- The categories on the left: icon and name, the selected one highlighted. -->
@@ -22,7 +22,8 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="Bd" Background="Transparent" Padding="22,8,12,8">
+                        <Border x:Name="Bd" Background="Transparent" Padding="22,8,12,8" Margin="0,1"
+                                CornerRadius="{StaticResource ControlRadius}">
                             <ContentPresenter VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -53,7 +54,7 @@
             <DockPanel>
                 <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE8BB;" FontSize="12"
                         Foreground="{DynamicResource Accent}" ToolTip="Close settings" Click="Close_Click" />
-                <TextBlock Text="Settings" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" />
+                <TextBlock Text="Settings" FontSize="{DynamicResource TextLarge}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" />
             </DockPanel>
         </Border>
 
@@ -95,7 +96,7 @@
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="&#xE896;" /><TextBlock Text="DNN releases" /></StackPanel>
                     </ListBoxItem>
                     <ListBoxItem Tag="Sql">
-                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="&#xE8F1;" /><TextBlock Text="SQL Server" /></StackPanel>
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="&#xE8F1;" /><TextBlock Text="Database server" /></StackPanel>
                     </ListBoxItem>
                     <ListBoxItem Tag="Docker">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="&#xE7B8;" /><TextBlock Text="Docker container" /></StackPanel>
@@ -139,10 +140,24 @@
                                 <RadioButton x:Name="ThemeSystem" GroupName="Theme" Content="Use system settings" Tag="system" Margin="20,4,0,4" Checked="Theme_Checked" />
                             </StackPanel>
 
+                            <TextBlock Style="{StaticResource GroupLabel}" Text="Scale and font size" />
+                            <StackPanel Orientation="Horizontal">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="UI scale" Margin="0,0,0,4" />
+                                    <ComboBox x:Name="UiScale" Width="160" SelectionChanged="Appearance_Changed" />
+                                </StackPanel>
+                                <StackPanel Margin="12,0,0,0">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Font size" Margin="0,0,0,4" />
+                                    <ComboBox x:Name="AppFontSize" Width="160" SelectionChanged="Appearance_Changed" />
+                                </StackPanel>
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource Hint}"
+                                       Text="UI scale makes everything bigger or smaller - text, icons and spacing - like zooming in a browser. Font size changes only the text; the terminal has its own below. Both apply when you save." />
+
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Efficiency" />
-                            <CheckBox x:Name="SaveResourcesWhileMinimized" Content="Save resources while minimized" />
+                            <CheckBox x:Name="SaveResourcesWhileMinimized" Content="Save resources while the window can't be seen" />
                             <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
-                                       Text="While the window is minimized, what only it shows pauses - animations, this PC's figures, redrawing terminals, following a log - and once nothing is running, Windows runs DNN Manager in its efficiency mode. Your sites are still followed and operations run at full speed; restoring the window brings everything up to date at once." />
+                                       Text="While the window is minimized or completely covered by other windows, what only it shows pauses - animations, this PC's figures, redrawing terminals, following a log - and after a second, once nothing is running, Windows runs DNN Manager in its efficiency mode. Your sites are still followed and operations run at full speed; as soon as the window can be seen again, everything is brought up to date." />
 
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Terminal" />
                             <CheckBox x:Name="TerminalEnabled" Content="Enable the terminal" Click="Terminal_Changed" />
@@ -165,14 +180,10 @@
                                 <TextBlock Style="{StaticResource Hint}" Text="Also the font of the Output and Logs tabs." />
                             </StackPanel>
 
-                            <TextBlock Style="{StaticResource GroupLabel}" Text="Settings file" />
-                            <TextBlock x:Name="SettingsFileText" Style="{StaticResource FolderPath}" />
+                            <TextBlock Style="{StaticResource GroupLabel}" Text="Reset settings" />
+                            <Button Content="Reset to defaults…" HorizontalAlignment="Left" Click="ResetDefaults_Click" />
                             <TextBlock Style="{StaticResource Hint}"
-                                       Text="The settings are stored in this file. Save writes it and applies the changes at once; a change made in the file itself applies the next time DNN Manager starts." />
-                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                                <Button Content="Open settings.json" Click="OpenFile_Click" />
-                                <Button Content="Open settings folder" Margin="8,0,0,0" Click="OpenFolder_Click" />
-                            </StackPanel>
+                                       Text="Fills in every setting in every category as DNN Manager is installed - nothing changes until you save, and Discard changes takes it back. Your projects aren't touched." />
                         </StackPanel>
 
                         <StackPanel x:Name="ProjectsPanel" Visibility="Collapsed">
@@ -247,30 +258,32 @@
                             </Grid>
                             <TextBlock x:Name="DnnDefaultsHint" Style="{StaticResource Hint}" />
 
-                            <TextBlock Style="{StaticResource GroupLabel}" Text="Database profiles" />
-                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6"
-                                       Text="Saved database connections New project offers - save one there with Save as profile. Their passwords are in the Windows Credential Manager." />
-                            <ItemsControl x:Name="DatabaseProfiles">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Style="{StaticResource Card}" Padding="12,8" Margin="0,0,0,6">
-                                            <DockPanel>
-                                                <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="Remove" VerticalAlignment="Center"
-                                                        Tag="{Binding}" Click="RemoveProfile_Click" ToolTip="Remove this profile (and its saved password) when you save" />
-                                                <StackPanel>
-                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-                                                    <TextBlock Text="{Binding Summary}" Style="{StaticResource Hint}" Margin="0,2,0,0" />
-                                                </StackPanel>
-                                            </DockPanel>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <TextBlock x:Name="NoProfiles" Style="{StaticResource Hint}" Margin="0"
-                                       Text="No saved profiles yet - the local SQL container is always there." />
-                            <TextBlock Style="{StaticResource FieldLabel}" Text="Database for new projects" />
-                            <ComboBox x:Name="DefaultDatabaseProfile" Width="320" HorizontalAlignment="Left" DisplayMemberPath="Name"
-                                      SelectionChanged="Defaults_Changed" />
+                            <TextBlock Style="{StaticResource GroupLabel}" Text="Keep warm" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4"
+                                       Text="For the sites switched on with the flame in their row: while DNN Manager runs, it requests them before IIS would shut them down for being idle, and warms them up again after a recycle - their next page opens at once. A site's overview (IIS) can give it values of its own." />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="180" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Interval" />
+                                    <ComboBox x:Name="KeepWarmInterval" SelectionChanged="KeepWarm_Changed" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Keep-alive page" />
+                                    <TextBox x:Name="KeepWarmPingPath" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Warm-up page" />
+                                    <TextBox x:Name="KeepWarmWarmUpPath" />
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Style="{StaticResource Hint}"
+                                       Text="The interval is the longest wait between two requests - shorter for a site whose app pool shuts down sooner, and no request is sent while a site is in use anyway. The keep-alive page is DNN's own KeepAlive.aspx: tiny, no database work (/ keeps the home page's caches warm too, as Azure's Always On does). The warm-up page is requested when a site has no worker process - after a recycle, or IIS starting." />
                         </StackPanel>
 
                         <StackPanel x:Name="ReleasesPanel" Visibility="Collapsed">
@@ -286,44 +299,107 @@
                         </StackPanel>
 
                         <StackPanel x:Name="SqlPanel" Visibility="Collapsed">
-                            <TextBlock Style="{StaticResource CategoryTitle}" Text="SQL Server" />
+                            <TextBlock Style="{StaticResource CategoryTitle}" Text="Database server" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0"
-                                       Text="The SQL Server DNN Manager connects to. The Docker container publishes it on this port, with this SA password. Test the connection on the Environment page." />
-                            <TextBlock Style="{StaticResource GroupLabel}" Text="Connection" />
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="12" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
+                                       Text="The SQL Server new projects get their database on - named like the project. Only the chosen connection type's settings are saved; projects you already have keep the database they have." />
+
+                            <TextBlock Style="{StaticResource GroupLabel}" Text="Connection type" />
+                            <RadioButton x:Name="ServerContainer" GroupName="ServerType" Tag="container" Checked="ServerType_Checked">
                                 <StackPanel>
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Server host" Margin="0,0,0,4" />
-                                    <TextBox x:Name="ContainerIp" />
+                                    <TextBlock Text="Local SQL container (Docker)" FontWeight="SemiBold" />
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                               Text="SQL Server in the Docker container from Settings → Docker container, signed in to as sa." />
                                 </StackPanel>
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Port" Margin="0,0,0,4" />
-                                    <TextBox x:Name="DefaultPort" />
+                            </RadioButton>
+                            <RadioButton x:Name="ServerSqlServer" GroupName="ServerType" Tag="sqlServer" Margin="0,8,0,0" Checked="ServerType_Checked">
+                                <StackPanel>
+                                    <TextBlock Text="SQL Server / SQL Server Express" FontWeight="SemiBold" />
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                               Text="A SQL Server you already run on this PC (or your network), with Windows or SQL Server authentication." />
                                 </StackPanel>
-                                <StackPanel Grid.Row="1">
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="SA password" />
-                                    <c:PasswordInput x:Name="SaPassword" />
+                            </RadioButton>
+                            <RadioButton x:Name="ServerLocalDb" GroupName="ServerType" Tag="localDbFile" Margin="0,8,0,0" Checked="ServerType_Checked">
+                                <StackPanel>
+                                    <TextBlock Text="SQL Server Express LocalDB (file)" FontWeight="SemiBold" />
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                               Text="Each site's own App_Data\Database.mdf - fine for trying things out; DNN Manager can't open it while the site runs." />
                                 </StackPanel>
-                            </Grid>
+                            </RadioButton>
+
+                            <StackPanel x:Name="ContainerFields">
+                                <TextBlock Style="{StaticResource GroupLabel}" Text="Local SQL container" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Server host" Margin="0,0,0,4" />
+                                        <TextBox x:Name="ContainerIp" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Port" Margin="0,0,0,4" />
+                                        <TextBox x:Name="DefaultPort" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="SA password" />
+                                        <c:PasswordInput x:Name="SaPassword" />
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Style="{StaticResource Hint}"
+                                           Text="The Docker container publishes SQL Server on this port, with this SA password. Test the connection below." />
+                            </StackPanel>
+
+                            <StackPanel x:Name="ServerFields">
+                                <TextBlock x:Name="ServerGroupLabel" Style="{StaticResource GroupLabel}" Text="SQL Server" />
+                                <TextBlock x:Name="ServerLabel" Style="{StaticResource FieldLabel}" Text="Server" Margin="0,0,0,4" />
+                                <TextBox x:Name="ServerName" />
+                                <TextBlock x:Name="ServerHint" Style="{StaticResource Hint}" />
+                                <StackPanel x:Name="AuthFields">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Authentication" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton x:Name="WindowsAuth" GroupName="ServerAuth" Content="Windows authentication" Checked="Auth_Checked" />
+                                        <RadioButton x:Name="SqlAuth" GroupName="ServerAuth" Content="SQL Server authentication" Margin="20,0,0,0" Checked="Auth_Checked" />
+                                    </StackPanel>
+                                    <Grid x:Name="LoginFields" Visibility="Collapsed">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Username" />
+                                            <TextBox x:Name="ServerUserName" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Password" />
+                                            <c:PasswordInput x:Name="ServerPassword" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBlock x:Name="AuthHint" Style="{StaticResource Hint}" />
+                                </StackPanel>
+                            </StackPanel>
 
                             <TextBlock Style="{StaticResource GroupLabel}" Text="SQL Server Management Studio" />
                             <CheckBox x:Name="SsmsRememberPassword" Content="Remember the password in SQL Server Management Studio" />
                             <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
                                        Text="When a project's right-click menu signs SSMS in, tick its 'Remember Password' - SSMS then keeps the password and connects straight away next time." />
+
+                            <TextBlock Style="{StaticResource GroupLabel}" Text="Test and set up" />
+                            <TextBlock x:Name="SqlSaveFirst" Style="{StaticResource Hint}" Margin="0,0,0,8" Visibility="Collapsed"
+                                       Text="These use the saved settings - save your changes first." />
+                            <c:DatabaseServerCard x:Name="SqlCard" />
                         </StackPanel>
 
                         <StackPanel x:Name="DockerPanel" Visibility="Collapsed">
                             <TextBlock Style="{StaticResource CategoryTitle}" Text="Docker container" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0"
-                                       Text="The SQL Server container. After a change, apply it with Set up docker-compose on the Environment page." />
+                                       Text="The SQL Server container. After a change, save it and apply it with Set up docker-compose below." />
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Container" />
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -352,28 +428,18 @@
                                     <TextBox x:Name="Collation" />
                                 </StackPanel>
                             </Grid>
+
+                            <TextBlock Style="{StaticResource GroupLabel}" Text="Test and set up" />
+                            <TextBlock x:Name="DockerSaveFirst" Style="{StaticResource Hint}" Margin="0,0,0,8" Visibility="Collapsed"
+                                       Text="These use the saved settings - save your changes first." />
+                            <c:DockerCard x:Name="DockerCard" />
                         </StackPanel>
 
                         <StackPanel x:Name="IisPanel" Visibility="Collapsed">
                             <TextBlock Style="{StaticResource CategoryTitle}" Text="IIS" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0"
-                                       Text="The Windows features the Environment page checks and can enable. The list is edited in settings.json (iis.requiredFeatures)." />
-                            <TextBlock Style="{StaticResource GroupLabel}" Text="Required Windows features" />
-                            <ItemsControl x:Name="IisFeatures">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid Margin="0,3">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="260" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Text="{Binding Label}" Foreground="{DynamicResource TextPrimary}" />
-                                            <TextBlock Grid.Column="1" Text="{Binding Name}" Foreground="{DynamicResource TextMuted}" FontFamily="Cascadia Mono, Consolas" FontSize="12" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <Button Content="Open settings.json" HorizontalAlignment="Left" Margin="0,14,0,0" Click="OpenFile_Click" />
+                                       Text="The Windows features DNN Manager needs - Test shows which are enabled, Set up IIS enables the missing ones. The list is edited in settings.json (iis.requiredFeatures)." />
+                            <c:IisCard x:Name="IisCard" Margin="0,16,0,0" />
                         </StackPanel>
 
                         <StackPanel x:Name="AboutPanel" Visibility="Collapsed">

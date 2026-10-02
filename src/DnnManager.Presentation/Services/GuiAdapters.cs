@@ -22,8 +22,8 @@ public sealed class GuiProgressReporter : IProgressReporter
 /// </summary>
 public sealed class GuiUserPrompt : IUserPrompt
 {
-    public Task<bool> ConfirmAsync(string question, bool defaultYes = false, CancellationToken ct = default)
-        => OnUiThread(() => Dialogs.Confirm(question, defaultYes));
+    public Task<bool> ConfirmAsync(string question, string yes, string no, bool defaultYes = false, CancellationToken ct = default)
+        => OnUiThread(() => Dialogs.Confirm(question, yes, no, defaultYes));
 
     private static Task<T> OnUiThread<T>(Func<T> show)
     {
@@ -35,7 +35,9 @@ public sealed class GuiUserPrompt : IUserPrompt
 /// <summary>Questions and warnings, shown in the app's own themed <see cref="MessageDialog"/>.</summary>
 internal static class Dialogs
 {
-    public static bool Confirm(string question, bool defaultYes = false) => MessageDialog.Ask(question, defaultYes);
+    /// <summary>True when <paramref name="yes"/> is chosen - both buttons say what they do, e.g. "Quit anyway" / "Keep running".</summary>
+    public static bool Confirm(string question, string yes, string no, bool defaultYes = false) =>
+        MessageDialog.Ask(question, yes, no, defaultYes);
 
     public static void Error(string message) => MessageDialog.Warn(message);
 }

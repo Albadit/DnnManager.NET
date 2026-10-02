@@ -66,7 +66,7 @@ public partial class StatusBar : UserControl
         RamText.Text = r.MemoryTotalBytes == 0 ? "" : $"RAM {ByteSize.Format(r.MemoryUsedBytes)}";
         RamText.ToolTip = r.MemoryTotalBytes == 0 ? null
             : $"Memory in use: {ByteSize.Format(r.MemoryUsedBytes)} of {ByteSize.Format(r.MemoryTotalBytes)} ({100d * r.MemoryUsedBytes / r.MemoryTotalBytes:0}%)";
-        CpuText.Text = r.CpuPercent is { } cpu ? $"CPU {cpu:0.00}%" : "CPU …";
+        CpuText.Text = r.CpuPercent is { } cpu ? $"CPU {cpu:0.00}%" : "CPU -";
         CpuText.ToolTip = $"Processor use of this PC ({Environment.ProcessorCount} logical processors)";
         DiskText.Text = r.DiskRoot is null ? ""
             : $"Disk: {ByteSize.Format(r.DiskUsedBytes)} used (limit {ByteSize.Format(r.DiskTotalBytes)})";

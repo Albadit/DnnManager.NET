@@ -15,4 +15,19 @@
     <!-- Buttons, text boxes and selects share one height, so they line up side by side. -->
     <sys:Double x:Key="ControlHeight">30</sys:Double>
     <Thickness x:Key="InputPadding">6,4</Thickness>
+
+    <!-- Text sizes, by role - the values for the default font size (13); ThemeManager.ApplyLayout sets them for the one
+         chosen in Settings → General, keeping these proportions. Icon glyphs keep their sizes: UI scale grows those. -->
+    <sys:Double x:Key="TextSmall">11</sys:Double>
+    <sys:Double x:Key="TextHint">11.5</sys:Double>
+    <sys:Double x:Key="TextCaption">12</sys:Double>
+    <sys:Double x:Key="TextBody">13</sys:Double>
+    <sys:Double x:Key="TextMedium">14</sys:Double>
+    <sys:Double x:Key="TextHeading">15</sys:Double>
+    <sys:Double x:Key="TextLarge">16</sys:Double>
+    <sys:Double x:Key="TextTitle">20</sys:Double>
+    <sys:Double x:Key="TextDisplay">22</sys:Double>
+
+    <!-- UI scale: every window's content and every pop-up (menus, tooltips, drop-downs) is laid out through it. -->
+    <ScaleTransform x:Key="UiScale" ScaleX="1" ScaleY="1" />
 </ResourceDictionary>

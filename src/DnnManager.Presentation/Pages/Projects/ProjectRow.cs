@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using DnnManager.Application.Abstractions;
+using DnnManager.Infrastructure.KeepWarm;
 using DnnManager.Infrastructure.Monitoring;
 using DnnManager.Presentation.Services;
 
@@ -7,6 +8,12 @@ namespace DnnManager.Presentation.Pages.Projects;
 
 /// <summary>A project's IIS site as the Projects table shows it.</summary>
 public enum SiteRunState { Stopped, Starting, Running, Stopping, Unknown }
+
+/// <summary>
+/// How a site's keep-warm flame looks: an outline while off; filled while on - in the flame's colour when warm, pulsing
+/// while a request is on its way or due, grey while paused, with a red dot while failing.
+/// </summary>
+public enum KeepWarmLook { Off, Warm, Busy, Paused, Problem }
 
 /// <summary>
 /// One row of the Projects table: an IIS site. It lives in the <see cref="ServerStore"/> for as long as the site exists and is
@@ -40,12 +47,18 @@ public sealed class ProjectRow : INotifyPropertyChanged
         nameof(DiskText), nameof(DiskSort)
     ];
     private static readonly string[] StartedProperties = [nameof(LastStartedSort), nameof(LastStartedTip)];
+    private static readonly string[] KeepWarmProperties =
+    [
+        nameof(KeepWarm), nameof(KeepWarmOn), nameof(KeepWarmLook), nameof(KeepWarmBusy), nameof(KeepWarmText),
+        nameof(KeepWarmTip), nameof(KeepWarmAction), nameof(CanToggleKeepWarm), nameof(Details)
+    ];
 
     private ProjectState _project;
     private bool _isChecked;
     private bool _isExpanded;
     private bool _busy;
     private string? _pending;
+    private KeepWarmStatus _keepWarm = KeepWarmStatus.Off;
     // "5 minutes ago" changes with time, not with the state: kept to tell when it has to be shown again.
     private string _lastStarted;
     // Put together when first asked for, and again after a change to what it is made of.
@@ -186,6 +199,51 @@ public sealed class ProjectRow : INotifyPropertyChanged
         Raise(nameof(LastStartedText));
     }
 
+    // ─── Keep warm ────────────────────────────────────────────────────────
+
+    /// <summary>The site's keep warm, as the keep-warm service last reported it.</summary>
+    public KeepWarmStatus KeepWarm
+    {
+        get => _keepWarm;
+        set
+        {
+            if (_keepWarm == value) return;
+            _keepWarm = value;
+            Raise(KeepWarmProperties);
+        }
+    }
+
+    public bool KeepWarmOn => _keepWarm.IsOn;
+
+    public KeepWarmLook KeepWarmLook => _keepWarm.State switch
+    {
+        KeepWarmState.Off => KeepWarmLook.Off,
+        KeepWarmState.Warm => KeepWarmLook.Warm,
+        KeepWarmState.Waiting or KeepWarmState.WarmingUp => KeepWarmLook.Busy,
+        KeepWarmState.Paused => KeepWarmLook.Paused,
+        _ => KeepWarmLook.Problem
+    };
+
+    /// <summary>For the flame's pulse.</summary>
+    public bool KeepWarmBusy => KeepWarmLook == KeepWarmLook.Busy;
+
+    public string KeepWarmText => _keepWarm.Text;
+
+    /// <summary>What switching it does: "Keep warm" or "Stop keeping warm".</summary>
+    public string KeepWarmAction => KeepWarmOn ? "Stop keeping warm" : "Keep warm";
+
+    /// <summary>
+    /// The flame's (and the overview switch's) tooltip: only what a click does. How it is going is in the overview's
+    /// Keep warm card, what it is in Settings → Projects → Keep warm.
+    /// </summary>
+    public string KeepWarmTip => KeepWarmOn ? "Disable keep warm" : "Enable keep warm";
+
+    /// <summary>Why keep warm can't be switched on; null when it can, or is on.</summary>
+    public string? KeepWarmUnavailable => KeepWarmOn || HasUrl ? null : "The site has no http or https binding to request";
+
+    /// <summary>A site with an address can be kept warm; one that is kept warm can always be switched off.</summary>
+    public bool CanToggleKeepWarm => KeepWarmOn || HasUrl;
+
     // ─── Row state ───────────────────────────────────────────────────────
 
     public bool IsChecked
@@ -236,6 +294,7 @@ public sealed class ProjectRow : INotifyPropertyChanged
         }),
         new("DNN version", Dnn),
         new("Worker process", PidText == None ? "none - started on the first request" : $"PID {PidText}, since {Stats?.Started:g}"),
+        new("Keep warm", KeepWarmText),
     ];
 
     /// <summary>
@@ -254,7 +313,13 @@ public sealed class ProjectRow : INotifyPropertyChanged
         var workerStarted = Stats?.Started;
         _project = project;
 
-        if (changed.HasFlag(ProjectFacets.Metadata)) Raise(MetadataProperties);
+        if (changed.HasFlag(ProjectFacets.Metadata))
+        {
+            Raise(MetadataProperties);
+            // Whether it has an address to keep warm.
+            Raise(nameof(CanToggleKeepWarm));
+            Raise(nameof(KeepWarmTip));
+        }
         if (changed.HasFlag(ProjectFacets.Site))
         {
             Raise(SiteProperties);

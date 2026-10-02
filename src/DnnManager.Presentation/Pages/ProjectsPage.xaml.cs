@@ -42,6 +42,7 @@ public partial class ProjectsPage : UserControl
     private readonly List<ProjectColumnOption> _columnOptions;
     // The window the page is in, once it is - the live figures pause while it is minimized.
     private Window? _window;
+    private readonly EfficiencyMode _efficiency;
     // The row under the mouse at the last right-click (null: empty space) - what the context menu is for.
     private ProjectRow? _menuRow;
     // The grid's own scroll viewer, found on first use (LayoutUpdated runs often).
@@ -49,12 +50,12 @@ public partial class ProjectsPage : UserControl
     private bool _selectionQueued;
 
     public ProjectsPage(IServiceProvider services, OperationRunner runner, ServerStore store, SettingsStore settings,
-        ActivityLog log, IOptions<AppOptions> options)
+        ActivityLog log, IOptions<AppOptions> options, EfficiencyMode efficiency)
     {
-        _store = store; _settings = settings; _log = log;
+        _store = store; _settings = settings; _log = log; _efficiency = efficiency;
         InitializeComponent();
         _services = services;
-        _menu = new ProjectMenu(services, runner, (action, row) => ControlSites(action, [row]), row => Remove([row]), OpenProject);
+        _menu = new ProjectMenu(services, runner, (action, row) => ControlSites(action, [row]), row => Remove([row]), OpenProject, ToggleKeepWarm);
 
         // The store's rows, filtered by the search box and sorted by the column the user clicked. A row whose
         // searchable text or sorted-by value changes is looked at again by itself (live shaping): it leaves, comes
@@ -108,6 +109,8 @@ public partial class ProjectsPage : UserControl
         // What only this page shows (worker processes, SQL, sizes…) is kept current only while it is on screen - the
         // page is kept, hidden, while other pages are shown. Coming back reads everything once, at once.
         IsVisibleChanged += (_, _) => UpdateWatching();
+        // Covered by other windows (with Save resources on) is as good as minimized.
+        efficiency.Changed += (_, _) => UpdateWatching();
         Loaded += (_, _) =>
         {
             if (_window is null && Window.GetWindow(this) is { } window)
@@ -124,7 +127,8 @@ public partial class ProjectsPage : UserControl
 
     // ─── Following the store ──────────────────────────────────────────────
 
-    private void UpdateWatching() => _store.SetWatching(IsVisible && _window?.WindowState != WindowState.Minimized);
+    private void UpdateWatching() =>
+        _store.SetWatching(IsVisible && _window?.WindowState != WindowState.Minimized && !_efficiency.IsSaving);
 
     private void Projects_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
@@ -279,7 +283,7 @@ public partial class ProjectsPage : UserControl
         ShowOverlay(!loaded ? "Loading projects…"
             : total == 0 ? _store.Connection == MonitorConnection.Reconnecting && _store.ConnectionDetail is { } problem ? problem
                 : _store.Runtime == Application.Abstractions.IisServerState.NotInstalled
-                    ? "IIS isn't installed - enable its Windows features on the Environment page."
+                    ? "IIS isn't installed - enable its Windows features in Settings → IIS."
                     : "IIS has no DNN websites yet - create one with New project or Host project."
             : shown.Count > 0 ? null
             : OnlyRunning.IsChecked != true ? $"No project matches “{SearchText}”."
@@ -303,7 +307,7 @@ public partial class ProjectsPage : UserControl
     private void RowStop_Click(object sender, RoutedEventArgs e) => OnRow(sender, row => ControlSites(SiteAction.Stop, [row]));
     private void RowRestart_Click(object sender, RoutedEventArgs e) => OnRow(sender, row => ControlSites(SiteAction.Restart, [row]));
     private void RowRemove_Click(object sender, RoutedEventArgs e) => OnRow(sender, row => Remove([row]));
-
+    private void RowKeepWarm_Click(object sender, RoutedEventArgs e) => OnRow(sender, ToggleKeepWarm);
 
     private static void OnRow(object sender, Action<ProjectRow> action)
     {
@@ -313,6 +317,8 @@ public partial class ProjectsPage : UserControl
     private async void ControlSites(SiteAction action, IReadOnlyList<ProjectRow> rows) => await _store.ControlSitesAsync(action, rows);
 
     private async void Remove(IReadOnlyList<ProjectRow> rows) => await _store.RemoveAsync(rows);
+
+    private void ToggleKeepWarm(ProjectRow row) => _store.ToggleKeepWarm(row);
 
     // ─── Columns ──────────────────────────────────────────────────────────
 
@@ -386,6 +392,13 @@ public partial class ProjectsPage : UserControl
     }
 
     private void RowOpen_Click(object sender, RoutedEventArgs e) => OnRow(sender, OpenProject);
+
+    private void OpenSite_Click(object sender, RoutedEventArgs e) => OnRow(sender, row =>
+    {
+        if (row.HasUrl) Projects.ProjectMenu.Shell(row.Url);
+    });
+
+    private void OpenFolder_Click(object sender, RoutedEventArgs e) => OnRow(sender, Projects.ProjectMenu.OpenFolder);
 
     // Space checks / unchecks the selected row, like the check box; Enter opens it.
     private void Grid_PreviewKeyDown(object sender, KeyEventArgs e)

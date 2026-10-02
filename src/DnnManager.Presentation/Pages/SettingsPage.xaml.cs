@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
+using DnnManager.Infrastructure.KeepWarm;
 using DnnManager.Infrastructure.Settings;
 using DnnManager.Infrastructure.Startup;
 using DnnManager.Presentation.Services;
@@ -24,6 +25,8 @@ public partial class SettingsPage : UserControl
     // Form labels for the settings keys, so a problem reads "Site port must be…" rather than "projects.sitePort must be…".
     private static readonly Dictionary<string, string> Labels = new()
     {
+        ["appearance.uiScale"] = "UI scale",
+        ["appearance.fontSize"] = "Font size",
         ["projects.baseDirectory"] = "Projects folder",
         ["projects.sitePort"] = "Site port",
         ["projects.hostnameSuffix"] = "Hostname suffix",
@@ -34,8 +37,13 @@ public partial class SettingsPage : UserControl
         ["projects.dnnDefaults.websiteName"] = "Website name",
         ["projects.dnnDefaults.language"] = "Language",
         ["projects.dnnDefaults.template"] = "Site template",
-        ["projects.databaseProfiles"] = "Database profiles",
-        ["projects.defaultDatabaseProfile"] = "Database for new projects",
+        ["projects.keepWarm.pingMinutes"] = "Keep warm interval",
+        ["projects.keepWarm.warmUpPath"] = "Warm-up page",
+        ["projects.keepWarm.pingPath"] = "Keep-alive page",
+        ["sqlServer.type"] = "Connection type",
+        ["sqlServer.server"] = "Server",
+        ["sqlServer.authentication"] = "Authentication",
+        ["sqlServer.userName"] = "Username",
         ["sqlServer.host"] = "Server host",
         ["sqlServer.port"] = "Port",
         ["sqlServer.saPassword"] = "SA password",
@@ -52,10 +60,14 @@ public partial class SettingsPage : UserControl
     private readonly TerminalService _terminal;
     private readonly StartupTask _startup;
     private readonly ISecretStore _secrets;
-    // The saved database profiles as the form has them (Remove takes one out until Save), and the default host password
-    // as it is in the Credential Manager - both are compared with the form to see what Save has to change.
-    private List<DatabaseProfileSettings> _profiles = [];
+    // The default host password and the database server login's password as they are in the Credential Manager -
+    // compared with the form to see what Save has to change.
     private string _savedHostPassword = "";
+    private string _savedServerPassword = "";
+    // The connection type the database server fields show, and the server typed for each type - switching to LocalDB
+    // and back gives the SQL Server its own server again.
+    private string _serverType = SqlServerSettings.ContainerType;
+    private readonly Dictionary<string, string> _serverText = new(StringComparer.OrdinalIgnoreCase);
     // Each category (the Tag of its entry in the list): its panel, and the words the search box finds it by.
     private readonly Dictionary<string, (FrameworkElement Panel, string Keywords)> _categories;
     // Set while the form is being filled in, so that doesn't count as an edit.
@@ -68,7 +80,7 @@ public partial class SettingsPage : UserControl
     private string _savedForm = "";
 
     public SettingsPage(IOptions<AppOptions> options, OperationRunner runner, SettingsStore store, LiveSettings live,
-        AppDataPaths paths, TerminalService terminal, StartupTask startup, ISecretStore secrets)
+        AppDataPaths paths, TerminalService terminal, StartupTask startup, ISecretStore secrets, IServiceProvider services)
     {
         _options = options.Value;
         _runner = runner;
@@ -81,20 +93,22 @@ public partial class SettingsPage : UserControl
 
         _categories = new Dictionary<string, (FrameworkElement, string)>
         {
-            ["General"] = (GeneralPanel, "general start sign in startup theme light dark system appearance efficiency efficient save resources minimized minimize power battery eco terminal shell powershell command prompt git bash font family size settings file settings.json folder"),
-            ["Projects"] = (ProjectsPanel, "projects folder base directory hostname suffix site port address url dnn defaults install installation automatic manual setup wizard host account username password e-mail email website name language culture template database profiles sql server localdb express windows authentication"),
+            ["General"] = (GeneralPanel, "general start sign in startup theme light dark system appearance scale zoom ui font text size bigger smaller reset default defaults restore efficiency efficient save resources minimized minimize power battery eco terminal shell powershell command prompt git bash font family size"),
+            ["Projects"] = (ProjectsPanel, "projects folder base directory hostname suffix site port address url dnn defaults install installation automatic manual setup wizard host account username password e-mail email website name language culture template keep warm alive keepalive warm-up idle time-out timeout interval ping cold start slow fast recycle"),
             ["Releases"] = (ReleasesPanel, "dnn releases repositories github versions install packages keep download"),
-            ["Sql"] = (SqlPanel, "sql server connection host port sa password ssms management studio remember"),
-            ["Docker"] = (DockerPanel, "docker container name volume edition mssql_pid collation"),
-            ["Iis"] = (IisPanel, "iis windows features " + string.Join(' ', _options.RequiredIisFeatures.Select(f => $"{f.Label} {f.Name}"))),
+            ["Sql"] = (SqlPanel, "database server sql server express localdb file connection type local container docker host port sa password windows authentication login username ssms management studio remember test connection"),
+            ["Docker"] = (DockerPanel, "docker container name volume edition mssql_pid collation desktop engine install start set up docker-compose compose yml test"),
+            ["Iis"] = (IisPanel, "iis windows features test set up enable " + string.Join(' ', _options.RequiredIisFeatures.Select(f => $"{f.Label} {f.Name}"))),
             ["About"] = (AboutPanel, "about version your files folders settings backups logs packages"),
         };
 
-        SettingsFileText.Text = _store.FilePath;
-        SettingsFileText.ToolTip = _store.FilePath;
         KeepDnnPackagesHint.Text = $"Saved in {paths.PackagesDirectory} and used again when a new project picks the same " +
                                    "version - no download. Off: each new project downloads its package and deletes it after installing.";
-        IisFeatures.ItemsSource = _options.RequiredIisFeatures;
+        // Test and set up what the settings describe - working with the saved settings.
+        DockerCard.Attach(services);
+        SqlCard.Attach(services);
+        IisCard.Attach(services);
+        DockerCard.ContainerChanged += (_, _) => SqlCard.Test();
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         VersionText.Text = version is null ? "DNN Manager" : $"DNN Manager {version.Major}.{version.Minor}.{version.Build}";
         Folders.ItemsSource = new KeyValuePair<string, string>[]
@@ -106,12 +120,15 @@ public partial class SettingsPage : UserControl
         };
 
         foreach (var box in new[] { BaseDirectory, SitePort, HostnameSuffix, ReleaseApis, ContainerName, ContainerIp,
-                                    VolumeName, DefaultPort, Collation, MssqlPid, HostUsername, HostEmail, WebsiteName })
+                                    VolumeName, DefaultPort, Collation, MssqlPid, HostUsername, HostEmail, WebsiteName,
+                                    ServerName, ServerUserName, KeepWarmPingPath, KeepWarmWarmUpPath })
             box.TextChanged += (_, _) => Edited();
         SaPassword.PasswordChanged += (_, _) => Edited();
         HostPassword.PasswordChanged += (_, _) => Edited();
+        ServerPassword.PasswordChanged += (_, _) => Edited();
         foreach (var language in DnnAccountRules.Languages) DnnLanguage.Items.Add(new ComboBoxItem { Content = LanguageName(language), Tag = language });
         foreach (var template in DnnAccountRules.Templates) DnnTemplate.Items.Add(new ComboBoxItem { Content = template, Tag = template });
+        foreach (var minutes in KeepWarmSettings.PingIntervals) KeepWarmInterval.Items.Add(KeepWarmIntervalItem(minutes));
         foreach (var box in new[] { SsmsRememberPassword, KeepDnnPackages, SaveResourcesWhileMinimized })
         {
             box.Checked += (_, _) => Edited();
@@ -119,6 +136,10 @@ public partial class SettingsPage : UserControl
         }
 
 
+        foreach (var scale in AppearanceSettings.UiScales)
+            UiScale.Items.Add(new ComboBoxItem { Content = scale == 100 ? "100 % (default)" : $"{scale} %", Tag = scale });
+        foreach (var size in AppearanceSettings.FontSizes)
+            AppFontSize.Items.Add(new ComboBoxItem { Content = size == 13 ? "13 px (default)" : $"{size} px", Tag = (double)size });
         foreach (var shell in terminal.Shells) DefaultShell.Items.Add(new ComboBoxItem { Content = shell.Name, Tag = shell.Key });
         TerminalFont.Items.Add(new ComboBoxItem { Content = "Default", Tag = "" });
         foreach (var font in terminal.InstalledFonts) TerminalFont.Items.Add(new ComboBoxItem { Content = font, Tag = font });
@@ -177,6 +198,31 @@ public partial class SettingsPage : UserControl
         ThemeSystem.IsChecked = ThemeLight.IsChecked != true && ThemeDark.IsChecked != true;
         _loading = false;
     }
+
+    // ─── UI scale and font size ───────────────────────────────────────────
+
+    private int ChosenUiScale => (UiScale.SelectedItem as ComboBoxItem)?.Tag as int? ?? 100;
+
+    private double ChosenFontSize => (AppFontSize.SelectedItem as ComboBoxItem)?.Tag as double? ?? ThemeManager.DefaultFontSize;
+
+    private void ShowAppearance(AppearanceSettings appearance)
+    {
+        _loading = true;
+        // A value typed into settings.json that isn't in the list is added, so it stays chosen.
+        if (!Select(UiScale, appearance.UiScale))
+        {
+            UiScale.Items.Add(new ComboBoxItem { Content = $"{appearance.UiScale} %", Tag = appearance.UiScale });
+            UiScale.SelectedIndex = UiScale.Items.Count - 1;
+        }
+        if (!Select(AppFontSize, appearance.FontSize))
+        {
+            AppFontSize.Items.Add(new ComboBoxItem { Content = $"{appearance.FontSize} px", Tag = appearance.FontSize });
+            AppFontSize.SelectedIndex = AppFontSize.Items.Count - 1;
+        }
+        _loading = false;
+    }
+
+    private void Appearance_Changed(object sender, SelectionChangedEventArgs e) => Edited();
 
     // ─── Terminal ─────────────────────────────────────────────────────────
 
@@ -298,10 +344,28 @@ public partial class SettingsPage : UserControl
             return;
         }
 
+        _savedHostPassword = _secrets.Read(SecretNames.DefaultHostPassword) ?? DnnDefaultsSettings.DefaultHostPassword;
+        _savedServerPassword = _secrets.Read(SecretNames.DatabaseServerPassword) ?? "";
+        _resetPending = false;
+        ShowSettings(saved, _savedHostPassword, _savedServerPassword, _startsAtSignIn);
+
+        _savedForm = FormSnapshot();
+        ShowError(null);
+        SetDirty(false);
+    }
+
+    /// <summary>
+    /// Fills the form with <paramref name="settings"/> and the passwords that go with them; the start at sign-in box
+    /// with <paramref name="startAtSignIn"/> unless that isn't known yet.
+    /// </summary>
+    private void ShowSettings(UserSettings settings, string hostPassword, string serverPassword, bool? startAtSignIn)
+    {
+        var saved = settings;
         ShowTheme(saved.Appearance.Theme);
+        ShowAppearance(saved.Appearance);
         ShowTerminal(saved.Terminal);
         _loading = true;
-        if (_startsAtSignIn is { } starts) StartAtSignIn.IsChecked = starts;
+        if (startAtSignIn is { } starts) StartAtSignIn.IsChecked = starts;
         var p = saved.Projects;
         var sql = saved.SqlServer;
         var docker = saved.Docker;
@@ -310,9 +374,6 @@ public partial class SettingsPage : UserControl
         HostnameSuffix.Text = p.HostnameSuffix;
         ReleaseApis.Text = string.Join(Environment.NewLine, p.DnnReleaseSources);
         KeepDnnPackages.IsChecked = p.KeepDnnPackages;
-        ContainerIp.Text = sql.Host;
-        DefaultPort.Text = sql.Port.ToString();
-        SaPassword.Password = sql.SaPassword;
         ContainerName.Text = docker.ContainerName;
         VolumeName.Text = docker.VolumeName;
         MssqlPid.Text = docker.Edition;
@@ -327,15 +388,34 @@ public partial class SettingsPage : UserControl
         WebsiteName.Text = dnn.WebsiteName;
         Select(DnnLanguage, dnn.Language);
         Select(DnnTemplate, dnn.Template);
-        _savedHostPassword = _secrets.Read(SecretNames.DefaultHostPassword) ?? DnnDefaultsSettings.DefaultHostPassword;
-        HostPassword.Password = _savedHostPassword;
-        _profiles = p.DatabaseProfiles.Select(profile => profile.Copy()).ToList();
-        ShowProfiles(p.DefaultDatabaseProfile);
+        ShowKeepWarm(p.KeepWarm);
+        HostPassword.Password = hostPassword;
+        ShowServer(sql);
+        ServerPassword.Password = serverPassword;
         _loading = false;
+    }
 
-        _savedForm = FormSnapshot();
-        ShowError(null);
-        SetDirty(false);
+    // ─── Reset to defaults ────────────────────────────────────────────────
+
+    /// <summary>
+    /// The form shows the defaults (Reset to defaults) and Save is to write them - all of settings.json, the keys this
+    /// page doesn't show too - until it is saved or discarded.
+    /// </summary>
+    private bool _resetPending;
+
+    private void ResetDefaults_Click(object sender, RoutedEventArgs e)
+    {
+        if (!Dialogs.Confirm(
+                "Put every setting back to its default, as DNN Manager is installed?" + Environment.NewLine + Environment.NewLine +
+                "The defaults are filled in here first: Save keeps them (the current settings.json is copied to the backups " +
+                "folder), Discard changes takes them back. The saved DNN host password and database login go too, and DNN " +
+                "Manager stops starting at sign-in. Your projects aren't touched.",
+                "Reset to defaults", "Cancel"))
+            return;
+        ShowSettings(new UserSettings(), DnnDefaultsSettings.DefaultHostPassword, serverPassword: "", startAtSignIn: false);
+        _resetPending = true;
+        Edited();
+        Toast.Show("The defaults are filled in - Save to keep them, or Discard changes.", ToastKind.Info);
     }
 
     /// <summary>
@@ -346,7 +426,7 @@ public partial class SettingsPage : UserControl
     {
         if (_loading || !Form.IsEnabled) return;
         var startChanged = _startsAtSignIn is { } starts && (StartAtSignIn.IsChecked == true) != starts;
-        SetDirty(startChanged || FormSnapshot() != _savedForm);
+        SetDirty(startChanged || _resetPending || FormSnapshot() != _savedForm);
     }
 
     /// <summary>Every value on the form as it would be saved, in one string - to tell whether anything differs.</summary>
@@ -356,13 +436,14 @@ public partial class SettingsPage : UserControl
         return string.Join('\u001f',
             BaseDirectory.Text.Trim(), SitePort.Text.Trim(), HostnameSuffix.Text.Trim().Trim('.'),
             string.Join('\n', ReleaseApis.Text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)),
-            KeepDnnPackages.IsChecked == true, ContainerIp.Text.Trim(), DefaultPort.Text.Trim(), SaPassword.Password,
+            KeepDnnPackages.IsChecked == true, ServerSnapshot(),
             ContainerName.Text.Trim(), VolumeName.Text.Trim(), MssqlPid.Text.Trim(), Collation.Text.Trim(),
-            SsmsRememberPassword.IsChecked == true, ChosenTheme, SaveResourcesWhileMinimized.IsChecked == true,
+            SsmsRememberPassword.IsChecked == true, ChosenTheme, ChosenUiScale, ChosenFontSize, SaveResourcesWhileMinimized.IsChecked == true,
             terminal.Enabled, terminal.DefaultShell, terminal.FontFamily, terminal.FontSize,
             InstallAutomatic.IsChecked == true, HostUsername.Text.Trim(), HostPassword.Password, HostEmail.Text.Trim(), WebsiteName.Text.Trim(),
             (DnnLanguage.SelectedItem as ComboBoxItem)?.Tag, (DnnTemplate.SelectedItem as ComboBoxItem)?.Tag,
-            string.Join(',', _profiles.Select(profile => profile.Id)), (DefaultDatabaseProfile.SelectedItem as ProfileChoice)?.Id);
+            (KeepWarmInterval.SelectedItem as ComboBoxItem)?.Tag, KeepWarmSettings.NormalizePath(KeepWarmPingPath.Text),
+            KeepWarmSettings.NormalizePath(KeepWarmWarmUpPath.Text));
     }
 
     /// <summary>The form has edits that aren't saved - leaving the page would lose them.</summary>
@@ -376,6 +457,12 @@ public partial class SettingsPage : UserControl
         DiscardButton.Visibility = dirty ? Visibility.Visible : Visibility.Collapsed;
         StatusText.Text = dirty ? "You have unsaved changes." : "";
         StatusText.SetResourceReference(TextBlock.ForegroundProperty, "LogWarn");
+        // The Docker and database server cards work with the saved settings - not with edits that aren't saved yet.
+        foreach (var (card, hint) in new (FrameworkElement, FrameworkElement)[] { (DockerCard, DockerSaveFirst), (SqlCard, SqlSaveFirst) })
+        {
+            card.IsEnabled = !dirty;
+            hint.Visibility = dirty ? Visibility.Visible : Visibility.Collapsed;
+        }
     }
 
     private async void Save_Click(object sender, RoutedEventArgs e) => await SaveAsync();
@@ -395,8 +482,9 @@ public partial class SettingsPage : UserControl
         UserSettings settings;
         try
         {
-            // Start from the file, so keys this page doesn't edit (theme, IIS features, table columns…) stay as they are.
-            settings = _store.Read();
+            // Start from the file, so keys this page doesn't edit (IIS features, table columns…) stay as they are - or,
+            // after Reset to defaults, from the defaults, so those go back too.
+            settings = _resetPending ? new UserSettings() : _store.Read();
         }
         catch (SettingsException ex)
         {
@@ -427,6 +515,9 @@ public partial class SettingsPage : UserControl
 
         try
         {
+            // A reset starts over: the file as it was is kept in the backups folder, and keys it had that this version
+            // doesn't know go too.
+            if (_resetPending) _store.ResetToDefaults();
             _store.Save(settings);
         }
         catch (Exception ex) when (ex is SettingsException or IOException or UnauthorizedAccessException)
@@ -438,8 +529,14 @@ public partial class SettingsPage : UserControl
 
         _live.Apply(settings);
         ThemeManager.Initialize(settings.Appearance.Theme);
+        ThemeManager.ApplyLayout(settings.Appearance.UiScale, settings.Appearance.FontSize);
         _terminal.Apply(settings.Terminal);
         var secretsSaved = SaveSecrets(settings);
+        _resetPending = false;
+        // What another connection type's fields still show wasn't saved - show what is.
+        _loading = true;
+        ShowServer(settings.SqlServer);
+        _loading = false;
         _savedForm = FormSnapshot();
         ShowError(null);
         SetDirty(false);
@@ -447,15 +544,20 @@ public partial class SettingsPage : UserControl
     }
 
     /// <summary>
-    /// The secrets that go with the saved settings, in the Windows Credential Manager: the default host password as the
-    /// form has it, and no password left behind for a removed profile. False (with a toast) when Windows refused.
+    /// The secrets that go with the saved settings, in the Windows Credential Manager: the default host password, and the
+    /// database server login's password when SQL Server authentication is what is saved. False (with a toast) when
+    /// Windows refused.
     /// </summary>
     private bool SaveSecrets(UserSettings settings)
     {
         var password = HostPassword.Password;
-        if (password != _savedHostPassword)
+        // Reset to defaults: no password of its own - the built-in default applies, as on a new install.
+        var useDefault = _resetPending && password == DnnDefaultsSettings.DefaultHostPassword;
+        if (password != _savedHostPassword || useDefault)
         {
-            var stored = password.Length > 0 ? _secrets.Write(SecretNames.DefaultHostPassword, password) : _secrets.Delete(SecretNames.DefaultHostPassword);
+            var stored = password.Length > 0 && !useDefault
+                ? _secrets.Write(SecretNames.DefaultHostPassword, password)
+                : _secrets.Delete(SecretNames.DefaultHostPassword);
             if (!stored.Success)
             {
                 Toast.Show($"The other settings are saved, but the host password isn't: {stored.Error}", ToastKind.Error);
@@ -463,9 +565,19 @@ public partial class SettingsPage : UserControl
             }
             _savedHostPassword = password;
         }
-        var kept = settings.Projects.DatabaseProfiles.Select(profile => profile.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var removed in _options.DatabaseProfiles.Where(profile => !kept.Contains(profile.Id)).ToList())
-            _secrets.Delete(SecretNames.DatabaseProfilePassword(removed.Id));
+        var serverPassword = ServerPassword.Password;
+        if ((UsesLogin(settings.SqlServer) || _resetPending) && serverPassword != _savedServerPassword)
+        {
+            var stored = serverPassword.Length > 0
+                ? _secrets.Write(SecretNames.DatabaseServerPassword, serverPassword)
+                : _secrets.Delete(SecretNames.DatabaseServerPassword);
+            if (!stored.Success)
+            {
+                Toast.Show($"The other settings are saved, but the database server's password isn't: {stored.Error}", ToastKind.Error);
+                return false;
+            }
+            _savedServerPassword = serverPassword;
+        }
         return true;
     }
 
@@ -490,7 +602,9 @@ public partial class SettingsPage : UserControl
     {
         if (!int.TryParse(SitePort.Text.Trim(), out var sitePort))
             return ("Site port must be a number between 1 and 65535.", "Projects");
-        if (!int.TryParse(DefaultPort.Text.Trim(), out var sqlPort))
+        var serverType = ChosenServerType;
+        var sqlPort = 0;
+        if (serverType == SqlServerSettings.ContainerType && !int.TryParse(DefaultPort.Text.Trim(), out sqlPort))
             return ("Port must be a number between 1 and 65535.", "Sql");
 
         var p = settings.Projects;
@@ -501,11 +615,31 @@ public partial class SettingsPage : UserControl
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
         p.KeepDnnPackages = KeepDnnPackages.IsChecked == true;
+        p.KeepWarm = new KeepWarmSettings
+        {
+            PingMinutes = (KeepWarmInterval.SelectedItem as ComboBoxItem)?.Tag as int? ?? p.KeepWarm.PingMinutes,
+            PingPath = KeepWarmSettings.NormalizePath(KeepWarmPingPath.Text),
+            WarmUpPath = KeepWarmSettings.NormalizePath(KeepWarmWarmUpPath.Text)
+        };
 
+        // Only the chosen connection type's fields - the others keep what is saved.
         var sql = settings.SqlServer;
-        sql.Host = ContainerIp.Text.Trim();
-        sql.Port = sqlPort;
-        sql.SaPassword = SaPassword.Password;
+        sql.Type = serverType;
+        if (serverType == SqlServerSettings.ContainerType)
+        {
+            sql.Host = ContainerIp.Text.Trim();
+            sql.Port = sqlPort;
+            sql.SaPassword = SaPassword.Password;
+        }
+        else
+        {
+            sql.Server = ServerName.Text.Trim();
+        }
+        if (serverType == "sqlServer")
+        {
+            sql.Authentication = SqlAuth.IsChecked == true ? "sql" : "windows";
+            if (SqlAuth.IsChecked == true) sql.UserName = ServerUserName.Text.Trim();
+        }
 
         var docker = settings.Docker;
         docker.ContainerName = ContainerName.Text.Trim();
@@ -524,11 +658,11 @@ public partial class SettingsPage : UserControl
         };
         if (HostPassword.Password.Length > 0 && DnnAccountRules.PasswordProblem(HostPassword.Password) is { } passwordProblem)
             return ($"Host password: {passwordProblem}", "Projects");
-        p.DatabaseProfiles = _profiles.Select(profile => profile.Copy()).ToList();
-        p.DefaultDatabaseProfile = (DefaultDatabaseProfile.SelectedItem as ProfileChoice)?.Id ?? DatabaseProfileSettings.ContainerId;
 
         settings.Ssms.RememberPassword = SsmsRememberPassword.IsChecked == true;
         settings.Appearance.Theme = ChosenTheme;
+        settings.Appearance.UiScale = ChosenUiScale;
+        settings.Appearance.FontSize = ChosenFontSize;
         settings.Window.SaveResourcesWhileMinimized = SaveResourcesWhileMinimized.IsChecked == true;
         settings.Terminal = ChosenTerminal;
         return (null, null);
@@ -541,10 +675,6 @@ public partial class SettingsPage : UserControl
         if (Directory.Exists(BaseDirectory.Text)) dialog.InitialDirectory = BaseDirectory.Text;
         if (dialog.ShowDialog(Window.GetWindow(this)) == true) BaseDirectory.Text = dialog.FolderName;
     }
-
-    private void OpenFile_Click(object sender, RoutedEventArgs e) => SettingsStartup.OpenInEditor(_store.FilePath);
-
-    private void OpenFolder_Click(object sender, RoutedEventArgs e) => OpenFolder(Path.GetDirectoryName(_store.FilePath)!);
 
     private void OpenListedFolder_Click(object sender, RoutedEventArgs e)
     {
@@ -571,44 +701,123 @@ public partial class SettingsPage : UserControl
         ShowDefaultsHint();
     }
 
-    // ─── DNN defaults and database profiles ───────────────────────────────
+    // ─── Database server ──────────────────────────────────────────────────
 
-    /// <summary>A database New project can start with: the local container or a saved profile.</summary>
-    private sealed record ProfileChoice(string Id, string Name);
+    /// <summary>"container", "sqlServer" or "localDbFile", as the connection type radios have it.</summary>
+    private string ChosenServerType =>
+        (new[] { ServerContainer, ServerSqlServer, ServerLocalDb }.FirstOrDefault(r => r.IsChecked == true)?.Tag as string)
+        ?? SqlServerSettings.ContainerType;
 
-    /// <summary>A saved profile in the list, with what it connects to in words.</summary>
-    public sealed record ProfileRow(DatabaseProfileSettings Profile)
+    private static bool UsesLogin(SqlServerSettings sql) =>
+        sql.Type.Equals("sqlServer", StringComparison.OrdinalIgnoreCase) && sql.UsesSqlAuthentication;
+
+    /// <summary>The server's default for a connection type that has none saved.</summary>
+    private static string DefaultServer(string type) => type == "localDbFile" ? DatabaseConnection.LocalDbServer : @".\SQLEXPRESS";
+
+    /// <summary>Fills the database server fields with <paramref name="sql"/> - on loading, and after saving.</summary>
+    private void ShowServer(SqlServerSettings sql)
     {
-        public string Name => Profile.Name;
-
-        public string Summary =>
-            (Profile.Type.Equals("localDbFile", StringComparison.OrdinalIgnoreCase) ? "SQL Server Express LocalDB (file)" : "SQL Server") +
-            $" · {Profile.Server} · " +
-            (Profile.Authentication.Equals("sql", StringComparison.OrdinalIgnoreCase) ? $"SQL Server authentication ({Profile.UserName})" : "Windows authentication");
+        var type = SqlServerSettings.Types.FirstOrDefault(t => t.Equals(sql.Type, StringComparison.OrdinalIgnoreCase)) ?? SqlServerSettings.ContainerType;
+        ServerContainer.IsChecked = type == SqlServerSettings.ContainerType;
+        ServerSqlServer.IsChecked = type == "sqlServer";
+        ServerLocalDb.IsChecked = type == "localDbFile";
+        ContainerIp.Text = sql.Host;
+        DefaultPort.Text = sql.Port.ToString();
+        SaPassword.Password = sql.SaPassword;
+        // The saved server belongs to the type it fits; the other type starts from its default.
+        var savedFor = sql.Server.Trim().StartsWith("(localdb)", StringComparison.OrdinalIgnoreCase) ? "localDbFile" : "sqlServer";
+        _serverText.Clear();
+        _serverText[savedFor] = sql.Server;
+        _serverType = type;
+        ServerName.Text = type == SqlServerSettings.ContainerType ? sql.Server : _serverText.GetValueOrDefault(type) ?? DefaultServer(type);
+        WindowsAuth.IsChecked = !sql.UsesSqlAuthentication;
+        SqlAuth.IsChecked = sql.UsesSqlAuthentication;
+        ServerUserName.Text = sql.UserName;
+        ServerPassword.Password = _savedServerPassword;
+        ShowServerFields();
     }
 
-    private void ShowProfiles(string defaultId)
+    /// <summary>
+    /// The chosen connection type and only its fields, for telling whether anything changed - trying another type and
+    /// going back leaves nothing to save.
+    /// </summary>
+    private string ServerSnapshot()
     {
-        DatabaseProfiles.ItemsSource = _profiles.Select(profile => new ProfileRow(profile)).ToList();
-        NoProfiles.Visibility = _profiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        var choices = new List<ProfileChoice> { new(DatabaseProfileSettings.ContainerId, "Local SQL container (Docker)") };
-        choices.AddRange(_profiles.Select(profile => new ProfileChoice(profile.Id, profile.Name)));
-        DefaultDatabaseProfile.ItemsSource = choices;
-        DefaultDatabaseProfile.SelectedItem = choices.FirstOrDefault(c => c.Id.Equals(defaultId, StringComparison.OrdinalIgnoreCase)) ?? choices[0];
+        var type = ChosenServerType;
+        return type switch
+        {
+            "sqlServer" => string.Join('\u001e', type, ServerName.Text.Trim(), SqlAuth.IsChecked == true,
+                SqlAuth.IsChecked == true ? ServerUserName.Text.Trim() : "", SqlAuth.IsChecked == true ? ServerPassword.Password : ""),
+            "localDbFile" => string.Join('\u001e', type, ServerName.Text.Trim()),
+            _ => string.Join('\u001e', type, ContainerIp.Text.Trim(), DefaultPort.Text.Trim(), SaPassword.Password)
+        };
     }
 
-    private void RemoveProfile_Click(object sender, RoutedEventArgs e)
+    private void ServerType_Checked(object sender, RoutedEventArgs e)
     {
-        if (sender is not FrameworkElement { Tag: ProfileRow row }) return;
-        var defaultId = (DefaultDatabaseProfile.SelectedItem as ProfileChoice)?.Id ?? DatabaseProfileSettings.ContainerId;
-        _profiles.Remove(row.Profile);
+        if (_loading || SqlPanel is null) return; // raised during InitializeComponent
+        var type = ChosenServerType;
+        if (type == _serverType) return;
+        // SQL Server and LocalDB each keep the server typed for them.
         _loading = true;
-        ShowProfiles(defaultId);
+        if (_serverType != SqlServerSettings.ContainerType) _serverText[_serverType] = ServerName.Text;
+        if (type != SqlServerSettings.ContainerType) ServerName.Text = _serverText.GetValueOrDefault(type) ?? DefaultServer(type);
         _loading = false;
+        _serverType = type;
+        ShowServerFields();
         Edited();
     }
 
+    private void Auth_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_loading || SqlPanel is null) return;
+        ShowServerFields();
+        Edited();
+    }
+
+    /// <summary>The fields the chosen connection type has: the container's address and SA password, or the server and its login.</summary>
+    private void ShowServerFields()
+    {
+        var type = ChosenServerType;
+        var sqlServer = type == "sqlServer";
+        ContainerFields.Visibility = type == SqlServerSettings.ContainerType ? Visibility.Visible : Visibility.Collapsed;
+        ServerFields.Visibility = type == SqlServerSettings.ContainerType ? Visibility.Collapsed : Visibility.Visible;
+        AuthFields.Visibility = sqlServer ? Visibility.Visible : Visibility.Collapsed;
+        LoginFields.Visibility = sqlServer && SqlAuth.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        ServerGroupLabel.Text = sqlServer ? "SQL Server" : "LocalDB";
+        ServerLabel.Text = sqlServer ? "Server" : "LocalDB instance";
+        ServerHint.Text = sqlServer
+            ? @"The instance, e.g. .\SQLEXPRESS, localhost or localhost,1433."
+            : $"{DatabaseConnection.LocalDbServer} is the instance every Windows user has. Each site runs its database in the LocalDB of its app pool identity.";
+        AuthHint.Text = SqlAuth.IsChecked == true
+            ? "The login must be able to create a database, or own it when it exists. Its password is kept in the Windows Credential Manager of your account, not in settings.json."
+            : @"Each site signs in as its app pool's identity (IIS APPPOOL\<project>) - DNN Manager creates that login with your Windows account and makes it the database's owner.";
+    }
+
     private void Install_Checked(object sender, RoutedEventArgs e) => Edited();
+
+    // ─── Keep warm ────────────────────────────────────────────────────────
+
+    private void KeepWarm_Changed(object sender, SelectionChangedEventArgs e) => Edited();
+
+    private static ComboBoxItem KeepWarmIntervalItem(int minutes) => new()
+    {
+        Content = KeepWarmRules.Span(TimeSpan.FromMinutes(minutes)) + (minutes == new KeepWarmSettings().PingMinutes ? " (default)" : ""),
+        Tag = minutes
+    };
+
+    private void ShowKeepWarm(KeepWarmSettings keepWarm)
+    {
+        // A value typed into settings.json that the list doesn't have is offered too.
+        if (KeepWarmInterval.Items.OfType<ComboBoxItem>().All(i => i.Tag as int? != keepWarm.PingMinutes))
+        {
+            var index = KeepWarmInterval.Items.OfType<ComboBoxItem>().TakeWhile(i => (int)i.Tag! < keepWarm.PingMinutes).Count();
+            KeepWarmInterval.Items.Insert(index, KeepWarmIntervalItem(keepWarm.PingMinutes));
+        }
+        KeepWarmInterval.SelectedItem = KeepWarmInterval.Items.OfType<ComboBoxItem>().First(i => i.Tag as int? == keepWarm.PingMinutes);
+        KeepWarmPingPath.Text = keepWarm.PingPath;
+        KeepWarmWarmUpPath.Text = keepWarm.WarmUpPath;
+    }
 
     private void Defaults_Changed(object sender, SelectionChangedEventArgs e)
     {

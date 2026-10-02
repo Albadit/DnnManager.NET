@@ -2,6 +2,90 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## v2.4.0 - 2026-10-02
+
+**Sites stay fast**: keep warm stops IIS from shutting an idle DNN site down, so
+its next page opens at once instead of after DNN starting up again. The
+database server is one setting, a **Troubleshoot** page restarts or resets DNN
+Manager, and **Cancel** undoes what an operation had already done.
+
+### Upgrading from v2.3.x
+
+- Install over v2.3.x as usual. The settings are upgraded to version 3 on the
+  first start (see *Database profiles are gone* below); the new keys
+  (`projects.keepWarm`, `appearance.uiScale`, `appearance.fontSize`) are added
+  with their defaults.
+- The **Environment** page moved into **Settings**: **Docker container**,
+  **Database server** and **IIS** each end with a **Test and set up** card.
+- **Clone project** is now **Clone…** on a project's right-click menu.
+
+### Added
+
+- **Keep warm** - the flame in a site's Actions (also on its right-click menu and
+  its overview's **IIS** tab) keeps the site warm while DNN Manager runs,
+  minimized too, so its next page opens at once instead of after DNN starting
+  up again (3-10 s). IIS shuts an idle site's worker process down after its
+  idle time-out (20 minutes by default): DNN Manager requests DNN's own
+  `KeepAlive.aspx` before that - every 5 minutes, sooner for a shorter idle
+  time-out, not while the site is in use - and warms the site up (its home page)
+  as soon as its worker process is gone after a recycle, a crash or IIS starting.
+  No browser and nothing changed in IIS. It holds back while the site or IIS is
+  stopped, an operation runs on it, a debugger is attached (Visual Studio's
+  managed attach too) or the site's SQL container is down; a site that keeps
+  failing or crashing is left alone until **Check now**. Requests never go to
+  DNN's installer, however a page or a redirect is written. The
+  flame shows how it is going (its tooltip: *Enable keep warm* / *Disable keep
+  warm*); the overview shows the idle time-out, interval
+  and pages, and gives a site its own. Defaults in **Settings → Projects → Keep
+  warm** (`projects.keepWarm`). Plain HTTP requests: switching it on asks
+  nothing, and needs no mail server, extension or change in IIS or DNN.
+- **Troubleshoot** (the bug next to the gear) - **Restart** restarts DNN
+  Manager; **Clean up data** deletes what is ticked from `Documents\DnnManager`,
+  each with its size (logs, kept DNN packages, settings copies and - never
+  ticked for you - project backups); **Reset to factory defaults** puts DNN
+  Manager back as it was installed. Projects - their IIS sites, folders and
+  databases - are never touched.
+- **Cancel puts everything back** - what the operation had made is taken away
+  again, the last first (the IIS site and app pool, the database, files and
+  folders, an edited `web.config`), each step shown in **Output**; what can't
+  be put back is named there.
+- **UI scale** (80-175 %) and **font size** (11-18 px) in **Settings →
+  General**, applied at once.
+- **Open with…** lists the installed editors and, in the same submenu, each
+  installed SQL Server Management Studio.
+
+### Changed
+
+- **The database server is a setting, not a choice on New project.** Settings
+  → **Database server** (was *SQL Server*) has the **connection type** new
+  projects get their database on: the *Local SQL container (Docker)*, *SQL
+  Server / SQL Server Express* (server, Windows or SQL Server authentication,
+  login) or a *SQL Server Express LocalDB (file)*. New project has no Database
+  card any more: the database is named like the project and tested on that
+  server before anything is created.
+- **Database profiles are gone** - and **Save as profile…** with them. The
+  settings are upgraded to version 3 on the first start: the profile new
+  projects started with becomes the database server (`sqlServer.type`,
+  `server`, `authentication`, `userName`), its password moves to
+  `DnnManager/database-server/password` in the Windows Credential Manager, and
+  `projects.databaseProfiles` / `projects.defaultDatabaseProfile` are removed
+  with the other profiles' passwords. Existing projects keep their databases.
+- **Efficiency mode also while the window can't be seen** - covered by other
+  windows, on another virtual desktop or behind the lock screen, not only
+  minimized - and it is Windows' own *Efficiency mode* (the leaf in Task
+  Manager). Terminal shells still start at Normal priority.
+- **Bottom panel** - long Output lines wrap at the panel's width; copy and paste
+  are **Ctrl+C** / **Ctrl+V** and the right-click menu on every tab.
+- The Projects table shows the **URL** column by default; the Actions column is
+  tighter.
+- **The README is short** - what DNN Manager is, a quick start and how to build
+  it; the details moved to `docs/user-guide.md` and `docs/development.md`.
+
+### Removed
+
+- The **Environment** and **Clone project** pages - moved into Settings and the
+  project menu.
+
 ## v2.3.0 - 2026-10-01
 
 **New project installs DNN for you**: the first visit shows your new site, signed
@@ -103,7 +187,7 @@ on resources while minimized.
   IIS, with LocalDB (Windows authentication and a database file) and a SQL
   Server container (as sa and as a login of its own) - and check the site, the
   host's sign-in, the database, a restart and changing the password; and that
-  manual setup leaves DNN's wizard. See *Tests* in the README.
+  manual setup leaves DNN's wizard. See *Tests* in docs/development.md.
 
 - **Site tools** - on a site's right-click menu (and a **⋮** on its overview):
   **Clear website cache…** (DNN's cached files and bundled
@@ -293,7 +377,7 @@ restart, and every button, input and switch shares one look.
   itself. Changes made outside
   DNN Manager are noted in the activity log. IIS's state in the status bar is
   now reported by Windows when it changes, instead of being asked for every 2
-  seconds. How it works is in the README under *Live updates*.
+  seconds. How it works is in docs/development.md under *Live updates*.
 - **Projects is a server table.** Check rows (or the header box for every row
   shown) to **Start**, **Stop**, **Restart** or **Remove** them together -
   those buttons appear above the table only while rows are checked, and each
@@ -336,7 +420,7 @@ restart, and every button, input and switch shares one look.
   (e.g. Clone's source project when the projects folder is empty) is greyed
   out. The styles are reusable: one file per
   kind of control in `Themes/Controls`, sharing sizes from `Themes/Tokens.xaml`
-  (see *Control styles* in the README).
+  (see *Control styles* in docs/development.md).
 - **Open with: one submenu with your editors.** The project menu's separate
   *Open in …* entries are now one **Open with** submenu listing only the editors
   installed on the PC. Newly found: IntelliJ IDEA, Zed, Vim and Neovim (their

@@ -2,6 +2,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 
 namespace DnnManager.Infrastructure.Settings;
@@ -53,11 +54,14 @@ public sealed class SettingsStore
 
     private readonly AppDataPaths _paths;
     private readonly string _legacyDirectory;
+    private readonly ISecretStore _secrets;
 
-    public SettingsStore(AppDataPaths paths, string? legacyDirectory = null)
+    /// <param name="secrets">Where an upgrade moves secrets the settings name - the Windows Credential Manager unless given.</param>
+    public SettingsStore(AppDataPaths paths, string? legacyDirectory = null, ISecretStore? secrets = null)
     {
         _paths = paths;
         _legacyDirectory = legacyDirectory ?? AppDataPaths.LegacyDirectory;
+        _secrets = secrets ?? new WindowsCredentialStore();
     }
 
     public string FilePath => _paths.SettingsFile;
@@ -117,7 +121,7 @@ public sealed class SettingsStore
                 var backup = Backup($"settings.v{version}");
                 notices.Add(new(false, $"Upgraded the settings from version {version} to {UserSettings.CurrentVersion} - the previous file is in {backup}."));
             }
-            SettingsMigrations.Apply(root, version);
+            SettingsMigrations.Apply(root, version, _secrets);
             save = true;
         }
 
@@ -154,7 +158,8 @@ public sealed class SettingsStore
     {
         var root = File.Exists(FilePath) ? Parse(ReadText(FilePath), FilePath) : new JsonObject(NodeOptions);
         var version = VersionOf(root, FilePath);
-        if (version < UserSettings.CurrentVersion) SettingsMigrations.Apply(root, version);
+        // Secrets are moved by Load, which saves the upgraded file - not by a read that leaves the file as it is.
+        if (version < UserSettings.CurrentVersion) SettingsMigrations.Apply(root, version, secrets: null);
         AddMissing(root, Serialize(new UserSettings()), "", []);
         return ToSettings(root, FilePath);
     }

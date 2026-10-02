@@ -126,6 +126,7 @@ public sealed class IisExpressSites : IIisManager, IDisposable
     public IReadOnlyDictionary<string, IisSiteRuntime>? GetSiteRuntimes() => new Dictionary<string, IisSiteRuntime>();
 
     public IReadOnlyDictionary<string, SiteTraffic> GetSiteTraffic() => new Dictionary<string, SiteTraffic>();
+    public IReadOnlyDictionary<string, long> GetRequestsServed() => new Dictionary<string, long>();
 
     public IisSiteInfo? GetSiteInfo(string siteName) => null;
 

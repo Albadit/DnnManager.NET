@@ -36,6 +36,7 @@ public sealed class CloneProjectUseCase
     private readonly IIisManager _iis;
     private readonly IisSiteProvisioner _site;
     private readonly ILogger<CloneProjectUseCase> _log;
+    private readonly OperationUndo _undo;
 
     public CloneProjectUseCase(
         IOptions<AppOptions> opts,
@@ -49,7 +50,8 @@ public sealed class CloneProjectUseCase
         ISqlServerService sql,
         IIisManager iis,
         IisSiteProvisioner site,
-        ILogger<CloneProjectUseCase> log)
+        ILogger<CloneProjectUseCase> log,
+        OperationUndo undo)
     {
         _opts = opts.Value;
         _projects = projects;
@@ -63,6 +65,7 @@ public sealed class CloneProjectUseCase
         _iis = iis;
         _site = site;
         _log = log;
+        _undo = undo;
     }
 
     public async Task<Result> ExecuteAsync(CloneProjectRequest req, IProgressReporter reporter, CancellationToken ct)
@@ -76,10 +79,14 @@ public sealed class CloneProjectUseCase
             var hostname = _opts.HostnameFor(req.TargetProjectName);
 
             reporter.Step($"Preparing target project '{req.TargetProjectName}'");
+            // A cancel takes a new target folder away again; files copied over an existing one can't be taken back.
+            var newFolder = !Directory.Exists(project.ProjectDirectory);
+            _undo.DeleteFolderOnUndo(project.ProjectDirectory);
             Directory.CreateDirectory(project.ProjectDirectory);
 
             if (req.CopyFiles)
             {
+                if (!newFolder) _undo.CannotUndo($"the website files copied over the ones in {project.ProjectDirectory}.");
                 reporter.Step("Copying website files");
                 var copy = await _copier.CopyAsync(req.SourceDirectory, project.ProjectDirectory, reporter, ct);
                 if (!copy.Success) return copy;
@@ -96,12 +103,14 @@ public sealed class CloneProjectUseCase
             var siteWebConfig = Path.Combine(project.ProjectDirectory, "web.config");
             if (File.Exists(siteWebConfig))
             {
+                _undo.RestoreFileOnUndo(siteWebConfig);
                 var stripped = _webConfig.RemoveRewriteRules(siteWebConfig);
                 if (stripped.Success) reporter.Info("Removed URL Rewrite rules (not needed locally).");
             }
 
             // Lay down a DNN-tuned .gitignore so the cloned project is ready to commit. Skips silently
             // when the source already shipped one, so a site's own .gitignore is preserved.
+            _undo.RestoreFileOnUndo(Path.Combine(project.ProjectDirectory, ".gitignore"));
             var gitignore = _scaffolder.EnsureGitignore(project.ProjectDirectory);
             if (gitignore.Success)
                 reporter.Info("Project .gitignore ready.");
@@ -160,9 +169,13 @@ public sealed class CloneProjectUseCase
                     reporter.Info($"Local database [{db.DatabaseName}] exists - dropping and recreating.");
                     var drop = await _sql.DropDatabaseAsync(db.DatabaseName, ct);
                     if (!drop.Success) return drop;
+                    _undo.CannotUndo($"local database [{db.DatabaseName}] that was there before was dropped - what was in it is gone.");
                 }
+                // The clone's database, made below (or by the BACPAC import) - dropped again by a cancel.
+                _undo.Add($"Drop database [{db.DatabaseName}]", () => _sql.DropDatabaseAsync(db.DatabaseName, CancellationToken.None));
 
                 var backupFolder = ProjectBackups.NewFolder(project, DateTime.Now);
+                _undo.DeleteFolderOnUndo(backupFolder);
                 Directory.CreateDirectory(backupFolder);
                 var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
 
@@ -170,6 +183,7 @@ public sealed class CloneProjectUseCase
                 {
                     // SqlPackage was already provisioned up front (see the sourceIsAzure check above).
                     var bacpacTmp = Path.Combine(Path.GetTempPath(), $"dnnmanager_clone_{req.TargetProjectName}_{stamp}.bacpac");
+                    _undo.RestoreFileOnUndo(bacpacTmp);
                     var export = await _bacpac.ExportAsync(src, bacpacTmp, reporter, ct);
                     if (!export.Success) return export;
 
@@ -232,6 +246,7 @@ public sealed class CloneProjectUseCase
                 await HostExistingProjectUseCase.DisableSslAsync(_sql, db.DatabaseName, reporter, ct);
 
                 reporter.Step("Rewriting web.config to use local database");
+                _undo.RestoreFileOnUndo(webConfigPath);
                 var newConn = new SiteSqlConnection(db.Server, db.DatabaseName, "sa", _opts.Docker.SaPassword);
                 var write = _webConfig.WriteSiteSqlServer(webConfigPath, newConn);
                 if (!write.Success) return write;

@@ -18,7 +18,11 @@ public interface IProgressReporter
 
 public interface IUserPrompt
 {
-    Task<bool> ConfirmAsync(string question, bool defaultYes = false, CancellationToken ct = default);
+    /// <summary>
+    /// Asks <paramref name="question"/> with two buttons that say what they do - e.g. "Drop database" and "Keep
+    /// database", never a bare Yes / No. True when <paramref name="yes"/> is chosen.
+    /// </summary>
+    Task<bool> ConfirmAsync(string question, string yes, string no, bool defaultYes = false, CancellationToken ct = default);
 }
 
 public interface IProjectRepository
@@ -125,6 +129,12 @@ public interface IIisManager
     /// </summary>
     IReadOnlyDictionary<string, SiteTraffic> GetSiteTraffic();
 
+    /// <summary>
+    /// How many requests each site has served since IIS started, from IIS's own counters - all of them in one read.
+    /// Empty when the counters aren't there or can't be read.
+    /// </summary>
+    IReadOnlyDictionary<string, long> GetRequestsServed();
+
     /// <summary>A site's details for the project details view, or null when there is no such site.</summary>
     IisSiteInfo? GetSiteInfo(string siteName);
 
@@ -173,6 +183,12 @@ public sealed record IisSiteRuntime(
     public IReadOnlyList<int> Ports { get; } = Bindings.Select(b => b.Port).OfType<int>().Distinct().Order().ToList();
 
     /// <summary>
+    /// How long its app pool's worker process may go without a request before IIS shuts it down (20 minutes by
+    /// default); zero when it never does, null when it isn't known.
+    /// </summary>
+    public TimeSpan? IdleTimeout { get; init; }
+
+    /// <summary>
     /// Where a browser opens it: an https binding with a certificate first, then an http one, then an https one
     /// without a certificate - each with a host name before one without. Null for a site without web bindings.
     /// </summary>
@@ -188,7 +204,7 @@ public sealed record IisSiteRuntime(
     /// <summary>The same site in the same state - the lists compared by what is in them.</summary>
     public bool SameAs(IisSiteRuntime? other) =>
         other is not null && Id == other.Id && State == other.State && AppPool == other.AppPool &&
-        AppPoolState == other.AppPoolState && PhysicalPath == other.PhysicalPath &&
+        AppPoolState == other.AppPoolState && PhysicalPath == other.PhysicalPath && IdleTimeout == other.IdleTimeout &&
         Bindings.SequenceEqual(other.Bindings) && WorkerProcessIds.SequenceEqual(other.WorkerProcessIds);
 }
 

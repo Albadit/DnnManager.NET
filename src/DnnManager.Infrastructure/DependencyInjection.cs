@@ -28,6 +28,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ProcessRunner>();
         services.AddSingleton<IProjectRepository, FileSystemProjectRepository>();
         services.AddSingleton<IProjectRecords, ProjectRecords>();
+        services.AddSingleton<IKeepWarmRecords, KeepWarmRecords>();
         services.AddSingleton<IIisManager, IisManager>();
         services.AddSingleton<ISqlServerService, SqlServerService>();
         services.AddSingleton<IDockerComposeService, DockerComposeService>();
@@ -46,6 +47,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<HostResourceMonitor>();
         services.AddSingleton<ProcessSampler>();
         services.AddSingleton<StartupTask>();
+        services.AddSingleton<AppDataCleaner>();
 
         // What keeps the Projects page current without a Refresh: the monitor, and the things in Windows that tell it
         // when to look again (see ServerStateMonitor).
@@ -61,6 +63,9 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IChangeSource>(_ => new EventLogSource(ChangeKind.Iis, "IIS's events", "System",
             "*[System[Provider[@Name='Microsoft-Windows-WAS' or @Name='Microsoft-Windows-IIS-W3SVC']]]"));
         services.AddSingleton<ServerStateMonitor>();
+        services.AddSingleton<IServerStateFeed>(sp => sp.GetRequiredService<ServerStateMonitor>());
+        // Keeps the sites switched to "keep warm" warm while DNN Manager runs - it follows the monitor.
+        services.AddSingleton<KeepWarm.KeepWarmService>();
         services.AddSingleton<SiteLogs.SiteLogCatalog>();
 
         services.AddHttpClient<IDnnReleaseService, GitHubDnnReleaseService>();

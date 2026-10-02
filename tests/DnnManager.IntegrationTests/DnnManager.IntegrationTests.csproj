@@ -4,7 +4,7 @@
     Tests for DNN Manager. The fast ones run anywhere; the ones in TestCategory "Integration" install clean DNN sites
     and need IIS Express, SQL Server Express LocalDB and (for SQL authentication) Docker - each says "inconclusive"
     when its prerequisite is missing. Run them all with "dotnet test tests\DnnManager.IntegrationTests"; the fast ones only
-    with the filter TestCategory!=Integration (see README.md, Tests).
+    with the filter TestCategory!=Integration (see docs/development.md, Tests).
   -->
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>

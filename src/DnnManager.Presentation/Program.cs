@@ -21,6 +21,9 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        // Restarted (Troubleshoot): the previous DNN Manager is still closing - wait for it, or the check below finds it.
+        args = AppRestart.WaitForPrevious(args);
+
         // Only one DNN Manager at a time: a second start shows the open window instead - checked before elevating,
         // so it doesn't ask for Administrator rights first.
         if (SingleInstance.HandOffToRunning()) return 0;
@@ -57,6 +60,7 @@ internal static class Program
         if (loaded is null) return 1;
         var startupNotices = loaded.Notices.ToList();
         ThemeManager.Initialize(loaded.Settings.Appearance.Theme);
+        ThemeManager.ApplyLayout(loaded.Settings.Appearance.UiScale, loaded.Settings.Appearance.FontSize);
 
         // No default configuration sources: the settings come from settings.json above, with only the
         // DNNMANAGER_* environment variables on top.
@@ -99,7 +103,9 @@ internal static class Program
             var window = host.Services.GetRequiredService<MainWindow>();
             app.MainWindow = window;
             app.ShutdownMode = ShutdownMode.OnMainWindowClose;
-            return app.Run(window);
+            var exitCode = app.Run(window);
+            if (AppRestart.Requested) AppRestart.StartNew();
+            return exitCode;
         }
         catch (Exception ex)
         {

@@ -60,7 +60,7 @@ public sealed record DatabaseConnection(
             : $"[{Database}] on {Server} ({who})";
     }
 
-    /// <summary>The kind of connection in words, as the overview and the new-project page name it.</summary>
+    /// <summary>The kind of connection in words, as the overview and the settings name it.</summary>
     public string KindText => Kind switch
     {
         DatabaseKind.Container => "Local SQL container (Docker)",
@@ -101,7 +101,11 @@ public sealed record DatabaseCheckReport(IReadOnlyList<DatabaseCheck> Checks)
 /// or that it can be created. Null to skip.
 /// </param>
 /// <param name="MinimumMajorVersion">The oldest SQL Server the DNN version supports (14 = SQL Server 2017 for DNN 10).</param>
-public sealed record DatabaseCheckOptions(bool ForNewInstall, string? SiteLogin = null, int MinimumMajorVersion = 14);
+/// <param name="ServerOnly">
+/// Only the server (Settings → Database server): reachable, signed in, the version, and whether the login may create the
+/// databases new projects get - no particular database, so the connection's database name isn't needed.
+/// </param>
+public sealed record DatabaseCheckOptions(bool ForNewInstall, string? SiteLogin = null, int MinimumMajorVersion = 14, bool ServerOnly = false);
 
 /// <summary>Creates, checks, grants and drops site databases on any SQL Server - with SqlClient, not the container's tools.</summary>
 public interface IDatabaseProvisioner
@@ -133,7 +137,7 @@ public interface IDatabaseProvisioner
 public sealed record DnnHostAccount(int UserId, string UserName, string Email);
 
 /// <summary>
-/// Secrets DNN Manager keeps between runs (the default host password, database profile passwords) - in the Windows
+/// Secrets DNN Manager keeps between runs (the default host password, the database server login's password) - in the Windows
 /// Credential Manager of the signed-in user, never in settings.json.
 /// </summary>
 public interface ISecretStore
@@ -152,7 +156,11 @@ public static class SecretNames
 {
     public const string DefaultHostPassword = "dnn-defaults/host-password";
 
-    public static string DatabaseProfilePassword(string profileId) => $"database-profile/{profileId}";
+    /// <summary>The password of the SQL Server login new projects use (Settings → Database server, SQL Server authentication).</summary>
+    public const string DatabaseServerPassword = "database-server/password";
+
+    /// <summary>Where DNN Manager 2.3.0 kept a database profile's password - moved or removed when the settings are upgraded.</summary>
+    public static string LegacyDatabaseProfilePassword(string profileId) => $"database-profile/{profileId}";
 }
 
 /// <summary>

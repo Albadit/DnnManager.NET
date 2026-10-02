@@ -5,6 +5,7 @@ using System.Windows.Input;
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Application.UseCases;
+using DnnManager.Domain;
 using DnnManager.Infrastructure.SiteLogs;
 using DnnManager.Presentation.Controls;
 using DnnManager.Presentation.Services;
@@ -14,7 +15,7 @@ using Microsoft.Extensions.Options;
 namespace DnnManager.Presentation.Pages.Projects;
 
 /// <summary>
-/// The Projects table's right-click menu: the row's start / stop actions, then the less frequent ones - its
+/// The Projects table's right-click menu: the row's start / stop actions and keep warm, then the less frequent ones - its
 /// overview, open (site, folder, IDE, SSMS), the site's tools (clear its cache, its logs), export and remove. The
 /// site's tools are also the row's ⋮ button and the overview's (<see cref="ShowSiteTools"/>).
 /// </summary>
@@ -25,14 +26,16 @@ internal sealed class ProjectMenu
     private readonly Action<SiteAction, ProjectRow> _control;
     private readonly Action<ProjectRow> _remove;
     private readonly Action<ProjectRow> _open;
+    private readonly Action<ProjectRow> _keepWarm;
 
     /// <param name="control">Starts, stops or restarts the row's site - the page's row actions.</param>
     /// <param name="remove">Removes the row's project - the page's row action.</param>
     /// <param name="open">Opens the row's overview (ProjectView).</param>
+    /// <param name="keepWarm">Switches keep warm on or off for the row's site - the page's flame.</param>
     public ProjectMenu(IServiceProvider services, OperationRunner runner, Action<SiteAction, ProjectRow> control,
-        Action<ProjectRow> remove, Action<ProjectRow> open)
+        Action<ProjectRow> remove, Action<ProjectRow> open, Action<ProjectRow> keepWarm)
     {
-        _services = services; _runner = runner; _control = control; _remove = remove; _open = open;
+        _services = services; _runner = runner; _control = control; _remove = remove; _open = open; _keepWarm = keepWarm;
     }
 
     /// <summary>Fills <paramref name="menu"/> for <paramref name="row"/>; the IDE entries depend on what is installed.</summary>
@@ -45,9 +48,15 @@ internal sealed class ProjectMenu
             menu.Items.Add(Item("Stop", (_, _) => _control(SiteAction.Stop, row), row.CanStop));
             menu.Items.Add(Item("Restart", (_, _) => _control(SiteAction.Restart, row), row.CanRestart));
         }
-        if (menu.Items.Count > 0) menu.Items.Add(new Separator());
+        var keepWarm = Item(row.KeepWarmAction, (_, _) => _keepWarm(row), row.CanToggleKeepWarm);
+        keepWarm.ToolTip = row.KeepWarmOn ? row.KeepWarmText : row.KeepWarmUnavailable;
+        menu.Items.Add(keepWarm);
+        menu.Items.Add(new Separator());
 
-        var open = Item("Open", (_, _) => _open(row));
+        menu.Items.Add(OpenWithMenu(row));
+        menu.Items.Add(new Separator());
+
+        var open = Item("Details…", (_, _) => _open(row));
         open.FontWeight = FontWeights.SemiBold;
         menu.Items.Add(open);
         menu.Items.Add(Item("Open site", (_, _) => Shell(row.Url), row.HasUrl));
@@ -59,42 +68,79 @@ internal sealed class ProjectMenu
         menu.Items.Add(new Separator());
         AddSiteTools(menu.Items, _services, row);
         menu.Items.Add(new Separator());
+        menu.Items.Add(Item("Clone…", (_, _) => Clone(row), Directory.Exists(row.Path) && !_runner.IsBusy));
+        menu.Items.Add(ExportMenu(row));
+        menu.Items.Add(Item("Remove…", (_, _) => _remove(row), row.CanRemove));
+    }
 
-        // One submenu with the editors found on this PC - nothing listed that isn't installed.
-        var ides = IdeLocator.Installed;
-        var openWith = new MenuItem { Header = "Open with" };
-        if (ides.Count == 0)
-        {
-            openWith.IsEnabled = false;
-            openWith.ToolTip = "No code editor or IDE found on this PC.";
-        }
+    /// <summary>
+    /// "Open with…": the code editors and IDEs found on this PC for the project's folder, then SQL Server Management
+    /// Studio for its database - nothing listed that isn't installed.
+    /// </summary>
+    private MenuItem OpenWithMenu(ProjectRow row)
+    {
+        var openWith = new MenuItem { Header = "Open with…" };
         var solution = IdeLocator.SolutionFor(row.Path);
-        foreach (var ide in ides)
+        foreach (var ide in IdeLocator.Installed)
         {
             var header = ide.Name + (ide.OpensSolution && solution is not null ? $"  ({System.IO.Path.GetFileName(solution)})" : "");
             var item = Item(header, (_, _) => OpenInIde(ide, row));
             item.ToolTip = ide.ExePath;
             openWith.Items.Add(item);
         }
-        menu.Items.Add(openWith);
-        if (IdeLocator.ManagementStudios.Count > 0)
+
+        var studios = IdeLocator.ManagementStudios;
+        if (studios.Count > 0)
         {
+            if (openWith.Items.Count > 0) openWith.Items.Add(new Separator());
             var projectDatabase = ProjectDatabaseName(row);
-            foreach (var ssms in IdeLocator.ManagementStudios)
+            foreach (var ssms in studios)
             {
                 // Default: the local SQL Server as sa. Project: this project's database with its own login.
                 // Whether SSMS remembers the password is the SsmsRememberPassword setting.
-                var item = new MenuItem { Header = $"Open with {ssms.Name}", ToolTip = ssms.ExePath };
+                var item = new MenuItem { Header = ssms.Name, ToolTip = ssms.ExePath };
                 item.Items.Add(Item("Default  (local SQL Server, sa)", (_, _) => OpenDatabase(ssms, row, project: false)));
                 item.Items.Add(Item(projectDatabase is null ? "Project database" : $"Project  ([{projectDatabase}])",
                     (_, _) => OpenDatabase(ssms, row, project: true)));
-                menu.Items.Add(item);
+                openWith.Items.Add(item);
             }
         }
 
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ExportMenu(row));
-        menu.Items.Add(Item("Remove…", (_, _) => _remove(row), row.CanRemove));
+        if (openWith.Items.Count == 0)
+        {
+            openWith.IsEnabled = false;
+            openWith.ToolTip = "No code editor, IDE or SQL Server Management Studio found on this PC.";
+        }
+        return openWith;
+    }
+
+    /// <summary>
+    /// "Clone…": a copy of the project - its files, its database restored from a backup of it, and an IIS website of its
+    /// own - under the name asked for here.
+    /// </summary>
+    private async void Clone(ProjectRow row)
+    {
+        var projects = _services.GetRequiredService<IProjectRepository>();
+        string? Problem(string name) =>
+            ProjectName.Validate(name) is { Success: false } invalid ? invalid.Error
+            : projects.ProjectExists(name) ? $"A project named '{name}' already exists."
+            : null;
+        // "shop_copy", or "shop_copy2"… when that is taken.
+        var suggested = $"{row.Name}_copy";
+        for (var n = 2; Problem(suggested) is not null && n < 100; n++) suggested = $"{row.Name}_copy{n}";
+
+        if (InputDialog.Show($"Clone '{row.Name}' - its files, its database and an IIS website of its own - as a new project named:",
+                suggested, "Clone", Problem) is not { } target)
+            return;
+        var request = new CloneProjectRequest
+        {
+            TargetProjectName = target,
+            SourceDirectory = row.Path,
+            SourceBackupServerPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"dnnmanager_clone_{target}_{DateTime.Now:yyyyMMddHHmmss}.bak"),
+            CreateIisSite = true
+        };
+        await _runner.RunAsync($"Clone '{row.Name}' → '{target}'",
+            (sp, reporter, ct) => sp.GetRequiredService<CloneProjectUseCase>().ExecuteAsync(request, reporter, ct));
     }
 
     // ─── The site's tools (⋮) ─────────────────────────────────────────────
@@ -157,7 +203,7 @@ internal sealed class ProjectMenu
     }
 
 
-    private static void OpenFolder(ProjectRow row)
+    public static void OpenFolder(ProjectRow row)
     {
         if (Directory.Exists(row.Path)) Shell(row.Path);
         else Dialogs.Error($"The project folder no longer exists: {row.Path}");
@@ -265,7 +311,7 @@ internal sealed class ProjectMenu
                 else
                 {
                     log.Warn($"Can't log in to {database.Server} as '{database.User}': {server.Error} " +
-                             "Check the password in the site's web.config (or Settings → SQL Server for the local container).");
+                             "Check the password in the site's web.config (or Settings → Database server for the local container).");
                 }
             }
 

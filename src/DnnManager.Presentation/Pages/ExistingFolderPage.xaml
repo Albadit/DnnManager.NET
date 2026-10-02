@@ -49,7 +49,7 @@
                             <DataTemplate>
                                 <StackPanel Margin="6,4">
                                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="IisText" Text="{Binding Iis}" Foreground="{DynamicResource TextMuted}" FontSize="12" />
+                                    <TextBlock x:Name="IisText" Text="{Binding Iis}" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextCaption}" />
                                 </StackPanel>
                                 <!-- Same colours as the Projects table: Live green, Offline red, no site muted. -->
                                 <DataTemplate.Triggers>
@@ -69,7 +69,8 @@
             </Border>
 
             <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
-                <StackPanel>
+                <!-- As wide as there is room, up to 860 - the width of the settings. -->
+                <StackPanel MaxWidth="860" HorizontalAlignment="Left">
                     <TextBlock x:Name="EmptyText" Foreground="{DynamicResource TextMuted}" Text="Select a folder on the left." Margin="0,6,0,0" />
                     <Border x:Name="OptionsCard" Style="{StaticResource Card}" Visibility="Collapsed">
                         <StackPanel>

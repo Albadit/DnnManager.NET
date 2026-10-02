@@ -4,16 +4,24 @@ using DnnManager.Presentation.Services;
 
 namespace DnnManager.Presentation.Controls;
 
-/// <summary>Asks which host account gets which new password - typed twice, or generated and shown.</summary>
+/// <summary>
+/// Asks which host account gets which new password - typed twice, or generated and shown. A site with one host account
+/// isn't asked which.
+/// </summary>
 public partial class HostPasswordDialog : Window
 {
     private HostPasswordDialog(string site, IReadOnlyList<string> hosts)
     {
         InitializeComponent();
         ThemeManager.Track(this);
-        Intro.Text = $"A new password for a host (superuser) account of '{site}'. DNN Manager doesn't keep it - note it down.";
         UserBox.ItemsSource = hosts;
         if (hosts.Count > 0) UserBox.SelectedIndex = 0;
+        // One host account leaves nothing to choose - the intro names it.
+        var only = hosts.Count == 1;
+        UserPanel.Visibility = only ? Visibility.Collapsed : Visibility.Visible;
+        Intro.Text = (only
+            ? $"A new password for '{hosts[0]}', the host (superuser) account of '{site}'."
+            : $"A new password for a host (superuser) account of '{site}'.") + " DNN Manager doesn't keep it - note it down.";
         Loaded += (_, _) => NewPassword.Focus();
     }
 

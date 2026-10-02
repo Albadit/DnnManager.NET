@@ -44,7 +44,8 @@ public sealed class WindowsPrerequisiteChecker : IPrerequisiteChecker
 
         reporter.Info("Missing IIS features:");
         foreach (var f in missing) reporter.Fail($"{f.Label} ({f.Name})");
-        if (!await prompt.ConfirmAsync("Enable them now?", true, ct))
+        if (!await prompt.ConfirmAsync($"{missing.Count} IIS feature(s) are missing - see the Output panel. Enable them now?",
+                "Enable features", "Not now", true, ct))
             return Result.Fail("IIS features missing.");
 
         reporter.Info($"Enabling {missing.Count} feature(s)…");

@@ -35,7 +35,7 @@ public sealed class LogLine
 /// <summary>
 /// The Logs tab: a website's logs - DNN's, IIS's, the Windows events about it - one at a time. Its newest lines are
 /// read (never the whole of a large file), then new ones arrive as they are written; the view follows them while it
-/// is at the bottom. Its text can be selected and copied (<see cref="LogTextView"/>). Searchable
+/// is at the bottom. Its text can be selected and copied (<see cref="LogView"/>). Searchable
 /// (<see cref="ISearchTarget"/>): every match highlighted, the current one stronger. While the window is minimized
 /// (<see cref="EfficiencyMode"/>) a file isn't looked at and lines Windows pushes are held; restored, the file is read
 /// on from where it was at once, so no line is lost.

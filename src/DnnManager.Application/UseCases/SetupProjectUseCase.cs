@@ -50,6 +50,7 @@ public sealed class SetupProjectUseCase
     private readonly IPrerequisiteChecker _prereq;
     private readonly IUserPrompt _prompt;
     private readonly ILogger<SetupProjectUseCase> _log;
+    private readonly OperationUndo _undo;
 
     public SetupProjectUseCase(
         IOptions<AppOptions> opts,
@@ -67,7 +68,8 @@ public sealed class SetupProjectUseCase
         IHttpConnectivityChecker http,
         IPrerequisiteChecker prereq,
         IUserPrompt prompt,
-        ILogger<SetupProjectUseCase> log)
+        ILogger<SetupProjectUseCase> log,
+        OperationUndo undo)
     {
         _opts = opts.Value;
         _projects = projects;
@@ -85,6 +87,7 @@ public sealed class SetupProjectUseCase
         _prereq = prereq;
         _prompt = prompt;
         _log = log;
+        _undo = undo;
     }
 
     public async Task<Result> ExecuteAsync(SetupProjectRequest req, IProgressReporter reporter, CancellationToken ct)
@@ -135,7 +138,7 @@ public sealed class SetupProjectUseCase
             }
             else if (automatic)
             {
-                return Result.Fail("An automatic install needs IIS - set it up on the Environment page, or choose Manual DNN setup.");
+                return Result.Fail("An automatic install needs IIS - set it up in Settings → IIS, or choose Manual DNN setup.");
             }
             else
             {
@@ -153,6 +156,8 @@ public sealed class SetupProjectUseCase
                               "or point the site's web.config at your own database.");
 
             reporter.Step("Step 4: Creating project directory");
+            // A cancel takes the new project away again - its folder goes last, once nothing uses it any more.
+            _undo.DeleteFolderOnUndo(siteDirectory);
             Directory.CreateDirectory(siteDirectory);
             reporter.Success($"Project directory ready: {siteDirectory}");
 
@@ -282,10 +287,12 @@ public sealed class SetupProjectUseCase
             if (exists is { Success: true, Value: true })
             {
                 if (await _prompt.ConfirmAsync($"Database [{database.Database}] already exists on {database.Server}. " +
-                                               "Drop it and create it again? Everything in it is lost.", false, ct))
+                                               "Drop it and create it again? Everything in it is lost.",
+                                               "Drop and recreate", "Keep it", false, ct))
                 {
                     var dropped = await _databases.DropDatabaseAsync(database, ct);
                     if (!dropped.Success) return Result<bool>.Fail(dropped.Error!);
+                    _undo.CannotUndo($"database [{database.Database}] on {database.Server} was dropped, as you chose - what was in it is gone.");
                     reporter.Info($"Dropped database [{database.Database}].");
                 }
                 else if (!automatic)
@@ -332,6 +339,9 @@ public sealed class SetupProjectUseCase
         }
         if (create)
         {
+            // Before it is made: a cancel while it is being created drops it too.
+            _undo.Add($"Drop database [{database.Database}] on {database.Server}",
+                () => _databases.DropDatabaseAsync(database, CancellationToken.None));
             reporter.Info($"Creating database [{database.Database}] on {database.Server}…");
             var created = await _databases.CreateDatabaseAsync(database,
                 database.Kind == DatabaseKind.Container ? _opts.Docker.Collation : null, ct);
@@ -368,7 +378,7 @@ public sealed class SetupProjectUseCase
                               : $"database '{database.Database}', " + (database.UsesWindowsAuthentication
                                   ? "Windows authentication (integrated security)."
                                   : database.Kind == DatabaseKind.Container
-                                      ? "user 'sa' and the SA password from Settings → SQL Server."
+                                      ? "user 'sa' and the SA password from Settings → Database server."
                                       : $"user '{database.User}' and its password.")));
 
         if (siteCreated)

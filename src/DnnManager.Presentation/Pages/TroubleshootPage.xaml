@@ -1,0 +1,79 @@
+<UserControl x:Class="DnnManager.Presentation.Pages.TroubleshootPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <!-- A row: what it does on the left, its button on the right, a line under it - as in Docker Desktop. -->
+        <Style x:Key="ActionRow" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{DynamicResource GridLine}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Padding" Value="0,16" />
+        </Style>
+        <Style x:Key="ActionTitle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+        </Style>
+        <Style x:Key="ActionButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="DockPanel.Dock" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="MinWidth" Value="120" />
+            <Setter Property="Margin" Value="16,0,0,0" />
+        </Style>
+        <Style x:Key="DangerAction" TargetType="Button" BasedOn="{StaticResource Danger}">
+            <Setter Property="DockPanel.Dock" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="MinWidth" Value="120" />
+            <Setter Property="Margin" Value="16,0,0,0" />
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="28,24,28,20" MaxWidth="860" HorizontalAlignment="Left">
+            <TextBlock Style="{StaticResource PageTitle}" Text="Troubleshoot" />
+            <TextBlock Style="{StaticResource PageSubtitle}"
+                       Text="When DNN Manager doesn't behave: restart it, clean up the data it keeps, or put it back as it was installed. Your projects - their IIS sites, folders and databases - are never touched here." />
+
+            <Border Style="{StaticResource ActionRow}" BorderThickness="0,1,0,1">
+                <DockPanel>
+                    <Button x:Name="RestartButton" Style="{StaticResource ActionButton}" Content="Restart" Click="Restart_Click" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Style="{StaticResource ActionTitle}" Text="Restart DNN Manager" />
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" Text="Closes and starts it again. Your projects, settings and data are kept." />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <Border Style="{StaticResource ActionRow}">
+                <StackPanel>
+                    <DockPanel>
+                        <Button x:Name="CleanupButton" Style="{StaticResource ActionButton}" Content="Clean up data" Click="Cleanup_Click" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Style="{StaticResource ActionTitle}" Text="Clean up data" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" Text="The data selected below is removed from Documents\DnnManager." />
+                        </StackPanel>
+                    </DockPanel>
+                    <StackPanel Margin="0,10,0,0">
+                        <CheckBox x:Name="CleanLogs" Click="Selection_Changed" />
+                        <CheckBox x:Name="CleanPackages" Margin="0,6,0,0" Click="Selection_Changed" />
+                        <CheckBox x:Name="CleanSettingsCopies" Margin="0,6,0,0" Click="Selection_Changed" />
+                        <CheckBox x:Name="CleanProjectBackups" Margin="0,6,0,0" Click="Selection_Changed" />
+                        <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
+                                   Text="Each project's saved site .zip and database .bacpac - Export makes them, Import and New project restore them. They can't be brought back." />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource ActionRow}">
+                <DockPanel>
+                    <Button x:Name="ResetButton" Style="{StaticResource DangerAction}" Content="Reset to factory defaults" Click="Reset_Click" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Style="{StaticResource ActionTitle}" Text="Reset to factory defaults" />
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
+                                   Text="The settings, saved passwords, start at sign-in, which sites are kept warm, logs and kept DNN packages are removed, and DNN Manager restarts as just installed. Your projects and project backups are kept." />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <TextBlock x:Name="BusyHint" Style="{StaticResource Hint}" Margin="0,12,0,0" Visibility="Collapsed" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:c="clr-namespace:DnnManager.Presentation.Controls">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="28,24,28,20">
+        <!-- As wide as there is room, up to 860 - the width of the settings. -->
+        <StackPanel Margin="28,24,28,20" MaxWidth="860" HorizontalAlignment="Left">
             <TextBlock Style="{StaticResource PageTitle}" Text="New project" />
             <TextBlock Style="{StaticResource PageSubtitle}"
                        Text="Creates a project from a fresh DNN download - installed for you, so the first visit shows your new site - or from a .zip of an existing site (with its .bacpac / .bak), with its IIS website, hostname and database." />
@@ -14,8 +15,7 @@
                     <TextBlock Style="{StaticResource FieldLabel}" Text="Project name" Margin="0,0,0,4" />
                     <TextBox x:Name="NameBox" TextChanged="NameBox_TextChanged" />
                     <TextBlock x:Name="NameError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
-                    <TextBlock Style="{StaticResource Hint}"
-                               Text="Letters, digits, '-', '_' or '.' - the name becomes the folder, the IIS site, the hostname and the database name." />
+                    <TextBlock x:Name="NameHint" Style="{StaticResource Hint}" />
                 </StackPanel>
             </Border>
 
@@ -30,18 +30,21 @@
             <Border x:Name="ImportCard" Style="{StaticResource Card}" Visibility="Collapsed">
                 <StackPanel>
                     <TextBlock Style="{StaticResource CardTitle}" Text="Import" />
-                    <TextBlock Style="{StaticResource FieldLabel}" Text="From a project backup" Margin="0,0,0,4" />
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="12" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <ComboBox x:Name="BackupProjectCombo" SelectionChanged="BackupProject_Changed" />
-                        <ComboBox x:Name="ProjectBackupCombo" Grid.Column="2" DisplayMemberPath="Label" IsEnabled="False" SelectionChanged="ProjectBackup_Changed" />
-                    </Grid>
-                    <TextBlock x:Name="BackupPickHint" Style="{StaticResource Hint}"
-                               Text="A project and one of its backups (Documents\DnnManager\backups) - or choose the files anywhere on this PC below." />
+                    <!-- Only when a project has a backup to start from. -->
+                    <StackPanel x:Name="BackupPickPanel">
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="From a project backup" Margin="0,0,0,4" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="BackupProjectCombo" SelectionChanged="BackupProject_Changed" />
+                            <ComboBox x:Name="ProjectBackupCombo" Grid.Column="2" DisplayMemberPath="Label" IsEnabled="False" SelectionChanged="ProjectBackup_Changed" />
+                        </Grid>
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="A project and one of its backups (Documents\DnnManager\backups) - or choose the files anywhere on this PC below." />
+                    </StackPanel>
                     <TextBlock Style="{StaticResource FieldLabel}" Text="Site .zip" />
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="BrowseZip_Click" />
@@ -151,7 +154,7 @@
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <DockPanel Margin="0,0,0,4">
-                                <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="Generate" FontSize="12"
+                                <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="Generate" FontSize="{DynamicResource TextCaption}"
                                         ToolTip="A strong random password - shown, so you can copy it" Click="GeneratePassword_Click" />
                                 <TextBlock Style="{StaticResource FieldLabel}" Text="Host password" Margin="0" />
                             </DockPanel>
@@ -176,74 +179,6 @@
                     </Grid>
                     <TextBlock x:Name="AccountError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
                     <TextBlock x:Name="AccountHint" Style="{StaticResource Hint}" />
-                </StackPanel>
-            </Border>
-
-            <Border x:Name="DatabaseCard" Style="{StaticResource Card}">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource CardTitle}" Text="Database" />
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="12" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource FieldLabel}" Text="Profile" Margin="0,0,0,4" />
-                            <ComboBox x:Name="ProfileCombo" DisplayMemberPath="Name" SelectionChanged="Profile_Changed" />
-                        </StackPanel>
-                        <StackPanel x:Name="TypePanel" Grid.Column="2">
-                            <TextBlock Style="{StaticResource FieldLabel}" Text="Type" Margin="0,0,0,4" />
-                            <ComboBox x:Name="TypeCombo" SelectionChanged="Type_Changed">
-                                <ComboBoxItem Content="SQL Server / SQL Server Express database" Tag="sqlServer" />
-                                <ComboBoxItem Content="SQL Server Express LocalDB (file)" Tag="localDbFile" />
-                            </ComboBox>
-                        </StackPanel>
-                        <StackPanel x:Name="ServerPanel" Grid.Row="1">
-                            <TextBlock Style="{StaticResource FieldLabel}" Text="Server" />
-                            <TextBox x:Name="ServerBox" TextChanged="Database_Changed" />
-                        </StackPanel>
-                        <!-- Next to the profile for the local container, which has no type or server to choose. -->
-                        <StackPanel x:Name="DatabasePanel" Grid.Row="1" Grid.Column="2">
-                            <TextBlock x:Name="DatabaseLabel" Style="{StaticResource FieldLabel}" Text="Database" />
-                            <TextBox x:Name="DatabaseBox" TextChanged="DatabaseName_TextChanged" />
-                        </StackPanel>
-                    </Grid>
-                    <StackPanel x:Name="AuthPanel">
-                        <TextBlock Style="{StaticResource FieldLabel}" Text="Authentication" />
-                        <StackPanel Orientation="Horizontal">
-                            <RadioButton x:Name="WindowsAuth" GroupName="DbAuth" Content="Windows authentication" Checked="Auth_Checked" />
-                            <RadioButton x:Name="SqlAuth" GroupName="DbAuth" Content="SQL Server authentication" Margin="20,0,0,0" Checked="Auth_Checked" />
-                        </StackPanel>
-                    </StackPanel>
-                    <Grid x:Name="LoginPanel" Visibility="Collapsed">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="12" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource FieldLabel}" Text="Username" />
-                            <TextBox x:Name="DbUserBox" TextChanged="Database_Changed" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Style="{StaticResource FieldLabel}" Text="Password" />
-                            <c:PasswordInput x:Name="DbPasswordBox" PasswordChanged="Password_Changed" />
-                        </StackPanel>
-                    </Grid>
-                    <TextBlock x:Name="DatabaseHint" Style="{StaticResource Hint}" />
-                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                        <Button x:Name="TestButton" Content="Test connection" Click="TestConnection_Click" />
-                        <Button x:Name="SaveProfileButton" Style="{StaticResource LinkButton}" Content="Save as profile…" Margin="16,0,0,0"
-                                VerticalAlignment="Center" ToolTip="Keep this connection for next time - its password goes to the Windows Credential Manager"
-                                Click="SaveProfile_Click" />
-                    </StackPanel>
-                    <c:DatabaseCheckList x:Name="CheckList" Margin="0,10,0,0" />
-                    <TextBlock x:Name="DatabaseError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
                 </StackPanel>
             </Border>
 

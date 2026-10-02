@@ -1,3 +1,5 @@
+using DnnManager.Application.Abstractions;
+
 namespace DnnManager.Application.Configuration;
 
 /// <summary>
@@ -25,8 +27,9 @@ public sealed class AppOptions
         SsmsRememberPassword = other.SsmsRememberPassword;
         KeepDnnPackages = other.KeepDnnPackages;
         DnnDefaults = other.DnnDefaults;
-        DatabaseProfiles = other.DatabaseProfiles;
-        DefaultDatabaseProfile = other.DefaultDatabaseProfile;
+        // As a whole, like Docker below.
+        KeepWarm = other.KeepWarm;
+        DatabaseServer = other.DatabaseServer;
         // As a whole, so nobody reads half of the old container's settings and half of the new one's.
         Docker = other.Docker;
         GitHubReleaseApis = other.GitHubReleaseApis;
@@ -51,10 +54,10 @@ public sealed class AppOptions
     public bool KeepDnnPackages { get; set; }
     /// <summary>What a new project's DNN install starts with; the host password is in the Credential Manager.</summary>
     public DnnDefaultsSettings DnnDefaults { get; set; } = new();
-    /// <summary>The saved database connections for new projects (no passwords).</summary>
-    public IReadOnlyList<DatabaseProfileSettings> DatabaseProfiles { get; set; } = Array.Empty<DatabaseProfileSettings>();
-    /// <summary>"container", or the id of the profile a new project starts with.</summary>
-    public string DefaultDatabaseProfile { get; set; } = DatabaseProfileSettings.ContainerId;
+    /// <summary>How sites switched to "keep warm" are kept warm, unless a site has its own values (paths start with /).</summary>
+    public KeepWarmSettings KeepWarm { get; set; } = new();
+    /// <summary>Where a new project's database goes (Settings → Database server); the password is in the Credential Manager.</summary>
+    public DatabaseServerOptions DatabaseServer { get; set; } = new();
 
     /// <summary>The host account's e-mail for a new project: the default's, or <c>host@</c> and the hostname suffix.</summary>
     public string DefaultHostEmail => DnnDefaults.HostEmail.Length > 0 ? DnnDefaults.HostEmail : $"host@{HostnameSuffix}";
@@ -87,6 +90,23 @@ public sealed class AppOptions
 
     /// <summary>The SQL Server address (<c>ip,port</c>) of the shared container for a published port.</summary>
     public string ServerFor(int port) => $"{Docker.ContainerIp},{port}";
+
+    /// <summary>
+    /// <paramref name="database"/> on the server from Settings → Database server, signed in to as that server is: sa for
+    /// the container, the login with <paramref name="password"/> (from the Credential Manager) for SQL Server
+    /// authentication, Windows otherwise. For a LocalDB file the database is always the site's own file.
+    /// </summary>
+    public DatabaseConnection DatabaseOnServer(string database, string password = "")
+    {
+        var server = DatabaseServer;
+        if (server.IsContainer)
+            return new DatabaseConnection(DatabaseKind.Container, ServerFor(Docker.DefaultPort), database, SqlAuthentication.Sql, "sa", Docker.SaPassword);
+        if (server.IsLocalDbFile)
+            return new DatabaseConnection(DatabaseKind.LocalDbFile, server.Server, DatabaseConnection.LocalDbFileName, SqlAuthentication.Windows);
+        return server.UsesSqlAuthentication
+            ? new DatabaseConnection(DatabaseKind.SqlServer, server.Server, database, SqlAuthentication.Sql, server.UserName, password)
+            : new DatabaseConnection(DatabaseKind.SqlServer, server.Server, database, SqlAuthentication.Windows);
+    }
 }
 
 public sealed class DockerOptions
@@ -99,6 +119,22 @@ public sealed class DockerOptions
     public int DefaultPort { get; set; } = 1433;
     public string Collation { get; set; } = "Latin1_General_CI_AS";
     public string MssqlPid { get; set; } = "Developer";
+}
+
+/// <summary>The kind of SQL Server new projects get their database on - see <see cref="SqlServerSettings"/>.</summary>
+public sealed class DatabaseServerOptions
+{
+    /// <summary>"container", "sqlServer" or "localDbFile".</summary>
+    public string Type { get; set; } = SqlServerSettings.ContainerType;
+    /// <summary>The instance for "sqlServer" and "localDbFile", e.g. <c>.\SQLEXPRESS</c>.</summary>
+    public string Server { get; set; } = "";
+    /// <summary>"windows" or "sql", for "sqlServer".</summary>
+    public string Authentication { get; set; } = "windows";
+    public string UserName { get; set; } = "";
+
+    public bool IsContainer => Type.Equals(SqlServerSettings.ContainerType, StringComparison.OrdinalIgnoreCase);
+    public bool IsLocalDbFile => Type.Equals("localDbFile", StringComparison.OrdinalIgnoreCase);
+    public bool UsesSqlAuthentication => !IsContainer && !IsLocalDbFile && Authentication.Equals("sql", StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed class IisFeatureSetting

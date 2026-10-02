@@ -12,6 +12,7 @@ namespace DnnManager.Infrastructure.Settings;
 ///   logs\        the activity log, one file per day
 ///   packages\    downloaded DNN install packages, when they are kept for reuse
 ///   projects\    what DNN Manager remembers about the projects it set up (how DNN was installed), one file each
+///     keep-warm\  the sites kept warm, and their own keep-warm values - one file each
 /// </code>
 /// </summary>
 public sealed class AppDataPaths
@@ -41,6 +42,8 @@ public sealed class AppDataPaths
     public string PackagesDirectory => Path.Combine(Root, "packages");
     /// <summary>One <c>&lt;site&gt;.json</c> per project DNN Manager set up: how DNN was installed, when.</summary>
     public string ProjectRecordsDirectory => Path.Combine(Root, "projects");
+    /// <summary>One <c>&lt;site&gt;.json</c> per site switched to "keep warm" (or with keep-warm values of its own).</summary>
+    public string KeepWarmDirectory => Path.Combine(ProjectRecordsDirectory, "keep-warm");
 
     /// <summary>The same folder under its old name (<c>Documents\DNN Manager</c>).</summary>
     public string OldRoot => Path.Combine(Path.GetDirectoryName(Root)!, OldFolderName);

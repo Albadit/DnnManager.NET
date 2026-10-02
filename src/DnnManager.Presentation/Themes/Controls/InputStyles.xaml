@@ -166,7 +166,7 @@
                                PopupAnimation="Fade" IsOpen="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}">
                             <Border Margin="0,2,0,0" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
                                     MaxHeight="{TemplateBinding MaxDropDownHeight}" CornerRadius="{StaticResource ControlRadius}" BorderThickness="1"
-                                    Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource InputBorder}">
+                                    Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource InputBorder}" LayoutTransform="{DynamicResource UiScale}">
                                 <ScrollViewer Margin="0,3">
                                     <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
                                 </ScrollViewer>

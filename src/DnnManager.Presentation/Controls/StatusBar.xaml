@@ -15,18 +15,17 @@
     <!-- Along the bottom of the window, right of IIS (IisStatus, under the sidebar): this PC's resources, the running
          operation, then the activity log's switch and the version on the right. -->
     <Border Background="{DynamicResource StatusBarBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0"
-            Height="30" TextElement.FontSize="12">
+            Height="30" TextElement.FontSize="{DynamicResource TextCaption}">
         <DockPanel Margin="14,0,0,0">
 
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,14,0">
-                <!-- A prompt (>_) and its name. -->
+                <!-- A prompt (>_) - what it opens is in its tooltip. -->
                 <ToggleButton x:Name="ActivityButton" Style="{StaticResource IconToggleButton}" Width="NaN" Height="24"
                               ToolTip="Show the panel - output, logs and terminals (Ctrl+`)" Click="Activity_Click">
                     <StackPanel Orientation="Horizontal" Margin="8,0">
                         <Path Data="M1,1.5 L5,5 L1,8.5 M7,9.25 H13" StrokeThickness="1.6" VerticalAlignment="Center"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                               Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" />
-                        <TextBlock Text="Terminal" FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center" />
                     </StackPanel>
                 </ToggleButton>
                 <TextBlock x:Name="VersionText" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="12,0,0,0" />
@@ -40,7 +39,7 @@
                 <TextBlock x:Name="OperationText" Foreground="{DynamicResource TextPrimary}" Margin="8,0,8,0" MaxWidth="280"
                            TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Cursor="Hand"
                            MouseLeftButtonUp="Operation_Click" ToolTip="Show activity" />
-                <Button x:Name="CancelButton" Content="Cancel" Style="{StaticResource Danger}" MinHeight="20" Padding="8,0" FontSize="11.5"
+                <Button x:Name="CancelButton" Content="Cancel" Style="{StaticResource Danger}" MinHeight="20" Padding="8,0" FontSize="{DynamicResource TextHint}"
                         VerticalAlignment="Center" Click="Cancel_Click" />
             </StackPanel>
 

@@ -5,6 +5,7 @@ using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Application.UseCases;
 using DnnManager.Domain;
+using DnnManager.Infrastructure.KeepWarm;
 using DnnManager.Infrastructure.Monitoring;
 using DnnManager.Presentation.Pages.Projects;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,6 +25,10 @@ namespace DnnManager.Presentation.Services;
 /// are read again straight after - the row then shows what IIS says, whether that is the wished state or, after a
 /// failure, the old one.
 /// </para>
+/// <para>
+/// And it follows the <see cref="KeepWarmService"/>: each row shows its site's keep warm (<see cref="ProjectRow.KeepWarm"/>),
+/// the service pauses while an operation runs, and what it has to say goes to the activity log.
+/// </para>
 /// </summary>
 public sealed class ServerStore
 {
@@ -34,6 +39,8 @@ public sealed class ServerStore
     private static readonly TimeSpan SitesFollowIis = TimeSpan.FromSeconds(15);
 
     private readonly ServerStateMonitor _monitor;
+    private readonly KeepWarmService _keepWarm;
+    private readonly AppOptions _options;
     private readonly OperationRunner _runner;
     private readonly ActivityLog _log;
     private readonly ILogger<ServerStore> _logger;
@@ -50,10 +57,11 @@ public sealed class ServerStore
     private readonly HashSet<string> _explained = new(StringComparer.OrdinalIgnoreCase);
     private string? _runtimePending;
 
-    public ServerStore(ServerStateMonitor monitor, OperationRunner runner, ActivityLog log, IOptions<AppOptions> options,
-        ILogger<ServerStore> logger)
+    public ServerStore(ServerStateMonitor monitor, KeepWarmService keepWarm, OperationRunner runner,
+        ActivityLog log, IOptions<AppOptions> options, ILogger<ServerStore> logger)
     {
-        _monitor = monitor; _runner = runner; _log = log; _logger = logger;
+        _monitor = monitor; _keepWarm = keepWarm; _runner = runner; _log = log; _logger = logger;
+        _options = options.Value;
         _runner.PropertyChanged += OnRunnerChanged;
         // Other settings (the projects folder) change what the sites' folders are read as: the app's own doing.
         options.Value.Changed += () => Linger(null);
@@ -102,6 +110,17 @@ public sealed class ServerStore
         _started = true;
         // Handed to the UI thread and applied there in the order they were raised.
         _monitor.Changed += events => _dispatcher.InvokeAsync(() => Apply(events));
+        _keepWarm.StatusChanged += (site, status) => _dispatcher.InvokeAsync(() =>
+        {
+            if (_rows.TryGetValue(site, out var row)) row.KeepWarm = status;
+        });
+        _keepWarm.Noticed += notice => _dispatcher.InvokeAsync(() =>
+        {
+            if (notice.IsWarning) _log.Warn(notice.Message);
+            else _log.Info(notice.Message);
+        });
+        // Before the monitor: it sees the first snapshot of the sites too.
+        _keepWarm.Start();
         _monitor.Start();
     }
 
@@ -174,7 +193,7 @@ public sealed class ServerStore
     private void Add(ProjectState project)
     {
         if (_rows.ContainsKey(project.Name)) return;
-        var row = new ProjectRow(project) { IsBusy = _runner.IsBusy };
+        var row = new ProjectRow(project) { IsBusy = _runner.IsBusy, KeepWarm = _keepWarm.StatusOf(project.Name) };
         _rows[project.Name] = row;
         // Kept in name order.
         var index = 0;
@@ -249,21 +268,56 @@ public sealed class ServerStore
     // ─── Operations ───────────────────────────────────────────────────────
 
     /// <summary>What one of the store's operations is about: some rows, or - none given - anything (IIS itself).</summary>
-    private sealed class Operation(IReadOnlyList<ProjectRow>? rows)
+    /// <param name="began">It changes things from the start - it asks nothing first.</param>
+    private sealed class Operation(IReadOnlyList<ProjectRow>? rows, bool began = false)
     {
+        private volatile bool _began = began;
+
         public IReadOnlyList<ProjectRow>? Rows { get; } = rows;
+
+        /// <summary>It has begun - its question, if it asks one, was answered yes. Set from the operation's thread.</summary>
+        public bool Began
+        {
+            get => _began;
+            set => _began = value;
+        }
     }
 
     private void OnRunnerChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(OperationRunner.Current)) return;
         foreach (var row in Projects) row.IsBusy = _runner.IsBusy;
-        if (_runner.IsBusy) return;
+        if (_runner.IsBusy)
+        {
+            // Keep warm leaves alone what the operation may be changing: its rows, IIS itself - or, for someone else's
+            // operation, it only doesn't warm a site up from cold meanwhile.
+            _keepWarm.Pause(_operation is null ? KeepWarmPause.WarmUps
+                : _operation.Rows is { } rows ? KeepWarmPause.For(rows.Select(r => r.Name).ToList())
+                : KeepWarmPause.All);
+            return;
+        }
 
         Linger(_operation);
         // Someone else's operation (a new project, an import…): read what it may have changed. Its own notifications
-        // do the same; this doesn't wait for them. The store's own operations read back themselves.
-        if (_operation is null && _started) _ = _monitor.SyncAsync();
+        // do the same; this doesn't wait for them. The store's own operations read back themselves - and resume keep
+        // warm then (RunAsync).
+        if (_operation is not null) return;
+        if (_started) _ = ResumeKeepWarmAfterAsync(_monitor.SyncAsync(), recheck: null);
+        else _keepWarm.Resume();
+    }
+
+    /// <summary>
+    /// Once <paramref name="read"/> - the read-back after an operation - has published what the operation left: keep warm
+    /// checks again what it was about (<paramref name="recheck"/>; a site it restarted is warmed up at once) and resumes.
+    /// Not before - it would still see a site the operation stopped as running, and request it. The check also when
+    /// another operation has started meanwhile (its pause replaced this one's), the resume only when none has.
+    /// </summary>
+    private async Task ResumeKeepWarmAfterAsync(Task read, Operation? recheck)
+    {
+        try { await read; }
+        catch (Exception ex) { _logger.LogDebug(ex, "The read-back after an operation failed"); }
+        if (recheck is not null) _keepWarm.Recheck(recheck.Rows?.Select(r => r.Name).ToList());
+        if (!_runner.IsBusy) _keepWarm.Resume();
     }
 
     /// <summary>
@@ -300,7 +354,8 @@ public sealed class ServerStore
             // The runner is free again - for another operation, also while this one's read-back is still on its way.
             if (_operation == operation) _operation = null;
         }
-        await readBack();
+        // What it was about gets a new chance - unless it never began (its question was answered no): nothing changed.
+        await ResumeKeepWarmAfterAsync(readBack(), operation.Began ? operation : null);
         // Counted again from here: what was read back may show only the beginning of what it did.
         Linger(operation);
         return done;
@@ -323,7 +378,7 @@ public sealed class ServerStore
         foreach (var row in rows) row.Pending = pending;
         try
         {
-            await RunAsync(new Operation(rows), names.Count == 1 ? $"{action} '{names[0]}'" : $"{action} {names.Count} sites",
+            await RunAsync(new Operation(rows, began: true), names.Count == 1 ? $"{action} '{names[0]}'" : $"{action} {names.Count} sites",
                 (sp, reporter, ct) => sp.GetRequiredService<ControlSitesUseCase>().ExecuteAsync(action, names, reporter, ct),
                 _monitor.SyncSitesAsync);
         }
@@ -352,9 +407,10 @@ public sealed class ServerStore
 
         try
         {
-            await RunAsync(new Operation(rows), names.Count == 1 ? $"Remove '{names[0]}'" : $"Remove {names.Count} projects",
+            var operation = new Operation(rows);
+            await RunAsync(operation, names.Count == 1 ? $"Remove '{names[0]}'" : $"Remove {names.Count} projects",
                 (sp, reporter, ct) => sp.GetRequiredService<RemoveProjectUseCase>()
-                    .ExecuteAsync(sites, new StartSignal(reporter, () => _dispatcher.InvokeAsync(Started)), ct),
+                    .ExecuteAsync(sites, new StartSignal(reporter, () => Begin(operation, Started)), ct),
                 _monitor.SyncAsync);
         }
         finally
@@ -381,9 +437,10 @@ public sealed class ServerStore
         bool cleared;
         try
         {
-            cleared = await RunAsync(new Operation([row]), $"Clear the cache of '{name}'",
+            var operation = new Operation([row]);
+            cleared = await RunAsync(operation, $"Clear the cache of '{name}'",
                 (sp, reporter, ct) => sp.GetRequiredService<ClearSiteCacheUseCase>()
-                    .ExecuteAsync(name, path, new StartSignal(reporter, () => _dispatcher.InvokeAsync(Started)), ct),
+                    .ExecuteAsync(name, path, new StartSignal(reporter, () => Begin(operation, Started)), ct),
                 _monitor.SyncSitesAsync);
         }
         finally
@@ -417,9 +474,10 @@ public sealed class ServerStore
         if (action == IisServerAction.Start) Started();
         try
         {
-            await RunAsync(new Operation(null), $"{action} IIS",
+            var operation = new Operation(null, began: action == IisServerAction.Start);
+            await RunAsync(operation, $"{action} IIS",
                 (sp, reporter, ct) => sp.GetRequiredService<IisServerUseCase>()
-                    .ExecuteAsync(action, new StartSignal(reporter, () => _dispatcher.InvokeAsync(Started)), ct),
+                    .ExecuteAsync(action, new StartSignal(reporter, () => Begin(operation, Started)), ct),
                 _monitor.SyncSitesAsync);
         }
         finally
@@ -427,6 +485,39 @@ public sealed class ServerStore
             finished = true;
             RuntimePending = null;
         }
+    }
+
+    // ─── Keep warm ────────────────────────────────────────────────────────
+
+    /// <summary>Switches keep warm on or off for <paramref name="row"/>'s site - at once, nothing is asked.</summary>
+    public void ToggleKeepWarm(ProjectRow row)
+    {
+        var name = row.Name;
+        if (row.KeepWarmOn)
+        {
+            _keepWarm.SetEnabled(name, false);
+            // At once - the service confirms it a moment later.
+            row.KeepWarm = KeepWarmStatus.Off;
+            _log.Info($"No longer keeping '{name}' warm.");
+            return;
+        }
+        if (!row.CanToggleKeepWarm) return;
+
+        _keepWarm.SetEnabled(name, true);
+        row.KeepWarm = new KeepWarmStatus(KeepWarmState.Waiting, "Waiting");
+        var minutes = _keepWarm.RecordOf(name)?.PingMinutes ?? _options.KeepWarm.PingMinutes;
+        _log.Info($"Keeping '{name}' warm - while DNN Manager runs it requests the site at least every " +
+                  $"{KeepWarmRules.Span(TimeSpan.FromMinutes(minutes))} (sooner when its app pool needs it) and warms it up again after a recycle.");
+    }
+
+    /// <summary>Requests <paramref name="row"/>'s site now - also after it failed too often.</summary>
+    public void CheckKeepWarm(ProjectRow row) => _keepWarm.CheckNow(row.Name);
+
+    /// <summary>The operation's first report (on its thread): it has begun - the rest of <paramref name="started"/> on the UI thread.</summary>
+    private void Begin(Operation operation, Action started)
+    {
+        operation.Began = true;
+        _dispatcher.InvokeAsync(started);
     }
 
     /// <summary>
