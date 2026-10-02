@@ -143,7 +143,7 @@ on resources while minimized.
   IIS, with LocalDB (Windows authentication and a database file) and a SQL
   Server container (as sa and as a login of its own) - and check the site, the
   host's sign-in, the database, a restart and changing the password; and that
-  manual setup leaves DNN's wizard. See *Tests* in the README.
+  manual setup leaves DNN's wizard. See *Tests* in docs/development.md.
 
 - **Site tools** - on a site's right-click menu (and a **⋮** on its overview):
   **Clear website cache…** (DNN's cached files and bundled
@@ -333,7 +333,7 @@ restart, and every button, input and switch shares one look.
   itself. Changes made outside
   DNN Manager are noted in the activity log. IIS's state in the status bar is
   now reported by Windows when it changes, instead of being asked for every 2
-  seconds. How it works is in the README under *Live updates*.
+  seconds. How it works is in docs/development.md under *Live updates*.
 - **Projects is a server table.** Check rows (or the header box for every row
   shown) to **Start**, **Stop**, **Restart** or **Remove** them together -
   those buttons appear above the table only while rows are checked, and each
@@ -376,7 +376,7 @@ restart, and every button, input and switch shares one look.
   (e.g. Clone's source project when the projects folder is empty) is greyed
   out. The styles are reusable: one file per
   kind of control in `Themes/Controls`, sharing sizes from `Themes/Tokens.xaml`
-  (see *Control styles* in the README).
+  (see *Control styles* in docs/development.md).
 - **Open with: one submenu with your editors.** The project menu's separate
   *Open in …* entries are now one **Open with** submenu listing only the editors
   installed on the PC. Newly found: IntelliJ IDEA, Zed, Vim and Neovim (their
