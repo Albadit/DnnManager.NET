@@ -19,7 +19,7 @@ public sealed class AppDataPaths
 {
     public const string FolderName = "DnnManager";
 
-    /// <summary>The folder's name in 2.1.0 before it was renamed - moved to <see cref="FolderName"/> on first start.</summary>
+    /// <summary>The folder's name in 1.2.0 before it was renamed - moved to <see cref="FolderName"/> on first start.</summary>
     public const string OldFolderName = "DNN Manager";
 
     public AppDataPaths(string root) => Root = root;
@@ -49,7 +49,7 @@ public sealed class AppDataPaths
     public string OldRoot => Path.Combine(Path.GetDirectoryName(Root)!, OldFolderName);
 
     /// <summary>
-    /// Where versions before 2.1 kept <c>appsettings.json</c>: next to the exe.
+    /// Where versions before 1.2 kept <c>appsettings.json</c>: next to the exe.
     /// Read once, to carry them over when the Documents folder doesn't have its own yet.
     /// </summary>
     public static string LegacyDirectory => AppContext.BaseDirectory;

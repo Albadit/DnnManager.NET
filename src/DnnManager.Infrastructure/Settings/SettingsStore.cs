@@ -278,7 +278,7 @@ public sealed class SettingsStore
     private static int VersionOf(JsonObject root, string path)
     {
         var node = root["version"];
-        if (node is null) return 0; // the appsettings.json of 2.0 and earlier had no version
+        if (node is null) return 0; // the appsettings.json of 1.1 and earlier had no version
         if (node is not JsonValue value || !value.TryGetValue<int>(out var version) || version < 0)
             throw new SettingsException($"{path} has an invalid version.", [$"version must be a whole number, found {node.ToJsonString()}."]);
         if (version > UserSettings.CurrentVersion)

@@ -24,8 +24,8 @@ Documents\DnnManager\
 ```
 
 The folder and `settings.json` are created the first time the app starts. When
-you upgrade from 2.0 or earlier, the `appsettings.json`
-next to the old DNN Manager 2.0 exe is carried over when the new
+you upgrade from 1.1 or earlier, the `appsettings.json`
+next to the old DNN Manager 1.1 exe is carried over when the new
 version is started from that same folder. After installing somewhere else, copy
 `appsettings.json` into `Documents\DnnManager` as `settings.json` and it is
 converted on the next start.

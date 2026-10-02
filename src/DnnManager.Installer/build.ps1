@@ -11,12 +11,14 @@
 
     Everything the build makes along the way is in src\DnnManager.Installer\bin; the finished Setup is in
     publish\ (next to DnnManager.csproj). The version comes from <Version> in DnnManager.csproj - raise it there
-    for a new release.
+    for a new release - unless -Version is given (the release workflow passes the tag's version).
 
 .EXAMPLE
     .\src\DnnManager.Installer\build.ps1
 .EXAMPLE
     .\src\DnnManager.Installer\build.ps1 -SkipPublish -Iscc 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+.EXAMPLE
+    .\src\DnnManager.Installer\build.ps1 -Version 1.7.0
 #>
 [CmdletBinding()]
 param(
@@ -24,7 +26,9 @@ param(
     # ISCC.exe to use; found automatically when omitted.
     [string]$Iscc,
     # Reuse bin\app from an earlier run.
-    [switch]$SkipPublish
+    [switch]$SkipPublish,
+    # The version to build (1.7.0, or 1.7.0-rc.1 for a pre-release) instead of <Version> in DnnManager.csproj.
+    [string]$Version
 )
 
 $ErrorActionPreference = 'Stop'
@@ -56,6 +60,7 @@ function Invoke-Publish {
     # so nothing is extracted to %TEMP% when the app starts.
     & dotnet publish $project -nologo -c $Configuration -r win-x64 --self-contained true `
         -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=false -p:EnableCompressionInSingleFile=false `
+        "-p:Version=$version" "-p:AssemblyVersion=$fileVersion" "-p:FileVersion=$fileVersion" `
         -o $publishDir
     if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed (exit code $LASTEXITCODE)." }
 }
@@ -137,7 +142,10 @@ function Find-Iscc {
     return $cached
 }
 
-$version = Get-AppVersion
+$version = if ($Version) { $Version.TrimStart('v') } else { Get-AppVersion }
+if ($version -notmatch '^(\d+\.\d+\.\d+)(-[0-9A-Za-z.-]+)?$') { throw "'$version' isn't a version like 1.7.0 or 1.7.0-rc.1." }
+# Windows' file version is four numbers without a pre-release suffix: 1.7.0-rc.1 -> 1.7.0.0.
+$fileVersion = "$($Matches[1]).0"
 Write-Host "DNN Manager $version"
 
 if (-not $SkipPublish) { Invoke-Publish }
@@ -146,7 +154,7 @@ if (-not (Test-Path (Join-Path $publishDir 'DnnManager.exe'))) { throw "No DnnMa
 New-WizardImages
 $compiler = Find-Iscc
 Write-Host "Compiling the installer with $compiler"
-& $compiler /Q "/DAppVersion=$version" "/DPublishDir=$publishDir" "/DOutputDir=$outputDir" "/DImagesDir=$imagesDir" $script
+& $compiler /Q "/DAppVersion=$version" "/DFileVersion=$fileVersion" "/DPublishDir=$publishDir" "/DOutputDir=$outputDir" "/DImagesDir=$imagesDir" $script
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed (exit code $LASTEXITCODE)." }
 
 $setup = Join-Path $outputDir "DnnManagerSetup-$version-x64.exe"

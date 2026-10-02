@@ -156,7 +156,7 @@ public static class SecretNames
     /// <summary>The password of the SQL Server login new projects use (Settings → Database server, SQL Server authentication).</summary>
     public const string DatabaseServerPassword = "database-server/password";
 
-    /// <summary>Where DNN Manager 2.3.0 kept a database profile's password - moved or removed when the settings are upgraded.</summary>
+    /// <summary>Where DNN Manager 1.4.0 kept a database profile's password - moved or removed when the settings are upgraded.</summary>
     public static string LegacyDatabaseProfilePassword(string profileId) => $"database-profile/{profileId}";
 }
 

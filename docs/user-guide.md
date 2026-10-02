@@ -470,7 +470,7 @@ Portals\_default\Logs
 The activity log lists what was left out. `_backup.filter` itself is kept in the
 zip, so a site imported from it has the same filter.
 
-Backups made by DNN Manager 2.0 stay in each project's `01_backup` folder -
+Backups made by DNN Manager 1.1 stay in each project's `01_backup` folder -
 DNN Manager no longer uses it. Move the dated folders you want to keep to
 `Documents\DnnManager\backups\<project>\`, then delete `01_backup` (otherwise it
 is now included in the project's site `.zip`).

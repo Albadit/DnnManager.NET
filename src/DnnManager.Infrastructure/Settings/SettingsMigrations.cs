@@ -43,7 +43,7 @@ public static class SettingsMigrations
     }
 
     /// <summary>
-    /// Version 0 is the <c>appsettings.json</c> of DNN Manager 2.0 and earlier: everything in a
+    /// Version 0 is the <c>appsettings.json</c> of DNN Manager 1.1 and earlier: everything in a
     /// <c>DnnManager</c> section, next to a <c>Logging</c> one. Version 1 groups the values by what they are
     /// about and drops the unused logging levels. A file without a <c>DnnManager</c> section only gets its version.
     /// </summary>

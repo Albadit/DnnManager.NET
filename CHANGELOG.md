@@ -2,7 +2,25 @@
 
 All notable changes to DnnManager.NET are documented here.
 
-## v2.5.0 - 2026-10-02
+## Unreleased
+
+### Upgrading
+
+- **The versions were renumbered.** The releases 2.0.0-2.5.0 are now
+  1.1.0-1.6.0 - same contents, new numbers: 2.0.0 → 1.1.0, 2.1.0 → 1.2.0,
+  2.2.0 → 1.3.0, 2.3.0 → 1.4.0, 2.4.0 → 1.5.0, 2.5.0 → 1.6.0. A DNN Manager that
+  still says 2.x is one of these; Settings → About in a 2.x build counts itself
+  newer than any 1.x release, so install the newest release over it by hand
+  once.
+
+### Changed
+
+- Releases are built, tested and published by GitHub Actions when a `vX.Y.Z`
+  tag is pushed; the version comes from the tag (see `docs/releasing.md`).
+- `build.ps1 -Version X.Y.Z` builds the installer for a version other than
+  `<Version>` in `DnnManager.csproj`.
+
+## v1.6.0 - 2026-10-02
 
 **See what a site really is**: a site's Details read IIS, its folder,
 `web.config`, `bin` and its database and mark every problem they find, and the
@@ -11,9 +29,9 @@ while it runs and safer around your data: folder sizes are measured only when
 shown, its own warnings reach the log file, a database on another server is
 never dropped, and the SQL container is reachable from this PC only.
 
-### Upgrading from v2.4.x
+### Upgrading from v1.5.x
 
-- Install over v2.4.x as usual - the settings keep their format (version 3).
+- Install over v1.5.x as usual - the settings keep their format (version 3).
 - Run **Settings → Docker container → Set up docker-compose** once to publish
   the SQL container on this PC only; the databases stay, they're in the volume.
 - A `settings.json` whose projects folder is a drive or a system folder, or
@@ -176,16 +194,16 @@ never dropped, and the SQL container is reachable from this PC only.
   next start. The next line now starts the day's file again, and a write that
   fails is tried again a minute later instead of never.
 
-## v2.4.0 - 2026-10-02
+## v1.5.0 - 2026-10-02
 
 **Sites stay fast**: keep warm stops IIS from shutting an idle DNN site down, so
 its next page opens at once instead of after DNN starting up again. The
 database server is one setting, a **Troubleshoot** page restarts or resets DNN
 Manager, and **Cancel** undoes what an operation had already done.
 
-### Upgrading from v2.3.x
+### Upgrading from v1.4.x
 
-- Install over v2.3.x as usual. The settings are upgraded to version 3 on the
+- Install over v1.4.x as usual. The settings are upgraded to version 3 on the
   first start (see *Database profiles are gone* below); the new keys
   (`projects.keepWarm`, `appearance.uiScale`, `appearance.fontSize`) are added
   with their defaults.
@@ -260,7 +278,7 @@ Manager, and **Cancel** undoes what an operation had already done.
 - The **Environment** and **Clone project** pages - moved into Settings and the
   project menu.
 
-## v2.3.0 - 2026-10-01
+## v1.4.0 - 2026-10-01
 
 **New project installs DNN for you**: the first visit shows your new site, signed
 in as the host account you chose - no installation wizard - on the local SQL
@@ -269,9 +287,9 @@ anything is created. The bottom panel works like VS Code's (Output, Logs,
 Terminal, search), a site opens in an overview with tabs, and the app is light
 on resources while minimized.
 
-### Upgrading from v2.2.x
+### Upgrading from v1.3.x
 
-- Install over v2.2.x as usual - settings are kept; the new keys
+- Install over v1.3.x as usual - settings are kept; the new keys
   (`projects.dnnDefaults`, `projects.databaseProfiles`,
   `projects.defaultDatabaseProfile`, `window.saveResourcesWhileMinimized`) are
   added with their defaults on the first start.
@@ -414,7 +432,7 @@ on resources while minimized.
   connection string that couldn't be written is no longer quoted in the error,
   and database connections print without their password.
 
-## v2.2.0 - 2026-10-01
+## v1.3.0 - 2026-10-01
 
 DNN Manager now works like Docker Desktop: **Projects** is a live server table
 that follows IIS and the projects folder by itself - no Refresh -, a status bar
@@ -422,7 +440,7 @@ shows IIS and this PC's resources, and a terminal panel holds the activity log
 next to real terminals. Settings is a page of its own and applies without a
 restart, and every button, input and switch shares one look.
 
-### Upgrading from v2.1.x
+### Upgrading from v1.2.x
 
 - `settings.json` is upgraded on the first start (its `version` becomes 2, the
   Docker values move to a `docker` section); the old file is backed up to
@@ -585,7 +603,7 @@ restart, and every button, input and switch shares one look.
   features and enables the missing ones after asking. **Reset IIS** and
   **Enable missing features** are gone: restarting IIS is on the status bar.
 - **Docker compose project renamed** from `dnn-shared` to `dnn-mssql` (see
-  *Upgrading from v2.1.x*).
+  *Upgrading from v1.2.x*).
 - **One look for every control.** Text boxes and password boxes now have
   rounded corners like the buttons, selects and search boxes; buttons, text
   boxes and selects share one height (30 px) so they line up side by side; the
@@ -664,13 +682,13 @@ restart, and every button, input and switch shares one look.
   DNN Manager uses the one their `web.config` names. A project can't be named
   after a SQL Server system database (`master`, `model`, `msdb`, `tempdb`).
 
-## v2.1.0 - 2026-09-29
+## v1.2.0 - 2026-09-29
 
 DNN Manager now has a Windows installer, and your settings and project backups
 move into `Documents\DnnManager`, apart from the program and the sites, where
 updates, reinstalls and uninstalls leave them alone.
 
-### Upgrading from v2.0.x
+### Upgrading from v1.1.x
 
 - Settings are now in `Documents\DnnManager\settings.json`, in a new format
   (grouped, camelCase, with a `version`). Start the new `dnnmgr.exe` once from
@@ -732,7 +750,7 @@ updates, reinstalls and uninstalls leave them alone.
   backups folder (copy it from there with **Open backups folder**). The `web.config` that blocked IIS from serving `01_backup` is no
   longer needed.
 
-## v2.0.0 - 2026-09-28
+## v1.1.0 - 2026-09-28
 
 A major release: projects can be imported from and exported to a `.zip` +
 `.bacpac`, with dated backups in each project's `01_backup` folder; a new

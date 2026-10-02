@@ -1,0 +1,212 @@
+# Release: builds, tests and publishes DNN Manager when a version tag is pushed.
+#
+#   git tag v1.7.0 && git push origin v1.7.0
+#
+# The version comes from the tag (v1.7.0 -> 1.7.0; v1.7.0-rc.1 makes a pre-release) and is stamped into the exe,
+# the installer and their file properties - whatever <Version> in DnnManager.csproj says. The release notes are the
+# tag's entry in CHANGELOG.md, or are made from the commits since the previous tag when there is none.
+#
+# Run it by hand (Actions -> Release -> Run workflow) for a dry run: it builds, tests and packages the version you
+# give and keeps the files as a workflow artifact, but publishes no release.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build, e.g. 1.7.0 (dry run - no release is published)'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  release:
+    name: Build, test and release
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+        with:
+          # The whole history and the tags: the release notes list the commits since the previous release.
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Read the version
+        id: version
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if ($env:GITHUB_EVENT_NAME -eq 'push') {
+            $tag = $env:GITHUB_REF_NAME
+            $publish = 'true'
+          } else {
+            $tag = 'v' + $env:INPUT_VERSION.Trim().TrimStart('v', 'V')
+            $publish = 'false'
+          }
+          if ($tag -notmatch '^v((\d+)\.(\d+)\.(\d+))(-[0-9A-Za-z.-]+)?$') {
+            throw "'$tag' isn't a version tag like v1.7.0 or v1.7.0-rc.1."
+          }
+          $version = $tag.Substring(1)
+          $numeric = $Matches[1]
+          $prerelease = if ($Matches[5]) { 'true' } else { 'false' }
+
+          [xml]$project = Get-Content -Raw DnnManager.csproj
+          $declared = ($project.Project.PropertyGroup | ForEach-Object { $_.SelectSingleNode('Version') } | Where-Object { $_ } | Select-Object -First 1).InnerText
+          if ($declared -and $declared -ne $version) {
+            Write-Output "::warning file=DnnManager.csproj::<Version> is $declared but the tag is $tag - the build uses $version. Raise <Version> to keep local builds in step."
+          }
+
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "file_version=$numeric.0" >> $env:GITHUB_OUTPUT
+          "prerelease=$prerelease" >> $env:GITHUB_OUTPUT
+          "publish=$publish" >> $env:GITHUB_OUTPUT
+          Write-Output "DNN Manager $version (file version $numeric.0, pre-release: $prerelease, publish: $publish)"
+
+      - name: Stamp the version into app.manifest
+        run: |
+          $manifest = 'app.manifest'
+          $text = [IO.File]::ReadAllText($manifest)
+          $text = $text -replace '(<assemblyIdentity version=")[0-9.]+(")', "`${1}${{ steps.version.outputs.file_version }}`${2}"
+          [IO.File]::WriteAllText($manifest, $text, [Text.UTF8Encoding]::new($false))
+          Select-String -Path $manifest -Pattern 'assemblyIdentity'
+
+      - name: Restore
+        run: dotnet restore tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj
+
+      - name: Build (Release)
+        run: >-
+          dotnet build tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj
+          -c Release --no-restore
+          -p:Version=${{ steps.version.outputs.version }}
+          -p:AssemblyVersion=${{ steps.version.outputs.file_version }}
+          -p:FileVersion=${{ steps.version.outputs.file_version }}
+          -p:ContinuousIntegrationBuild=true
+
+      - name: Test
+        # The whole suite. The integration tests need IIS Express, LocalDB and Docker (Linux containers); where the
+        # runner lacks one, those tests are reported as skipped (inconclusive), not passed.
+        run: >-
+          dotnet test tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj
+          -c Release --no-build
+          --logger "trx;LogFileName=tests.trx"
+          --logger "console;verbosity=normal"
+          --results-directory artifacts/test-results
+
+      - name: Publish the portable exe
+        run: >-
+          dotnet publish DnnManager.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:PortableExe=true
+          -p:Version=${{ steps.version.outputs.version }}
+          -p:AssemblyVersion=${{ steps.version.outputs.file_version }}
+          -p:FileVersion=${{ steps.version.outputs.file_version }}
+          -p:ContinuousIntegrationBuild=true
+          -o publish
+
+      - name: Build the installer
+        run: ./src/DnnManager.Installer/build.ps1 -Version ${{ steps.version.outputs.version }}
+
+      - name: Verify the version of the files
+        run: |
+          $version = '${{ steps.version.outputs.version }}'
+          $fileVersion = '${{ steps.version.outputs.file_version }}'
+          $files = @(
+            @{ Path = "publish/DnnManager-$version-x64.exe"; File = $fileVersion },
+            @{ Path = "src/DnnManager.Installer/bin/app/DnnManager.exe"; File = $fileVersion },
+            @{ Path = "publish/DnnManagerSetup-$version-x64.exe"; File = $fileVersion }
+          )
+          $failed = $false
+          foreach ($f in $files) {
+            if (-not (Test-Path $f.Path)) { Write-Output "::error::$($f.Path) is missing."; $failed = $true; continue }
+            $info = (Get-Item $f.Path).VersionInfo
+            $product = ($info.ProductVersion -split '\+')[0].Trim()
+            $file = $info.FileVersion.Trim()
+            Write-Output ("{0}: FileVersion={1} ProductVersion={2}" -f $f.Path, $file, $info.ProductVersion)
+            if ($product -ne $version) { Write-Output "::error::$($f.Path) has product version $product, expected $version."; $failed = $true }
+            if ($file -ne $f.File -and $file -ne $version) { Write-Output "::error::$($f.Path) has file version $file, expected $($f.File)."; $failed = $true }
+          }
+          if ($failed) { exit 1 }
+
+      - name: Collect the release files
+        id: assets
+        run: |
+          $version = '${{ steps.version.outputs.version }}'
+          $dir = New-Item -ItemType Directory -Force 'artifacts/release'
+          Copy-Item "publish/DnnManager-$version-x64.exe" $dir
+          Copy-Item "publish/DnnManagerSetup-$version-x64.exe" $dir
+          $sums = Get-ChildItem $dir -File | Sort-Object Name | ForEach-Object {
+            '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Name
+          }
+          [IO.File]::WriteAllText((Join-Path $dir 'SHA256SUMS.txt'), (($sums -join "`n") + "`n"))
+          Get-ChildItem $dir | Format-Table Name, Length -AutoSize | Out-String | Write-Output
+          "dir=$($dir.FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Write the release notes
+        run: >-
+          ./.github/scripts/release-notes.ps1
+          -Version ${{ steps.version.outputs.version }}
+          -Tag ${{ steps.version.outputs.tag }}
+          -OutFile artifacts/release-notes.md
+
+      - name: Show the release notes
+        run: Get-Content artifacts/release-notes.md -Encoding utf8 | Write-Output
+
+      - name: Keep the files
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: DnnManager-${{ steps.version.outputs.version }}
+          path: |
+            artifacts/release
+            artifacts/release-notes.md
+            artifacts/test-results
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Publish the GitHub release
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = '${{ steps.version.outputs.tag }}'
+          $files = Get-ChildItem '${{ steps.assets.outputs.dir }}' -File | ForEach-Object FullName
+          $prerelease = if ('${{ steps.version.outputs.prerelease }}' -eq 'true') { '--prerelease' } else { '--latest' }
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            # Re-running for the same tag replaces the files and the notes.
+            gh release upload $tag @files --clobber
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            gh release edit $tag --title $tag --notes-file artifacts/release-notes.md
+          } else {
+            gh release create $tag @files --verify-tag --title $tag --notes-file artifacts/release-notes.md $prerelease
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Output "Published $env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/releases/tag/$tag"

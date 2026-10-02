@@ -2,6 +2,7 @@
 ;
 ; Build it with src\DnnManager.Installer\build.ps1, which publishes the app and passes the defines below:
 ;   AppVersion  version from DnnManager.csproj          (required)
+;   FileVersion four-part file version, e.g. 1.7.0.0    (default AppVersion)
 ;   PublishDir  the self-contained publish output       (default bin\app)
 ;   OutputDir   where Setup is written                  (default ..\..\publish)
 ;   ImagesDir   wizard images made from the app icon    (optional)
@@ -13,6 +14,9 @@
 
 #ifndef AppVersion
   #error AppVersion is not defined - build with src\DnnManager.Installer\build.ps1 (or pass /DAppVersion=x.y.z to ISCC).
+#endif
+#ifndef FileVersion
+  #define FileVersion AppVersion
 #endif
 #ifndef PublishDir
   #define PublishDir "bin\app"
@@ -36,7 +40,9 @@ AppPublisher={#AppPublisher}
 AppPublisherURL={#AppUrl}
 AppSupportURL={#AppUrl}/issues
 AppUpdatesURL={#AppUrl}/releases
-VersionInfoVersion={#AppVersion}
+VersionInfoVersion={#FileVersion}
+VersionInfoProductVersion={#FileVersion}
+VersionInfoProductTextVersion={#AppVersion}
 VersionInfoProductName={#AppName}
 VersionInfoDescription={#AppName} Setup
 
@@ -85,7 +91,7 @@ UninstalledAll=%1 was successfully removed from your computer.%n%nYour settings 
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [InstallDelete]
-; Up to 2.2.0 the program was dnnmanager.exe. Windows keeps a file name's old casing when it is overwritten, so
+; Up to 1.3.0 the program was dnnmanager.exe. Windows keeps a file name's old casing when it is overwritten, so
 ; it is deleted first and the upgrade really installs DnnManager.exe.
 Type: files; Name: "{app}\dnnmanager.exe"
 
