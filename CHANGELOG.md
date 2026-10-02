@@ -19,10 +19,11 @@ All notable changes to DnnManager.NET are documented here.
   managed attach too) or the site's SQL container is down; a site that keeps
   failing or crashing is left alone until **Check now**. Requests never go to
   DNN's installer, however a page or a redirect is written. The
-  flame shows how it is going; the overview shows the idle time-out, interval
+  flame shows how it is going (its tooltip: *Enable keep warm* / *Disable keep
+  warm*); the overview shows the idle time-out, interval
   and pages, and gives a site its own. Defaults in **Settings → Projects → Keep
-  warm** (`projects.keepWarm`). Switching it on for a site that sends e-mail
-  through a real mail server asks first - DNN's scheduler keeps running too.
+  warm** (`projects.keepWarm`). Plain HTTP requests: switching it on asks
+  nothing, and needs no mail server, extension or change in IIS or DNN.
 
 ### Changed
 

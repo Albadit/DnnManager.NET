@@ -341,22 +341,6 @@ public sealed partial class DatabaseProvisioner : IDatabaseProvisioner
         }
     }
 
-    public async Task<Result<string?>> ReadHostSettingAsync(DatabaseConnection connection, string name, CancellationToken ct)
-    {
-        try
-        {
-            await using var conn = await OpenAsync(connection, connection.Database, ct);
-            var q = await QualifierAsync(conn, "HostSettings", ct);
-            if (q is null) return Result<string?>.Ok(null);
-            return Result<string?>.Ok(await ScalarAsync<string>(conn,
-                $"SELECT TOP 1 SettingValue FROM dbo.[{q}HostSettings] WHERE SettingName = @name", ct, ("@name", name)));
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            return Result<string?>.Fail(FirstLine(ex.Message));
-        }
-    }
-
     // ─── Helpers ──────────────────────────────────────────────────────────
 
     private static async Task<SqlConnection> OpenAsync(DatabaseConnection connection, string database, CancellationToken ct)

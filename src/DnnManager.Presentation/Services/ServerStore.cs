@@ -40,7 +40,6 @@ public sealed class ServerStore
 
     private readonly ServerStateMonitor _monitor;
     private readonly KeepWarmService _keepWarm;
-    private readonly IServiceScopeFactory _scopes;
     private readonly AppOptions _options;
     private readonly OperationRunner _runner;
     private readonly ActivityLog _log;
@@ -58,10 +57,10 @@ public sealed class ServerStore
     private readonly HashSet<string> _explained = new(StringComparer.OrdinalIgnoreCase);
     private string? _runtimePending;
 
-    public ServerStore(ServerStateMonitor monitor, KeepWarmService keepWarm, IServiceScopeFactory scopes, OperationRunner runner,
+    public ServerStore(ServerStateMonitor monitor, KeepWarmService keepWarm, OperationRunner runner,
         ActivityLog log, IOptions<AppOptions> options, ILogger<ServerStore> logger)
     {
-        _monitor = monitor; _keepWarm = keepWarm; _scopes = scopes; _runner = runner; _log = log; _logger = logger;
+        _monitor = monitor; _keepWarm = keepWarm; _runner = runner; _log = log; _logger = logger;
         _options = options.Value;
         _runner.PropertyChanged += OnRunnerChanged;
         // Other settings (the projects folder) change what the sites' folders are read as: the app's own doing.
@@ -490,14 +489,10 @@ public sealed class ServerStore
 
     // ─── Keep warm ────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Switches keep warm on or off for <paramref name="row"/>'s site. Switching on asks first when the site's DNN sends
-    /// e-mail through a real mail server: kept warm, its scheduler keeps running and sends what is waiting in its queue.
-    /// </summary>
-    public async Task ToggleKeepWarmAsync(ProjectRow row)
+    /// <summary>Switches keep warm on or off for <paramref name="row"/>'s site - at once, nothing is asked.</summary>
+    public void ToggleKeepWarm(ProjectRow row)
     {
         var name = row.Name;
-        if (row.KeepWarmPending) return;
         if (row.KeepWarmOn)
         {
             _keepWarm.SetEnabled(name, false);
@@ -508,26 +503,6 @@ public sealed class ServerStore
         }
         if (!row.CanToggleKeepWarm) return;
 
-        // The flame says what is happening, and can't be pressed again meanwhile.
-        row.KeepWarmPending = true;
-        try
-        {
-            var mail = await MailServerOfAsync(row);
-            var nl = Environment.NewLine;
-            var why = "Kept warm, the site's DNN keeps running - and so does its scheduler, which sends the e-mails waiting in its " +
-                      "queue (notifications, newsletters…). On a copy of a live site's database those can reach real people.";
-            var question = mail.Server is { } smtp ? $"'{name}' sends e-mail through {smtp}.{nl}{nl}{why}"
-                : mail.Unknown ? $"DNN Manager couldn't read the e-mail settings of '{name}' - its database doesn't answer right now. " +
-                                 $"If its DNN sends e-mail through a real mail server:{nl}{nl}{why}"
-                : null;
-            if (question is not null && !Dialogs.Confirm($"{question}{nl}{nl}Keep '{name}' warm anyway?", "Keep warm", "Cancel"))
-                return;
-        }
-        finally
-        {
-            row.KeepWarmPending = false;
-        }
-
         _keepWarm.SetEnabled(name, true);
         row.KeepWarm = new KeepWarmStatus(KeepWarmState.Waiting, "Waiting");
         var minutes = _keepWarm.RecordOf(name)?.PingMinutes ?? _options.KeepWarm.PingMinutes;
@@ -537,48 +512,6 @@ public sealed class ServerStore
 
     /// <summary>Requests <paramref name="row"/>'s site now - also after it failed too often.</summary>
     public void CheckKeepWarm(ProjectRow row) => _keepWarm.CheckNow(row.Name);
-
-    /// <summary>What a site's DNN sends e-mail through, as far as could be read.</summary>
-    /// <param name="Server">A mail server on another machine; null when it has none or one on this machine (a test server).</param>
-    /// <param name="Unknown">Its database couldn't be read just now - it may have one.</param>
-    private sealed record MailCheck(string? Server, bool Unknown);
-
-    /// <summary>
-    /// The mail server the site's DNN sends e-mail through: its SMTPServer host setting, from its database. Nothing to
-    /// ask about for a site that isn't DNN, has no database yet, or a LocalDB file (the site's own while it runs).
-    /// </summary>
-    private async Task<MailCheck> MailServerOfAsync(ProjectRow row)
-    {
-        if (!row.IsDnn) return new MailCheck(null, false);
-        try
-        {
-            using var scope = _scopes.CreateScope();
-            var sp = scope.ServiceProvider;
-            var project = sp.GetRequiredService<IProjectRepository>().Build(row.Name, row.Path);
-            if (sp.GetRequiredService<LocalSqlContainer>().DatabaseOf(project) is not { Kind: not DatabaseKind.LocalDbFile } database)
-                return new MailCheck(null, false);
-            // On the SQL container, its list already says whether there is anything to ask.
-            if (row.Project is { DatabaseElsewhere: false } p)
-            {
-                if (p.SqlReachable == false) return new MailCheck(null, true);
-                if (p is { SqlReachable: true, DatabaseExists: false }) return new MailCheck(null, false);
-            }
-            using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            var read = await sp.GetRequiredService<IDatabaseProvisioner>().ReadHostSettingAsync(database, "SMTPServer", limit.Token);
-            if (!read.Success) return new MailCheck(null, true);
-            if (read.Value is not { } smtp || string.IsNullOrWhiteSpace(smtp)) return new MailCheck(null, false);
-            var host = smtp.Trim().Split(':', ',')[0].Trim().Trim('[', ']');
-            var local = host.Length == 0 || host is "." or "(local)" or "127.0.0.1" or "::1" ||
-                        host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
-                        host.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase);
-            return new MailCheck(local ? null : smtp.Trim(), false);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Could not read the mail server of {Site}", row.Name);
-            return new MailCheck(null, true);
-        }
-    }
 
     /// <summary>The operation's first report (on its thread): it has begun - the rest of <paramref name="started"/> on the UI thread.</summary>
     private void Begin(Operation operation, Action started)

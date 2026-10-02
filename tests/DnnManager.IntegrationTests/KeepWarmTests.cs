@@ -551,6 +551,89 @@ public sealed class KeepWarmTests
         Assert.AreEqual(KeepWarmState.Off, service.StatusOf("gone").State);
     }
 
+    [TestMethod]
+    public async Task Service_KeepsEachSiteOnItsOwn_OnceEach_AndAgainAfterARestart()
+    {
+        var down = false;
+        await using var server = new TinyServer(path => path switch
+        {
+            "/KeepAlive.aspx" when Volatile.Read(ref down) => new Answer(503),
+            "/KeepAlive.aspx" => new Answer(200, Body: "ok"),
+            _ => new Answer(404)
+        });
+        var feed = new FakeFeed();
+        var records = new MemoryRecords();
+        var worker = Environment.ProcessId;
+        ProjectState Site(string name) => new()
+        {
+            Name = name,
+            Directory = $@"C:\DNN\{name}",
+            SiteUrl = $"http://{name}.dnndev.me:{server.Port}",
+            Site = new IisSiteRuntime(1, "Started", name, "Started", [worker], [new IisBinding("http", "*", server.Port, $"{name}.dnndev.me", false)],
+                $@"C:\DNN\{name}") { IdleTimeout = TimeSpan.FromMinutes(20) }
+        };
+        int SentTo(string name) => server.Requests.Count(r => r.Host == $"{name}.dnndev.me:{server.Port}");
+        KeepWarmService NewService() => new(feed, new UntouchedIis(), records, Options.Create(new AppOptions()),
+            NullLogger<KeepWarmService>.Instance) { StartUpDelay = TimeSpan.Zero };
+        MonitorEvent[] Sites() =>
+            [new RuntimeChanged(IisServerState.Running), new ProjectAdded(Site("a")), new ProjectAdded(Site("b")), new ProjectAdded(Site("c"))];
+
+        var service = NewService();
+        try
+        {
+            service.Start();
+            feed.Raise(Sites());
+
+            // A and C on - A switched on three times over: still one site, one request, no second timer.
+            service.SetEnabled("a", true);
+            service.SetEnabled("a", true);
+            service.SetEnabled("c", true);
+            service.SetEnabled("a", true);
+            await WaitUntilAsync(() => service.StatusOf("a").State == KeepWarmState.Warm && service.StatusOf("c").State == KeepWarmState.Warm,
+                "A and C to be warm");
+            await Task.Delay(1000);
+            Assert.AreEqual(1, SentTo("a"), "Switched on three times: one request, then the interval (minutes).");
+            Assert.AreEqual(1, SentTo("c"));
+            Assert.AreEqual(0, SentTo("b"), "B isn't kept warm.");
+            Assert.AreEqual(KeepWarmState.Off, service.StatusOf("b").State);
+
+            // A goes down for a while: failing, not given up on - and warm again once it answers.
+            Volatile.Write(ref down, true);
+            service.CheckNow("a");
+            await WaitUntilAsync(() => service.StatusOf("a").State == KeepWarmState.Failing, "A to be failing", () => service.StatusOf("a").Text);
+            Volatile.Write(ref down, false);
+            service.CheckNow("a");
+            await WaitUntilAsync(() => service.StatusOf("a").State == KeepWarmState.Warm, "A to be warm again", () => service.StatusOf("a").Text);
+            Assert.AreEqual(KeepWarmState.Warm, service.StatusOf("c").State, "C goes on as before.");
+
+            // C off: nothing more is sent to it, not even when asked.
+            service.SetEnabled("c", false);
+            await WaitUntilAsync(() => service.StatusOf("c").State == KeepWarmState.Off, "C to be off");
+            var sentToC = SentTo("c");
+            service.CheckNow("c");
+            await Task.Delay(500);
+            Assert.AreEqual(sentToC, SentTo("c"), "Switched off: nothing is sent.");
+            Assert.IsTrue(records.Find("c") is null, "Off with nothing of its own: no record left.");
+        }
+        finally
+        {
+            service.Dispose();
+        }
+
+        // DNN Manager closed and opened again: A is kept warm again, B and C aren't.
+        var before = (a: SentTo("a"), b: SentTo("b"), c: SentTo("c"));
+        using var restarted = NewService();
+        restarted.Start();
+        Assert.AreEqual(KeepWarmState.Waiting, restarted.StatusOf("a").State, "Remembered before IIS was even read.");
+        feed.Raise(Sites());
+        await WaitUntilAsync(() => SentTo("a") > before.a, "A to be requested after the restart", () => restarted.StatusOf("a").Text);
+        await WaitUntilAsync(() => restarted.StatusOf("a").State == KeepWarmState.Warm, "A to be warm after the restart");
+        await Task.Delay(500);
+        Assert.AreEqual(before.b, SentTo("b"));
+        Assert.AreEqual(before.c, SentTo("c"));
+        Assert.AreEqual(KeepWarmState.Off, restarted.StatusOf("c").State);
+    }
+
     private static async Task WaitForAsync(KeepWarmService service, KeepWarmState state, int after = 0)
     {
         if (after > 0) await Task.Delay(50);

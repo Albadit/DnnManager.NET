@@ -318,7 +318,7 @@ public partial class ProjectsPage : UserControl
 
     private async void Remove(IReadOnlyList<ProjectRow> rows) => await _store.RemoveAsync(rows);
 
-    private async void ToggleKeepWarm(ProjectRow row) => await _store.ToggleKeepWarmAsync(row);
+    private void ToggleKeepWarm(ProjectRow row) => _store.ToggleKeepWarm(row);
 
     // ─── Columns ──────────────────────────────────────────────────────────
 

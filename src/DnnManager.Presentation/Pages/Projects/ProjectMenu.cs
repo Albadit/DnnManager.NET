@@ -49,7 +49,7 @@ internal sealed class ProjectMenu
             menu.Items.Add(Item("Restart", (_, _) => _control(SiteAction.Restart, row), row.CanRestart));
         }
         var keepWarm = Item(row.KeepWarmAction, (_, _) => _keepWarm(row), row.CanToggleKeepWarm);
-        keepWarm.ToolTip = row.KeepWarmOn ? row.KeepWarmText : row.KeepWarmTip;
+        keepWarm.ToolTip = row.KeepWarmOn ? row.KeepWarmText : row.KeepWarmUnavailable;
         menu.Items.Add(keepWarm);
         menu.Items.Add(new Separator());
 

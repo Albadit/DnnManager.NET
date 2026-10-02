@@ -388,7 +388,7 @@ and its `web.config`) - a site that isn't DNN shows *(none)* and *-*.
   no IIS site.
 - **Actions** - **Stop** and **Restart** for a running site, **Start** for a
   stopped one, the **flame** that switches [keep warm](#keep-warm) on and off
-  (its look and tooltip say how it is going), and **Remove…** (the bin) for any
+  (its look says how it is going), and **Remove…** (the bin) for any
   project - the site's tools (see below) are on its right-click menu. Stop also stops the
   site's app pool (unless another site uses it), which ends its worker process;
   Restart recycles the app pool; Start starts the pool and the site. The row
@@ -933,14 +933,15 @@ The first failure, giving up and recovering are noted in **Output**.
 
 The flame shows how it is going: an outline while off; filled in orange while
 the site is warm, pulsing while it warms up, grey while paused, with a red dot
-while it fails - rest the mouse on it for the details. The overview's **Keep
-warm** card shows the app pool's idle time-out, how often the site is requested
-and which pages, and gives the site an interval and pages of its own.
+while it fails. Its tooltip only says what a click does - *Enable keep warm* or
+*Disable keep warm*. The overview's **Keep warm** card says how it is going and
+shows the app pool's idle time-out, how often the site is requested and which
+pages, and gives the site an interval and pages of its own.
 
-Switching it on for a DNN site whose host settings send e-mail through a mail
-server on another machine asks first - also when its database can't be read at
-that moment: kept warm, DNN's scheduler keeps running too, and sends the e-mails
-waiting in its queue - on a copy of a live site's database, to real people.
+Switching it on asks nothing and needs nothing of the site - no mail server, no
+extension, no change in IIS or DNN: plain HTTP requests, which any DNN answers.
+Kept warm, the site's DNN keeps running, and so does its scheduler (with
+whatever it sends, e-mail included, when the site has a mail server set up).
 
 Which sites are kept warm is remembered in `Documents\DnnManager\projects\keep-warm`;
 a site's file goes when the site is no longer in IIS (removed with **Remove…**,

@@ -210,11 +210,11 @@ public partial class ProjectView : UserControl
         return list;
     }
 
-    private async void KeepWarmSwitch_Click(object sender, RoutedEventArgs e)
+    private void KeepWarmSwitch_Click(object sender, RoutedEventArgs e)
     {
-        // The switch shows what the site does, not the click: it follows once that has changed (a question may come first).
+        // The switch shows what the site does, not the click: it follows once that has changed.
         KeepWarmSwitch.SetCurrentValue(ToggleButton.IsCheckedProperty, _row.KeepWarmOn);
-        await _services.GetRequiredService<ServerStore>().ToggleKeepWarmAsync(_row);
+        _services.GetRequiredService<ServerStore>().ToggleKeepWarm(_row);
     }
 
     private void KeepWarmCheck_Click(object sender, RoutedEventArgs e) => _services.GetRequiredService<ServerStore>().CheckKeepWarm(_row);

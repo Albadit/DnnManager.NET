@@ -132,12 +132,6 @@ public interface IDatabaseProvisioner
 
     /// <summary>The site's DNN host accounts (superusers): user name and e-mail, oldest first.</summary>
     Task<Result<IReadOnlyList<DnnHostAccount>>> ListHostAccountsAsync(DatabaseConnection connection, CancellationToken ct);
-
-    /// <summary>
-    /// One of DNN's host settings (its HostSettings table), e.g. <c>SMTPServer</c>; null when the database has no such
-    /// setting (or isn't a DNN database).
-    /// </summary>
-    Task<Result<string?>> ReadHostSettingAsync(DatabaseConnection connection, string name, CancellationToken ct);
 }
 
 public sealed record DnnHostAccount(int UserId, string UserName, string Email);

@@ -387,7 +387,7 @@
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Grid Width="62">
+                                    <Grid Width="56">
                                         <StackPanel Orientation="Horizontal">
                                             <Button Style="{StaticResource RowAction}" Content="&#xE768;" ToolTip="Start" Click="RowStart_Click"
                                                     IsEnabled="{Binding CanStart}" Visibility="{Binding ShowStart, Converter={StaticResource BoolToVis}}" />
@@ -404,7 +404,7 @@
                                     </Grid>
                                     <!-- Keep warm: the flame switches it; its look and tooltip say how it is going (ProjectRow.KeepWarmLook). -->
                                     <Button Style="{StaticResource RowAction}" Click="RowKeepWarm_Click" IsEnabled="{Binding CanToggleKeepWarm}"
-                                            ToolTip="{Binding KeepWarmTip}" ToolTipService.ShowOnDisabled="True" Margin="2,0,0,0">
+                                            ToolTip="{Binding KeepWarmTip}" ToolTipService.ShowOnDisabled="True">
                                         <ContentControl Style="{StaticResource KeepWarmFlame}" />
                                     </Button>
 

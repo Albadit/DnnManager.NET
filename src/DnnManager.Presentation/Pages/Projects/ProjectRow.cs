@@ -49,7 +49,7 @@ public sealed class ProjectRow : INotifyPropertyChanged
     private static readonly string[] StartedProperties = [nameof(LastStartedSort), nameof(LastStartedTip)];
     private static readonly string[] KeepWarmProperties =
     [
-        nameof(KeepWarm), nameof(KeepWarmOn), nameof(KeepWarmPending), nameof(KeepWarmLook), nameof(KeepWarmBusy), nameof(KeepWarmText),
+        nameof(KeepWarm), nameof(KeepWarmOn), nameof(KeepWarmLook), nameof(KeepWarmBusy), nameof(KeepWarmText),
         nameof(KeepWarmTip), nameof(KeepWarmAction), nameof(CanToggleKeepWarm), nameof(Details)
     ];
 
@@ -59,7 +59,6 @@ public sealed class ProjectRow : INotifyPropertyChanged
     private bool _busy;
     private string? _pending;
     private KeepWarmStatus _keepWarm = KeepWarmStatus.Off;
-    private bool _keepWarmPending;
     // "5 minutes ago" changes with time, not with the state: kept to tell when it has to be shown again.
     private string _lastStarted;
     // Put together when first asked for, and again after a change to what it is made of.
@@ -216,19 +215,7 @@ public sealed class ProjectRow : INotifyPropertyChanged
 
     public bool KeepWarmOn => _keepWarm.IsOn;
 
-    /// <summary>Being switched on: what has to be asked first (the site's mail server) is being read.</summary>
-    public bool KeepWarmPending
-    {
-        get => _keepWarmPending;
-        set
-        {
-            if (_keepWarmPending == value) return;
-            _keepWarmPending = value;
-            Raise(KeepWarmProperties);
-        }
-    }
-
-    public KeepWarmLook KeepWarmLook => KeepWarmPending ? KeepWarmLook.Busy : _keepWarm.State switch
+    public KeepWarmLook KeepWarmLook => _keepWarm.State switch
     {
         KeepWarmState.Off => KeepWarmLook.Off,
         KeepWarmState.Warm => KeepWarmLook.Warm,
@@ -240,21 +227,22 @@ public sealed class ProjectRow : INotifyPropertyChanged
     /// <summary>For the flame's pulse.</summary>
     public bool KeepWarmBusy => KeepWarmLook == KeepWarmLook.Busy;
 
-    public string KeepWarmText => KeepWarmPending ? "Checking the site's e-mail settings…" : _keepWarm.Text;
+    public string KeepWarmText => _keepWarm.Text;
 
     /// <summary>What switching it does: "Keep warm" or "Stop keeping warm".</summary>
     public string KeepWarmAction => KeepWarmOn ? "Stop keeping warm" : "Keep warm";
 
-    /// <summary>The flame's tooltip: what a click does, then how it is going.</summary>
-    public string KeepWarmTip => KeepWarmPending ? KeepWarmText
-        : KeepWarmOn
-        ? $"Stop keeping the site warm{Environment.NewLine}{KeepWarmText}"
-        : CanToggleKeepWarm
-            ? $"Keep the site warm - while DNN Manager runs, it requests the site every few minutes so IIS doesn't shut it down, and its next page opens at once{Environment.NewLine}Off"
-            : "Keep warm - the site has no http or https binding to request";
+    /// <summary>
+    /// The flame's (and the overview switch's) tooltip: only what a click does. How it is going is in the overview's
+    /// Keep warm card, what it is in Settings → Projects → Keep warm.
+    /// </summary>
+    public string KeepWarmTip => KeepWarmOn ? "Disable keep warm" : "Enable keep warm";
+
+    /// <summary>Why keep warm can't be switched on; null when it can, or is on.</summary>
+    public string? KeepWarmUnavailable => KeepWarmOn || HasUrl ? null : "The site has no http or https binding to request";
 
     /// <summary>A site with an address can be kept warm; one that is kept warm can always be switched off.</summary>
-    public bool CanToggleKeepWarm => !KeepWarmPending && (KeepWarmOn || HasUrl);
+    public bool CanToggleKeepWarm => KeepWarmOn || HasUrl;
 
     // ─── Row state ───────────────────────────────────────────────────────
 
