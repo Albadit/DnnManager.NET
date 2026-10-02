@@ -116,6 +116,7 @@ code are in [docs/architecture.md](docs/architecture.md).
 | | [Releasing](docs/releasing.md) | Version, changelog, portable exe, installer, GitHub release |
 | | [Security](docs/security.md) | Administrator rights, secrets, what DNN Manager deletes, network exposure, open risks |
 | Everyone | [Changelog](CHANGELOG.md) | What changed in each version |
+| | [Release notes](docs/release-notes/) | The notes of every GitHub release, one file per version |
 
 ## Contributing
 

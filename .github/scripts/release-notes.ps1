@@ -3,11 +3,10 @@
     Writes the release notes for a version as Markdown.
 
 .DESCRIPTION
-    The hand-written entry in CHANGELOG.md comes first: its "## vX.Y.Z" section (or "## Unreleased" when there
-    is none) is sorted into What's new, Improvements, Bug fixes, Security, Removed and Installation / Update
-    notes. Without an entry, the same
-    sections are made from the commit subjects since the previous release (new: / fix: / update: ...).
-    The commits since the previous release are always listed at the end.
+    docs\release-notes\vX.Y.Z.md, when it exists, is used as it is - write it with the release-notes skill
+    (.claude\skills\release-notes). Otherwise the notes are drafted in the same structure: a summary, Highlights,
+    Other changes, Upgrading and Tested, from the CHANGELOG.md entry "## vX.Y.Z" (or "## Unreleased" when there is
+    none), or from the commit subjects since the previous release when there is no entry at all.
 
 .EXAMPLE
     .github\scripts\release-notes.ps1 -Version 1.7.0 -OutFile release-notes.md
@@ -29,6 +28,24 @@ if (-not $Tag) { $Tag = "v$Version" }
 if (-not $Repository) { $Repository = 'Bond-for-web-solutions/DnnManager.NET' }
 $repoUrl = "https://github.com/$Repository"
 
+# Notes already written in docs\release-notes are the release's notes as they are - only their relative links
+# become links to the tag's files, since the GitHub release page isn't in the repository.
+$saved = Join-Path $root "docs\release-notes\$Tag.md"
+$target = [IO.Path]::GetFullPath($OutFile)
+if ((Test-Path $saved) -and [IO.Path]::GetFullPath($saved) -ne $target) {
+    $notes = [IO.File]::ReadAllText($saved)
+    $notes = [regex]::Replace($notes, '\]\((?!https?:|#|mailto:)([^)\s]+)\)', {
+            param($m)
+            $path = [IO.Path]::GetFullPath((Join-Path (Split-Path $saved) ($m.Groups[1].Value -replace '#.*$', '')))
+            $relative = $path.Substring($root.Length).TrimStart('\', '/').Replace('\', '/')
+            $anchor = if ($m.Groups[1].Value -match '(#.*)$') { $Matches[1] } else { '' }
+            "]($repoUrl/blob/$Tag/$relative$anchor)"
+        })
+    [IO.File]::WriteAllText($target, $notes, [Text.UTF8Encoding]::new($false))
+    Write-Host "Release notes for $Tag (docs\release-notes\$Tag.md) -> $OutFile"
+    return
+}
+
 function Invoke-Git([string[]]$argv) {
     $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     try { $out = & git -C $root @argv 2>$null } finally { $ErrorActionPreference = $prev }
@@ -42,6 +59,7 @@ $previous = Invoke-Git @('describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*
 
 # --- The CHANGELOG.md entry ---
 $entry = $null
+$entryHeading = $null
 $changelog = Join-Path $root 'CHANGELOG.md'
 if (Test-Path $changelog) {
     $lines = [IO.File]::ReadAllLines($changelog)
@@ -54,65 +72,59 @@ if (Test-Path $changelog) {
         if ($start -ge 0) { break }
     }
     if ($start -ge 0) {
+        $entryHeading = $lines[$start]
         $end = $lines.Count
         for ($i = $start + 1; $i -lt $lines.Count; $i++) { if ($lines[$i] -match '^## ') { $end = $i; break } }
         if ($end -gt $start + 1) { $entry = $lines[($start + 1)..($end - 1)] }
     }
 }
 
-# Release-note section for each CHANGELOG heading and commit prefix.
-$order = @("What's new", 'Improvements', 'Bug fixes', 'Security', 'Removed', 'Technical changes', 'Installation / Update notes')
+# The sections every release's notes have (docs\release-notes\v1.6.0.md is the model).
+$order = @('Highlights', 'Other changes', 'Upgrading', 'Tested')
 $sections = [ordered]@{}
 foreach ($name in $order) { $sections[$name] = [Collections.Generic.List[string]]::new() }
+$fixes = [Collections.Generic.List[string]]::new()
 $intro = [Collections.Generic.List[string]]::new()
-
-function SectionForHeading([string]$heading) {
-    switch -Regex ($heading) {
-        '^(Added|New)' { return "What's new" }
-        '^(Changed|Improved|Performance)' { return 'Improvements' }
-        '^Fixed' { return 'Bug fixes' }
-        '^Security' { return 'Security' }
-        '^(Removed|Deprecated|Breaking)' { return 'Removed' }
-        '^(Upgrading|Installation|Update)' { return 'Installation / Update notes' }
-        default { return 'Technical changes' }
-    }
-}
 
 if ($entry) {
     $current = $null
     foreach ($line in $entry) {
-        if ($line -match '^###\s+(.+)$') { $current = SectionForHeading $Matches[1].Trim(); continue }
-        if ($current) { $sections[$current].Add($line) } else { $intro.Add($line) }
+        if ($line -match '^###\s+(.+)$') {
+            $current = switch -Regex ($Matches[1].Trim()) {
+                '^(Added|New)' { 'Highlights'; break }
+                '^Fixed' { 'Fixed'; break }
+                '^(Upgrading|Installation|Update)' { 'Upgrading'; break }
+                '^Tested' { 'Tested'; break }
+                default { 'Other changes' }
+            }
+            continue
+        }
+        if (-not $current) { $intro.Add($line) }
+        elseif ($current -eq 'Fixed') { $fixes.Add(($line -replace '^- ', '- Fixed: ')) }
+        else { $sections[$current].Add($line) }
     }
 }
 
 # --- The commits since the previous release ---
 $range = if ($previous) { "$previous..$head" } else { $head }
 $commits = @(Invoke-Git @('log', '--no-merges', '--format=%h%x09%s', $range) | Where-Object { $_ })
-$commitLines = foreach ($c in $commits) {
-    $hash, $subject = $c -split "`t", 2
-    if ($subject -match '^(release|Release)\b') { continue }
-    [pscustomobject]@{ Hash = $hash; Subject = $subject }
-}
 
 if (-not $entry) {
-    foreach ($c in $commitLines) {
-        $section = switch -Regex ($c.Subject) {
-            '^(new|feat|add)(\(.+\))?!?:' { "What's new"; break }
-            '^fix(\(.+\))?!?:' { 'Bug fixes'; break }
-            '^(sec|security)(\(.+\))?!?:' { 'Security'; break }
-            '^(remove|revert)(\(.+\))?!?:' { 'Removed'; break }
-            '^(build|ci|chore|docs|test|tests|refactor|style)(\(.+\))?!?:' { 'Technical changes'; break }
-            default { 'Improvements' }
-        }
-        $text = $c.Subject -replace '^[A-Za-z]+(\(.+\))?!?:\s*', ''
+    foreach ($c in $commits) {
+        $null, $subject = $c -split "`t", 2
+        # Release commits and work users don't see stay out of the notes.
+        if ($subject -match '^(release|Release)\b' -or $subject -match '^(build|ci|chore|docs|test|tests|refactor|style)(\(.+\))?!?:') { continue }
+        $text = $subject -replace '^[A-Za-z]+(\(.+\))?!?:\s*', ''
         if ($text.Length -gt 0) { $text = $text.Substring(0, 1).ToUpperInvariant() + $text.Substring(1) }
-        $sections[$section].Add("- $text ($($c.Hash))")
+        if ($subject -match '^(new|feat|add)(\(.+\))?!?:') { $sections['Highlights'].Add("- $text") }
+        elseif ($subject -match '^fix(\(.+\))?!?:') { $fixes.Add("- Fixed: $text") }
+        else { $sections['Other changes'].Add("- $text") }
     }
 }
+foreach ($line in $fixes) { $sections['Other changes'].Add($line) }
 
 # --- Markdown ---
-function Trim-Block([Collections.Generic.List[string]]$block) {
+function Get-TrimmedBlock([Collections.Generic.List[string]]$block) {
     $a = 0; $b = $block.Count - 1
     while ($a -le $b -and [string]::IsNullOrWhiteSpace($block[$a])) { $a++ }
     while ($b -ge $a -and [string]::IsNullOrWhiteSpace($block[$b])) { $b-- }
@@ -122,33 +134,29 @@ function Trim-Block([Collections.Generic.List[string]]$block) {
 
 $md = [Text.StringBuilder]::new()
 [void]$md.AppendLine("# DNN Manager $Version").AppendLine()
-$introText = @(Trim-Block $intro)
+$introText = @(Get-TrimmedBlock $intro)
 if ($introText.Count -gt 0) { [void]$md.AppendLine(($introText -join "`n")).AppendLine() }
 
-foreach ($name in $order) {
-    if ($name -eq 'Installation / Update notes') { continue }
-    $body = @(Trim-Block $sections[$name])
-    if ($body.Count -eq 0) { continue }
-    [void]$md.AppendLine("## $name").AppendLine().AppendLine(($body -join "`n")).AppendLine()
+foreach ($name in 'Highlights', 'Other changes') {
+    $body = @(Get-TrimmedBlock $sections[$name])
+    if ($body.Count -gt 0) { [void]$md.AppendLine("## $name").AppendLine().AppendLine(($body -join "`n")).AppendLine() }
 }
 
-[void]$md.AppendLine('## Installation / Update notes').AppendLine()
-$upgrade = @(Trim-Block $sections['Installation / Update notes'])
-if ($upgrade.Count -gt 0) { [void]$md.AppendLine(($upgrade -join "`n")).AppendLine() }
-[void]$md.AppendLine("- **Installer:** run ``DnnManagerSetup-$Version-x64.exe``. It installs per user (no administrator rights) and upgrades an earlier install in place; your settings in ``Documents\DnnManager`` are kept.")
-[void]$md.AppendLine("- **Portable:** ``DnnManager-$Version-x64.exe`` is a single self-contained file - no .NET install needed. Run it as Administrator, since it manages IIS.")
-[void]$md.AppendLine('- `SHA256SUMS.txt` holds the checksums of the files above.').AppendLine()
+[void]$md.AppendLine('## Upgrading')
+if ($previous -match '^v(\d+)\.(\d+)\.') { [void]$md.AppendLine("Install over $($Matches[1]).$($Matches[2]).x as usual.") }
+$upgrade = @(Get-TrimmedBlock $sections['Upgrading'])
+if ($upgrade.Count -gt 0) { [void]$md.AppendLine(($upgrade -join "`n")) }
+[void]$md.AppendLine()
 
-$listed = @($commitLines)
-if ($listed.Count -gt 0) {
-    [void]$md.AppendLine('<details>').AppendLine("<summary>Commits since $(if ($previous) { $previous } else { 'the first commit' }) ($($listed.Count))</summary>").AppendLine()
-    foreach ($c in $listed) { [void]$md.AppendLine("- $($c.Subject) ($($c.Hash))") }
-    [void]$md.AppendLine().AppendLine('</details>').AppendLine()
-}
+$tested = @(Get-TrimmedBlock $sections['Tested'])
+if ($tested.Count -gt 0) { [void]$md.AppendLine('## Tested').AppendLine(($tested -join "`n")).AppendLine() }
 
-if ($previous) { [void]$md.AppendLine("**Full changelog:** [$previous...$Tag]($repoUrl/compare/$previous...$Tag) | [CHANGELOG.md]($repoUrl/blob/$Tag/CHANGELOG.md)") }
-else { [void]$md.AppendLine("**Full changelog:** [CHANGELOG.md]($repoUrl/blob/$Tag/CHANGELOG.md)") }
+# A draft kept in docs\release-notes links into the repository; the GitHub release links to the tag's copy.
+$anchor = if ($entryHeading -match '^## v') { '#' + (($entryHeading -replace '^##\s+', '').ToLowerInvariant() -replace '[^\w\- ]', '' -replace ' ', '-') } else { '' }
+$inDocs = [IO.Path]::GetDirectoryName($target) -eq [IO.Path]::GetFullPath((Join-Path $root 'docs\release-notes'))
+$changelogUrl = if ($inDocs) { '../../CHANGELOG.md' } else { "$repoUrl/blob/$Tag/CHANGELOG.md" }
+[void]$md.AppendLine("Full list of changes: [CHANGELOG.md]($changelogUrl$anchor)")
 
 $text = $md.ToString().Replace("`r`n", "`n")
-[IO.File]::WriteAllText($OutFile, $text, [Text.UTF8Encoding]::new($false))
-Write-Host "Release notes for $Tag ($(if ($entry) { 'CHANGELOG.md entry' } else { 'generated from commits' }); previous release: $(if ($previous) { $previous } else { 'none' })) -> $OutFile"
+[IO.File]::WriteAllText($target, $text, [Text.UTF8Encoding]::new($false))
+Write-Host "Release notes for $Tag ($(if ($entry) { "CHANGELOG.md: $entryHeading" } else { 'drafted from commits' }); previous release: $(if ($previous) { $previous } else { 'none' })) -> $OutFile"

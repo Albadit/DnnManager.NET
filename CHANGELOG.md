@@ -17,10 +17,13 @@ All notable changes to DnnManager.NET are documented here.
 
 - Releases are built, tested and published by GitHub Actions when a `vX.Y.Z`
   tag is pushed; the version comes from the tag (see `docs/releasing.md`).
+- The notes of every GitHub release are in `docs/release-notes`, one file per
+  version; the release workflow publishes that file as the release's notes
+  when it exists.
 - `build.ps1 -Version X.Y.Z` builds the installer for a version other than
   `<Version>` in `DnnManager.csproj`.
 
-## v1.6.0 - 2026-10-02
+## v1.6.0
 
 **See what a site really is**: a site's Details read IIS, its folder,
 `web.config`, `bin` and its database and mark every problem they find, and the
@@ -194,7 +197,7 @@ never dropped, and the SQL container is reachable from this PC only.
   next start. The next line now starts the day's file again, and a write that
   fails is tried again a minute later instead of never.
 
-## v1.5.0 - 2026-10-02
+## v1.5.0
 
 **Sites stay fast**: keep warm stops IIS from shutting an idle DNN site down, so
 its next page opens at once instead of after DNN starting up again. The
@@ -278,7 +281,7 @@ Manager, and **Cancel** undoes what an operation had already done.
 - The **Environment** and **Clone project** pages - moved into Settings and the
   project menu.
 
-## v1.4.0 - 2026-10-01
+## v1.4.0
 
 **New project installs DNN for you**: the first visit shows your new site, signed
 in as the host account you chose - no installation wizard - on the local SQL
@@ -432,7 +435,7 @@ on resources while minimized.
   connection string that couldn't be written is no longer quoted in the error,
   and database connections print without their password.
 
-## v1.3.0 - 2026-10-01
+## v1.3.0
 
 DNN Manager now works like Docker Desktop: **Projects** is a live server table
 that follows IIS and the projects folder by itself - no Refresh -, a status bar
@@ -682,7 +685,7 @@ restart, and every button, input and switch shares one look.
   DNN Manager uses the one their `web.config` names. A project can't be named
   after a SQL Server system database (`master`, `model`, `msdb`, `tempdb`).
 
-## v1.2.0 - 2026-09-29
+## v1.2.0
 
 DNN Manager now has a Windows installer, and your settings and project backups
 move into `Documents\DnnManager`, apart from the program and the sites, where
@@ -750,7 +753,7 @@ updates, reinstalls and uninstalls leave them alone.
   backups folder (copy it from there with **Open backups folder**). The `web.config` that blocked IIS from serving `01_backup` is no
   longer needed.
 
-## v1.1.0 - 2026-09-28
+## v1.1.0
 
 A major release: projects can be imported from and exported to a `.zip` +
 `.bacpac`, with dated backups in each project's `01_backup` folder; a new
@@ -909,7 +912,7 @@ SQL Server connection instead of Docker.
 - **Source database credentials on the Clone page** - the source database always
   comes from the source's `web.config`.
 
-## v1.0.3 - 2026-09-25
+## v1.0.3
 
 The terminal UI is replaced by a desktop app, **DNN Manager**. Existing
 projects, `appsettings.json` and `connections.json` keep working as they are.
@@ -1018,7 +1021,7 @@ projects, `appsettings.json` and `connections.json` keep working as they are.
   SQL-container steps (`Provisioning.cs`), and one definition of the hostname,
   site URL, database-name and server conventions (`AppOptions`).
 
-## v1.0.2 - 2026-09-03
+## v1.0.2
 
 A hardening and performance patch. No new features and no configuration
 changes: existing projects, `appsettings.json` and `connections.json` all keep

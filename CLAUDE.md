@@ -2,16 +2,17 @@
 
 ## Skills
 
-This repository has two skills in `.claude/skills/`. For every prompt, decide which of them the request needs, use
+This repository has three skills in `.claude/skills/`. For every prompt, decide which of them the request needs, use
 each one that applies, and name them in the first line of the reply (e.g. "Skills: software-engineering, documentation" or
 "Skills: none").
 
 | Skill | Use it when the prompt… |
 |---|---|
 | **software-engineering** | changes or reviews code: a feature, a bug fix, a refactor, UI/UX changes, performance, resource use, security, cleanup, an audit |
-| **documentation** | writes or updates docs: README, `docs/`, changelog or release notes, diagrams, a handover - or a code change alters documented behaviour, configuration, setup or architecture |
+| **documentation** | writes or updates docs: README, `docs/`, changelog, diagrams, a handover - or a code change alters documented behaviour, configuration, setup or architecture |
+| **release-notes** | writes or reviews the notes for a release (`docs/release-notes/vX.Y.Z.md`) - "the release notes for 1.7.0", "prepare the next release" |
 
-Both apply together when a code change touches something the docs describe. Neither applies to a quick question
+software-engineering and documentation apply together when a code change touches something the docs describe. Neither applies to a quick question
 or a one-off command.
 
 ## Project conventions

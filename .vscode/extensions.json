@@ -1,0 +1,6 @@
+{
+    // Tasks Shell Input fills the pickers of the task "release (GitHub)" (.vscode/tasks.json) each time it runs.
+    "recommendations": [
+        "augustocdias.tasks-shell-input"
+    ]
+}

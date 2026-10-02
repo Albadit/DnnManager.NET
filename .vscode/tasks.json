@@ -97,6 +97,61 @@
                 "panel": "shared",
                 "clear": true
             }
+        },
+        {
+            // Pick docs/release-notes/vX.Y.Z.md (its name is the tag and the title) and a commit on GitHub; builds both
+            // exes for that commit and, after you confirm, tags it and publishes the GitHub release. See docs/releasing.md.
+            // The two pickers are filled fresh each time by the extension Tasks Shell Input (augustocdias.tasks-shell-input).
+            "label": "release (GitHub)",
+            "type": "process",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.github/scripts/publish-release.ps1",
+                "-NotesFile",
+                "${input:releaseNotes}",
+                "-Commit",
+                "${input:releaseCommit}"
+            ],
+            "group": "build",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true,
+                "clear": true
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "id": "releaseNotes",
+            "type": "command",
+            "command": "shellCommand.execute",
+            "args": {
+                "command": "powershell",
+                "commandArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/.github/scripts/publish-release.ps1", "-List", "notes"],
+                "cwd": "${workspaceFolder}",
+                "fieldSeparator": "||",
+                "description": "Release notes to publish - the file name is the tag and the release title",
+                "warnOnStderr": false
+            }
+        },
+        {
+            "id": "releaseCommit",
+            "type": "command",
+            "command": "shellCommand.execute",
+            "args": {
+                "command": "powershell",
+                "commandArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/.github/scripts/publish-release.ps1", "-List", "commits"],
+                "cwd": "${workspaceFolder}",
+                "fieldSeparator": "||",
+                "description": "Commit to release (newest on GitHub first)",
+                "warnOnStderr": false
+            }
         }
     ]
 }

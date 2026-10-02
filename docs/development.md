@@ -9,6 +9,7 @@ conventions to follow. New here? Start with the [README](../README.md), then
 | [architecture.md](architecture.md) | Layers, how an operation runs, live updates, project layout, design decisions, component map |
 | [testing.md](testing.md) | The fast and the integration tests, adding a test |
 | [releasing.md](releasing.md) | Version, changelog, portable exe, installer, GitHub release |
+| [release-notes/](release-notes/) | The notes of every GitHub release, one file per version |
 | [configuration.md](configuration.md) | `Documents\DnnManager`, `settings.json`, environment variables |
 | [troubleshooting.md](troubleshooting.md) | Known problems and how to fix them |
 | [security.md](security.md) | Administrator rights, secrets, what DNN Manager deletes, network exposure |

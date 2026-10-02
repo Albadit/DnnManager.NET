@@ -7,19 +7,61 @@ Making a new version: the steps, the release workflow, the portable exe and the 
 1. Set `<Version>` in [`DnnManager.csproj`](../DnnManager.csproj) - local builds,
    the portable exe's name, the installer and Settings → About take it from there.
 2. In [`CHANGELOG.md`](../CHANGELOG.md), turn **Unreleased** into
-   `## vX.Y.Z - <date>` (with an *Upgrading* note when settings or behaviour change).
+   `## vX.Y.Z` (with an *Upgrading* note when settings or behaviour change).
 3. Run the fast tests and the integration tests ([testing.md](testing.md)).
-4. Commit, push, then tag and push the tag:
+4. Write the release notes as `docs/release-notes/vX.Y.Z.md` - the file's name is
+   the release's tag and title. Every release uses the structure of
+   [v1.6.0](release-notes/v1.6.0.md): a bold summary, *Highlights*, *Other changes*,
+   *Upgrading*, *Tested*. With Claude Code, ask for "the release notes for X.Y.Z" -
+   the `release-notes` skill (`.claude/skills/release-notes`) writes them from the
+   changelog, the commits and the test results. By hand, start from the draft:
+   `.github\scripts\release-notes.ps1 -Version X.Y.Z -OutFile docs\release-notes\vX.Y.Z.md`.
+5. Commit and push, then publish the release - either way the GitHub release gets
+   `DnnManager-X.Y.Z-x64.exe` and `DnnManagerSetup-X.Y.Z-x64.exe`, and Settings → About compares the running version with the newest release there:
+   - **From VS Code**: run the task **release (GitHub)** - see
+     [Release from VS Code](#release-from-vs-code).
+   - **From GitHub Actions**: tag the commit and push the tag; the
+     [release workflow](#the-release-workflow) does the rest.
 
-   ```bash
-   git tag v1.7.0
-   git push origin v1.7.0
-   ```
+     ```bash
+     git tag v1.7.0
+     git push origin v1.7.0
+     ```
 
-   The [release workflow](#the-release-workflow) builds, tests and publishes the
-   GitHub release with `DnnManager-X.Y.Z-x64.exe`, `DnnManagerSetup-X.Y.Z-x64.exe`
-   and `SHA256SUMS.txt` attached - Settings → About compares the running version
-   with the newest release there.
+## Release from VS Code
+
+**Ctrl+Shift+B → release (GitHub)** (or **Terminal → Run Task…**) asks two
+questions in VS Code's picker, then runs
+[`.github/scripts/publish-release.ps1`](../.github/scripts/publish-release.ps1) in
+the terminal. The pickers are filled fresh each time - from `docs/release-notes`
+and from GitHub - by the extension
+[Tasks Shell Input](https://marketplace.visualstudio.com/items?itemName=augustocdias.tasks-shell-input)
+(`augustocdias.tasks-shell-input`); VS Code offers to install it, as it's in
+`.vscode/extensions.json`.
+
+1. **Pick the release notes** from `docs/release-notes`. Files without a tag come
+   first, marked *next release*; released ones are marked *already released*.
+   `v1.7.0.md` makes the tag and the release title `v1.7.0` (`v1.7.0-rc.1.md`
+   makes a pre-release).
+2. **Pick the commit** from the 20 newest on GitHub (`origin/<current branch>`,
+   fetched first) - the newest is on top.
+3. It stops when the tag already points at another commit or GitHub already has
+   that release.
+4. In a temporary worktree of that commit - your working copy isn't touched - it
+   runs the fast tests, then builds the portable exe and the installer with the
+   version stamped in, the same build as the release workflow.
+5. It checks both files report the version; they land in `publish\vX.Y.Z\`.
+6. **After you confirm**, it tags the commit, pushes the tag, creates the release as
+   a draft with the notes, uploads the two files, checks their sizes and
+   publishes it. Answer *N* and nothing is published - the files stay in
+   `publish\vX.Y.Z\`.
+
+It signs in to GitHub with the credential Git uses for this repository. Outside VS
+Code, `.github\scripts\publish-release.ps1` asks the same two questions in the
+terminal; `-NotesFile docs\release-notes\v1.7.0.md -Commit <hash>` answers them and
+`-SkipTests` skips the fast tests. A commit that isn't on GitHub yet is released
+only after you confirm. If the release workflow runs for the pushed tag too, it
+leaves the published release as it is.
 
 ## The release workflow
 
@@ -35,13 +77,16 @@ pushed tag `vX.Y.Z` (or `vX.Y.Z-suffix`, which becomes a pre-release):
 3. Publishes the portable exe, builds the installer and checks that both report
    the tag's version.
 4. Writes the release notes with
-   [`.github/scripts/release-notes.ps1`](../.github/scripts/release-notes.ps1): the
-   tag's `CHANGELOG.md` entry sorted into *What's new*, *Improvements*, *Bug fixes*,
-   *Security*, *Removed* and *Installation / Update notes*, followed by the commits
-   since the previous tag. Without a changelog entry the sections are made from
-   the commit subjects (`new:`, `fix:`, `update:`…).
-5. Creates the GitHub release for the tag (or updates it when re-run) and uploads
-   the files. They are also kept as a workflow artifact for 30 days.
+   [`.github/scripts/release-notes.ps1`](../.github/scripts/release-notes.ps1):
+   [`docs/release-notes/vX.Y.Z.md`](release-notes/) when it exists, with its relative
+   links pointed at the tag's files;
+   otherwise a draft in the same structure, from the tag's `CHANGELOG.md` entry
+   (*Added* → *Highlights*, *Fixed* → `Fixed:` lines in *Other changes*, *Upgrading*,
+   *Tested*) or, without an entry, from the commit subjects since the previous tag
+   (`new:` → *Highlights*, `fix:` and `update:` → *Other changes*).
+5. Creates the GitHub release for the tag and uploads the files - unless the tag
+   already has a release (published from VS Code, or by an earlier run), which it
+   leaves as it is. The files are also kept as a workflow artifact for 30 days.
 
 **Actions → Release → Run workflow** with a version is a dry run: everything
 except publishing the release. Preview the notes locally with

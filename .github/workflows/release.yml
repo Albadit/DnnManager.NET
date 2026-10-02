@@ -162,10 +162,6 @@ jobs:
           $dir = New-Item -ItemType Directory -Force 'artifacts/release'
           Copy-Item "publish/DnnManager-$version-x64.exe" $dir
           Copy-Item "publish/DnnManagerSetup-$version-x64.exe" $dir
-          $sums = Get-ChildItem $dir -File | Sort-Object Name | ForEach-Object {
-            '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Name
-          }
-          [IO.File]::WriteAllText((Join-Path $dir 'SHA256SUMS.txt'), (($sums -join "`n") + "`n"))
           Get-ChildItem $dir | Format-Table Name, Length -AutoSize | Out-String | Write-Output
           "dir=$($dir.FullName)" >> $env:GITHUB_OUTPUT
 
@@ -201,12 +197,10 @@ jobs:
           $prerelease = if ('${{ steps.version.outputs.prerelease }}' -eq 'true') { '--prerelease' } else { '--latest' }
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) {
-            # Re-running for the same tag replaces the files and the notes.
-            gh release upload $tag @files --clobber
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            gh release edit $tag --title $tag --notes-file artifacts/release-notes.md
-          } else {
-            gh release create $tag @files --verify-tag --title $tag --notes-file artifacts/release-notes.md $prerelease
+            # Already published - by the VS Code task "release (GitHub)" or an earlier run. Its files stay as they are.
+            Write-Output "::notice::$tag already has a GitHub release - left as it is."
+            exit 0
           }
+          gh release create $tag @files --verify-tag --title $tag --notes-file artifacts/release-notes.md $prerelease
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Write-Output "Published $env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/releases/tag/$tag"
