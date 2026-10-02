@@ -40,7 +40,8 @@ public sealed class ProjectFileCopier : IProjectFileCopier
             byteCount += file.Length;
             if (progress.Due()) reporter.Progress($"{fileCount}/{total}  {rel}");
         }
-        reporter.Success($"Copied {fileCount} files ({byteCount / 1024d / 1024d:N1} MB).");
+        reporter.Success($"Copied {fileCount:N0} files ({byteCount / 1024d / 1024d:N1} MB).");
+        reporter.Fact("Files copied", $"{fileCount:N0} · {byteCount / 1024d / 1024d:N1} MB");
         return Result.Ok();
     }
 
@@ -103,7 +104,8 @@ public sealed class ProjectFileCopier : IProjectFileCopier
             }
 
             if (skipped > 0) reporter.Info($"Skipped {skipped} file(s) outside the site root.");
-            reporter.Success($"Extracted {count} files ({bytes / 1024d / 1024d:N1} MB).");
+            reporter.Success($"Extracted {count:N0} files ({bytes / 1024d / 1024d:N1} MB).");
+            reporter.Fact("Files extracted", $"{count:N0} · {bytes / 1024d / 1024d:N1} MB");
             return Result.Ok();
         }
     }
@@ -169,7 +171,8 @@ public sealed class ProjectFileCopier : IProjectFileCopier
         if (skipped.Count > 0)
             reporter.Warn($"Skipped {skipped.Count} file(s) that couldn't be read: " +
                           string.Join(", ", skipped.Take(5)) + (skipped.Count > 5 ? ", …" : ""));
-        reporter.Success($"Zipped {count} files ({bytes / 1024d / 1024d:N1} MB) into {zipPath}");
+        reporter.Success($"Zipped {count:N0} files ({bytes / 1024d / 1024d:N1} MB) into {zipPath}");
+        reporter.Fact("Files zipped", $"{count:N0} · {bytes / 1024d / 1024d:N1} MB");
         return Result.Ok();
     }
 

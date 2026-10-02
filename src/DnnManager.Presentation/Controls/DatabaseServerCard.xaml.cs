@@ -59,7 +59,7 @@ public partial class DatabaseServerCard : UserControl
     {
         var server = _options.DatabaseServer;
         var connection = _options.DatabaseOnServer("");
-        Summary.Text = server.IsContainer ? $"Local SQL container (Docker) at {connection.Server}, as sa."
+        Summary.Text = server.IsContainer ? $"Local SQL container (Docker) at {connection.Server}, as {connection.User}."
             : server.IsLocalDbFile ? $"SQL Server Express LocalDB ({connection.Server}) - each site's own database file."
             : $"{connection.Server}, with {connection.AuthenticationText.ToLowerInvariant()}" +
               (server.UsesSqlAuthentication ? $" as '{server.UserName}'." : ".");

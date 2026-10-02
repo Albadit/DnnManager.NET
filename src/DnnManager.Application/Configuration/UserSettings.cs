@@ -38,9 +38,25 @@ public sealed class UserSettings
         }
         static bool IsPort(int port) => port is > 0 and <= 65535;
         static bool Has(string? value) => !string.IsNullOrWhiteSpace(value);
+        static bool IsSystemFolder(string folder)
+        {
+            var full = Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar);
+            if (Path.GetPathRoot(full + Path.DirectorySeparatorChar)?.TrimEnd(Path.DirectorySeparatorChar) == full) return true;
+            return new[]
+                {
+                    Environment.SpecialFolder.Windows, Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86,
+                    Environment.SpecialFolder.UserProfile, Environment.SpecialFolder.CommonApplicationData
+                }
+                .Select(Environment.GetFolderPath)
+                .Any(system => system.Length > 0 && full.Equals(system.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase));
+        }
 
         Check(Has(Projects.BaseDirectory) && Path.IsPathFullyQualified(Projects.BaseDirectory),
             "projects.baseDirectory", "must be a full path, e.g. C:\\DNN.");
+        // A site in the projects folder is DNN Manager's: removing it deletes its folder. A drive or a system folder as
+        // the projects folder would make every site on it one.
+        Check(!Has(Projects.BaseDirectory) || !Path.IsPathFullyQualified(Projects.BaseDirectory) || !IsSystemFolder(Projects.BaseDirectory),
+            "projects.baseDirectory", "can't be a drive or a system folder (Windows, Program Files, your user folder) - use a folder of its own, e.g. C:\\DNN.");
         Check(IsPort(Projects.SitePort), "projects.sitePort", "must be a number between 1 and 65535.");
         Check(Has(Projects.HostnameSuffix) && !Projects.HostnameSuffix.Trim().Trim('.').Contains(' '),
             "projects.hostnameSuffix", "is required and can't contain spaces.");
@@ -87,7 +103,9 @@ public sealed class UserSettings
         Check(Has(Docker.ContainerName), "docker.containerName", "is required.");
         Check(Has(Docker.VolumeName), "docker.volumeName", "is required.");
         Check(Has(Docker.Edition), "docker.edition", "is required.");
-        Check(Has(Docker.Collation), "docker.collation", "is required.");
+        // Goes into CREATE DATABASE … COLLATE as it is - a collation name is only letters, digits and _.
+        Check(Has(Docker.Collation) && Docker.Collation.All(c => char.IsAsciiLetterOrDigit(c) || c == '_'),
+            "docker.collation", "must be a collation name such as Latin1_General_CI_AS (letters, digits and _).");
 
         foreach (var feature in Iis.RequiredFeatures)
             Check(Has(feature?.Name), "iis.requiredFeatures", "has a feature without a name.");
@@ -140,6 +158,7 @@ public sealed class UserSettings
             ContainerName = Docker.ContainerName,
             ContainerIp = SqlServer.Host,
             VolumeName = Docker.VolumeName,
+            SqlUser = SqlServer.ContainerUserName,
             SaPassword = SqlServer.SaPassword,
             DefaultPort = SqlServer.Port,
             Collation = Docker.Collation,
@@ -307,19 +326,30 @@ public sealed class SqlServerSettings
     public static readonly string[] Authentications = ["windows", "sql"];
 
     /// <summary>
-    /// "container" (the local SQL Server container, signed in to as sa), "sqlServer" (SQL Server or SQL Server Express)
+    /// "container" (the local SQL Server container, signed in to as <see cref="ContainerUserName"/>), "sqlServer" (SQL Server or SQL Server Express)
     /// or "localDbFile" (LocalDB with the site's own database file).
     /// </summary>
     public string Type { get; set; } = ContainerType;
     public string Host { get; set; } = "localhost";
     public int Port { get; set; } = 1433;
+    /// <summary>
+    /// The password of <see cref="UserName"/> on the container - and the sa password Set up docker-compose creates
+    /// the container with.
+    /// </summary>
     public string SaPassword { get; set; } = "Admin@123";
     /// <summary>For "sqlServer" and "localDbFile": e.g. <c>.\SQLEXPRESS</c>, <c>localhost,1433</c> or <c>(LocalDB)\MSSQLLocalDB</c>.</summary>
     public string Server { get; set; } = @".\SQLEXPRESS";
     /// <summary>For "sqlServer": "windows" or "sql".</summary>
     public string Authentication { get; set; } = "windows";
-    /// <summary>The SQL Server login, for "sql" authentication. Its password is in the Windows Credential Manager.</summary>
+    /// <summary>
+    /// The login: for "container" the one DNN Manager signs in to the container with (sa when empty - another one has
+    /// to exist on it already); for "sqlServer" with "sql" authentication the SQL Server login, whose password is in
+    /// the Windows Credential Manager.
+    /// </summary>
     public string UserName { get; set; } = "";
+
+    /// <summary>The login on the container: <see cref="UserName"/>, or sa.</summary>
+    [JsonIgnore] public string ContainerUserName => UserName.Trim() is { Length: > 0 } name ? name : "sa";
 
     [JsonIgnore] public bool IsContainer => Type.Equals(ContainerType, StringComparison.OrdinalIgnoreCase);
     [JsonIgnore] public bool UsesSqlAuthentication => Authentication.Equals("sql", StringComparison.OrdinalIgnoreCase);

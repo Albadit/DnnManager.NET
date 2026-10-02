@@ -114,11 +114,8 @@ public sealed class ServerStore
         {
             if (_rows.TryGetValue(site, out var row)) row.KeepWarm = status;
         });
-        _keepWarm.Noticed += notice => _dispatcher.InvokeAsync(() =>
-        {
-            if (notice.IsWarning) _log.Warn(notice.Message);
-            else _log.Info(notice.Message);
-        });
+        // Background activity: the Output tab shows each site's keep warm on its own, not among the operations.
+        _keepWarm.Noticed += notice => _log.Background(notice.Message, notice.IsWarning);
         // Before the monitor: it sees the first snapshot of the sites too.
         _keepWarm.Start();
         _monitor.Start();
@@ -129,6 +126,12 @@ public sealed class ServerStore
 
     /// <summary>The network column is shown: the sites' HTTP traffic is read.</summary>
     public void SetTrafficWanted(bool wanted) => _monitor.TrafficWanted = wanted;
+
+    /// <summary>The Size column is shown: the projects' folders are walked for their size.</summary>
+    public void SetSizesShown(bool shown) => _monitor.SizesShown = shown;
+
+    /// <summary>Walks one project's folder for its size now - for its overview.</summary>
+    public void MeasureSize(string name) => _monitor.MeasureSize(name);
 
     /// <summary>
     /// The window is minimized and resources are to be saved (<see cref="EfficiencyMode"/>): this PC's figures aren't
@@ -389,8 +392,8 @@ public sealed class ServerStore
     }
 
     /// <summary>
-    /// Removes the projects of <paramref name="rows"/> - RemoveProjectUseCase asks about the databases and to
-    /// confirm; once it has started on them the rows say "Removing…". A removed project's row goes when its IIS site
+    /// Removes the projects of <paramref name="rows"/> - RemoveProjectUseCase asks once to confirm (each goes
+    /// with its database); once it has started on them the rows say "Removing…". A removed project's row goes when its IIS site
     /// is gone; a row that stays (the user said no, or it failed) is as it was.
     /// </summary>
     public async Task RemoveAsync(IReadOnlyList<ProjectRow> rows)
@@ -498,7 +501,7 @@ public sealed class ServerStore
             _keepWarm.SetEnabled(name, false);
             // At once - the service confirms it a moment later.
             row.KeepWarm = KeepWarmStatus.Off;
-            _log.Info($"No longer keeping '{name}' warm.");
+            _log.Background($"No longer keeping '{name}' warm.", false);
             return;
         }
         if (!row.CanToggleKeepWarm) return;
@@ -506,8 +509,8 @@ public sealed class ServerStore
         _keepWarm.SetEnabled(name, true);
         row.KeepWarm = new KeepWarmStatus(KeepWarmState.Waiting, "Waiting");
         var minutes = _keepWarm.RecordOf(name)?.PingMinutes ?? _options.KeepWarm.PingMinutes;
-        _log.Info($"Keeping '{name}' warm - while DNN Manager runs it requests the site at least every " +
-                  $"{KeepWarmRules.Span(TimeSpan.FromMinutes(minutes))} (sooner when its app pool needs it) and warms it up again after a recycle.");
+        _log.Background($"Keeping '{name}' warm - while DNN Manager runs it requests the site at least every " +
+                  $"{KeepWarmRules.Span(TimeSpan.FromMinutes(minutes))} (sooner when its app pool needs it) and warms it up again after a recycle.", false);
     }
 
     /// <summary>Requests <paramref name="row"/>'s site now - also after it failed too often.</summary>
@@ -539,5 +542,12 @@ public sealed class ServerStore
         public void Fail(string message) { Signal(); inner.Fail(message); }
         public void Warn(string message) { Signal(); inner.Warn(message); }
         public void Progress(string message) { Signal(); inner.Progress(message); }
+        public void Step(string title, string name) { Signal(); inner.Step(title, name); }
+        public void Fail(string message, IReadOnlyList<string> details, string? hint) { Signal(); inner.Fail(message, details, hint); }
+        // What the operation is about - not yet a sign that it has begun.
+        public void Plan(params string[] stages) => inner.Plan(stages);
+        public void Context(string text) => inner.Context(text);
+        public void Fact(string name, string value) => inner.Fact(name, value);
+        public void Link(string url) => inner.Link(url);
     }
 }

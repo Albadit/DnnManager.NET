@@ -4,9 +4,10 @@
              xmlns:p="clr-namespace:DnnManager.Presentation.Pages.Projects"
              xmlns:s="clr-namespace:DnnManager.Presentation.Services"
              xmlns:c="clr-namespace:DnnManager.Presentation.Controls">
-    <!-- One IIS site, in tabs: General (its folder), IIS (state, app pool, keep warm, bindings), DNN (how it was installed,
-         its host accounts and portals with links to their addresses), Database (where it is, Test connection) and Advanced
-         (its web.config). DataContext: the table's ProjectRow, so the state follows the site live. -->
+    <!-- One IIS site, in tabs - what was detected about it, as an environment inspector: General (the project, its health,
+         this PC), IIS (site, bindings, app pool, worker processes, keep warm), DNN (installation, portals, extensions,
+         configuration, host accounts), Database (connection, SQL Server, database, DNN's tables, health) and Advanced
+         (configuration, limits, filesystem, assemblies, every detected issue). DataContext: the table's ProjectRow. -->
     <UserControl.Resources>
         <!-- Running: a green dot. Stopped: a hollow ring. Changing: amber. -->
         <Style x:Key="StatusDot" TargetType="Ellipse">
@@ -27,15 +28,6 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
-        <Style x:Key="Label" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
-            <Setter Property="Margin" Value="0,4,16,4" />
-        </Style>
-        <Style x:Key="Value" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="Margin" Value="0,4" />
-        </Style>
         <Style x:Key="HeaderButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Padding" Value="10,4" />
             <Setter Property="Margin" Value="6,0,0,0" />
@@ -45,24 +37,6 @@
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Margin" Value="0,0,6,0" />
             <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-        <!-- A link that opens and closes something: "Show 2 more aliases". -->
-        <Style x:Key="LinkToggle" TargetType="ToggleButton">
-            <Setter Property="Foreground" Value="{DynamicResource Accent}" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ToggleButton">
-                        <TextBlock x:Name="Text" Background="Transparent" FontSize="{DynamicResource TextCaption}"
-                                   Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" />
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Text" Property="TextDecorations" Value="Underline" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
         </Style>
         <BooleanToVisibilityConverter x:Key="Visible" />
         <!-- A tab of the overview: its name, underlined while shown. -->
@@ -89,15 +63,16 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        <!-- A label and its value (selectable), or a section heading - the facts of every tab. -->
+        <!-- A label and its value (selectable), or a section heading - the keep-warm and host-account cards. The label
+             column is as wide as the inspector's cards around them (Inspector.cs), so the values line up. -->
         <DataTemplate x:Key="FactTemplate" DataType="{x:Type p:ProjectFact}">
             <Grid x:Name="Row" Margin="0,3">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" SharedSizeGroup="Label" />
+                    <ColumnDefinition Width="210" />
                     <ColumnDefinition Width="16" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock x:Name="Label" Text="{Binding Label}" Foreground="{DynamicResource TextMuted}" />
+                <TextBlock x:Name="Label" Text="{Binding Label}" Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap" Margin="0,0,12,0" />
                 <!-- Read-only text box so a value (a path, a database name…) can be selected and copied. -->
                 <TextBox x:Name="Value" Grid.Column="2" Text="{Binding Value, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
                          BorderThickness="0" Background="Transparent" Padding="0" MinHeight="0" VerticalContentAlignment="Top" />
@@ -202,60 +177,14 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" MaxWidth="1100" />
                 </Grid.ColumnDefinitions>
-                <!-- General: the project's folder. -->
+                <!-- What was detected about the site, tab by tab (ProjectDiagnostics) - an environment inspector. -->
                 <StackPanel x:Name="GeneralSection">
-                    <Border Style="{StaticResource Card}">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource CardTitle}" Text="Project" />
-                            <TextBlock x:Name="FactsState" Style="{StaticResource Hint}" Margin="0" Text="Reading…" />
-                            <ItemsControl x:Name="GeneralFacts" Grid.IsSharedSizeScope="True" ItemTemplate="{StaticResource FactTemplate}" />
-                        </StackPanel>
-                    </Border>
+                    <p:InspectorPanel x:Name="GeneralPanel" />
                 </StackPanel>
 
-                <!-- IIS: the website, its app pool and its bindings. -->
                 <StackPanel x:Name="IisSection" Visibility="Collapsed">
-                    <!-- The IIS website and its app pool. -->
-                    <Border Style="{StaticResource Card}">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource CardTitle}" Text="IIS website" />
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-                                <TextBlock Style="{StaticResource Label}" Text="Website status" />
-                                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                    <Ellipse Style="{StaticResource StatusDot}" />
-                                    <TextBlock Style="{StaticResource Value}" Text="{Binding StateText}" Margin="8,4,0,4" />
-                                </StackPanel>
-                                <TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="Application pool" />
-                                <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding AppPoolText}" />
-                                <TextBlock Grid.Row="2" Style="{StaticResource Label}" Text="Physical path" />
-                                <DockPanel Grid.Row="2" Grid.Column="1">
-                                    <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="Open" Margin="12,4,0,4" VerticalAlignment="Top"
-                                            Click="OpenFolder_Click" />
-                                    <TextBlock Style="{StaticResource Value}" Text="{Binding Path}" />
-                                </DockPanel>
-                                <TextBlock Grid.Row="3" Style="{StaticResource Label}" Text="Site ID" />
-                                <TextBlock Grid.Row="3" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding IdText}" />
-                                <TextBlock Grid.Row="4" Style="{StaticResource Label}" Text="Worker process" />
-                                <TextBlock Grid.Row="4" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding PidText}" />
-                                <TextBlock Grid.Row="5" Style="{StaticResource Label}" Text="App pool settings" />
-                                <TextBlock x:Name="PoolSettings" Grid.Row="5" Grid.Column="1" Style="{StaticResource Value}" Text="…" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Keep warm: switched here too; how it is going, how it is done, and the site's own values. -->
+                    <p:InspectorPanel x:Name="IisPanel" />
+                    <!-- Keep warm: switched here too; how it is going and how it is done. -->
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
                             <DockPanel>
@@ -274,193 +203,32 @@
                                 <TextBlock Text="{Binding KeepWarmText}" Foreground="{DynamicResource TextPrimary}" TextWrapping="Wrap"
                                            Margin="8,0,0,0" VerticalAlignment="Center" />
                             </DockPanel>
-                            <ItemsControl x:Name="KeepWarmFacts" Grid.IsSharedSizeScope="True" ItemTemplate="{StaticResource FactTemplate}" Margin="0,10,0,0" />
-
-                            <TextBlock Style="{StaticResource FieldLabel}" Text="This site's own values" Margin="0,14,0,0"
-                                       Foreground="{DynamicResource TextPrimary}" FontWeight="SemiBold" />
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="180" />
-                                    <ColumnDefinition Width="12" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="12" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel>
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Interval" />
-                                    <ComboBox x:Name="KeepWarmInterval" SelectionChanged="KeepWarmInterval_SelectionChanged" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock x:Name="KeepWarmPingLabel" Style="{StaticResource FieldLabel}" Text="Keep-alive page" />
-                                    <TextBox x:Name="KeepWarmPingPath" KeyDown="KeepWarmPath_KeyDown" LostFocus="KeepWarmPath_LostFocus" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="4">
-                                    <TextBlock x:Name="KeepWarmWarmUpLabel" Style="{StaticResource FieldLabel}" Text="Warm-up page" />
-                                    <TextBox x:Name="KeepWarmWarmUpPath" KeyDown="KeepWarmPath_KeyDown" LostFocus="KeepWarmPath_LostFocus" />
-                                </StackPanel>
-                            </Grid>
-                            <TextBlock x:Name="KeepWarmError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
-                            <TextBlock Style="{StaticResource Hint}"
-                                       Text="Empty, or Settings: the value in Settings → Projects → Keep warm. A page is saved when you press Enter or leave its field." />
+                            <ItemsControl x:Name="KeepWarmFacts" ItemTemplate="{StaticResource FactTemplate}" Margin="0,10,0,0" />
                         </StackPanel>
                     </Border>
-
-                    <!-- How the site is reached. -->
-                    <Border Style="{StaticResource Card}">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource CardTitle}" Text="Bindings" />
-                            <Grid>
-                                <StackPanel>
-                                    <!-- The same columns as each binding's row below; all as wide as the card. -->
-                                    <Grid Margin="0,0,0,4">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="80" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="70" />
-                                            <ColumnDefinition Width="140" />
-                                            <ColumnDefinition Width="160" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Style="{StaticResource Label}" Text="Protocol" />
-                                        <TextBlock Grid.Column="1" Style="{StaticResource Label}" Text="Address (host name)" />
-                                        <TextBlock Grid.Column="2" Style="{StaticResource Label}" Text="Port" />
-                                        <TextBlock Grid.Column="3" Style="{StaticResource Label}" Text="IP address" />
-                                        <TextBlock Grid.Column="4" Style="{StaticResource Label}" Text="SSL" />
-                                    </Grid>
-                                    <ItemsControl ItemsSource="{Binding IisSite.Bindings}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="80" />
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="70" />
-                                                        <ColumnDefinition Width="140" />
-                                                        <ColumnDefinition Width="160" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Style="{StaticResource Value}" Text="{Binding Protocol}" />
-                                                    <!-- A web binding is a link to the address it serves. -->
-                                                    <Button x:Name="Host" Grid.Column="1" Style="{StaticResource LinkButton}" Content="{Binding Url}"
-                                                            Tag="{Binding Url}" Click="Link_Click" HorizontalAlignment="Left" VerticalAlignment="Center" />
-                                                    <!-- Another protocol (net.tcp…): its binding as IIS has it. -->
-                                                    <TextBlock x:Name="NoLink" Grid.Column="1" Style="{StaticResource Value}" Text="{Binding}" Visibility="Collapsed"
-                                                               Foreground="{DynamicResource TextMuted}" />
-                                                    <TextBlock Grid.Column="2" Style="{StaticResource Value}" Text="{Binding Port}" />
-                                                    <TextBlock Grid.Column="3" Style="{StaticResource Value}" Text="{Binding Address}" />
-                                                    <TextBlock x:Name="Ssl" Grid.Column="4" Style="{StaticResource Value}" Text="-" Foreground="{DynamicResource TextMuted}" />
-                                                </Grid>
-                                                <DataTemplate.Triggers>
-                                                    <DataTrigger Binding="{Binding IsWeb}" Value="False">
-                                                        <Setter TargetName="Host" Property="Visibility" Value="Collapsed" />
-                                                        <Setter TargetName="NoLink" Property="Visibility" Value="Visible" />
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding IsHttps}" Value="True">
-                                                        <Setter TargetName="Ssl" Property="Text" Value="No certificate" />
-                                                        <Setter TargetName="Ssl" Property="Foreground" Value="{DynamicResource LogWarn}" />
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding HasCertificate}" Value="True">
-                                                        <Setter TargetName="Ssl" Property="Text" Value="Certificate assigned" />
-                                                        <Setter TargetName="Ssl" Property="Foreground" Value="{DynamicResource SuccessText}" />
-                                                    </DataTrigger>
-                                                </DataTemplate.Triggers>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
                 </StackPanel>
 
-                <!-- DNN: how it was installed, its host accounts and portals. -->
                 <StackPanel x:Name="DnnSection" Visibility="Collapsed">
-                    <Border Style="{StaticResource Card}">
+                    <p:InspectorPanel x:Name="DnnPanel" />
+                    <!-- The host accounts in the database - and changing their password, which only happens here. -->
+                    <Border Style="{StaticResource Card}" Visibility="{Binding IsDnn, Converter={StaticResource Visible}}">
                         <StackPanel>
-                            <TextBlock Style="{StaticResource CardTitle}" Text="DNN" />
-                            <TextBlock x:Name="DnnState" Style="{StaticResource Hint}" Margin="0" Text="Reading…" />
-                            <ItemsControl x:Name="DnnFacts" Grid.IsSharedSizeScope="True" ItemTemplate="{StaticResource FactTemplate}" />
+                            <TextBlock Style="{StaticResource CardTitle}" Text="Host accounts" />
+                            <ItemsControl x:Name="HostFacts" ItemTemplate="{StaticResource FactTemplate}" />
                             <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                                 <Button x:Name="ChangePasswordButton" Content="Change host password…" IsEnabled="False" Click="ChangePassword_Click" />
                             </StackPanel>
                             <TextBlock x:Name="PasswordHint" Style="{StaticResource Hint}" />
                         </StackPanel>
                     </Border>
-
-                    <!-- A DNN installation's portals - one IIS site can serve several. -->
-                    <Border Style="{StaticResource Card}" Visibility="{Binding IsDnn, Converter={StaticResource Visible}}">
-                        <StackPanel>
-                            <TextBlock x:Name="PortalsTitle" Style="{StaticResource CardTitle}" Text="DNN portals" />
-                            <TextBlock x:Name="PortalsState" Style="{StaticResource Hint}" Margin="0,0,0,4" Text="Reading the portals from the database…" />
-                            <ItemsControl x:Name="Portals">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type p:PortalItem}">
-                                        <Border BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Padding="0,10">
-                                            <StackPanel>
-                                                <DockPanel>
-                                                    <TextBlock x:Name="Status" DockPanel.Dock="Right" Text="{Binding Status}" FontSize="{DynamicResource TextCaption}"
-                                                               Foreground="{DynamicResource SuccessText}" VerticalAlignment="Center" />
-                                                    <TextBlock Foreground="{DynamicResource TextPrimary}" TextTrimming="CharacterEllipsis">
-                                                        <Run Text="{Binding IdText, Mode=OneWay}" Foreground="{DynamicResource TextMuted}" />
-                                                        <Run Text="  " />
-                                                        <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" />
-                                                    </TextBlock>
-                                                </DockPanel>
-                                                <Button Style="{StaticResource LinkButton}" Content="{Binding Primary.Url}" Tag="{Binding Primary.Url}"
-                                                        Click="Link_Click" HorizontalAlignment="Left" Margin="0,6,0,0"
-                                                        Visibility="{Binding HasPrimary, Converter={StaticResource Visible}}"
-                                                        ToolTip="The portal's primary alias - opens in your browser" />
-                                                <TextBlock Style="{StaticResource Hint}" Text="No alias - DNN doesn't serve it at any address."
-                                                           Visibility="{Binding HasNoAlias, Converter={StaticResource Visible}}" />
-                                                <ToggleButton x:Name="More" Style="{StaticResource LinkToggle}" Content="{Binding MoreText}" Margin="0,6,0,0"
-                                                              HorizontalAlignment="Left" IsChecked="{Binding ShowOthers, Mode=TwoWay}"
-                                                              Visibility="{Binding HasOthers, Converter={StaticResource Visible}}" />
-                                                <ItemsControl ItemsSource="{Binding Others}" Margin="14,4,0,0"
-                                                              Visibility="{Binding ShowOthers, Converter={StaticResource Visible}}">
-                                                    <ItemsControl.ItemTemplate>
-                                                        <DataTemplate>
-                                                            <Button Style="{StaticResource LinkButton}" Content="{Binding Url}" Tag="{Binding Url}"
-                                                                    Click="Link_Click" HorizontalAlignment="Left" Margin="0,3" />
-                                                        </DataTemplate>
-                                                    </ItemsControl.ItemTemplate>
-                                                </ItemsControl>
-                                            </StackPanel>
-                                        </Border>
-                                        <DataTemplate.Triggers>
-                                            <DataTrigger Binding="{Binding Expired}" Value="True">
-                                                <Setter TargetName="Status" Property="Foreground" Value="{DynamicResource ErrorText}" />
-                                            </DataTrigger>
-                                        </DataTemplate.Triggers>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </Border>
-
                 </StackPanel>
 
-                <!-- Database: where it is and how the site signs in; Test connection. -->
                 <StackPanel x:Name="DatabaseSection" Visibility="Collapsed">
-                    <Border Style="{StaticResource Card}">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource CardTitle}" Text="Database" />
-                            <TextBlock x:Name="DatabaseState" Style="{StaticResource Hint}" Margin="0" Text="Reading…" />
-                            <ItemsControl x:Name="DatabaseFacts" Grid.IsSharedSizeScope="True" ItemTemplate="{StaticResource FactTemplate}" />
-                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                                <Button x:Name="TestButton" Content="Test connection" IsEnabled="False" Click="TestConnection_Click" />
-                            </StackPanel>
-                            <c:DatabaseCheckList x:Name="CheckList" Margin="0,10,0,0" />
-                        </StackPanel>
-                    </Border>
+                    <p:InspectorPanel x:Name="DatabasePanel" />
                 </StackPanel>
 
-                <!-- Advanced: the site's web.config. -->
                 <StackPanel x:Name="AdvancedSection" Visibility="Collapsed">
-                    <Border Style="{StaticResource Card}">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource CardTitle}" Text="web.config" />
-                            <ItemsControl x:Name="AdvancedFacts" Grid.IsSharedSizeScope="True" ItemTemplate="{StaticResource FactTemplate}" />
-                        </StackPanel>
-                    </Border>
+                    <p:InspectorPanel x:Name="AdvancedPanel" />
                 </StackPanel>
             </Grid>
         </ScrollViewer>

@@ -46,7 +46,8 @@ namespace DnnManager.Infrastructure.Monitoring;
 /// <item>* What each site's folder holds - its DNN version and its web.config's database: 30 s, and when the site
 /// turns up or serves another folder. (Not watched per folder: a watcher inside a project folder would be in the way
 /// of removing it.)</item>
-/// <item>* The folder sizes: 10 minutes, and after an operation - they are a walk over every file.</item>
+/// <item>* The folder sizes: 10 minutes, and after an operation - only while the Size column is shown (<see cref="SizesShown"/>),
+/// as they are a walk over every file; an open overview asks for its own folder (<see cref="MeasureSize"/>).</item>
 /// </list>
 /// <para>The intervals are counted from when a read was last asked for or finished, whichever is later, on a clock
 /// that only goes forward (<see cref="Now"/>) - so a slow read isn't asked for twice, and setting the PC's date or
@@ -123,11 +124,17 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
     private readonly object _gate = new();
     private readonly Dictionary<string, ProjectState> _projects = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _sizesWanted = new(StringComparer.OrdinalIgnoreCase);
+    // Folders whose size is asked for by name (an open overview) - walked whether or not the Size column is shown.
+    // Asked for from the UI thread: no lock, so it never waits for a read that holds _gate.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _sizesAsked = new(StringComparer.OrdinalIgnoreCase);
+    private volatile bool _sizesShown;
     // What couldn't be read or listened to: a key per thing, with the message shown while reconnecting.
     private readonly Dictionary<string, string> _problems = new();
 
-    private IReadOnlySet<string>? _databases;
-    private bool? _sqlReachable;
+    // Each site's database as its web.config connects to it, and what the last look at it found - per site, as
+    // sites can be on different servers with different logins.
+    private readonly Dictionary<string, SiteSqlConnection> _sqlConnections = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, SqlCheck> _sqlChecks = new(StringComparer.OrdinalIgnoreCase);
     private IisServerState? _runtime;
     private MonitorConnection _connection = MonitorConnection.Connecting;
     private string? _connectionDetail;
@@ -205,6 +212,28 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
         }
     }
 
+    /// <summary>
+    /// The folder sizes are shown (the table's Size column): every folder is walked - tens of thousands of files each -
+    /// only while they are. Otherwise the folders stay marked, and are walked once the column is shown.
+    /// </summary>
+    public bool SizesShown
+    {
+        get => _sizesShown;
+        set
+        {
+            if (_sizesShown == value) return;
+            _sizesShown = value;
+            if (value && !_saving) _sizesJob.Request();
+        }
+    }
+
+    /// <summary>Walks <paramref name="name"/>'s folder for its size now - for its overview - whether the column is shown or not.</summary>
+    public void MeasureSize(string name)
+    {
+        _sizesAsked[name] = 0;
+        if (!_saving) _sizesJob.Request();
+    }
+
     /// <summary>The HTTP traffic per site is shown somewhere - it is only read while it is.</summary>
     public bool TrafficWanted
     {
@@ -236,9 +265,8 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
             _host.Restart();
             Volatile.Write(ref _diskAt, Never);
             DueAfter(ref _hostAt, HostEvery, HostFirstAfter);
-            bool walksWaiting;
-            lock (_gate) walksWaiting = _sizesWanted.Count > 0;
-            if (walksWaiting) _sizesJob.Request();
+            // The walks that waited - the job finds out which (without the UI thread waiting here for the monitor's lock).
+            _sizesJob.Request();
         }
     }
 
@@ -606,6 +634,9 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
                 {
                     _projects.Remove(gone);
                     _sizesWanted.Remove(gone);
+                    _sizesAsked.TryRemove(gone, out _);
+                    _sqlConnections.Remove(gone);
+                    _sqlChecks.Remove(gone);
                     events.Add(new ProjectRemoved(gone));
                 }
                 ClearProblem(SitesKey, events);
@@ -615,8 +646,8 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
             Publish(events);
         }
         Done(ref _sitesAt);
-        // A new site's size: walked now - or, while resources are saved, once that ends.
-        if (added && !_saving) _sizesJob.Request();
+        // A new site's size: walked now when sizes are shown - or, while resources are saved, once that ends.
+        if (added && !_saving && _sizesShown) _sizesJob.Request();
         if (retry) _ = Task.Delay(QuickRetry, ct).ContinueWith(_ => _sitesJob.Request(), TaskContinuationOptions.OnlyOnRanToCompletion);
         return Task.CompletedTask;
     }
@@ -632,7 +663,7 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
         if (!_projects.TryGetValue(name, out var known))
         {
             var folder = ReadFolder(name, site.PhysicalPath);
-            var project = new ProjectState
+            ProjectState project = new()
             {
                 Name = name,
                 Directory = site.PhysicalPath,
@@ -640,11 +671,13 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
                 InProjectsFolder = folder.InProjectsFolder,
                 DnnVersion = folder.DnnVersion,
                 DatabaseName = folder.Database,
+                DatabaseProblem = folder.Problem,
                 DatabaseElsewhere = folder.Elsewhere,
+                DatabaseServer = folder.Server,
+                DatabaseIsFile = folder.IsFile,
                 Site = site,
-                SqlReachable = folder.Elsewhere ? null : _sqlReachable,
-                DatabaseExists = !folder.Elsewhere && DatabaseExists(folder.Database),
             };
+            project = WithSql(project, TrackConnection(name, folder.Connection));
             _projects[name] = project;
             _sizesWanted.Add(name);
             events.Add(new ProjectAdded(project));
@@ -662,10 +695,10 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
             next = next with
             {
                 Directory = site.PhysicalPath, InProjectsFolder = folder.InProjectsFolder, DnnVersion = folder.DnnVersion,
-                DatabaseName = folder.Database, DatabaseElsewhere = folder.Elsewhere,
-                SqlReachable = folder.Elsewhere ? null : _sqlReachable,
-                DatabaseExists = !folder.Elsewhere && DatabaseExists(folder.Database), SizeBytes = null
+                DatabaseName = folder.Database, DatabaseProblem = folder.Problem, DatabaseElsewhere = folder.Elsewhere,
+                DatabaseServer = folder.Server, DatabaseIsFile = folder.IsFile, SizeBytes = null
             };
+            next = WithSql(next, TrackConnection(name, folder.Connection));
             changed |= ProjectFacets.Metadata | ProjectFacets.Sql | ProjectFacets.Size;
             _sizesWanted.Add(name);
         }
@@ -681,7 +714,33 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
         return false;
     }
 
-    private bool DatabaseExists(string? database) => database is not null && _databases?.Contains(database) == true;
+    /// <summary>What the last look at a site's database found.</summary>
+    private sealed record SqlCheck(bool Reachable, bool Exists, string? Problem);
+
+    /// <summary>
+    /// Follows <paramref name="name"/>'s database at <paramref name="connection"/> (its web.config's) - none to follow
+    /// when null. A connection that changed is looked at again soon; until then nothing is known of it. Returns what
+    /// is known now.
+    /// </summary>
+    private SqlCheck? TrackConnection(string name, SiteSqlConnection? connection)
+    {
+        if (connection is null)
+        {
+            _sqlConnections.Remove(name);
+            _sqlChecks.Remove(name);
+            return null;
+        }
+        if (_sqlConnections.TryGetValue(name, out var known) && known == connection) return _sqlChecks.GetValueOrDefault(name);
+        _sqlConnections[name] = connection;
+        _sqlChecks.Remove(name);
+        _sqlJob.Request();
+        return null;
+    }
+
+    private static ProjectState WithSql(ProjectState project, SqlCheck? check) => project with
+    {
+        SqlReachable = check?.Reachable, DatabaseExists = check?.Exists == true, SqlProblem = check?.Problem
+    };
     /// <summary>
     /// A read threw what it wasn't written for: said like anything else that can't be read, and tried again like it
     /// (<see cref="Retry"/>) - not a table that quietly stays as it was.
@@ -701,38 +760,68 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
 
     /// <summary>
     /// What the folder a site serves holds: a DNN install (its version), the database its web.config names, and
-    /// whether it is one of the projects folder's. Never throws - a folder that can't be read holds nothing known.
+    /// whether it is one of the projects folder's. What the site really has - never what DNN Manager's settings would
+    /// make of it: a database web.config doesn't name isn't guessed, the problem says why there is none. Never throws.
     /// </summary>
-    private (string? DnnVersion, string? Database, bool InProjectsFolder, bool Elsewhere) ReadFolder(string name, string directory)
+    /// <param name="Server">The SQL Server web.config names.</param>
+    /// <param name="IsFile">A LocalDB file - the site's own while it runs, not asked.</param>
+    /// <param name="Connection">How to ask about the database - as web.config connects; null when it can't be asked.</param>
+    private sealed record Folder(string? DnnVersion, string? Database, bool InProjectsFolder, bool Elsewhere, string? Problem,
+        string? Server, bool IsFile, SiteSqlConnection? Connection);
+
+    private Folder ReadFolder(string name, string directory)
     {
         var inProjectsFolder = IsInProjectsFolder(directory);
-        string? version = null, database = null;
+        string? version = null, database = null, problem = null, server = null;
         var elsewhere = false;
+        var isFile = false;
+        SiteSqlConnection? connection = null;
         try
         {
-            if (directory.Length > 0 && Directory.Exists(directory))
+            if (directory.Length == 0)
+                problem = "IIS gives the site no physical path";
+            else if (!Directory.Exists(directory))
+                problem = $"the site's folder isn't there: {directory}";
+            else
             {
                 version = DnnInstall.Version(directory);
-                var read = _webConfig.ReadDatabaseConnection(Path.Combine(directory, "web.config"));
-                // DNN's shipped connection (.\SQLExpress, a User Instance file) means it isn't wired up yet: the database
-                // named like the site, on the container, as setup creates it.
-                if (read is { Success: true, Value: { } c } &&
-                    !(c.Kind == DatabaseKind.LocalDbFile && !Sql.ConnectionStrings.IsLocalDb(c.Server)))
+                var webConfig = Path.Combine(directory, "web.config");
+                if (!File.Exists(webConfig))
+                    problem = "the site's folder has no web.config";
+                else
                 {
-                    database = c.Database.Length > 0 ? c.Database : null;
-                    elsewhere = c.Kind == DatabaseKind.LocalDbFile || c.UsesWindowsAuthentication ||
-                                !LocalSqlContainer.IsContainerServer(c.Server, _options.Docker.ContainerIp, _options.Docker.DefaultPort);
+                    var read = _webConfig.ReadDatabaseConnection(webConfig);
+                    if (read is not { Success: true, Value: { } c })
+                        problem = $"web.config: {read.Error}";
+                    // DNN's shipped connection (.\SQLExpress, a User Instance file): DNN isn't installed into a database yet.
+                    else if (c.Kind == DatabaseKind.LocalDbFile && !Sql.ConnectionStrings.IsLocalDb(c.Server))
+                        problem = "web.config still has DNN's own connection - DNN isn't installed into a database yet";
+                    else if (c.Database.Length == 0)
+                        problem = "web.config's SiteSqlServer names no database";
+                    else
+                    {
+                        database = c.Database;
+                        server = c.Server;
+                        isFile = c.Kind == DatabaseKind.LocalDbFile;
+                        elsewhere = isFile || c.UsesWindowsAuthentication ||
+                                    !LocalSqlContainer.IsContainerServer(c.Server, _options.Docker.ContainerIp, _options.Docker.DefaultPort);
+                        // Asked as the site connects: its login - or Windows authentication, as DNN Manager's user.
+                        if (!isFile)
+                            connection = c.UsesWindowsAuthentication
+                                ? new SiteSqlConnection(c.Server, c.Database, "", "")
+                                : new SiteSqlConnection(c.Server, c.Database, c.User, c.Password);
+                    }
                 }
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _log.LogDebug(ex, "Could not read the folder of site {Site}", name);
+            problem = $"the site's folder can't be read: {ex.Message}";
         }
-        // Before the DNN install wizard wires its web.config up, a DNN site uses the database named like it, as
-        // setup creates it. Any other site has no database DNN Manager knows of.
-        database ??= version is not null || inProjectsFolder ? _options.DatabaseNameFor(name) : null;
-        return (version, database, inProjectsFolder, elsewhere);
+        // Only a DNN site (or a project's folder) is expected to have one - any other site simply has no database.
+        if (version is null && !inProjectsFolder) problem = null;
+        return new Folder(version, database, inProjectsFolder, elsewhere, problem, server, isFile, connection);
     }
 
     private bool IsInProjectsFolder(string directory)
@@ -766,14 +855,16 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
             {
                 // Gone, or moved to another folder meanwhile (the sites read has read that one).
                 if (!_projects.TryGetValue(name, out var known) || known.Directory != sites.First(s => s.Name == name).Directory) continue;
-                if (known.DnnVersion == folder.DnnVersion && known.DatabaseName == folder.Database &&
-                    known.InProjectsFolder == folder.InProjectsFolder && known.DatabaseElsewhere == folder.Elsewhere) continue;
-                var exists = !folder.Elsewhere && DatabaseExists(folder.Database);
-                Replace(known with
+                var check = TrackConnection(name, folder.Connection);
+                var next = WithSql(known with
                 {
-                    DnnVersion = folder.DnnVersion, DatabaseName = folder.Database, InProjectsFolder = folder.InProjectsFolder,
-                    DatabaseElsewhere = folder.Elsewhere, SqlReachable = folder.Elsewhere ? null : _sqlReachable, DatabaseExists = exists
-                }, exists != known.DatabaseExists || known.DatabaseName != folder.Database || known.DatabaseElsewhere != folder.Elsewhere
+                    DnnVersion = folder.DnnVersion, DatabaseName = folder.Database, DatabaseProblem = folder.Problem,
+                    InProjectsFolder = folder.InProjectsFolder, DatabaseElsewhere = folder.Elsewhere,
+                    DatabaseServer = folder.Server, DatabaseIsFile = folder.IsFile
+                }, check);
+                if (next == known) continue;
+                Replace(next, next.SqlReachable != known.SqlReachable || next.DatabaseExists != known.DatabaseExists ||
+                              next.SqlProblem != known.SqlProblem || next.DatabaseIsFile != known.DatabaseIsFile
                     ? ProjectFacets.Metadata | ProjectFacets.Sql : ProjectFacets.Metadata, events);
             }
             ClearProblem(ProjectsKey, events);
@@ -785,43 +876,78 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
     }
     // ─── The SQL Server ───────────────────────────────────────────────────
 
+    /// <summary>
+    /// Asks each site's SQL Server about its database - with the site's own web.config connection, never DNN Manager's
+    /// settings: once per server and login for the list of its databases, and the site's own database directly when
+    /// that list can't be read or doesn't have it (a login may not see the others).
+    /// </summary>
     private async Task ReadSqlAsync(CancellationToken ct)
     {
-        // One shared SQL Server, so whether it answers applies to every project.
-        IReadOnlySet<string>? databases;
+        Dictionary<string, SiteSqlConnection> sites;
+        lock (_gate) sites = new Dictionary<string, SiteSqlConnection>(_sqlConnections, StringComparer.OrdinalIgnoreCase);
+
+        var found = new System.Collections.Concurrent.ConcurrentDictionary<string, SqlCheck>(StringComparer.OrdinalIgnoreCase);
         using (var scope = _scopes.CreateScope())
-            databases = await scope.ServiceProvider.GetRequiredService<LocalSqlContainer>().DatabasesAsync(ct);
+        {
+            var tester = scope.ServiceProvider.GetRequiredService<ISqlConnectionTester>();
+            async Task<SqlCheck> AskDirectly(SiteSqlConnection site)
+            {
+                var test = await tester.TestAsync(site, ct, SqlTimeoutSeconds);
+                return test.Success ? new SqlCheck(true, true, null) : new SqlCheck(false, false, FirstLine(test.Error));
+            }
+
+            await Task.WhenAll(sites.GroupBy(s => (s.Value.Server, s.Value.User, s.Value.Password)).Select(async server =>
+            {
+                var list = await tester.ListDatabasesAsync(new SiteSqlConnection(server.Key.Server, "master", server.Key.User, server.Key.Password),
+                    ct, SqlTimeoutSeconds);
+                var databases = list.Success ? new HashSet<string>(list.Value!, StringComparer.OrdinalIgnoreCase) : null;
+                await Task.WhenAll(server.Select(async site =>
+                {
+                    if (databases is not null && databases.Contains(site.Value.Database))
+                        found[site.Key] = new SqlCheck(true, true, null);
+                    else if (databases is not null)
+                        found[site.Key] = await AskDirectly(site.Value) is { Reachable: true } direct ? direct
+                            : new SqlCheck(true, false, $"[{site.Value.Database}] isn't on {site.Value.Server}");
+                    else
+                        found[site.Key] = await AskDirectly(site.Value);
+                }));
+            }));
+        }
 
         lock (_gate)
         {
             var events = new List<MonitorEvent>();
-            _databases = databases;
-            _sqlReachable = databases is not null;
-            foreach (var project in _projects.Values.ToList())
+            foreach (var (name, check) in found)
             {
-                // The container's list says nothing about a database somewhere else.
-                if (project.DatabaseElsewhere) continue;
-                var exists = project.DatabaseName is { } name && databases?.Contains(name) == true;
-                if (project.SqlReachable == _sqlReachable && project.DatabaseExists == exists) continue;
-                Replace(project with { SqlReachable = _sqlReachable, DatabaseExists = exists }, ProjectFacets.Sql, events);
+                // Its web.config changed meanwhile: this was about another database.
+                if (!_sqlConnections.TryGetValue(name, out var now) || now != sites[name]) continue;
+                _sqlChecks[name] = check;
+                if (!_projects.TryGetValue(name, out var project)) continue;
+                var next = WithSql(project, check);
+                if (next != project) Replace(next, ProjectFacets.Sql, events);
             }
             Publish(events);
         }
         Done(ref _sqlAt);
     }
 
+    // A server that doesn't answer is given this long - the sites are asked every 10 s, and in parallel.
+    private const int SqlTimeoutSeconds = 5;
+
+    private static string FirstLine(string? text) => (text ?? "it doesn't answer").Split('\n', 2)[0].Trim();
+
     // ─── Folder sizes ─────────────────────────────────────────────────────
 
     /// <summary>
-    /// Every folder's size is to be walked again - now, or while resources are saved (nobody sees the sizes) once that
-    /// ends (<see cref="SavingResources"/>): the folders stay marked until then.
+    /// Every folder's size is to be walked again - now when the sizes are shown (<see cref="SizesShown"/>); otherwise,
+    /// or while resources are saved (<see cref="SavingResources"/>), the folders stay marked until that changes.
     /// </summary>
     private void QueueAllSizes()
     {
         lock (_gate)
             foreach (var name in _projects.Keys) _sizesWanted.Add(name);
         Done(ref _sizesAt);
-        if (!_saving) _sizesJob.Request();
+        if (!_saving && _sizesShown) _sizesJob.Request();
     }
 
     // One project at a time: it is a walk over tens of thousands of files, and nobody is waiting for it. Saving
@@ -833,8 +959,10 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
             string name, directory;
             lock (_gate)
             {
-                if (_sizesWanted.Count == 0) break;
-                name = _sizesWanted.First();
+                // What was asked for by name first; the rest only while the sizes are shown.
+                if (_sizesAsked.Keys.FirstOrDefault() is { } asked && _sizesAsked.TryRemove(asked, out _)) name = asked;
+                else if (_sizesShown && _sizesWanted.Count > 0) name = _sizesWanted.First();
+                else break;
                 _sizesWanted.Remove(name);
                 if (!_projects.TryGetValue(name, out var project)) continue;
                 directory = project.Directory;

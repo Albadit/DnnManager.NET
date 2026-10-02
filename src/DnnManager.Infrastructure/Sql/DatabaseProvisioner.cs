@@ -325,7 +325,7 @@ public sealed partial class DatabaseProvisioner : IDatabaseProvisioner
         try
         {
             await using var conn = await OpenAsync(connection, connection.Database, ct);
-            var q = await QualifierAsync(conn, "Users", ct);
+            var q = await DnnTables.QualifierAsync(conn, "Users", ct);
             if (q is null) return Result<IReadOnlyList<DnnHostAccount>>.Ok(Array.Empty<DnnHostAccount>());
             var deleted = await ScalarAsync<int?>(conn, $"SELECT COL_LENGTH('dbo.[{q}Users]', 'IsDeleted')", ct) is not null;
             using var cmd = new SqlCommand(
@@ -362,17 +362,11 @@ public sealed partial class DatabaseProvisioner : IDatabaseProvisioner
     /// <summary>The DNN version recorded in the database, or null when it holds no DNN (DNN's own "is it empty" test).</summary>
     private static async Task<string?> DnnVersionAsync(SqlConnection conn, CancellationToken ct)
     {
-        var q = await QualifierAsync(conn, "Version", ct);
+        var q = await DnnTables.QualifierAsync(conn, "Version", ct);
         if (q is null) return null;
         return await ScalarAsync<string>(conn,
             $"SELECT TOP 1 CONCAT(Major, '.', Minor, '.', Build) FROM dbo.[{q}Version] ORDER BY Major DESC, Minor DESC, Build DESC", ct);
     }
-
-    /// <summary>DNN's objectQualifier (e.g. "dnn_"), "" for none, or null when the database has no such DNN table.</summary>
-    private static Task<string?> QualifierAsync(SqlConnection conn, string table, CancellationToken ct) =>
-        ScalarAsync<string>(conn,
-            $"SELECT TOP 1 LEFT(name, LEN(name) - {table.Length}) FROM sys.tables WHERE SCHEMA_NAME(schema_id) = 'dbo' " +
-            $"AND (name = '{table}' OR name LIKE '%[_]{table}') ORDER BY LEN(name)", ct);
 
     private static async Task<T?> ScalarAsync<T>(SqlConnection conn, string sql, CancellationToken ct, params (string Name, object Value)[] parameters)
     {

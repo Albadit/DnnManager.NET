@@ -43,6 +43,35 @@ internal static class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool GetProcessIoCounters(IntPtr process, out IoCounters counters);
 
+    /// <summary>
+    /// A process's working set, read from its handle. <see cref="System.Diagnostics.Process.WorkingSet64"/> takes a
+    /// snapshot of every process on the PC for it - once per process, every couple of seconds.
+    /// </summary>
+    public static long WorkingSet(IntPtr process)
+    {
+        var counters = new ProcessMemoryCounters { Size = (uint)Marshal.SizeOf<ProcessMemoryCounters>() };
+        return GetProcessMemoryInfo(process, ref counters, counters.Size) ? (long)(ulong)counters.WorkingSetSize : 0;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ProcessMemoryCounters
+    {
+        public uint Size;
+        public uint PageFaultCount;
+        public UIntPtr PeakWorkingSetSize;
+        public UIntPtr WorkingSetSize;
+        public UIntPtr QuotaPeakPagedPoolUsage;
+        public UIntPtr QuotaPagedPoolUsage;
+        public UIntPtr QuotaPeakNonPagedPoolUsage;
+        public UIntPtr QuotaNonPagedPoolUsage;
+        public UIntPtr PagefileUsage;
+        public UIntPtr PeakPagefileUsage;
+    }
+
+    [DllImport("kernel32.dll", EntryPoint = "K32GetProcessMemoryInfo", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetProcessMemoryInfo(IntPtr process, ref ProcessMemoryCounters counters, uint size);
+
     /// <summary>Physical memory: (total, available) bytes; (0, 0) when it can't be read.</summary>
     public static (ulong Total, ulong Available) PhysicalMemory()
     {

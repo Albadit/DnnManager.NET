@@ -24,6 +24,14 @@ public sealed class CloneProjectRequest
 
 public sealed class CloneProjectUseCase
 {
+    /// <summary>The clone's stages, by their short names in the Output tab's stage list.</summary>
+    private static class Stage
+    {
+        public const string Prepare = "Prepare target", Copy = "Copy website files", Keep = "Keep website files",
+            CheckSql = "Check local SQL Server", ReadConnection = "Read SiteSqlServer", Backup = "Back up source DB",
+            Seed = "Seed database", Alias = "Update PortalAlias", WebConfig = "Rewrite web.config", Iis = "Create IIS site";
+    }
+
     private readonly AppOptions _opts;
     private readonly IProjectRepository _projects;
     private readonly IProjectFileCopier _copier;
@@ -78,7 +86,13 @@ public sealed class CloneProjectUseCase
             var project = _projects.Build(req.TargetProjectName);
             var hostname = _opts.HostnameFor(req.TargetProjectName);
 
-            reporter.Step($"Preparing target project '{req.TargetProjectName}'");
+            // The stages, up front: the Output tab shows those still to come - and as skipped those it never gets to.
+            var plan = new List<string> { Stage.Prepare, req.CopyFiles ? Stage.Copy : Stage.Keep };
+            if (req.SeedDatabase) plan.AddRange([Stage.CheckSql, Stage.ReadConnection, Stage.Backup, Stage.Seed, Stage.Alias, Stage.WebConfig]);
+            if (req.CreateIisSite) plan.Add(Stage.Iis);
+            reporter.Plan([.. plan]);
+
+            reporter.Step($"Prepare target project '{req.TargetProjectName}'", Stage.Prepare);
             // A cancel takes a new target folder away again; files copied over an existing one can't be taken back.
             var newFolder = !Directory.Exists(project.ProjectDirectory);
             _undo.DeleteFolderOnUndo(project.ProjectDirectory);
@@ -87,13 +101,13 @@ public sealed class CloneProjectUseCase
             if (req.CopyFiles)
             {
                 if (!newFolder) _undo.CannotUndo($"the website files copied over the ones in {project.ProjectDirectory}.");
-                reporter.Step("Copying website files");
+                reporter.Step("Copy website files", Stage.Copy);
                 var copy = await _copier.CopyAsync(req.SourceDirectory, project.ProjectDirectory, reporter, ct);
                 if (!copy.Success) return copy;
             }
             else
             {
-                reporter.Step("Keeping existing website files");
+                reporter.Step("Keep the existing website files", Stage.Keep);
                 reporter.Info("Skipped file copy - using the files already in the target folder.");
             }
 
@@ -123,10 +137,14 @@ public sealed class CloneProjectUseCase
             var sqlAvailable = false;
             if (req.SeedDatabase)
             {
-                reporter.Step("Checking local SQL Server");
+                reporter.Step("Check local SQL Server", Stage.CheckSql);
                 var ready = await _sqlContainer.CheckAsync(reporter, ct);
                 sqlAvailable = ready.Success;
-                if (ready.Success) port = ready.Value;
+                if (ready.Success)
+                {
+                    port = ready.Value;
+                    reporter.Context(_opts.ServerFor(port));
+                }
             }
 
             if (!req.SeedDatabase || !sqlAvailable)
@@ -140,7 +158,7 @@ public sealed class CloneProjectUseCase
             }
             else
             {
-                reporter.Step("Reading SiteSqlServer from web.config");
+                reporter.Step("Read SiteSqlServer from web.config", Stage.ReadConnection);
                 var webConfigPath = Path.Combine(project.ProjectDirectory, "web.config");
                 var srcConn = _webConfig.ReadSiteSqlServer(webConfigPath);
                 if (!srcConn.Success || srcConn.Value is null)
@@ -182,6 +200,7 @@ public sealed class CloneProjectUseCase
                 if (sourceIsAzure)
                 {
                     // SqlPackage was already provisioned up front (see the sourceIsAzure check above).
+                    reporter.Step("Export the source database (BACPAC)", Stage.Backup);
                     var bacpacTmp = Path.Combine(Path.GetTempPath(), $"dnnmanager_clone_{req.TargetProjectName}_{stamp}.bacpac");
                     _undo.RestoreFileOnUndo(bacpacTmp);
                     var export = await _bacpac.ExportAsync(src, bacpacTmp, reporter, ct);
@@ -191,7 +210,8 @@ public sealed class CloneProjectUseCase
                     var cached = Path.Combine(backupFolder, ProjectBackups.DatabaseName(project, ".bacpac"));
                     try { File.Copy(bacpacTmp, cached, overwrite: true); reporter.Info($"Cached BACPAC at {cached}"); } catch { }
 
-                    var import = await _bacpac.ImportAsync(db.Server, "sa", _opts.Docker.SaPassword,
+                    reporter.Step($"Seed [{db.DatabaseName}] from the BACPAC", Stage.Seed);
+                    var import = await _bacpac.ImportAsync(db.Server, _opts.Docker.SqlUser, _opts.Docker.SaPassword,
                         db.DatabaseName, bacpacTmp, reporter, ct);
                     if (!import.Success) return import;
 
@@ -208,7 +228,7 @@ public sealed class CloneProjectUseCase
 
                     // If the source is our local SQL container, route the backup through the container
                     // instead of a Windows path it can't see.
-                    reporter.Step("Backing up source database");
+                    reporter.Step("Back up source database", Stage.Backup);
                     string srcBakHostPath;
                     if (_sqlContainer.IsLocalContainer(src.Server, port))
                     {
@@ -232,22 +252,22 @@ public sealed class CloneProjectUseCase
                     reporter.Info($"Cached backup at {projectBak}");
                     try { File.Delete(srcBakHostPath); } catch { /* best effort */ }
 
-                    reporter.Step($"Seeding [{db.DatabaseName}] from clone backup");
+                    reporter.Step($"Seed [{db.DatabaseName}] from clone backup", Stage.Seed);
                     var restore = await _sql.RestoreDatabaseLocalAsync(db, projectBak, ct);
                     if (!restore.Success) return restore;
                     reporter.Success("Database seeded.");
                 }
 
                 // So the cloned site responds at its own hostname instead of the source's.
-                reporter.Step("Updating PortalAlias to match new hostname");
+                reporter.Step("Update PortalAlias to match new hostname", Stage.Alias);
                 var alias = await _sql.RemapPortalAliasesAsync(db.DatabaseName, _opts.HostnameSuffix, hostname, ct);
                 if (!alias.Success) return alias;
                 reporter.Success($"PortalAlias set to {hostname}.");
                 await HostExistingProjectUseCase.DisableSslAsync(_sql, db.DatabaseName, reporter, ct);
 
-                reporter.Step("Rewriting web.config to use local database");
+                reporter.Step("Rewrite web.config to use local database", Stage.WebConfig);
                 _undo.RestoreFileOnUndo(webConfigPath);
-                var newConn = new SiteSqlConnection(db.Server, db.DatabaseName, "sa", _opts.Docker.SaPassword);
+                var newConn = new SiteSqlConnection(db.Server, db.DatabaseName, _opts.Docker.SqlUser, _opts.Docker.SaPassword);
                 var write = _webConfig.WriteSiteSqlServer(webConfigPath, newConn);
                 if (!write.Success) return write;
                 reporter.Success("web.config updated.");
@@ -257,8 +277,9 @@ public sealed class CloneProjectUseCase
             var siteCreated = false;
             if (req.CreateIisSite && _iis.IsAvailable())
             {
-                reporter.Step("Creating IIS site");
+                reporter.Step("Create IIS site", Stage.Iis);
                 siteCreated = _site.TryCreateSite(project, reporter);
+                if (siteCreated) reporter.Context($"IIS · {hostname}");
             }
             else if (req.CreateIisSite)
             {
@@ -266,8 +287,9 @@ public sealed class CloneProjectUseCase
             }
 
             reporter.Step("Clone complete");
+            // The Output tab offers the site's address at the end of the run.
             if (siteCreated)
-                reporter.Success($"Open {_opts.SiteUrlFor(req.TargetProjectName)} to use the cloned site.");
+                reporter.Link(_opts.SiteUrlFor(req.TargetProjectName));
             else
                 reporter.Success($"Cloned files are ready in {project.ProjectDirectory}. " +
                                  "Point a web server (and database) at them to use the site.");

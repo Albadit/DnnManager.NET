@@ -97,8 +97,8 @@ public sealed class LocalSqlContainer
     /// <summary>The local SQL Server's address (<c>ip,port</c>) from the settings.</summary>
     public string Server => _opts.ServerFor(_opts.Docker.DefaultPort);
 
-    /// <summary>The local SQL Server itself (no particular database), as sa.</summary>
-    public SiteSqlConnection DefaultConnection => new(Server, "", "sa", _opts.Docker.SaPassword);
+    /// <summary>The local SQL Server itself (no particular database), as the container's user (sa by default).</summary>
+    public SiteSqlConnection DefaultConnection => new(Server, "", _opts.Docker.SqlUser, _opts.Docker.SaPassword);
 
     /// <summary>
     /// The database <paramref name="project"/>'s site uses, as its web.config has it - the local container when that is
@@ -117,13 +117,23 @@ public sealed class LocalSqlContainer
             : connection;
     }
 
-    /// <summary>Database <paramref name="database"/> on the local SQL Server container, as sa - the built-in database profile.</summary>
+    /// <summary>
+    /// How to reach the database <paramref name="project"/>'s site uses, exactly as its web.config says - its server,
+    /// database and login, or Windows authentication (as you) when it signs in as its app pool. Null when web.config
+    /// names no database; never DNN Manager's settings in its place.
+    /// </summary>
+    public SiteSqlConnection? SiteConnectionOf(DnnProject project) =>
+        DatabaseOf(project) is { } c
+            ? c.UsesWindowsAuthentication ? new SiteSqlConnection(c.Server, c.Database, "", "") : new SiteSqlConnection(c.Server, c.Database, c.User, c.Password)
+            : null;
+
+    /// <summary>Database <paramref name="database"/> on the local SQL Server container, as its user (sa by default).</summary>
     public DatabaseConnection Connection(string database) =>
-        new(DatabaseKind.Container, Server, database, SqlAuthentication.Sql, "sa", _opts.Docker.SaPassword);
+        new(DatabaseKind.Container, Server, database, SqlAuthentication.Sql, _opts.Docker.SqlUser, _opts.Docker.SaPassword);
 
     /// <summary>
     /// How to reach the database <paramref name="project"/>'s site uses: its web.config connection when that has
-    /// a SQL login, otherwise the site's database on the local SQL Server as sa.
+    /// a SQL login, otherwise the site's database on the local SQL Server as the container's user.
     /// </summary>
     public SiteSqlConnection ConnectionOf(DnnProject project)
     {
@@ -132,7 +142,7 @@ public sealed class LocalSqlContainer
             return c;
 
         var database = DeveloperDb.FromWebConfig(project, _webConfig) ?? _opts.DatabaseNameFor(project.Name);
-        return new SiteSqlConnection(Server, database, "sa", _opts.Docker.SaPassword);
+        return new SiteSqlConnection(Server, database, _opts.Docker.SqlUser, _opts.Docker.SaPassword);
     }
 
     /// <summary>True for a file <see cref="RestoreAsync"/> can restore: a <c>.bacpac</c> or a native <c>.bak</c>.</summary>
@@ -175,22 +185,12 @@ public sealed class LocalSqlContainer
 
         // The import creates the database; the site connects as the container sa, so there is no
         // login/user to remap afterwards.
-        return await _bacpac.ImportAsync(db.Server, "sa", _opts.Docker.SaPassword,
+        return await _bacpac.ImportAsync(db.Server, _opts.Docker.SqlUser, _opts.Docker.SaPassword,
             db.DatabaseName, backupFile, reporter, ct);
     }
 
     /// <summary>
-    /// The databases on the local SQL Server (case-insensitive), or null when it doesn't answer - one query for
-    /// the whole projects list.
-    /// </summary>
-    public async Task<IReadOnlySet<string>?> DatabasesAsync(CancellationToken ct)
-    {
-        var list = await _tester.ListDatabasesAsync(DefaultConnection, ct, ConnectTimeoutSeconds);
-        return list.Success ? new HashSet<string>(list.Value!, StringComparer.OrdinalIgnoreCase) : null;
-    }
-
-    /// <summary>
-    /// Checks that the local SQL Server accepts the configured sa login, reporting the outcome, and returns
+    /// Checks that the local SQL Server accepts the configured login, reporting the outcome, and returns
     /// the port it listens on.
     /// </summary>
     public async Task<Result<int>> CheckAsync(IProgressReporter reporter, CancellationToken ct)
@@ -207,7 +207,7 @@ public sealed class LocalSqlContainer
     }
 
     private Task<Result<string>> TestAsync(CancellationToken ct) =>
-        _tester.TestAsync(new SiteSqlConnection(Server, "master", "sa", _opts.Docker.SaPassword), ct, ConnectTimeoutSeconds);
+        _tester.TestAsync(new SiteSqlConnection(Server, "master", _opts.Docker.SqlUser, _opts.Docker.SaPassword), ct, ConnectTimeoutSeconds);
 
     /// <summary>A database in the shared container for <paramref name="project"/>.</summary>
     public DatabaseConfig DatabaseFor(DnnProject project, string databaseName, int port) =>

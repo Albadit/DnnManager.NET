@@ -50,6 +50,20 @@ public sealed class KeepWarmTests
     }
 
     [TestMethod]
+    public void AWarmUpWaitsForTheServerTheSitesWebConfigNames()
+    {
+        Assert.AreEqual(("localhost", 1433), KeepWarmService.SqlEndpoint("localhost,1433"));
+        Assert.AreEqual(("127.0.0.1", 1444), KeepWarmService.SqlEndpoint("tcp:127.0.0.1, 1444"));
+        Assert.AreEqual(("sql.example.com", 1433), KeepWarmService.SqlEndpoint("sql.example.com"));
+        Assert.AreEqual(("127.0.0.1", 1433), KeepWarmService.SqlEndpoint("(local)"));
+        // Not reached over a TCP port of its own: nothing to wait for.
+        Assert.IsNull(KeepWarmService.SqlEndpoint(@".\SQLEXPRESS"));
+        Assert.IsNull(KeepWarmService.SqlEndpoint(@"(localdb)\MSSQLLocalDB"));
+        Assert.IsNull(KeepWarmService.SqlEndpoint(@"np:\\.\pipe\sql\query"));
+        Assert.IsNull(KeepWarmService.SqlEndpoint(null));
+    }
+
+    [TestMethod]
     public void Backoff_WaitsLongerAfterEachFailure()
     {
         Assert.AreEqual(TimeSpan.FromMinutes(1), KeepWarmRules.Backoff(1));

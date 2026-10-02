@@ -5,7 +5,7 @@ namespace DnnManager.Application.Abstractions;
 /// <summary>Where a site's database lives.</summary>
 public enum DatabaseKind
 {
-    /// <summary>The local SQL Server container (Docker) from the settings - signed in to as sa.</summary>
+    /// <summary>The local SQL Server container (Docker) from the settings - signed in to as its user (sqlServer.user, sa by default).</summary>
     Container,
 
     /// <summary>Any SQL Server or SQL Server Express instance, with Windows or SQL Server authentication.</summary>
@@ -47,9 +47,6 @@ public sealed record DatabaseConnection(
     public const string LocalDbFileName = "Database.mdf";
 
     public bool UsesWindowsAuthentication => Kind == DatabaseKind.LocalDbFile || Authentication == SqlAuthentication.Windows;
-
-    /// <summary>The same connection to another database on the same server (e.g. master).</summary>
-    public DatabaseConnection WithDatabase(string database) => this with { Database = database };
 
     /// <summary>"[db] on server, as user" - for messages; never the password.</summary>
     public string Describe()

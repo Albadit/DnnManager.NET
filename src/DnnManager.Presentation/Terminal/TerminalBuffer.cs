@@ -27,7 +27,7 @@ internal sealed class TerminalBuffer
     public const uint Indexed = 0x0100_0000, Rgb = 0x0200_0000;
     private const int MaxScrollback = 5000;
 
-    private readonly List<Cell[]> _scrollback = new();
+    private readonly LineRing _scrollback = new(MaxScrollback);
     private Cell[][] _screen;
     // The main screen, kept while the alternate one is shown.
     private Cell[][]? _mainScreen;
@@ -115,7 +115,6 @@ internal sealed class TerminalBuffer
     private void PushScrollback(Cell[] line)
     {
         _scrollback.Add(line);
-        if (_scrollback.Count > MaxScrollback) _scrollback.RemoveRange(0, _scrollback.Count - MaxScrollback);
     }
 
     // ─── Parsing ──────────────────────────────────────────────────────────
@@ -497,4 +496,47 @@ internal sealed class TerminalBuffer
             }
         }
     }
+}
+
+/// <summary>
+/// The scrollback: the newest <c>capacity</c> lines, oldest first. Once full, a new line takes the oldest one's place -
+/// no lines are moved, however much a command prints (a List would shift thousands of lines for each new one).
+/// </summary>
+internal sealed class LineRing(int capacity) : IReadOnlyList<Cell[]>
+{
+    private readonly Cell[][] _lines = new Cell[capacity][];
+    private int _start;
+
+    public int Count { get; private set; }
+
+    public Cell[] this[int index] =>
+        (uint)index < (uint)Count ? _lines[(_start + index) % _lines.Length] : throw new ArgumentOutOfRangeException(nameof(index));
+
+    public void Add(Cell[] line)
+    {
+        if (Count < _lines.Length)
+        {
+            _lines[(_start + Count) % _lines.Length] = line;
+            Count++;
+        }
+        else
+        {
+            _lines[_start] = line;
+            _start = (_start + 1) % _lines.Length;
+        }
+    }
+
+    public void Clear()
+    {
+        Array.Clear(_lines);
+        _start = 0;
+        Count = 0;
+    }
+
+    public IEnumerator<Cell[]> GetEnumerator()
+    {
+        for (var i = 0; i < Count; i++) yield return this[i];
+    }
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 }

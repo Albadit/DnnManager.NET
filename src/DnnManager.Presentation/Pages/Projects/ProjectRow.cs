@@ -29,7 +29,8 @@ public sealed class ProjectRow : INotifyPropertyChanged
 
     // The properties each facet shows, for the change notifications.
     private static readonly string[] MetadataProperties =
-        [nameof(Name), nameof(Url), nameof(HasUrl), nameof(Path), nameof(IsDnn), nameof(Dnn), nameof(Database)];
+        [nameof(Name), nameof(Url), nameof(HasUrl), nameof(Path), nameof(IsDnn), nameof(Dnn), nameof(Database), nameof(DatabaseTip), nameof(SqlTip),
+         nameof(HasDatabaseProblem)];
     private static readonly string[] SiteProperties =
     [
         nameof(IdText), nameof(IdSort), nameof(PortsText), nameof(AppPoolText), nameof(PidText), nameof(BindingsText),
@@ -49,7 +50,7 @@ public sealed class ProjectRow : INotifyPropertyChanged
     private static readonly string[] StartedProperties = [nameof(LastStartedSort), nameof(LastStartedTip)];
     private static readonly string[] KeepWarmProperties =
     [
-        nameof(KeepWarm), nameof(KeepWarmOn), nameof(KeepWarmLook), nameof(KeepWarmBusy), nameof(KeepWarmText),
+        nameof(KeepWarm), nameof(KeepWarmOn), nameof(KeepWarmLook), nameof(KeepWarmBusy), nameof(KeepWarmText), nameof(KeepWarmAnswerText),
         nameof(KeepWarmTip), nameof(KeepWarmAction), nameof(CanToggleKeepWarm), nameof(Details)
     ];
 
@@ -81,16 +82,33 @@ public sealed class ProjectRow : INotifyPropertyChanged
     public string Path => _project.Directory;
     public bool IsDnn => _project.DnnVersion is not null;
     public string Dnn => _project.DnnVersion ?? "(none)";
-    public string Database => _project.DatabaseName ?? None;
+    /// <summary>The database the site's web.config names - "not set" when a DNN site's web.config names none (why: the tooltip).</summary>
+    public string Database => _project.DatabaseName ?? (_project.DatabaseProblem is null ? None : "not set");
+
+    /// <summary>Where the database comes from, or why it isn't known.</summary>
+    public string? DatabaseTip => _project.DatabaseProblem ?? (_project.DatabaseName is null ? null : "From the site's web.config (SiteSqlServer)");
+
+    public bool HasDatabaseProblem => _project.DatabaseProblem is not null;
     // "Live" when the database is on the SQL Server, "Offline" when the server doesn't answer, "(none)" when the
     // server is up but the database doesn't exist; "External" for one on another server (or a LocalDB file), which
     // isn't followed; "-" for a site without a database.
-    public string Sql => _project.DatabaseName is null ? None : _project.DatabaseElsewhere ? "External" : _project.SqlReachable switch
+    public string Sql => _project.DatabaseName is null ? None : _project.DatabaseIsFile ? "File" : _project.SqlReachable switch
     {
         null => NotYet,
         false => "Offline",
         true => _project.DatabaseExists ? "Live" : "(none)"
     };
+    /// <summary>The SQL column's tooltip: what was asked - the site's own web.config connection - and what it said.</summary>
+    public string? SqlTip => _project.DatabaseName is null ? _project.DatabaseProblem
+        : _project.DatabaseIsFile ? "A LocalDB file the site attaches in its own instance - not asked while the site runs"
+        : _project.SqlReachable switch
+        {
+            null => $"Asking {_project.DatabaseServer}…",
+            false => $"{_project.DatabaseServer} doesn't answer the site's web.config connection: {_project.SqlProblem}",
+            true => _project.DatabaseExists ? $"[{_project.DatabaseName}] on {_project.DatabaseServer} answers the site's web.config connection"
+                : _project.SqlProblem ?? $"[{_project.DatabaseName}] isn't on {_project.DatabaseServer}"
+        };
+
     public string Size => _project.SizeBytes is { } bytes ? $"{bytes / 1024d / 1024d:N1} MB" : NotYet;
     public long SizeBytes => _project.SizeBytes ?? -1;
 
@@ -229,6 +247,10 @@ public sealed class ProjectRow : INotifyPropertyChanged
 
     public string KeepWarmText => _keepWarm.Text;
 
+    /// <summary>How long the site took to answer keep warm last: "12ms", "3.4s" - the Output tab's Background list.</summary>
+    public string KeepWarmAnswerText => _keepWarm.LastAnswer is not { } answer ? ""
+        : answer < TimeSpan.FromSeconds(1) ? $"{Math.Max(1, (int)Math.Round(answer.TotalMilliseconds))}ms" : OutputFormat.Short(answer);
+
     /// <summary>What switching it does: "Keep warm" or "Stop keeping warm".</summary>
     public string KeepWarmAction => KeepWarmOn ? "Stop keeping warm" : "Keep warm";
 
@@ -286,12 +308,7 @@ public sealed class ProjectRow : INotifyPropertyChanged
         new("Bindings", BindingsText),
         // Its IIS log folder is named after it (W3SVC<id>).
         new("Site ID", IdText),
-        new("Database", _project.DatabaseName is null ? None : _project.DatabaseElsewhere ? $"{Database} (not on the local SQL container)" : _project.SqlReachable switch
-        {
-            null => Database,
-            false => $"{Database} (the SQL Server doesn't answer)",
-            true => _project.DatabaseExists ? $"{Database} (live)" : $"{Database} (doesn't exist)"
-        }),
+        new("Database", _project.DatabaseName is null ? None : $"{Database} - {SqlTip}"),
         new("DNN version", Dnn),
         new("Worker process", PidText == None ? "none - started on the first request" : $"PID {PidText}, since {Stats?.Started:g}"),
         new("Keep warm", KeepWarmText),
@@ -326,7 +343,7 @@ public sealed class ProjectRow : INotifyPropertyChanged
             Raise(StateProperties);
             Raise(ActionProperties);
         }
-        if (changed.HasFlag(ProjectFacets.Sql)) Raise(nameof(Sql));
+        if (changed.HasFlag(ProjectFacets.Sql)) Raise([nameof(Sql), nameof(SqlTip)]);
         if (changed.HasFlag(ProjectFacets.Size))
         {
             Raise(nameof(Size));

@@ -59,7 +59,7 @@ internal sealed class ProjectMenu
         var open = Item("Details…", (_, _) => _open(row));
         open.FontWeight = FontWeights.SemiBold;
         menu.Items.Add(open);
-        menu.Items.Add(Item("Open site", (_, _) => Shell(row.Url), row.HasUrl));
+        menu.Items.Add(Item("Open site", (_, _) => Presentation.Shell.Open(row.Url), row.HasUrl));
         menu.Items.Add(Item("Open folder", (_, _) => OpenFolder(row)));
         // A shell in the project's folder, in the terminal panel - unless the terminal is switched off in the settings.
         var terminal = _services.GetRequiredService<TerminalService>();
@@ -79,7 +79,20 @@ internal sealed class ProjectMenu
     /// </summary>
     private MenuItem OpenWithMenu(ProjectRow row)
     {
-        var openWith = new MenuItem { Header = "Open with…" };
+        var installed = IdeLocator.Installed.Count + IdeLocator.ManagementStudios.Count > 0;
+        // Filled when it opens: the project's solution and database are read from its folder and web.config - work a
+        // right-click that only wanted Start shouldn't wait for.
+        var openWith = Lazy("Open with…", menu => FillOpenWith(menu, row));
+        if (!installed)
+        {
+            openWith.IsEnabled = false;
+            openWith.ToolTip = "No code editor, IDE or SQL Server Management Studio found on this PC.";
+        }
+        return openWith;
+    }
+
+    private void FillOpenWith(MenuItem openWith, ProjectRow row)
+    {
         var solution = IdeLocator.SolutionFor(row.Path);
         foreach (var ide in IdeLocator.Installed)
         {
@@ -96,22 +109,38 @@ internal sealed class ProjectMenu
             var projectDatabase = ProjectDatabaseName(row);
             foreach (var ssms in studios)
             {
-                // Default: the local SQL Server as sa. Project: this project's database with its own login.
+                // Default: the local SQL Server as the container's user. Project: this project's database with its own login.
                 // Whether SSMS remembers the password is the SsmsRememberPassword setting.
                 var item = new MenuItem { Header = ssms.Name, ToolTip = ssms.ExePath };
-                item.Items.Add(Item("Default  (local SQL Server, sa)", (_, _) => OpenDatabase(ssms, row, project: false)));
-                item.Items.Add(Item(projectDatabase is null ? "Project database" : $"Project  ([{projectDatabase}])",
-                    (_, _) => OpenDatabase(ssms, row, project: true)));
+                item.Items.Add(Item($"Default  (local SQL Server, {_services.GetRequiredService<IOptions<AppOptions>>().Value.Docker.SqlUser})",
+                    (_, _) => OpenDatabase(ssms, row, project: false)));
+                // The database the site's web.config names - none to open when it names none (the tooltip says why).
+                var projectItem = Item(projectDatabase is null ? "Project database" : $"Project  ([{projectDatabase}])",
+                    (_, _) => OpenDatabase(ssms, row, project: true), projectDatabase is not null);
+                if (projectDatabase is null) projectItem.ToolTip = row.DatabaseTip ?? "The site's web.config names no database.";
+                item.Items.Add(projectItem);
                 openWith.Items.Add(item);
             }
         }
+    }
 
-        if (openWith.Items.Count == 0)
+    /// <summary>
+    /// A submenu filled the first time it opens - what it lists is read from disk or IIS, and most menus close without
+    /// it. Until then it holds one placeholder, so it shows as a submenu.
+    /// </summary>
+    private static MenuItem Lazy(string header, Action<MenuItem> fill)
+    {
+        var menu = new MenuItem { Header = header };
+        menu.Items.Add(new MenuItem { Header = "Reading…", IsEnabled = false });
+        var filled = false;
+        menu.SubmenuOpened += (_, e) =>
         {
-            openWith.IsEnabled = false;
-            openWith.ToolTip = "No code editor, IDE or SQL Server Management Studio found on this PC.";
-        }
-        return openWith;
+            if (filled || !ReferenceEquals(e.OriginalSource, menu)) return;
+            filled = true;
+            menu.Items.Clear();
+            fill(menu);
+        };
+        return menu;
     }
 
     /// <summary>
@@ -139,8 +168,9 @@ internal sealed class ProjectMenu
             SourceBackupServerPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"dnnmanager_clone_{target}_{DateTime.Now:yyyyMMddHHmmss}.bak"),
             CreateIisSite = true
         };
-        await _runner.RunAsync($"Clone '{row.Name}' → '{target}'",
-            (sp, reporter, ct) => sp.GetRequiredService<CloneProjectUseCase>().ExecuteAsync(request, reporter, ct));
+        if (await _runner.RunAsync($"Clone '{row.Name}' → '{target}'",
+                (sp, reporter, ct) => sp.GetRequiredService<CloneProjectUseCase>().ExecuteAsync(request, reporter, ct)))
+            Toast.Show($"'{target}' is ready - a copy of '{row.Name}' with its own database and IIS site.", ToastKind.Success);
     }
 
     // ─── The site's tools (⋮) ─────────────────────────────────────────────
@@ -167,11 +197,21 @@ internal sealed class ProjectMenu
     }
 
     /// <summary>"View logs": every log found for the site - opened on the panel's Logs tab, where it is followed live.</summary>
-    private static MenuItem LogsMenu(IServiceProvider services, ProjectRow row)
+    private static MenuItem LogsMenu(IServiceProvider services, ProjectRow row) =>
+        // Found when it opens, off the UI thread: IIS's configuration and log folders of thousands of files are read.
+        Lazy("View logs", async logs =>
+        {
+            var catalog = services.GetRequiredService<SiteLogCatalog>();
+            var (name, id, path, pool) = (row.Name, row.IisSite.Id, row.Path, row.IisSite.AppPool);
+            logs.Items.Add(new MenuItem { Header = "Reading…", IsEnabled = false });
+            var sources = await Task.Run(() => catalog.For(name, id, path, pool));
+            logs.Items.Clear();
+            FillLogs(logs, services, row, sources);
+        });
+
+    private static void FillLogs(MenuItem logs, IServiceProvider services, ProjectRow row, IReadOnlyList<SiteLogSource> sources)
     {
-        var logs = new MenuItem { Header = "View logs" };
         var terminal = services.GetRequiredService<TerminalService>();
-        var sources = services.GetRequiredService<SiteLogCatalog>().For(row.Name, row.IisSite.Id, row.Path, row.IisSite.AppPool);
         string? group = null;
         foreach (var source in sources)
         {
@@ -179,14 +219,15 @@ internal sealed class ProjectMenu
             {
                 if (group is not null) logs.Items.Add(new Separator());
                 group = source.Group;
-                logs.Items.Add(new MenuItem { Header = group, IsEnabled = false, FontSize = 11 });
+                var heading = new MenuItem { Header = group, IsEnabled = false };
+                heading.SetResourceReference(Control.FontSizeProperty, "TextSmall");
+                logs.Items.Add(heading);
             }
             var item = Item(source.Title, (_, _) => terminal.ShowLogs(row, source));
             item.ToolTip = source.FilePath is null ? source.Description : $"{source.Description}\n{source.FilePath}";
             logs.Items.Add(item);
         }
         if (sources.Count == 0) logs.Items.Add(new MenuItem { Header = "No logs found for this site", IsEnabled = false });
-        return logs;
     }
 
     private static MenuItem Item(string header, RoutedEventHandler click, bool enabled = true)
@@ -196,16 +237,10 @@ internal sealed class ProjectMenu
         return item;
     }
 
-    public static void Shell(string target)
-    {
-        try { Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); }
-        catch (Exception ex) { Dialogs.Error($"Could not open {target}: {ex.Message}"); }
-    }
-
 
     public static void OpenFolder(ProjectRow row)
     {
-        if (Directory.Exists(row.Path)) Shell(row.Path);
+        if (Directory.Exists(row.Path)) Presentation.Shell.Open(row.Path);
         else Dialogs.Error($"The project folder no longer exists: {row.Path}");
     }
 
@@ -236,7 +271,7 @@ internal sealed class ProjectMenu
         export.Items.Add(Item("Database  (.bacpac)", (_, _) => Backup(row, ExportParts.Database)));
         export.Items.Add(new Separator());
         var backups = _services.GetRequiredService<IProjectRepository>().Build(row.Name, row.Path).BackupDirectory;
-        export.Items.Add(Item("Open backups folder", (_, _) => Shell(backups), Directory.Exists(backups)));
+        export.Items.Add(Item("Open backups folder", (_, _) => Presentation.Shell.Open(backups), Directory.Exists(backups)));
         return export;
     }
 
@@ -252,8 +287,9 @@ internal sealed class ProjectMenu
             ZipPath = parts == ExportParts.Database ? null : System.IO.Path.Combine(folder, ProjectBackups.SiteZipName(project)),
             BacpacPath = parts == ExportParts.Site ? null : System.IO.Path.Combine(folder, ProjectBackups.DatabaseName(project, ".bacpac"))
         };
-        await _runner.RunAsync($"Back up '{row.Name}'",
-            (sp, reporter, ct) => sp.GetRequiredService<ExportProjectUseCase>().ExecuteAsync(request, reporter, ct));
+        if (await _runner.RunAsync($"Back up '{row.Name}'",
+                (sp, reporter, ct) => sp.GetRequiredService<ExportProjectUseCase>().ExecuteAsync(request, reporter, ct)))
+            Toast.Show($"'{row.Name}' is backed up in {folder}.", ToastKind.Success, "Open folder", () => Presentation.Shell.Open(folder));
     }
 
     // ─── SQL Server Management Studio ─────────────────────────────────────
@@ -266,8 +302,8 @@ internal sealed class ProjectMenu
             using var scope = _services.CreateScope();
             if (row.Project.DatabaseName is null) return null;
             var project = scope.ServiceProvider.GetRequiredService<IProjectRepository>().Build(row.Name, row.Path);
-            var database = scope.ServiceProvider.GetRequiredService<LocalSqlContainer>().ConnectionOf(project).Database;
-            return database.Length > 0 ? database : null;
+            var database = scope.ServiceProvider.GetRequiredService<LocalSqlContainer>().SiteConnectionOf(project)?.Database;
+            return database is { Length: > 0 } ? database : null;
         }
         catch
         {
@@ -276,7 +312,7 @@ internal sealed class ProjectMenu
     }
 
     /// <summary>
-    /// Opens SSMS signed in to the local SQL Server as sa (<paramref name="project"/> false) or to the project's
+    /// Opens SSMS signed in to the local SQL Server as the container's user (<paramref name="project"/> false) or to the project's
     /// database - the one its web.config uses, or its local one. SSMS remembers the password when the
     /// SsmsRememberPassword setting is on.
     /// </summary>
@@ -289,9 +325,16 @@ internal sealed class ProjectMenu
             using (var scope = _services.CreateScope())
             {
                 var sql = scope.ServiceProvider.GetRequiredService<LocalSqlContainer>();
-                database = project
-                    ? sql.ConnectionOf(scope.ServiceProvider.GetRequiredService<IProjectRepository>().Build(row.Name, row.Path))
-                    : sql.DefaultConnection;
+                // The project's database as its web.config has it (Windows authentication too) - not a guess.
+                if (!project) database = sql.DefaultConnection;
+                else if (sql.SiteConnectionOf(scope.ServiceProvider.GetRequiredService<IProjectRepository>().Build(row.Name, row.Path)) is { } site)
+                    database = site;
+                else
+                {
+                    _services.GetRequiredService<ActivityLog>().Warn(
+                        $"'{row.Name}' has no database to open: {row.DatabaseTip ?? "its web.config names none"}.");
+                    return;
+                }
                 onThisMachine = sql.IsOnThisMachine(database.Server);
             }
 

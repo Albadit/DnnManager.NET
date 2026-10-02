@@ -50,17 +50,17 @@ public sealed class OperationRunner : INotifyPropertyChanged
     public async Task<bool> RunAsync(string title,
         Func<IServiceProvider, IProgressReporter, CancellationToken, Task<Result>> operation)
     {
-        // Pages stay usable (scrolling, browsing) while an operation runs; only a second one is refused.
+        // Pages stay usable (scrolling, browsing) while an operation runs; only a second one is refused - said, not asked.
         if (IsBusy)
         {
-            Dialogs.Error($"'{Current}' is still running - wait for it to finish, or cancel it first.");
+            Toast.Show($"'{Current}' is still running - wait for it to finish, or cancel it first.", ToastKind.Warning);
             return false;
         }
 
         using var cts = new CancellationTokenSource();
         _cts = cts;
         Current = title;
-        _log.Header(title);
+        _log.BeginRun(title);
         // Outside the operation, so what it noted to undo is still there when it was cancelled.
         using var scope = _services.CreateScope();
         try
@@ -71,11 +71,11 @@ public sealed class OperationRunner : INotifyPropertyChanged
             if (!result.Success && cts.IsCancellationRequested) return await UndoAsync(scope, title);
             if (result.Success)
             {
-                _log.Success($"{title} - finished.");
+                _log.EndRun(RunStatus.Finished, null);
                 return true;
             }
             var error = result.Error ?? $"{title} failed.";
-            _log.Fail(error);
+            _log.EndRun(RunStatus.Failed, error);
             if (!result.IsAborted) Failed?.Invoke(title, error);
             return false;
         }
@@ -91,7 +91,7 @@ public sealed class OperationRunner : INotifyPropertyChanged
         catch (Exception ex)
         {
             _logger.LogError(ex, "Action failed");
-            _log.Fail($"Unexpected error: {ex.Message}");
+            _log.EndRun(RunStatus.Failed, $"Unexpected error: {ex.Message}");
             Failed?.Invoke(title, ex.Message);
             return false;
         }
@@ -111,13 +111,13 @@ public sealed class OperationRunner : INotifyPropertyChanged
         var undo = scope.ServiceProvider.GetRequiredService<OperationUndo>();
         if (undo.IsEmpty)
         {
-            _log.Fail($"{title} - cancelled. Nothing had been changed yet.");
+            _log.EndRun(RunStatus.Cancelled, $"{title} - cancelled. Nothing had been changed yet.");
             return false;
         }
         Current = $"Undoing '{title}'";
-        _reporter.Step("Cancelled - putting everything back as it was");
+        _reporter.Step("Cancelled - putting everything back as it was", "Undo");
         var allUndone = await Task.Run(() => undo.RunAsync(_reporter));
-        _log.Fail(allUndone
+        _log.EndRun(RunStatus.Cancelled, allUndone
             ? $"{title} - cancelled. Everything it had done is undone."
             : $"{title} - cancelled. Not everything could be undone - see above.");
         return false;
@@ -127,7 +127,7 @@ public sealed class OperationRunner : INotifyPropertyChanged
     {
         if (_cts is { IsCancellationRequested: false } cts)
         {
-            _log.Info("Cancelling…");
+            _log.Cancelling();
             cts.Cancel();
         }
     }

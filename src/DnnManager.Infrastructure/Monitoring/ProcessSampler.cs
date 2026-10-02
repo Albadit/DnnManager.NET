@@ -63,7 +63,8 @@ public sealed class ProcessSampler
                 using var process = Process.GetProcessById(pid);
                 var now = DateTime.UtcNow;
                 var cpuTime = process.TotalProcessorTime;
-                memory += process.WorkingSet64;
+                // From the handle, as the CPU time, start time and I/O are: no snapshot of every process for it.
+                memory += NativeMethods.WorkingSet(process.Handle);
                 var start = process.StartTime;
                 if (started is null || start < started) started = start;
                 if (NativeMethods.GetProcessIoCounters(process.Handle, out var io))

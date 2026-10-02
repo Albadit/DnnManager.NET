@@ -14,6 +14,29 @@ public interface IProgressReporter
     void Warn(string message);
     /// <summary>Updates a single status line in place (e.g. a running download percentage).</summary>
     void Progress(string message);
+
+    // What the Output tab can show beyond lines - each optional: a reporter that has no use for it ignores it.
+
+    /// <summary>
+    /// The stages the operation will go through, by their short names - shown as pending until they start, and as
+    /// skipped when it fails (or never gets to them). Steps whose <c>name</c> is one of these fill them in.
+    /// </summary>
+    void Plan(params string[] stages) { }
+
+    /// <summary>A step with a short <paramref name="name"/> (the stage list) besides its <paramref name="title"/> (the log).</summary>
+    void Step(string title, string name) => Step(title);
+
+    /// <summary>What the operation works with, e.g. the SQL Server and its version - shown next to its title.</summary>
+    void Context(string text) { }
+
+    /// <summary>A figure in the operation's summary, e.g. "Files copied" = "4 487 · 148,4 MB".</summary>
+    void Fact(string name, string value) { }
+
+    /// <summary>Where the result can be opened, e.g. the new site's address - offered once the operation is done.</summary>
+    void Link(string url) { }
+
+    /// <summary>A failure with what lies behind it (<paramref name="details"/>) and what to do about it (<paramref name="hint"/>).</summary>
+    void Fail(string message, IReadOnlyList<string> details, string? hint) => Fail(message);
 }
 
 public interface IUserPrompt
@@ -23,6 +46,13 @@ public interface IUserPrompt
     /// database", never a bare Yes / No. True when <paramref name="yes"/> is chosen.
     /// </summary>
     Task<bool> ConfirmAsync(string question, string yes, string no, bool defaultYes = false, CancellationToken ct = default);
+
+    /// <summary>
+    /// Asks before something that can't be taken back - deleting a project, dropping a database: <paramref name="yes"/>
+    /// looks dangerous, and the safe answer is the default.
+    /// </summary>
+    Task<bool> ConfirmDangerAsync(string question, string yes, string no, CancellationToken ct = default) =>
+        ConfirmAsync(question, yes, no, false, ct);
 }
 
 public interface IProjectRepository
@@ -135,8 +165,8 @@ public interface IIisManager
     /// </summary>
     IReadOnlyDictionary<string, long> GetRequestsServed();
 
-    /// <summary>A site's details for the project details view, or null when there is no such site.</summary>
-    IisSiteInfo? GetSiteInfo(string siteName);
+    /// <summary>The site in detail - its bindings with their certificates, its app pool's settings; null when IIS has no such site.</summary>
+    IisSiteDetails? GetSiteDetails(string siteName) => null;
 
     Result GrantPermissions(string path, IEnumerable<string> identities);
 
@@ -149,18 +179,6 @@ public interface IIisManager
     /// </summary>
     Task<Result> RemoveAppPoolProfileAsync(string poolName, CancellationToken ct);
 }
-
-/// <param name="Bindings">e.g. <c>http://site.dnndev.me:80</c>.</param>
-/// <param name="ClrVersion">The app pool's .NET CLR version, or "No Managed Code".</param>
-public sealed record IisSiteInfo(
-    string State,
-    string PhysicalPath,
-    IReadOnlyList<string> Bindings,
-    string AppPool,
-    string? AppPoolState,
-    string? ClrVersion,
-    string? PipelineMode,
-    string? Identity);
 
 /// <summary>
 /// An IIS site as IIS has it configured and running - what the Projects table is made of: every site in IIS is a
@@ -197,10 +215,6 @@ public sealed record IisSiteRuntime(
             .OrderBy(b => (b.IsHttps && b.HasCertificate ? 0 : b.IsHttps ? 2 : 1) + (b.Host.Length > 0 ? 0 : 3))
             .FirstOrDefault()?.Url;
 
-    /// <summary>Whether a browser can reach <paramref name="host"/> over https here: an https binding for that host, or for any.</summary>
-    public bool ServesHttps(string host) =>
-        Bindings.Any(b => b.IsHttps && (b.Host.Length == 0 || b.Host.Equals(host, StringComparison.OrdinalIgnoreCase)));
-
     /// <summary>The same site in the same state - the lists compared by what is in them.</summary>
     public bool SameAs(IisSiteRuntime? other) =>
         other is not null && Id == other.Id && State == other.State && AppPool == other.AppPool &&
@@ -235,22 +249,6 @@ public sealed record IisBinding(string Protocol, string Address, int? Port, stri
     }
 
     public override string ToString() => $"{Protocol} {Address}:{Port}:{Host}";
-}
-
-/// <summary>A portal (a site) of a DNN installation - one DNN install can hold several, each with its own addresses.</summary>
-/// <param name="Expired">Its expiry date has passed - DNN no longer serves it.</param>
-/// <param name="Aliases">The addresses it answers to, its primary one first.</param>
-public sealed record DnnPortal(int Id, string Name, bool Expired, IReadOnlyList<DnnPortalAlias> Aliases)
-{
-    /// <summary>The primary alias, or the first when none is marked primary; null when it has none.</summary>
-    public DnnPortalAlias? Primary => Aliases.FirstOrDefault(a => a.IsPrimary) ?? Aliases.FirstOrDefault();
-}
-
-/// <param name="HttpAlias">As DNN stores it: a host, optionally with a port and a path ("example.com/child").</param>
-public sealed record DnnPortalAlias(string HttpAlias, bool IsPrimary)
-{
-    /// <summary>The host name alone, without port or path.</summary>
-    public string Host => HttpAlias.Split('/', 2)[0].Split(':', 2)[0];
 }
 
 /// <summary>Bytes a site received and sent over HTTP since IIS started.</summary>
@@ -383,9 +381,6 @@ public interface IProjectScaffolder
     Result EnsureGitignore(string projectDirectory);
 }
 
-/// <param name="DnnVersion">The newest row of DNN's Version table, e.g. "9.13.9"; null when it isn't a DNN database.</param>
-public sealed record DatabaseFacts(double SizeMb, string? DnnVersion, int? Portals);
-
 /// <param name="Debug">&lt;compilation debug&gt;; null when not set.</param>
 /// <param name="DisabledHttpsRules">HTTPS redirect rules DNN Manager switched off for local development.</param>
 public sealed record WebConfigFacts(bool? Debug, string? TargetFramework, string? CustomErrors, IReadOnlyList<string> DisabledHttpsRules);
@@ -400,20 +395,8 @@ public interface ISqlConnectionTester
     /// </summary>
     Task<Result<string>> TestAsync(SiteSqlConnection connection, CancellationToken ct, int timeoutSeconds = 15);
 
-    /// <summary>
-    /// Size of <paramref name="database"/>'s database and, when it holds a DNN site, the DNN version recorded in it
-    /// and how many portals it has (<see cref="ListPortalsAsync"/> lists them).
-    /// </summary>
-    Task<Result<DatabaseFacts>> DescribeDatabaseAsync(SiteSqlConnection database, CancellationToken ct, int timeoutSeconds = 15);
-
     /// <summary>The names of all databases on <paramref name="server"/>'s SQL Server.</summary>
     Task<Result<IReadOnlyList<string>>> ListDatabasesAsync(SiteSqlConnection server, CancellationToken ct, int timeoutSeconds = 15);
-
-    /// <summary>
-    /// The portals of the DNN installation <paramref name="database"/> belongs to, each with its aliases - empty when
-    /// the database holds no DNN.
-    /// </summary>
-    Task<Result<IReadOnlyList<DnnPortal>>> ListPortalsAsync(SiteSqlConnection database, CancellationToken ct, int timeoutSeconds = 15);
 }
 
 /// <param name="SwitchedOff">Rules switched off just now.</param>

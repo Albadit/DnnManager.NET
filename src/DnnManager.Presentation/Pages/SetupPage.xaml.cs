@@ -16,8 +16,8 @@ namespace DnnManager.Presentation.Pages;
 /// <summary>
 /// "New project": a new project folder from a DNN download or an imported site .zip. A name whose folder already
 /// exists is refused - setting up an existing folder is what Host project is for. A DNN download gets its IIS website
-/// (host name, port), its database (named like the project, on the server from Settings → Database server - tested before
-/// anything is created) and - with automatic
+/// (host name, port), its database (named like the project, filled in from Settings → Database server and changeable
+/// here for this project only - tested before anything is created) and - with automatic
 /// setup - DNN installed with the account and website given here, so the first visit shows the new site.
 /// </summary>
 public partial class SetupPage : UserControl, IRefreshable
@@ -48,13 +48,21 @@ public partial class SetupPage : UserControl, IRefreshable
         _runner = runner; _repo = repo; _catalog = catalog; _packages = packages;
         _options = options.Value; _secrets = secrets;
         InitializeComponent();
-        // Saving the settings can change the database server - the hint that names it follows.
-        _options.Changed += UpdateState;
+        // Saving the settings can change the database server: the database follows it - unless it was changed here.
+        // Followed only while the page is shown: a page MainWindow lets go of isn't kept alive by the settings.
+        Loaded += (_, _) => _options.Changed += OnOptionsChanged;
+        Unloaded += (_, _) => _options.Changed -= OnOptionsChanged;
 
         SourceCombo.ItemsSource = releases.KnownReleaseApis.Select(api => new SourceOption(api, RepositoryLabel(api))).ToList();
         SourceCombo.SelectedIndex = 0;
         LoadBackupProjects();
         LoadDefaults();
+    }
+
+    private void OnOptionsChanged()
+    {
+        if (!_dbEdited) LoadDatabaseDefaults();
+        UpdateState();
     }
 
     /// <summary>The settings' DNN defaults and database server, and the site address for no name yet.</summary>
@@ -71,7 +79,7 @@ public partial class SetupPage : UserControl, IRefreshable
         _websiteEdited = dnn.WebsiteName.Length > 0;
         LanguageCombo.Items.Clear();
         foreach (var language in DnnAccountRules.Languages)
-            LanguageCombo.Items.Add(new ComboBoxItem { Content = LanguageName(language), Tag = language });
+            LanguageCombo.Items.Add(new ComboBoxItem { Content = Languages.Name(language), Tag = language });
         LanguageCombo.SelectedItem = LanguageCombo.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == dnn.Language) ?? LanguageCombo.Items[0];
         TemplateCombo.Items.Clear();
         foreach (var template in DnnAccountRules.Templates) TemplateCombo.Items.Add(new ComboBoxItem { Content = template, Tag = template });
@@ -79,6 +87,7 @@ public partial class SetupPage : UserControl, IRefreshable
         PortBox.Text = _options.SitePort.ToString();
         _hostEdited = false;
         _filling = false;
+        LoadDatabaseDefaults();
         FollowName();
     }
 
@@ -221,6 +230,7 @@ public partial class SetupPage : UserControl, IRefreshable
         _filling = true;
         if (!_hostEdited) HostNameBox.Text = name.Length > 0 ? _options.HostnameFor(name) : "";
         if (!_websiteEdited) WebsiteNameBox.Text = name;
+        if (!_dbNameEdited) DbNameBox.Text = name.Length > 0 ? _options.DatabaseNameFor(name) : "";
         _filling = false;
     }
 
@@ -320,22 +330,146 @@ public partial class SetupPage : UserControl, IRefreshable
 
     private string ContainerServer => _options.ServerFor(_options.Docker.DefaultPort);
 
-    /// <summary>Where the new project's database goes, in words - for the hint under the name.</summary>
-    private string DatabaseWhere(bool importing)
-    {
-        var server = Server;
-        if (importing || server.IsContainer) return $"on the local SQL container ({ContainerServer})";
-        if (server.IsLocalDbFile) return $@"as the site's own App_Data\{DatabaseConnection.LocalDbFileName} (LocalDB)";
-        return $"on {server.Server}";
-    }
+    private const string ContainerType = SqlServerSettings.ContainerType, SqlServerType = "sqlServer", LocalDbType = "localDbFile";
+
+    // The connection type shown; whether a database field was changed here (then the settings don't overwrite it), and
+    // whether the database name was typed (then it no longer follows the project's name).
+    private string _dbType = ContainerType;
+    private bool _dbEdited, _dbNameEdited;
 
     /// <summary>
-    /// The new project's database: named like the project, on the server from the settings. The login's password is read
-    /// from the Credential Manager and held in memory only.
+    /// The database as Settings → Database server has it - its connection type and that type's server and login (the
+    /// SQL Server login's password from the Credential Manager, held in memory only). Changed here, for this project only.
     /// </summary>
-    private DatabaseConnection ChosenDatabase() =>
-        _options.DatabaseOnServer(_options.DatabaseNameFor(EnteredName),
-            Server.UsesSqlAuthentication ? _secrets.Read(SecretNames.DatabaseServerPassword) ?? "" : "");
+    private void LoadDatabaseDefaults()
+    {
+        var server = Server;
+        FillDatabase(server.IsContainer ? ContainerType : server.IsLocalDbFile ? LocalDbType : SqlServerType);
+        _dbEdited = false;
+    }
+
+    /// <summary>Shows <paramref name="type"/> with the settings' server and login for it.</summary>
+    private void FillDatabase(string type)
+    {
+        var server = Server;
+        var filling = _filling;
+        _filling = true;
+        _dbType = type;
+        DbContainer.IsChecked = type == ContainerType;
+        DbSqlServer.IsChecked = type == SqlServerType;
+        DbLocalDb.IsChecked = type == LocalDbType;
+        switch (type)
+        {
+            case ContainerType:
+                DbServerBox.Text = ContainerServer;
+                DbUserBox.Text = _options.Docker.SqlUser;
+                DbPasswordBox.Password = _options.Docker.SaPassword;
+                break;
+            case LocalDbType:
+                DbServerBox.Text = server.IsLocalDbFile && server.Server.Length > 0 ? server.Server : DatabaseConnection.LocalDbServer;
+                break;
+            default:
+                var saved = server.Type.Equals(SqlServerType, StringComparison.OrdinalIgnoreCase);
+                DbServerBox.Text = saved && server.Server.Length > 0 ? server.Server : @".\SQLEXPRESS";
+                DbWindowsAuth.IsChecked = !(saved && server.UsesSqlAuthentication);
+                DbSqlAuth.IsChecked = saved && server.UsesSqlAuthentication;
+                DbUserBox.Text = saved ? server.UserName : "";
+                DbPasswordBox.Password = saved && server.UsesSqlAuthentication ? _secrets.Read(SecretNames.DatabaseServerPassword) ?? "" : "";
+                break;
+        }
+        _filling = filling;
+    }
+
+    private void DbType_Checked(object sender, RoutedEventArgs e)
+    {
+        if (!IsInitialized || _filling) return;
+        var type = DbSqlServer.IsChecked == true ? SqlServerType : DbLocalDb.IsChecked == true ? LocalDbType : ContainerType;
+        if (type == _dbType) return;
+        // Another type: its server and login as the settings have them.
+        FillDatabase(type);
+        _dbEdited = true;
+        UpdateState();
+    }
+
+    private void DbAuth_Checked(object sender, RoutedEventArgs e) => DbEdited();
+
+    private void DbField_Changed(object sender, TextChangedEventArgs e) => DbEdited();
+
+    private void DbPassword_Changed(object sender, RoutedEventArgs e) => DbEdited();
+
+    private void DbName_Changed(object sender, TextChangedEventArgs e)
+    {
+        if (!_filling) _dbNameEdited = DbNameBox.Text.Trim().Length > 0;
+        DbEdited();
+    }
+
+    private void DbEdited()
+    {
+        if (!IsInitialized) return;
+        if (!_filling) _dbEdited = true;
+        UpdateState();
+    }
+
+    private void ResetDatabase_Click(object sender, RoutedEventArgs e)
+    {
+        LoadDatabaseDefaults();
+        _dbNameEdited = false;
+        FollowName();
+        UpdateState();
+    }
+
+    private bool DbSqlLogin => _dbType == ContainerType || (_dbType == SqlServerType && DbSqlAuth.IsChecked == true);
+
+    /// <summary>What's wrong with the database fields, or null when they can be tested.</summary>
+    private string? DatabaseProblem()
+    {
+        if (DbServerBox.Text.Trim().Length == 0) return _dbType == LocalDbType ? "Enter the LocalDB instance." : "Enter the server.";
+        if (_dbType != LocalDbType)
+        {
+            var name = DbNameBox.Text.Trim();
+            if (name.Length == 0) return "Enter the database name.";
+            if (name.Length > 128 || name.Contains(']')) return "The database name can have at most 128 characters, and no ']'.";
+        }
+        if (DbSqlLogin && DbUserBox.Text.Trim().Length == 0) return "Enter the username.";
+        if (DbSqlLogin && DbPasswordBox.Password.Length == 0) return "Enter the password.";
+        return null;
+    }
+
+    /// <summary>The new project's database, as the Database card has it.</summary>
+    private DatabaseConnection ChosenDatabase()
+    {
+        var server = DbServerBox.Text.Trim();
+        var database = DbNameBox.Text.Trim();
+        return _dbType switch
+        {
+            ContainerType => new DatabaseConnection(DatabaseKind.Container, server, database, SqlAuthentication.Sql, DbUserBox.Text.Trim(), DbPasswordBox.Password),
+            LocalDbType => new DatabaseConnection(DatabaseKind.LocalDbFile, server, DatabaseConnection.LocalDbFileName, SqlAuthentication.Windows),
+            _ => DbSqlAuth.IsChecked == true
+                ? new DatabaseConnection(DatabaseKind.SqlServer, server, database, SqlAuthentication.Sql, DbUserBox.Text.Trim(), DbPasswordBox.Password)
+                : new DatabaseConnection(DatabaseKind.SqlServer, server, database, SqlAuthentication.Windows)
+        };
+    }
+
+    /// <summary>The card's fields for the connection type, its hint and its problem.</summary>
+    private void ShowDatabase(bool started)
+    {
+        DbServerLabel.Text = _dbType == LocalDbType ? "LocalDB instance" : "Server";
+        DbNamePanel.Visibility = _dbType == LocalDbType ? Visibility.Collapsed : Visibility.Visible;
+        DbAuthPanel.Visibility = _dbType == SqlServerType ? Visibility.Visible : Visibility.Collapsed;
+        DbUserPanel.Visibility = DbPasswordPanel.Visibility = DbSqlLogin ? Visibility.Visible : Visibility.Collapsed;
+        ResetDatabaseButton.Visibility = _dbEdited || _dbNameEdited ? Visibility.Visible : Visibility.Collapsed;
+
+        var problem = DatabaseProblem();
+        // An empty name isn't an error yet - the database name follows it.
+        DatabaseError.Text = problem is not null && (started || _dbEdited) ? problem : "";
+        DatabaseError.Visibility = DatabaseError.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        DatabaseHint.Text = (_dbType == LocalDbType
+                ? $@"The site's own App_Data\{DatabaseConnection.LocalDbFileName}, attached by LocalDB. "
+                : "Named like the project until you type another name. ") +
+            (_dbEdited ? "Changed for this project only - Settings → Database server stays as it is."
+                : "From Settings → Database server - change it here for this project only.") +
+            " It is tested before anything is created.";
+    }
 
     // ─── State and running ────────────────────────────────────────────────
 
@@ -378,6 +512,10 @@ public partial class SetupPage : UserControl, IRefreshable
                        $"http://{DnnSiteAddress.AliasFor(ChosenHostName.Length > 0 ? ChosenHostName : "<host>", port ?? 80)}";
         IisHint.SetResourceReference(TextBlock.ForegroundProperty, shownIisProblem is null ? "TextMuted" : "ErrorText");
 
+        DatabaseCard.Visibility = fresh ? Visibility.Visible : Visibility.Collapsed;
+        var databaseProblem = fresh ? DatabaseProblem() : null;
+        if (fresh) ShowDatabase(name.Length > 0);
+
         var accountProblems = fresh && Automatic ? DnnAccountRules.Problems(ChosenAccount) : [];
         // Only once something is typed - an empty form isn't an error yet.
         var accountStarted = HostPasswordBox.Password.Length > 0 || name.Length > 0;
@@ -385,15 +523,15 @@ public partial class SetupPage : UserControl, IRefreshable
         AccountError.Visibility = AccountError.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         var language = (LanguageCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "en-US";
         AccountHint.Text = "The host (superuser) account signs in without being asked to change its password. Defaults in Settings → Projects → DNN defaults." +
-                           (language == "en-US" ? "" : $" {LanguageName(language)}: DNN downloads its language pack while installing (needs internet).");
+                           (language == "en-US" ? "" : $" {Languages.Name(language)}: DNN downloads its language pack while installing (needs internet).");
 
-        NameHint.Text = "Letters, digits, '-', '_' or '.' - the name becomes the folder, the IIS site, the hostname and the database, " +
-                        $"{DatabaseWhere(importing)}." + (importing ? "" : " The database server is set in Settings → Database server.");
+        NameHint.Text = "Letters, digits, '-', '_' or '.' - the name becomes the folder, the IIS site, the hostname and the database" +
+                        (importing ? $", on the local SQL container ({ContainerServer})." : " (see Database below).");
 
         RunButton.Content = importing ? "Import project" : "Create project";
         RunButton.IsEnabled = valid && (importing ? problem is null
             : SourceCombo.SelectedItem is SourceOption && VersionCombo.SelectedItem is VersionOption { Ready: true } &&
-              iisProblem is null && accountProblems.Count == 0);
+              iisProblem is null && databaseProblem is null && accountProblems.Count == 0);
     }
 
     private async void Run_Click(object sender, RoutedEventArgs e)
@@ -412,13 +550,16 @@ public partial class SetupPage : UserControl, IRefreshable
             };
             if (await _runner.RunAsync($"Import '{name}'",
                     (sp, reporter, ct) => sp.GetRequiredService<ImportProjectUseCase>().ExecuteAsync(import, reporter, ct)))
+            {
+                Toast.Show($"'{name}' is imported - it is on the Projects page.", ToastKind.Success);
                 Created();
+            }
             return;
         }
 
         if (SourceCombo.SelectedItem is not SourceOption source ||
             VersionCombo.SelectedItem is not VersionOption { Ready: true } version ||
-            IisProblem() is not null) return;
+            IisProblem() is not null || DatabaseProblem() is not null) return;
         var automatic = Automatic;
         var account = ChosenAccount;
         if (automatic && DnnAccountRules.Problems(account).Count > 0) return;
@@ -439,12 +580,11 @@ public partial class SetupPage : UserControl, IRefreshable
         {
             var url = $"http://{DnnSiteAddress.AliasFor(setup.HostName!, setup.Port ?? 80)}";
             Toast.Show(automatic ? $"'{name}' is ready - DNN is installed. Sign in as '{account.UserName}'." : $"'{name}' is set up - open it to run DNN's installation wizard.",
-                ToastKind.Success, "Open site", () => ProjectMenuShell(url));
+                ToastKind.Success, "Open site", () => Shell.Open(url));
             Created();
         }
     }
 
-    private static void ProjectMenuShell(string url) => Projects.ProjectMenu.Shell(url);
 
     /// <summary>Clears the name after a project is created, so the page is ready for the next one.</summary>
     private void Created()
@@ -454,20 +594,8 @@ public partial class SetupPage : UserControl, IRefreshable
         BackupBox.Text = "";
         _hostEdited = false;
         _websiteEdited = _options.DnnDefaults.WebsiteName.Length > 0;
+        // The next project's database is named like it again - on the server chosen here, which stays.
+        _dbNameEdited = false;
         FollowName();
-    }
-
-    /// <summary>"nl-NL" → "Nederlands (nl-NL)".</summary>
-    private static string LanguageName(string culture)
-    {
-        try
-        {
-            var info = System.Globalization.CultureInfo.GetCultureInfo(culture);
-            return $"{char.ToUpper(info.NativeName[0])}{info.NativeName[1..]} ({culture})";
-        }
-        catch (System.Globalization.CultureNotFoundException)
-        {
-            return culture;
-        }
     }
 }

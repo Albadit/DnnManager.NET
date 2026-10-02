@@ -2,6 +2,180 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## v2.5.0 - 2026-10-02
+
+**See what a site really is**: a site's Details read IIS, its folder,
+`web.config`, `bin` and its database and mark every problem they find, and the
+Output tab shows each operation as a pipeline of stages. DNN Manager is lighter
+while it runs and safer around your data: folder sizes are measured only when
+shown, its own warnings reach the log file, a database on another server is
+never dropped, and the SQL container is reachable from this PC only.
+
+### Upgrading from v2.4.x
+
+- Install over v2.4.x as usual - the settings keep their format (version 3).
+- Run **Settings → Docker container → Set up docker-compose** once to publish
+  the SQL container on this PC only; the databases stay, they're in the volume.
+- A `settings.json` whose projects folder is a drive or a system folder, or
+  whose collation isn't a collation name, is now refused at start with the
+  settings dialog - pick a folder of its own.
+- **Remove…** no longer drops a database on another server than this PC; it
+  says it is kept.
+- **Reset to defaults** moved from Settings → General to **Troubleshoot**.
+- The documentation moved: settings are in `docs/configuration.md`, the
+  architecture in `docs/architecture.md`, and there are new pages for testing,
+  releasing, troubleshooting and security.
+
+### Changed
+
+- **The Output tab is a pipeline** - the newest operation on top (status,
+  title, what it works with, warnings or errors, times, duration - counting up
+  while it runs), its stages on the left (done, warning, failed, running,
+  still to come, skipped) with the sites kept warm and the operation's summary
+  under them (narrow at first - drag its edge to resize it), and on the right
+  every operation grouped by stage: each line with its time, values picked out,
+  file paths shortened, warnings and errors with a WARN / ERROR label - an error
+  with what lies behind it and what to do -, and a line at the end: SUCCESS
+  with what it did and the site's address, ERROR with where it stopped, or
+  CANCELLED. A red dot on **Output** says the last operation failed. Keep
+  warm's messages moved out of it, to its *Background* list and the log file.
+  Still read-only, selectable, copyable and searchable; **Clear** keeps an
+  operation that is running. Clone and New project name their stages up front,
+  so those still to come and those skipped after a failure show too.
+- **The documentation is split by reader** - users: the user guide,
+  [configuration](docs/configuration.md) (every `settings.json` key) and
+  [troubleshooting](docs/troubleshooting.md); developers:
+  [development](docs/development.md), [architecture](docs/architecture.md) (with
+  Mermaid diagrams of the layers, an operation and the live updates),
+  [testing](docs/testing.md), [releasing](docs/releasing.md) and
+  [security](docs/security.md).
+- **A site's Details show what was detected, as an environment inspector** -
+  every tab read from where it is: IIS and the app pool (bindings with their
+  certificate and when it expires, SNI, the app pool's identity, recycling,
+  limits and worker processes), the folder (whether the app pool can write to
+  it), `web.config` (debug, custom errors, limits, the effective upload size,
+  DNN's providers), `bin` (duplicate assemblies, binding redirects to a version
+  that isn't there, missing references), DNN's database (portals, extensions,
+  counts) and SQL Server (version, collation - marked when the database's
+  differs -, recovery model, files). Each card says where its values come from; what is wrong or
+  unusual is marked, with why, and gathered under **Detected issues**. No
+  passwords or keys, no new buttons.
+- **Settings → About** shows the version, commit, build date, program folder,
+  release channel, whether GitHub has a newer release, license, repository and
+  documentation, what DNN Manager runs on (.NET, architecture, Windows,
+  Administrator) and what it works with (IIS, .NET Framework, Docker, its IIS
+  and SQL libraries) - above the folders with your files.
+- **Troubleshoot takes the whole window, like Settings** - no sidebar, its
+  title with a **✕** that goes back to the page it was opened from.
+- **Reset settings to defaults moved to Troubleshoot** (above *Reset to factory
+  defaults*) - from Settings → General. It applies at once, with no Save step
+  and no restart; the old `settings.json` is kept in `backups`.
+- **The Projects tab shows each site as it is now** - its database, server and
+  authentication from the site's `web.config`, the DNN version from its files,
+  portals and host accounts from its database, folder, bindings and app pool
+  from IIS - never what DNN Manager's settings would make of it. A DNN site
+  whose `web.config` is missing, can't be read, has no `SiteSqlServer` or still
+  has DNN's own connection shows its database as *not set*, with why, instead
+  of the name the settings would give it. The overview reads the database with
+  the connection `web.config` has (Windows authentication too - no longer the
+  local container as `sa` in its place), follows changes made outside DNN
+  Manager while it is open, and no longer shows the host account saved at
+  setup when the database can't be read. SSMS's *Project* entry opens the
+  `web.config` database, and is greyed out when there is none.
+- **SQL (Live / Offline) is asked with the site's own connection** - the server
+  and login its `web.config` has (Windows authentication too), for every site,
+  also those on another SQL Server (they showed *External*). It was the local
+  container from **Settings → Database server**, so a wrong host there showed
+  every site *Offline* while they ran. The tooltip says what was asked and what
+  it answered. A cold site's warm-up (keep warm) waits for that server too.
+
+- **The log file reads as Markdown** - `# operation`, `## stage`, then each
+  line with its time and no symbol in front; warnings and errors marked
+  `[warning]` / `[error]`, an error's details and hint indented under it, and how
+  the operation ended (finished in…, failed after…, cancelled).
+- **Settings → Database server → Local SQL container has a Username field**
+  (`sqlServer.userName` - the same setting as the SQL Server login; `sa` when
+  empty): the login DNN
+  Manager signs in to the container with - for the projects' databases, the
+  SQL checks, clones, imports and SSMS's *Default* entry. **Set up
+  docker-compose** still creates the container with `sa` and the password.
+- **New project has a Database card again** - filled in from Settings →
+  Database server (connection type, server, authentication, username,
+  password) with the database named like the project; change it there for
+  that project only, or **Use the settings** to fill it in again. Settings
+  stay as they are.
+- **Remove… asks once, and the database always goes with the project** - no
+  separate *Also drop the database?* question; the confirmation names what is
+  deleted: the IIS site, the folder and the database (its server too). A
+  database on another server than this PC (a shared or staging SQL Server the
+  site's `web.config` points at) is kept, and the confirmation says so - only
+  databases here (the container, LocalDB, a local SQL Server) are dropped.
+- **The overview's Keep warm card no longer has *This site's own values*** -
+  every site is kept warm with the interval and pages from Settings → Projects
+  → Keep warm.
+- **The overview's Test connection button is gone** - the *SQL* line checks the
+  database with the site's `web.config` connection by itself.
+- **Output tab**: the stage rail's *Background* note is one line, cut short when
+  the rail is narrow; the log keeps room for its scrollbar, so nothing runs
+  under it; more room under each operation's result bar. Its header and stage
+  rail have the panel's font and colours (like the Terminal tab's list) - only
+  the log itself is monospaced. The log's times read 14:37:44 (no tenths) in
+  a brighter colour; a stage's duration has two decimals (`0.25s`). It keeps
+  the newest 50 operations (all of them stay in the log file).
+- **Clone, Back up, Set up existing project and Import say when they are done** -
+  a message, with *Open folder* for a backup. Starting something while another
+  operation runs says so in a message instead of a dialog.
+- **Questions before something that can't be taken back look like it** -
+  removing a project, dropping or replacing a database, cleaning up data and
+  the resets: the button is red and Enter picks *Cancel*.
+- **Esc closes Settings and Troubleshoot** (Settings' search is emptied first).
+  Icon buttons have names for screen readers. The sidebar turns to icons at the
+  same layout width whatever the UI scale.
+- **Folder sizes are only measured while they are shown** - the Projects
+  table's *Size* column, or a site's Details (that site only). They were walked
+  - every file of every site - at start, after every operation and every ten
+  minutes, also when nobody saw them.
+- **Lighter while running**: the sites' memory is read without a snapshot of
+  every process on the PC every 2 seconds; a site's Details read again only
+  what changed (a start or stop reads IIS, not the site's folder and bin); the
+  log list of a site is found off the UI thread; a terminal printing a lot no
+  longer shifts its whole scrollback for every line. A site's right-click menu
+  opens at once: *View logs* and *Open with* read the site's logs, solution and
+  database only when they are opened.
+- **Warnings and errors of DNN Manager itself go to the log file** - with their
+  stack traces, for finding out what went wrong (`[warning]`, `[error]`,
+  `[critical]` - the same one at most once in ten minutes). They were written
+  nowhere.
+
+### Security
+
+- **The SQL container is published on this PC only** (`127.0.0.1:1433`) when
+  DNN Manager reaches it as localhost - the default: the `sa` login and its
+  well-known default password are no longer offered to the network. Another host
+  in Settings → Database server keeps it on every network interface. Applies the
+  next time **Set up docker-compose** runs.
+- **Restoring a .bak quotes its file names** - a backup's logical file names
+  (the backup's own data) went into the RESTORE statement as they were. The
+  collation setting must be a collation name, and DNN's table prefix read from a
+  database must be one, before either goes into SQL.
+- **Clean up data and Clear website cache don't follow junctions** - a junction
+  in a backup or cache folder could make them delete files elsewhere.
+- **Removing a site leaves an app pool other sites use** - and its profile.
+- **web.config is written whole or not at all** - to a file next to it that
+  then takes its place, keeping its permissions; a `configSource` outside the
+  site's folder is not read or written.
+- **Links open in the browser as you, not as Administrator** (through Explorer).
+- **The projects folder can't be a drive or a system folder** (Windows, Program
+  Files, your user folder): every site in it would count as DNN Manager's, and
+  removing one deletes its folder.
+
+### Fixed
+
+- **The log file stopped after Troubleshoot → Clean up data** deleted the logs
+  while DNN Manager ran: it went on writing into the deleted file until the
+  next start. The next line now starts the day's file again, and a write that
+  fails is tried again a minute later instead of never.
+
 ## v2.4.0 - 2026-10-02
 
 **Sites stay fast**: keep warm stops IIS from shutting an idle DNN site down, so

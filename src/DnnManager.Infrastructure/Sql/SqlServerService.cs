@@ -29,7 +29,7 @@ public sealed class SqlServerService : ISqlServerService
             "exec", Container,
             "/opt/mssql-tools18/bin/sqlcmd",
             "-S", "localhost",
-            "-U", user ?? "sa",
+            "-U", user ?? _opts.Docker.SqlUser,
             "-P", password ?? SaPassword,
             "-C", "-No", "-b"
         };
@@ -43,6 +43,8 @@ public sealed class SqlServerService : ISqlServerService
     // raw text into T-SQL.
     private static string Quoted(string identifier) => "[" + identifier.Replace("]", "]]") + "]";
     private static string Literal(string value) => value.Replace("'", "''");
+    private static string FileNamePart(string value) =>
+        new(value.Select(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-' ? c : '_').ToArray());
 
     public async Task<Result<bool>> DatabaseExistsAsync(string database, CancellationToken ct)
     {
@@ -55,7 +57,10 @@ public sealed class SqlServerService : ISqlServerService
     public async Task<Result> CreateDatabaseAsync(DatabaseConfig db, CancellationToken ct)
     {
         // Create the database by name only. The DNN site (and this tool) connect as the container's
-        // sa, so there is no per-project SQL login/user to provision.
+        // sa, so there is no per-project SQL login/user to provision. The collation can't be quoted -
+        // only a plain name is let through (the settings check it too).
+        if (!db.Collation.All(c => char.IsAsciiLetterOrDigit(c) || c == '_'))
+            return Result.Fail($"'{db.Collation}' isn't a collation name.");
         var sql = $@"
 IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'{Literal(db.DatabaseName)}')
 BEGIN CREATE DATABASE {Quoted(db.DatabaseName)} COLLATE {db.Collation}; END";
@@ -117,7 +122,7 @@ SELECT LogicalName + '|' + Type FROM @t;";
         var args = new List<string>
         {
             "exec", Container, "/opt/mssql-tools18/bin/sqlcmd",
-            "-S", "localhost", "-U", "sa", "-P", SaPassword, "-C", "-No", "-b",
+            "-S", "localhost", "-U", _opts.Docker.SqlUser, "-P", SaPassword, "-C", "-No", "-b",
             "-h", "-1", "-W", "-Q", listSql
         };
         var listR = await _proc.RunAsync("docker", args, ct);
@@ -130,7 +135,10 @@ SELECT LogicalName + '|' + Type FROM @t;";
             var logical = parts[0].Trim();
             var type = parts[1].Trim();
             var ext = type == "L" ? "_log.ldf" : ".mdf";
-            moves.Add($"MOVE N'{logical}' TO N'/var/opt/mssql/data/{db.DatabaseName}_{logical}{ext}'");
+            // The logical names come from the .bak - someone else's file: quoted as text, and only safe characters in
+            // the file name made from them.
+            var file = FileNamePart($"{db.DatabaseName}_{logical}") + ext;
+            moves.Add($"MOVE N'{Literal(logical)}' TO N'/var/opt/mssql/data/{file}'");
         }
         if (moves.Count == 0) return Result.Fail("Could not read backup file list.");
 

@@ -83,6 +83,8 @@
 
     <!-- Icon-only button (row actions, status bar): the content is a Segoe Fluent Icons glyph. -->
     <Style TargetType="Button" x:Key="IconButton">
+        <!-- An icon says nothing to a screen reader: it reads the tooltip. -->
+        <Setter Property="AutomationProperties.Name" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
         <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
         <Setter Property="FontSize" Value="13" />

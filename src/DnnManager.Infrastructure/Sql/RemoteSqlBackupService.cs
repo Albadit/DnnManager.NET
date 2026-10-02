@@ -53,8 +53,8 @@ public sealed class RemoteSqlBackupService : IRemoteSqlBackupService
                 if (n == 0) return Result<string>.Fail($"Database [{source.Database}] not found on {source.Server}.");
             }
 
-            reporter.Step($"Backing up [{source.Database}] \u2192 {backupServerPath}");
-            var sql = $"BACKUP DATABASE [{source.Database}] TO DISK = N'{backupServerPath.Replace("'", "''")}' " +
+            reporter.Info($"Backing up [{source.Database}] \u2192 {backupServerPath}");
+            var sql = $"BACKUP DATABASE [{source.Database.Replace("]", "]]")}] TO DISK = N'{backupServerPath.Replace("'", "''")}' " +
                       "WITH INIT, FORMAT, COMPRESSION, STATS = 10;";
             using (var cmd = new SqlCommand(sql, conn) { CommandTimeout = 0 })
             {

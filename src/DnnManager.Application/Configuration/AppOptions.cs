@@ -100,7 +100,7 @@ public sealed class AppOptions
     {
         var server = DatabaseServer;
         if (server.IsContainer)
-            return new DatabaseConnection(DatabaseKind.Container, ServerFor(Docker.DefaultPort), database, SqlAuthentication.Sql, "sa", Docker.SaPassword);
+            return new DatabaseConnection(DatabaseKind.Container, ServerFor(Docker.DefaultPort), database, SqlAuthentication.Sql, Docker.SqlUser, Docker.SaPassword);
         if (server.IsLocalDbFile)
             return new DatabaseConnection(DatabaseKind.LocalDbFile, server.Server, DatabaseConnection.LocalDbFileName, SqlAuthentication.Windows);
         return server.UsesSqlAuthentication
@@ -115,6 +115,9 @@ public sealed class DockerOptions
     /// <summary>The host DNN Manager connects to SQL Server on - this machine (localhost) for the Docker container's published port.</summary>
     public string ContainerIp { get; set; } = "localhost";
     public string VolumeName { get; set; } = "dnn_sqlserver_data";
+    /// <summary>The login DNN Manager signs in to the container with (Settings → Database server → User) - sa by default.</summary>
+    public string SqlUser { get; set; } = "sa";
+    /// <summary>The password of <see cref="SqlUser"/>, and the sa password the container is created with.</summary>
     public string SaPassword { get; set; } = "Admin@123";
     public int DefaultPort { get; set; } = 1433;
     public string Collation { get; set; } = "Latin1_General_CI_AS";

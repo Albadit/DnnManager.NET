@@ -718,16 +718,35 @@ public sealed class KeepWarmService : IDisposable
         return site.State == "Started" ? null : "the site is stopped";
     }
 
+    /// <summary>
+    /// Where a TCP connection reaches <paramref name="server"/> (as a connection string writes it): "localhost,1433",
+    /// "10.0.0.5" (1433), "tcp:sql,1444". Null for what isn't reached that way - a named instance (.\SQLEXPRESS),
+    /// LocalDB, a pipe.
+    /// </summary>
+    internal static (string Host, int Port)? SqlEndpoint(string? server)
+    {
+        if (string.IsNullOrWhiteSpace(server)) return null;
+        var s = server.Trim();
+        if (s.StartsWith("tcp:", StringComparison.OrdinalIgnoreCase)) s = s[4..];
+        if (s.Contains('\\') || s.StartsWith("np:", StringComparison.OrdinalIgnoreCase) || s.StartsWith("lpc:", StringComparison.OrdinalIgnoreCase) ||
+            s.StartsWith("(localdb)", StringComparison.OrdinalIgnoreCase)) return null;
+        var comma = s.IndexOf(',');
+        var host = (comma < 0 ? s : s[..comma]).Trim();
+        var port = 1433;
+        if (comma >= 0 && !int.TryParse(s[(comma + 1)..].Trim(), out port)) return null;
+        if (host is "." or "(local)") host = "127.0.0.1";
+        return host.Length == 0 ? null : (host, port);
+    }
+
     private void Send(Site site, ProjectState project, KeepWarmRequestKind kind, bool cold, bool periodic, KeepWarmPlan plan,
         LocalSiteTarget target, long now)
     {
         // Without a keep-alive page, its warm-up page keeps it warm - asked for as a warm-up, so a 404 there isn't one again.
         if (kind == KeepWarmRequestKind.Ping && site.PingPathMissing) kind = KeepWarmRequestKind.WarmUp;
         var path = kind == KeepWarmRequestKind.WarmUp ? plan.WarmUpPath : plan.PingPath;
-        // DNN can't start without its database: a warm-up waits for the SQL Server container when the site's database is on it.
-        (string, int)? sql = cold && project.DatabaseName is not null && !project.DatabaseElsewhere
-            ? (_options.Docker.ContainerIp, _options.Docker.DefaultPort)
-            : null;
+        // DNN can't start without its database: a warm-up waits for the SQL Server the site's web.config connects to
+        // (when it is reached over TCP - host,port or a host on 1433).
+        (string, int)? sql = cold && project.DatabaseName is not null && !project.DatabaseIsFile ? SqlEndpoint(project.DatabaseServer) : null;
         // Skipped while in use only when the next request still comes within the idle time-out.
         var checkInUse = periodic && !site.UserAsked && KeepWarmRules.MaySkipWhenInUse(site.Name, plan.Interval, plan.IdleTimeout);
         var request = new Request(site.Name, site.Generation, _pauseEpoch, kind, cold, target, path, sql, checkInUse, site.Baseline, site.Own);
@@ -960,7 +979,7 @@ public sealed class KeepWarmService : IDisposable
         if (site.InUse) return new KeepWarmStatus(KeepWarmState.Warm, "Warm - the site is in use");
         if (site.LastOkLocal is not { } at) return new KeepWarmStatus(KeepWarmState.Warm, "Warm");
         var text = $"Warm - answered in {KeepWarmRules.Duration(site.LastElapsed)} at {at:HH:mm}";
-        return new KeepWarmStatus(KeepWarmState.Warm, site.LastNote is { } note ? $"{text} - {note}" : text);
+        return new KeepWarmStatus(KeepWarmState.Warm, site.LastNote is { } note ? $"{text} - {note}" : text, site.LastElapsed);
     }
 
     private void SetStatus(Site site, KeepWarmStatus status)

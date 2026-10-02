@@ -1,0 +1,14 @@
+# Editors keep DNN Manager's files as they are: UTF-8 without a BOM, CRLF line endings, 4-space indents.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+
+[*.md]
+# Two trailing spaces can be a line break in Markdown.
+trim_trailing_whitespace = false

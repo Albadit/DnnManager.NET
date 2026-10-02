@@ -240,6 +240,42 @@ public sealed class InstallerUnitTests
     }
 
     [TestMethod]
+    [DataRow(@"C:\")]
+    [DataRow(@"C:")]
+    [DataRow(@"D:\")]
+    public void Settings_ADriveIsNoProjectsFolder(string folder)
+    {
+        var settings = new UserSettings();
+        settings.Projects.BaseDirectory = folder;
+        CollectionAssert.Contains(settings.Validate().Select(p => p.Key).ToList(), "projects.baseDirectory");
+    }
+
+    [TestMethod]
+    public void Settings_SystemFoldersAreNoProjectsFolder_AFolderOfItsOwnIs()
+    {
+        var settings = new UserSettings();
+        foreach (var system in new[] { Environment.SpecialFolder.Windows, Environment.SpecialFolder.UserProfile })
+        {
+            settings.Projects.BaseDirectory = Environment.GetFolderPath(system);
+            CollectionAssert.Contains(settings.Validate().Select(p => p.Key).ToList(), "projects.baseDirectory", settings.Projects.BaseDirectory);
+        }
+        settings.Projects.BaseDirectory = @"C:\DNN";
+        Assert.AreEqual(0, settings.Validate().Count);
+        settings.Projects.BaseDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "DNN");
+        Assert.AreEqual(0, settings.Validate().Count, "A folder in your user folder is fine.");
+    }
+
+    [TestMethod]
+    public void Settings_ACollationIsAName()
+    {
+        var settings = new UserSettings();
+        settings.Docker.Collation = "Latin1_General_CI_AS; DROP DATABASE x";
+        CollectionAssert.Contains(settings.Validate().Select(p => p.Key).ToList(), "docker.collation");
+        settings.Docker.Collation = "SQL_Latin1_General_CP1_CI_AS";
+        Assert.AreEqual(0, settings.Validate().Count);
+    }
+
+    [TestMethod]
     public void SettingsMigration_V2ProfileBecomesTheDatabaseServer()
     {
         var root = (JsonObject)JsonNode.Parse("""
@@ -322,6 +358,49 @@ public sealed class InstallerUnitTests
         finally
         {
             Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public void AppDataCleaner_NeverFollowsAJunction()
+    {
+        // A junction in a folder DNN Manager cleans up - to files that aren't its own: they stay.
+        var root = Path.Combine(Path.GetTempPath(), "dnnmanager-tests", Guid.NewGuid().ToString("N"));
+        var paths = new AppDataPaths(root);
+        var outside = Path.Combine(root, "outside");
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(outside, "empty"));
+            File.WriteAllText(Path.Combine(outside, "keep.txt"), "not DNN Manager's");
+            Directory.CreateDirectory(Path.Combine(paths.BackupsDirectory, "shop"));
+            Directory.CreateDirectory(paths.PackagesDirectory);
+            Junction(Path.Combine(paths.BackupsDirectory, "linked"), outside);
+            Junction(Path.Combine(paths.BackupsDirectory, "shop", "linked"), outside);
+            Junction(Path.Combine(paths.PackagesDirectory, "linked"), outside);
+
+            var cleaner = new AppDataCleaner(paths);
+            cleaner.Clean(AppDataKind.ProjectBackups);
+            cleaner.Clean(AppDataKind.DnnPackages);
+
+            Assert.IsTrue(File.Exists(Path.Combine(outside, "keep.txt")), "The files a junction points to stay.");
+            Assert.IsTrue(Directory.Exists(Path.Combine(outside, "empty")), "So do its empty folders.");
+        }
+        finally
+        {
+            foreach (var link in Directory.EnumerateDirectories(root, "linked", SearchOption.AllDirectories).ToList())
+                Directory.Delete(link); // the junction alone
+            Directory.Delete(root, recursive: true);
+        }
+
+        static void Junction(string link, string target)
+        {
+            using var mklink = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe")
+            {
+                ArgumentList = { "/c", "mklink", "/J", link, target }, CreateNoWindow = true, UseShellExecute = false,
+                RedirectStandardOutput = true
+            })!;
+            mklink.WaitForExit();
+            if (!Directory.Exists(link)) Assert.Inconclusive("Couldn't make a junction here.");
         }
     }
 

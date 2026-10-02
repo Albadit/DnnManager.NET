@@ -19,22 +19,39 @@ public sealed record ProjectState
     /// <summary>From <c>bin\DotNetNuke.dll</c>; null when the folder holds no DNN.</summary>
     public string? DnnVersion { get; init; }
     /// <summary>
-    /// The database the site uses: from its web.config - else, for a DNN install or a project being set up, the one
-    /// named like it. Null for a site without one.
+    /// The database the site uses, from its web.config's SiteSqlServer connection - nothing else: not what DNN
+    /// Manager's settings would name it. Null when web.config names none (<see cref="DatabaseProblem"/> says why).
     /// </summary>
     public string? DatabaseName { get; init; }
+    /// <summary>
+    /// Why the database of a DNN site (or a project folder) isn't known: no web.config, one that can't be read, no
+    /// SiteSqlServer connection, or DNN's own until it is installed. Null when it is known - or the site has none.
+    /// </summary>
+    public string? DatabaseProblem { get; init; }
     /// <summary>The folder's size; null until it has been measured.</summary>
     public long? SizeBytes { get; init; }
     /// <summary>The IIS site as IIS has it now.</summary>
     public required IisSiteRuntime Site { get; init; }
     /// <summary>
-    /// The site's database isn't on the local SQL container - another SQL Server, Windows authentication or a LocalDB
-    /// file - so the container's list of databases says nothing about it.
+    /// The site's database isn't on DNN Manager's own SQL container - another SQL Server, Windows authentication or a
+    /// LocalDB file.
     /// </summary>
     public bool DatabaseElsewhere { get; init; }
-    /// <summary>Whether the SQL Server answers; null until it has been asked.</summary>
+    /// <summary>The SQL Server the site's web.config connects to, e.g. <c>localhost,1433</c>; null when it names none.</summary>
+    public string? DatabaseServer { get; init; }
+    /// <summary>
+    /// The database is a LocalDB file the site attaches in its own LocalDB instance - not asked: DNN Manager can't
+    /// open it while the site runs.
+    /// </summary>
+    public bool DatabaseIsFile { get; init; }
+    /// <summary>
+    /// Whether the SQL Server answers - asked with the site's own web.config connection (its server and login, or
+    /// Windows authentication), never DNN Manager's settings; null until it has been asked.
+    /// </summary>
     public bool? SqlReachable { get; init; }
     public bool DatabaseExists { get; init; }
+    /// <summary>Why the server doesn't answer, or the database isn't there - e.g. "Login failed for user 'sa'".</summary>
+    public string? SqlProblem { get; init; }
     /// <summary>The site's worker processes; null while it has none.</summary>
     public ProcessGroupStats? Stats { get; init; }
     /// <summary>The site's HTTP traffic since IIS started; null while it isn't sampled or IIS doesn't count it.</summary>

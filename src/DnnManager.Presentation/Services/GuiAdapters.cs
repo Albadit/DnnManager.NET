@@ -14,6 +14,12 @@ public sealed class GuiProgressReporter : IProgressReporter
     public void Fail(string m)       => _log.Fail(m);
     public void Warn(string m)       => _log.Warn(m);
     public void Progress(string m)   => _log.Progress(m);
+    public void Step(string title, string name) => _log.Step(title, name);
+    public void Fail(string m, IReadOnlyList<string> details, string? hint) => _log.Fail(m, details, hint);
+    public void Plan(params string[] stages) => _log.Plan(stages);
+    public void Context(string text) => _log.Context(text);
+    public void Fact(string name, string value) => _log.Fact(name, value);
+    public void Link(string url) => _log.Link(url);
 }
 
 /// <summary>
@@ -24,6 +30,9 @@ public sealed class GuiUserPrompt : IUserPrompt
 {
     public Task<bool> ConfirmAsync(string question, string yes, string no, bool defaultYes = false, CancellationToken ct = default)
         => OnUiThread(() => Dialogs.Confirm(question, yes, no, defaultYes));
+
+    public Task<bool> ConfirmDangerAsync(string question, string yes, string no, CancellationToken ct = default)
+        => OnUiThread(() => Dialogs.ConfirmDanger(question, yes, no));
 
     private static Task<T> OnUiThread<T>(Func<T> show)
     {
@@ -38,6 +47,13 @@ internal static class Dialogs
     /// <summary>True when <paramref name="yes"/> is chosen - both buttons say what they do, e.g. "Quit anyway" / "Keep running".</summary>
     public static bool Confirm(string question, string yes, string no, bool defaultYes = false) =>
         MessageDialog.Ask(question, yes, no, defaultYes);
+
+    /// <summary>
+    /// Before something that can't be taken back (deleting, dropping, resetting): <paramref name="yes"/> is the red
+    /// button, and Enter picks <paramref name="no"/>.
+    /// </summary>
+    public static bool ConfirmDanger(string question, string yes, string no) =>
+        MessageDialog.Ask(question, yes, no, defaultYes: false, danger: true);
 
     public static void Error(string message) => MessageDialog.Warn(message);
 }

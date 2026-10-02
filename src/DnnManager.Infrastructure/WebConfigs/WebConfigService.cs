@@ -111,7 +111,7 @@ public sealed class WebConfigService : IWebConfigService
             if (connAdd is null)
                 return Result.Fail($"connectionStrings/add[@name='SiteSqlServer'] not found in {connSourceFile}.");
             connAdd.SetAttributeValue("connectionString", connStr);
-            connDoc!.Save(connSourceFile);
+            Save(connDoc!, connSourceFile);
 
             // DNN also reads from appSettings/add[@key='SiteSqlServer'] for the upgrade wizard.
             var (appAdd, appSourceFile, appDoc) = FindAndLoadSection(
@@ -119,7 +119,7 @@ public sealed class WebConfigService : IWebConfigService
             if (appAdd is not null)
             {
                 appAdd.SetAttributeValue("value", connStr);
-                appDoc!.Save(appSourceFile);
+                Save(appDoc!, appSourceFile);
             }
 
             return Result.Ok();
@@ -145,7 +145,7 @@ public sealed class WebConfigService : IWebConfigService
             if (rewrites.Count == 0) return Result.Ok();
 
             foreach (var r in rewrites) r.Remove();
-            doc.Save(webConfigPath);
+            Save(doc, webConfigPath);
             return Result.Ok();
         }
         catch (Exception ex)
@@ -188,7 +188,7 @@ public sealed class WebConfigService : IWebConfigService
                 if (rule.PreviousNode?.PreviousNode is XText indent) rule.AddBeforeSelf(new XText(indent.Value));
                 switchedOff.Add(NameOf(rule));
             }
-            if (switchedOff.Count > 0) doc.Save(webConfigPath);
+            if (switchedOff.Count > 0) Save(doc, webConfigPath);
             return Result<HttpsRedirectRules>.Ok(new HttpsRedirectRules(switchedOff, alreadyOff));
         }
         catch (Exception ex)
@@ -244,6 +244,25 @@ public sealed class WebConfigService : IWebConfigService
         return node is XComment comment && comment.Value.Contains("Disabled by DNN Manager", StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Writes the file whole or not at all: to a file next to it first, which then takes its place - a crash or a full
+    /// disk halfway leaves the old web.config, not half of one. Replacing keeps the file's permissions, which IIS reads it with.
+    /// </summary>
+    private static void Save(XDocument doc, string path)
+    {
+        var temp = path + ".dnnmanager.tmp";
+        try
+        {
+            doc.Save(temp);
+            if (File.Exists(path)) File.Replace(temp, path, destinationBackupFileName: null);
+            else File.Move(temp, path);
+        }
+        finally
+        {
+            if (File.Exists(temp)) File.Delete(temp);
+        }
+    }
+
     private static string NameOf(XElement rule) => (string?)rule.Attribute("name") ?? "(unnamed)";
 
     // Looks up <connectionStrings>; if it uses configSource="…", loads the external file.
@@ -267,7 +286,10 @@ public sealed class WebConfigService : IWebConfigService
         {
             var dir = Path.GetDirectoryName(webConfigPath) ?? string.Empty;
             var external = Path.GetFullPath(Path.Combine(dir, configSource));
-            if (!File.Exists(external)) return (null, external, null);
+            // ASP.NET only takes a file in the site's own folder (or below) - nothing else is read or written.
+            var inSite = external.StartsWith(Path.GetFullPath(dir).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar,
+                StringComparison.OrdinalIgnoreCase);
+            if (!inSite || !File.Exists(external)) return (null, external, null);
 
             var extDoc = XDocument.Load(external, LoadOptions.PreserveWhitespace);
             var extRoot = extDoc.Root;

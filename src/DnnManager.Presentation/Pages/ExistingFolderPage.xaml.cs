@@ -104,7 +104,8 @@ public partial class ExistingFolderPage : UserControl, IRefreshable
             SetupDatabase = FolderOptions.SetupsDatabase,
             BackupFilePath = FolderOptions.SetupsDatabase ? FolderOptions.BackupFile : null
         };
-        await _runner.RunAsync($"Set up existing project '{folder.Name}'",
-            (sp, reporter, ct) => sp.GetRequiredService<HostExistingProjectUseCase>().ExecuteAsync(req, reporter, ct));
+        if (await _runner.RunAsync($"Set up existing project '{folder.Name}'",
+                (sp, reporter, ct) => sp.GetRequiredService<HostExistingProjectUseCase>().ExecuteAsync(req, reporter, ct)))
+            Toast.Show($"'{folder.Name}' is set up - it is on the Projects page.", ToastKind.Success);
     }
 }

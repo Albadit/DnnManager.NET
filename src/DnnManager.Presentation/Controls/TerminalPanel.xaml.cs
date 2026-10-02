@@ -6,6 +6,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using DnnManager.Application.Configuration;
 using DnnManager.Infrastructure.SiteLogs;
 using DnnManager.Presentation.Pages.Projects;
 using DnnManager.Presentation.Services;
@@ -99,10 +100,22 @@ public partial class TerminalPanel : UserControl
         }
     }
 
-    internal void Attach(ActivityLog log, TerminalService service, ServerStore store, SiteLogCatalog logs, EfficiencyMode efficiency)
+    internal void Attach(ActivityLog log, TerminalService service, ServerStore store, SiteLogCatalog logs, EfficiencyMode efficiency,
+        AppOptions options)
     {
         _log = log; _service = service; _efficiency = efficiency;
-        LogList.Attach(log.Entries);
+        Pipeline.Attach(log, store.Projects, options);
+        // An operation failed: a red dot on Output, also while another tab is shown - until Output is opened, or the
+        // next operation starts.
+        log.RunEnded += run =>
+        {
+            if (run.Status == RunStatus.Failed) OutputDot.Visibility = Visibility.Visible;
+        };
+        log.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ActivityLog.Latest) && log.Latest is null or { IsRunning: true })
+                OutputDot.Visibility = Visibility.Collapsed;
+        };
         Logs.Attach(store, logs);
         service.SettingsChanged += (_, _) => ApplySettings();
         ApplySettings();
@@ -114,8 +127,7 @@ public partial class TerminalPanel : UserControl
     {
         var font = _service.Font;
         var size = _service.Settings.FontSize;
-        LogList.FontFamily = font;
-        LogList.FontSize = size;
+        Pipeline.SetFontSize(size);
         Logs.SetFont(font, size);
         foreach (var tab in _tabs) tab.View.SetFont(font, size);
 
@@ -144,8 +156,11 @@ public partial class TerminalPanel : UserControl
             radio.IsChecked = true;
             return;
         }
+        var opened = pane == Pane.Activity && _pane != Pane.Activity;
         _pane = pane;
-        LogList.Visibility = pane == Pane.Activity ? Visibility.Visible : Visibility.Collapsed;
+        Pipeline.Visibility = pane == Pane.Activity ? Visibility.Visible : Visibility.Collapsed;
+        // Opened: the failure it pointed to is seen.
+        if (opened) OutputDot.Visibility = Visibility.Collapsed;
         Logs.Visibility = pane == Pane.Logs ? Visibility.Visible : Visibility.Collapsed;
         TerminalPane.Visibility = TerminalList.Visibility = ListResizer.Visibility = TerminalTools.Visibility =
             pane == Pane.Terminal ? Visibility.Visible : Visibility.Collapsed;
@@ -158,7 +173,7 @@ public partial class TerminalPanel : UserControl
         if (pane == Pane.Terminal && _tabs.Count == 0 && _service.Settings.Enabled) NewTerminal();
         ShowTerminalState();
         if (pane == Pane.Terminal) FocusTerminal();
-        else if (pane == Pane.Activity) LogList.ScrollToEnd();
+        else if (pane == Pane.Activity) Pipeline.Log.ScrollToEnd();
         if (SearchBar.Visibility == Visibility.Visible) Search(reveal: true);
     }
 
@@ -176,7 +191,7 @@ public partial class TerminalPanel : UserControl
     public void Opened()
     {
         if (_pane == Pane.Terminal) FocusTerminal();
-        else if (_pane == Pane.Activity) LogList.ScrollToEnd();
+        else if (_pane == Pane.Activity) Pipeline.Log.ScrollToEnd();
     }
 
     // ─── Terminals ────────────────────────────────────────────────────────
@@ -421,7 +436,7 @@ public partial class TerminalPanel : UserControl
 
     private ISearchTarget? Target => _pane switch
     {
-        Pane.Activity => LogList,
+        Pane.Activity => Pipeline.Log,
         Pane.Logs => Logs,
         _ => TerminalHost.Content as TerminalView
     };

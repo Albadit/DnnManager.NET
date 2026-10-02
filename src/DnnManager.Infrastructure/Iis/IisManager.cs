@@ -107,13 +107,17 @@ public sealed class IisManager : IIisManager
             //    DNN assemblies in \bin, App_Data, logs. Removing the pool config here would
             //    orphan that still-running worker and let the caller's directory delete race
             //    it ("being used by another process").
+            //    A pool named like the site that other sites use too is theirs as well: it is left running and in IIS
+            //    (stopping or removing it would take those sites down).
+            bool shared;
             using (var sm = new ServerManager())
             {
+                shared = PoolUsedByOthers(sm, siteName);
                 var site = sm.Sites[siteName];
                 if (site is not null && site.State != ObjectState.Stopped)
                     try { site.Stop(); } catch { /* already stopping/stopped */ }
 
-                var pool = sm.ApplicationPools[siteName];
+                var pool = shared ? null : sm.ApplicationPools[siteName];
                 if (pool is not null && pool.State != ObjectState.Stopped)
                     try { pool.Stop(); } catch { /* already stopping/stopped */ }
 
@@ -122,14 +126,14 @@ public sealed class IisManager : IIisManager
 
             // 2) Wait for the worker process to actually exit so it releases its file
             //    handles. Force-kills it if it won't stop gracefully in time.
-            WaitForPoolToStop(siteName, TimeSpan.FromSeconds(30));
+            if (!shared) WaitForPoolToStop(siteName, TimeSpan.FromSeconds(30));
 
             // 3) Now it's safe to remove the (stopped) site and pool from config.
             using (var sm = new ServerManager())
             {
                 var site = sm.Sites[siteName];
                 if (site is not null) sm.Sites.Remove(site);
-                var pool = sm.ApplicationPools[siteName];
+                var pool = shared ? null : sm.ApplicationPools[siteName];
                 if (pool is not null) sm.ApplicationPools.Remove(pool);
                 sm.CommitChanges();
             }
@@ -141,6 +145,25 @@ public sealed class IisManager : IIisManager
             return Result.Fail(ex.Message);
         }
     }
+
+    private static bool PoolExists(string poolName)
+    {
+        try
+        {
+            using var sm = new ServerManager();
+            return sm.ApplicationPools[poolName] is not null;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return false; // IIS can't be read - the profile is looked at as before
+        }
+    }
+
+    /// <summary>Whether an application of another site than <paramref name="siteName"/> runs in the pool of that name.</summary>
+    private static bool PoolUsedByOthers(ServerManager sm, string siteName) =>
+        sm.Sites.Where(s => !s.Name.Equals(siteName, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(s => s.Applications)
+            .Any(a => a.ApplicationPoolName.Equals(siteName, StringComparison.OrdinalIgnoreCase));
 
     // Polls (with a fresh ServerManager each time so WAS state is re-read) until the pool is
     // Stopped with no live worker processes, i.e. its file handles are released. If the worker
@@ -499,7 +522,7 @@ public sealed class IisManager : IIisManager
         return (parts.Length >= 2 && int.TryParse(parts[^2], out var port) ? port : null, host);
     }
 
-    public IisSiteInfo? GetSiteInfo(string siteName)
+    public IisSiteDetails? GetSiteDetails(string siteName)
     {
         try
         {
@@ -511,24 +534,96 @@ public sealed class IisManager : IIisManager
             try { state = site.State.ToString(); } catch { state = "Unknown"; }
             var root = site.Applications["/"];
             var physicalPath = Environment.ExpandEnvironmentVariables(root?.VirtualDirectories["/"]?.PhysicalPath ?? "");
-            var bindings = site.Bindings.Select(b => BindingParts(b.BindingInformation) is { Port: { } port } parts
-                ? $"{b.Protocol}://{parts.Host}:{port}"
-                : $"{b.Protocol} {b.BindingInformation}").ToList();
+            bool? preload = root is null ? null : Attribute<bool?>(root, "preloadEnabled");
+
+            var bindings = site.Bindings.Select(b =>
+            {
+                var (port, host) = BindingParts(b.BindingInformation);
+                var address = b.BindingInformation.Split(':')[0];
+                var hash = b.CertificateHash is { Length: > 0 } bytes ? Convert.ToHexString(bytes) : null;
+                var store = hash is null ? null : string.IsNullOrEmpty(b.CertificateStoreName) ? "My" : b.CertificateStoreName;
+                var sslFlags = Attribute<object>(b, "sslFlags");
+                var sni = sslFlags is not null && (Convert.ToInt32(sslFlags) & 1) == 1;
+                return new IisBindingDetails(b.Protocol, address, port, host == "*" ? "" : host, b.BindingInformation, sni, hash, store,
+                    hash is null ? null : Certificate(hash, store!));
+            }).ToList();
 
             var poolName = root?.ApplicationPoolName ?? "";
             var pool = sm.ApplicationPools[poolName];
-            string? poolState = null;
-            try { poolState = pool?.State.ToString(); } catch { /* unknown */ }
-            var clr = pool is null ? null : string.IsNullOrEmpty(pool.ManagedRuntimeVersion) ? "No Managed Code" : pool.ManagedRuntimeVersion;
-            var identity = pool is null ? null
-                : pool.ProcessModel.IdentityType == ProcessModelIdentityType.SpecificUser ? pool.ProcessModel.UserName
-                : pool.ProcessModel.IdentityType.ToString();
-            return new IisSiteInfo(state, physicalPath, bindings, poolName, poolState, clr,
-                pool?.ManagedPipelineMode.ToString(), identity);
+            return new IisSiteDetails(site.Id, site.Name, state, physicalPath, $"MACHINE/WEBROOT/APPHOST/{site.Name}", site.ServerAutoStart,
+                preload, bindings, pool is null ? null : PoolDetails(pool));
         }
         catch (Exception ex)
         {
-            _log.LogWarning(ex, "Could not read IIS site {Site}", siteName);
+            _log.LogWarning(ex, "Could not read the details of IIS site {Site}", siteName);
+            return null;
+        }
+    }
+
+    private static IisPoolDetails PoolDetails(ApplicationPool pool)
+    {
+        string? state = null;
+        try { state = pool.State.ToString(); } catch { /* unknown */ }
+        var model = pool.ProcessModel;
+        var account = model.IdentityType switch
+        {
+            ProcessModelIdentityType.ApplicationPoolIdentity => $@"IIS APPPOOL\{pool.Name}",
+            ProcessModelIdentityType.NetworkService => @"NT AUTHORITY\NETWORK SERVICE",
+            ProcessModelIdentityType.LocalService => @"NT AUTHORITY\LOCAL SERVICE",
+            ProcessModelIdentityType.LocalSystem => @"NT AUTHORITY\SYSTEM",
+            _ => model.UserName
+        };
+        var recycling = pool.Recycling.PeriodicRestart;
+        var workers = new List<int>();
+        try { workers.AddRange(pool.WorkerProcesses.Select(w => w.ProcessId)); } catch { /* not running, or not readable */ }
+        return new IisPoolDetails(
+            pool.Name,
+            state,
+            string.IsNullOrEmpty(pool.ManagedRuntimeVersion) ? "No Managed Code" : pool.ManagedRuntimeVersion,
+            pool.ManagedPipelineMode.ToString(),
+            model.IdentityType.ToString(),
+            account,
+            Attribute<object>(pool, "startMode")?.ToString() switch { "1" => "AlwaysRunning", "0" => "OnDemand", { } other => other, null => "OnDemand" },
+            model.IdleTimeout,
+            Attribute<object>(model, "idleTimeoutAction")?.ToString() switch { "1" => "Suspend", "0" => "Terminate", { } other => other, null => null },
+            recycling.Time,
+            recycling.Schedule.Select(s => s.Time).ToList(),
+            recycling.PrivateMemory,
+            recycling.Memory,
+            pool.QueueLength,
+            pool.Enable32BitAppOnWin64,
+            pool.Failure.RapidFailProtection,
+            pool.Failure.RapidFailProtectionMaxCrashes,
+            pool.Failure.RapidFailProtectionInterval,
+            model.MaxProcesses,
+            model.LoadUserProfile,
+            workers);
+    }
+
+    /// <summary>An attribute IIS may not have (an older IIS, a module not installed): null then.</summary>
+    private static T? Attribute<T>(ConfigurationElement element, string name)
+    {
+        try { return element.GetAttributeValue(name) is T value ? value : default; }
+        catch { return default; }
+    }
+
+    /// <summary>The certificate with <paramref name="thumbprint"/> in the machine's <paramref name="store"/>; null when it isn't there.</summary>
+    private static IisCertificate? Certificate(string thumbprint, string store)
+    {
+        try
+        {
+            using var x509 = new System.Security.Cryptography.X509Certificates.X509Store(store,
+                System.Security.Cryptography.X509Certificates.StoreLocation.LocalMachine);
+            x509.Open(System.Security.Cryptography.X509Certificates.OpenFlags.ReadOnly | System.Security.Cryptography.X509Certificates.OpenFlags.OpenExistingOnly);
+            var found = x509.Certificates.Find(System.Security.Cryptography.X509Certificates.X509FindType.FindByThumbprint, thumbprint, validOnly: false);
+            if (found.Count == 0) return null;
+            var cert = found[0];
+            return new IisCertificate(cert.GetNameInfo(System.Security.Cryptography.X509Certificates.X509NameType.SimpleName, false),
+                string.IsNullOrEmpty(cert.FriendlyName) ? null : cert.FriendlyName,
+                cert.GetNameInfo(System.Security.Cryptography.X509Certificates.X509NameType.SimpleName, true), cert.NotBefore, cert.NotAfter);
+        }
+        catch
+        {
             return null;
         }
     }
@@ -566,6 +661,8 @@ public sealed class IisManager : IIisManager
     {
         if (ReservedAppPools.Contains(poolName))
             return Result.Ok(); // never touch a built-in pool's shared profile
+        // A pool still in IIS (another site uses it - see RemoveSite) still runs as that profile.
+        if (PoolExists(poolName)) return Result.Ok();
 
         try
         {

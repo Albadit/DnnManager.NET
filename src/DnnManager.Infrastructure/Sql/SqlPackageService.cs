@@ -39,7 +39,7 @@ public sealed class SqlPackageService : IBacpacService
 
         // Not installed - provision it as a .NET global tool. After this, ResolveExe() finds it
         // under ~/.dotnet/tools. Requires the .NET SDK; we surface a manual hint if that's missing.
-        reporter.Step("SqlPackage not found - installing it (one-time)…");
+        reporter.Info("SqlPackage not found - installing it (one-time)…");
         reporter.Info("Running: dotnet tool install --global Microsoft.SqlPackage");
         try
         {
@@ -120,7 +120,7 @@ public sealed class SqlPackageService : IBacpacService
             "/OverwriteFiles:True"
         };
 
-        reporter.Step($"Exporting [{source.Database}] from {NormalizeServer(source.Server)} (BACPAC)");
+        reporter.Info($"Exporting [{source.Database}] from {NormalizeServer(source.Server)} (BACPAC)");
         reporter.Info("This can take several minutes for a large database…");
         var r = await _proc.RunAsync(exe, args, ct, SqlPackageEnv);
         if (!r.Success)
@@ -162,7 +162,7 @@ public sealed class SqlPackageService : IBacpacService
             $"/SourceFile:{bacpacPath}"
         };
 
-        reporter.Step($"Importing BACPAC into [{databaseName}]");
+        reporter.Info($"Importing BACPAC into [{databaseName}]");
         reporter.Info("This can take several minutes…");
         var r = await _proc.RunAsync(exe, args, ct, SqlPackageEnv);
         if (!r.Success)

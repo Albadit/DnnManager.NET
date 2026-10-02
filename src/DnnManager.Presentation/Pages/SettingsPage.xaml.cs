@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using DnnManager.Application.Abstractions;
@@ -8,6 +6,7 @@ using DnnManager.Infrastructure.KeepWarm;
 using DnnManager.Infrastructure.Settings;
 using DnnManager.Infrastructure.Startup;
 using DnnManager.Presentation.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Win32;
 
@@ -46,7 +45,7 @@ public partial class SettingsPage : UserControl
         ["sqlServer.userName"] = "Username",
         ["sqlServer.host"] = "Server host",
         ["sqlServer.port"] = "Port",
-        ["sqlServer.saPassword"] = "SA password",
+        ["sqlServer.saPassword"] = "Password",
         ["docker.containerName"] = "Container name",
         ["docker.volumeName"] = "Volume name",
         ["docker.edition"] = "Edition",
@@ -78,6 +77,7 @@ public partial class SettingsPage : UserControl
     private bool? _startsAtSignIn;
     // The form as it was filled in from the saved settings - what an edit is compared with.
     private string _savedForm = "";
+    private readonly IServiceProvider _services;
 
     public SettingsPage(IOptions<AppOptions> options, OperationRunner runner, SettingsStore store, LiveSettings live,
         AppDataPaths paths, TerminalService terminal, StartupTask startup, ISecretStore secrets, IServiceProvider services)
@@ -89,17 +89,22 @@ public partial class SettingsPage : UserControl
         _terminal = terminal;
         _startup = startup;
         _secrets = secrets;
+        _services = services;
         InitializeComponent();
+        // Focused when shown, so Esc reaches it - the title bar's button that opened it doesn't take the focus.
+        Focusable = true;
+        FocusVisualStyle = null;
+        Loaded += (_, _) => Focus();
 
         _categories = new Dictionary<string, (FrameworkElement, string)>
         {
-            ["General"] = (GeneralPanel, "general start sign in startup theme light dark system appearance scale zoom ui font text size bigger smaller reset default defaults restore efficiency efficient save resources minimized minimize power battery eco terminal shell powershell command prompt git bash font family size"),
+            ["General"] = (GeneralPanel, "general start sign in startup theme light dark system appearance scale zoom ui font text size bigger smaller efficiency efficient save resources minimized minimize power battery eco terminal shell powershell command prompt git bash font family size"),
             ["Projects"] = (ProjectsPanel, "projects folder base directory hostname suffix site port address url dnn defaults install installation automatic manual setup wizard host account username password e-mail email website name language culture template keep warm alive keepalive warm-up idle time-out timeout interval ping cold start slow fast recycle"),
             ["Releases"] = (ReleasesPanel, "dnn releases repositories github versions install packages keep download"),
-            ["Sql"] = (SqlPanel, "database server sql server express localdb file connection type local container docker host port sa password windows authentication login username ssms management studio remember test connection"),
+            ["Sql"] = (SqlPanel, "database server sql server express localdb file connection type local container docker host port user username sa password windows authentication login username ssms management studio remember test connection"),
             ["Docker"] = (DockerPanel, "docker container name volume edition mssql_pid collation desktop engine install start set up docker-compose compose yml test"),
             ["Iis"] = (IisPanel, "iis windows features test set up enable " + string.Join(' ', _options.RequiredIisFeatures.Select(f => $"{f.Label} {f.Name}"))),
-            ["About"] = (AboutPanel, "about version your files folders settings backups logs packages"),
+            ["About"] = (AboutPanel, "about version build commit release channel update latest license mit repository github documentation docs runtime .net framework windows architecture administrator iis docker components libraries your files folders settings backups logs packages"),
         };
 
         KeepDnnPackagesHint.Text = $"Saved in {paths.PackagesDirectory} and used again when a new project picks the same " +
@@ -109,8 +114,6 @@ public partial class SettingsPage : UserControl
         SqlCard.Attach(services);
         IisCard.Attach(services);
         DockerCard.ContainerChanged += (_, _) => SqlCard.Test();
-        var version = Assembly.GetExecutingAssembly().GetName().Version;
-        VersionText.Text = version is null ? "DNN Manager" : $"DNN Manager {version.Major}.{version.Minor}.{version.Build}";
         Folders.ItemsSource = new KeyValuePair<string, string>[]
         {
             new("Settings", paths.Root),
@@ -119,14 +122,14 @@ public partial class SettingsPage : UserControl
             new("DNN packages", paths.PackagesDirectory),
         };
 
-        foreach (var box in new[] { BaseDirectory, SitePort, HostnameSuffix, ReleaseApis, ContainerName, ContainerIp,
+        foreach (var box in new[] { BaseDirectory, SitePort, HostnameSuffix, ReleaseApis, ContainerName, ContainerIp, ContainerUser,
                                     VolumeName, DefaultPort, Collation, MssqlPid, HostUsername, HostEmail, WebsiteName,
                                     ServerName, ServerUserName, KeepWarmPingPath, KeepWarmWarmUpPath })
             box.TextChanged += (_, _) => Edited();
         SaPassword.PasswordChanged += (_, _) => Edited();
         HostPassword.PasswordChanged += (_, _) => Edited();
         ServerPassword.PasswordChanged += (_, _) => Edited();
-        foreach (var language in DnnAccountRules.Languages) DnnLanguage.Items.Add(new ComboBoxItem { Content = LanguageName(language), Tag = language });
+        foreach (var language in DnnAccountRules.Languages) DnnLanguage.Items.Add(new ComboBoxItem { Content = Languages.Name(language), Tag = language });
         foreach (var template in DnnAccountRules.Templates) DnnTemplate.Items.Add(new ComboBoxItem { Content = template, Tag = template });
         foreach (var minutes in KeepWarmSettings.PingIntervals) KeepWarmInterval.Items.Add(KeepWarmIntervalItem(minutes));
         foreach (var box in new[] { SsmsRememberPassword, KeepDnnPackages, SaveResourcesWhileMinimized })
@@ -156,6 +159,16 @@ public partial class SettingsPage : UserControl
 
     private void Close_Click(object sender, RoutedEventArgs e) => CloseRequested?.Invoke(this, EventArgs.Empty);
 
+    // Esc: the search is emptied first; then back to the page Settings was opened from (asking about unsaved changes).
+    protected override void OnKeyDown(System.Windows.Input.KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Handled || e.Key != System.Windows.Input.Key.Escape) return;
+        if (SearchBox.Text.Length > 0) SearchBox.Clear();
+        else CloseRequested?.Invoke(this, EventArgs.Empty);
+        e.Handled = true;
+    }
+
     // ─── Categories ───────────────────────────────────────────────────────
 
     private void Categories_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -163,6 +176,26 @@ public partial class SettingsPage : UserControl
         var selected = (Categories.SelectedItem as ListBoxItem)?.Tag as string;
         foreach (var (key, category) in _categories)
             category.Panel.Visibility = key == selected ? Visibility.Visible : Visibility.Collapsed;
+        if (selected == "About") ShowAbout();
+    }
+
+    // Asked once while the page is open: GitHub's newest release, and Docker's version.
+    private AboutInfo.UpdateStatus? _update;
+    private string? _docker;
+    private bool _askingAbout;
+
+    /// <summary>Shows About - then, the first time, asks GitHub and Docker and shows it again with their answers.</summary>
+    private async void ShowAbout()
+    {
+        AboutInfoPanel.Show(AboutInfo.Sections(_update, _docker));
+        if (_askingAbout || _update is not null) return;
+        _askingAbout = true;
+        var update = AboutInfo.CheckUpdateAsync();
+        var docker = AboutInfo.DockerAsync(_services.GetRequiredService<IPrerequisiteChecker>(), _options.Docker.ContainerName);
+        _update = await update;
+        _docker = await docker;
+        _askingAbout = false;
+        AboutInfoPanel.Show(AboutInfo.Sections(_update, _docker));
     }
 
     private void ShowCategory(string key) =>
@@ -346,7 +379,6 @@ public partial class SettingsPage : UserControl
 
         _savedHostPassword = _secrets.Read(SecretNames.DefaultHostPassword) ?? DnnDefaultsSettings.DefaultHostPassword;
         _savedServerPassword = _secrets.Read(SecretNames.DatabaseServerPassword) ?? "";
-        _resetPending = false;
         ShowSettings(saved, _savedHostPassword, _savedServerPassword, _startsAtSignIn);
 
         _savedForm = FormSnapshot();
@@ -395,29 +427,6 @@ public partial class SettingsPage : UserControl
         _loading = false;
     }
 
-    // ─── Reset to defaults ────────────────────────────────────────────────
-
-    /// <summary>
-    /// The form shows the defaults (Reset to defaults) and Save is to write them - all of settings.json, the keys this
-    /// page doesn't show too - until it is saved or discarded.
-    /// </summary>
-    private bool _resetPending;
-
-    private void ResetDefaults_Click(object sender, RoutedEventArgs e)
-    {
-        if (!Dialogs.Confirm(
-                "Put every setting back to its default, as DNN Manager is installed?" + Environment.NewLine + Environment.NewLine +
-                "The defaults are filled in here first: Save keeps them (the current settings.json is copied to the backups " +
-                "folder), Discard changes takes them back. The saved DNN host password and database login go too, and DNN " +
-                "Manager stops starting at sign-in. Your projects aren't touched.",
-                "Reset to defaults", "Cancel"))
-            return;
-        ShowSettings(new UserSettings(), DnnDefaultsSettings.DefaultHostPassword, serverPassword: "", startAtSignIn: false);
-        _resetPending = true;
-        Edited();
-        Toast.Show("The defaults are filled in - Save to keep them, or Discard changes.", ToastKind.Info);
-    }
-
     /// <summary>
     /// Something on the form was touched: there is something to save when it now differs from what is saved - a box
     /// unticked and ticked again, or a value typed back, leaves nothing to save.
@@ -426,7 +435,7 @@ public partial class SettingsPage : UserControl
     {
         if (_loading || !Form.IsEnabled) return;
         var startChanged = _startsAtSignIn is { } starts && (StartAtSignIn.IsChecked == true) != starts;
-        SetDirty(startChanged || _resetPending || FormSnapshot() != _savedForm);
+        SetDirty(startChanged || FormSnapshot() != _savedForm);
     }
 
     /// <summary>Every value on the form as it would be saved, in one string - to tell whether anything differs.</summary>
@@ -482,9 +491,8 @@ public partial class SettingsPage : UserControl
         UserSettings settings;
         try
         {
-            // Start from the file, so keys this page doesn't edit (IIS features, table columns…) stay as they are - or,
-            // after Reset to defaults, from the defaults, so those go back too.
-            settings = _resetPending ? new UserSettings() : _store.Read();
+            // Start from the file, so keys this page doesn't edit (IIS features, table columns…) stay as they are.
+            settings = _store.Read();
         }
         catch (SettingsException ex)
         {
@@ -515,9 +523,6 @@ public partial class SettingsPage : UserControl
 
         try
         {
-            // A reset starts over: the file as it was is kept in the backups folder, and keys it had that this version
-            // doesn't know go too.
-            if (_resetPending) _store.ResetToDefaults();
             _store.Save(settings);
         }
         catch (Exception ex) when (ex is SettingsException or IOException or UnauthorizedAccessException)
@@ -532,7 +537,6 @@ public partial class SettingsPage : UserControl
         ThemeManager.ApplyLayout(settings.Appearance.UiScale, settings.Appearance.FontSize);
         _terminal.Apply(settings.Terminal);
         var secretsSaved = SaveSecrets(settings);
-        _resetPending = false;
         // What another connection type's fields still show wasn't saved - show what is.
         _loading = true;
         ShowServer(settings.SqlServer);
@@ -551,11 +555,9 @@ public partial class SettingsPage : UserControl
     private bool SaveSecrets(UserSettings settings)
     {
         var password = HostPassword.Password;
-        // Reset to defaults: no password of its own - the built-in default applies, as on a new install.
-        var useDefault = _resetPending && password == DnnDefaultsSettings.DefaultHostPassword;
-        if (password != _savedHostPassword || useDefault)
+        if (password != _savedHostPassword)
         {
-            var stored = password.Length > 0 && !useDefault
+            var stored = password.Length > 0
                 ? _secrets.Write(SecretNames.DefaultHostPassword, password)
                 : _secrets.Delete(SecretNames.DefaultHostPassword);
             if (!stored.Success)
@@ -566,7 +568,7 @@ public partial class SettingsPage : UserControl
             _savedHostPassword = password;
         }
         var serverPassword = ServerPassword.Password;
-        if ((UsesLogin(settings.SqlServer) || _resetPending) && serverPassword != _savedServerPassword)
+        if (UsesLogin(settings.SqlServer) && serverPassword != _savedServerPassword)
         {
             var stored = serverPassword.Length > 0
                 ? _secrets.Write(SecretNames.DatabaseServerPassword, serverPassword)
@@ -629,6 +631,8 @@ public partial class SettingsPage : UserControl
         {
             sql.Host = ContainerIp.Text.Trim();
             sql.Port = sqlPort;
+            // The container's login is the same setting as the SQL Server login (sqlServer.userName); empty is sa.
+            sql.UserName = ContainerUser.Text.Trim();
             sql.SaPassword = SaPassword.Password;
         }
         else
@@ -688,8 +692,7 @@ public partial class SettingsPage : UserControl
             Toast.Show($"{folder} doesn't exist yet - it is made when it's first needed.", ToastKind.Info);
             return;
         }
-        try { Process.Start(new ProcessStartInfo("explorer.exe", $"\"{folder}\"") { UseShellExecute = true }); }
-        catch (Exception ex) { Dialogs.Error($"Could not open {folder}: {ex.Message}"); }
+        Shell.Open(folder);
     }
 
     private void Preview_Changed(object sender, TextChangedEventArgs e)
@@ -723,6 +726,7 @@ public partial class SettingsPage : UserControl
         ServerLocalDb.IsChecked = type == "localDbFile";
         ContainerIp.Text = sql.Host;
         DefaultPort.Text = sql.Port.ToString();
+        ContainerUser.Text = sql.ContainerUserName;
         SaPassword.Password = sql.SaPassword;
         // The saved server belongs to the type it fits; the other type starts from its default.
         var savedFor = sql.Server.Trim().StartsWith("(localdb)", StringComparison.OrdinalIgnoreCase) ? "localDbFile" : "sqlServer";
@@ -749,7 +753,7 @@ public partial class SettingsPage : UserControl
             "sqlServer" => string.Join('\u001e', type, ServerName.Text.Trim(), SqlAuth.IsChecked == true,
                 SqlAuth.IsChecked == true ? ServerUserName.Text.Trim() : "", SqlAuth.IsChecked == true ? ServerPassword.Password : ""),
             "localDbFile" => string.Join('\u001e', type, ServerName.Text.Trim()),
-            _ => string.Join('\u001e', type, ContainerIp.Text.Trim(), DefaultPort.Text.Trim(), SaPassword.Password)
+            _ => string.Join('\u001e', type, ContainerIp.Text.Trim(), DefaultPort.Text.Trim(), ContainerUser.Text.Trim(), SaPassword.Password)
         };
     }
 
@@ -832,21 +836,7 @@ public partial class SettingsPage : UserControl
         var language = (DnnLanguage.SelectedItem as ComboBoxItem)?.Tag as string ?? "en-US";
         DnnDefaultsHint.Text = $"An empty e-mail is host@{suffix}; an empty website name is the project's name. The password is kept in the " +
                                $"Windows Credential Manager of your account, not in settings.json (empty: {DnnDefaultsSettings.DefaultHostPassword})." +
-                               (language == "en-US" ? "" : $" {LanguageName(language)}: DNN downloads its language pack while installing (needs internet).");
-    }
-
-    /// <summary>"nl-NL" → "Nederlands (nl-NL)".</summary>
-    private static string LanguageName(string culture)
-    {
-        try
-        {
-            var info = System.Globalization.CultureInfo.GetCultureInfo(culture);
-            return $"{char.ToUpper(info.NativeName[0])}{info.NativeName[1..]} ({culture})";
-        }
-        catch (System.Globalization.CultureNotFoundException)
-        {
-            return culture;
-        }
+                               (language == "en-US" ? "" : $" {Languages.Name(language)}: DNN downloads its language pack while installing (needs internet).");
     }
 
     private void ShowError(string? error)

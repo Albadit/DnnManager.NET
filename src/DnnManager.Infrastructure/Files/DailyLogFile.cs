@@ -5,8 +5,9 @@ namespace DnnManager.Infrastructure.Files;
 
 /// <summary>
 /// Appends lines to <c>logs\dnnmanager-yyyy-MM-dd.log</c> in the user's DNN Manager folder, a new file each day,
-/// deleting files older than <see cref="DaysKept"/> days. Logging is best effort: once a write fails, the
-/// file is left alone for the rest of the run instead of disturbing the app.
+/// deleting files older than <see cref="DaysKept"/> days. A file deleted while it is written to (Troubleshoot → Clean
+/// up data, or by hand) is started again with the next line - writing on would go into the deleted file, which
+/// nobody sees. Logging is best effort: a write that fails is tried again a minute later, without disturbing the app.
 /// </summary>
 public sealed class DailyLogFile : IDisposable
 {
@@ -15,8 +16,10 @@ public sealed class DailyLogFile : IDisposable
     private readonly string _directory;
     private readonly object _gate = new();
     private StreamWriter? _writer;
+    private string? _path;
     private DateOnly _day;
-    private bool _failed;
+    // After a write failed: nothing is written before this.
+    private DateTime _retryAt;
 
     public DailyLogFile(AppDataPaths paths)
     {
@@ -24,18 +27,27 @@ public sealed class DailyLogFile : IDisposable
         DeleteOldFiles();
     }
 
-    public void Append(DateTime time, string line)
+    /// <summary>A line, after its time: <c>11:57:09  IIS site and app pool 'test-web' removed.</c></summary>
+    public void Append(DateTime time, string line) => Write(time, $"{time:HH:mm:ss}  {line}");
+
+    /// <summary>
+    /// A Markdown heading - <c># Remove 'test-web'</c> for an operation, <c>## Delete project directory</c> for a stage -
+    /// on a line of its own after an empty one, so the file reads as Markdown.
+    /// </summary>
+    public void AppendHeading(DateTime time, string heading) => Write(time, Environment.NewLine + heading);
+
+    private void Write(DateTime time, string text)
     {
         lock (_gate)
         {
-            if (_failed) return;
+            if (DateTime.UtcNow < _retryAt) return;
             try
             {
-                Writer(DateOnly.FromDateTime(time)).WriteLine($"{time:HH:mm:ss}  {line}");
+                Writer(DateOnly.FromDateTime(time)).WriteLine(text);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                _failed = true;
+                _retryAt = DateTime.UtcNow.AddMinutes(1);
                 _writer?.Dispose();
                 _writer = null;
             }
@@ -49,12 +61,13 @@ public sealed class DailyLogFile : IDisposable
 
     private StreamWriter Writer(DateOnly day)
     {
-        if (_writer is not null && day == _day) return _writer;
+        // The same day's file - unless it was deleted meanwhile: then a new one.
+        if (_writer is not null && day == _day && File.Exists(_path)) return _writer;
         _writer?.Dispose();
         Directory.CreateDirectory(_directory);
-        // Shared, so the log can be opened (or copied) while the app is running.
-        var stream = new FileStream(Path.Combine(_directory, $"dnnmanager-{day:yyyy-MM-dd}.log"),
-            FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
+        _path = Path.Combine(_directory, $"dnnmanager-{day:yyyy-MM-dd}.log");
+        // Shared, so the log can be opened (or copied) - and deleted - while the app is running.
+        var stream = new FileStream(_path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
         _writer = new StreamWriter(stream, new UTF8Encoding(false)) { AutoFlush = true };
         _day = day;
         return _writer;

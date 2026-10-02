@@ -144,8 +144,15 @@
                     <Button Style="{StaticResource PanelButton}" FontSize="11" Content="&#xE8BB;" ToolTip="Hide the panel (Ctrl+`)" Click="Close_Click" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal">
-                    <RadioButton x:Name="OutputTab" Style="{StaticResource PanelTab}" GroupName="PanelTabs" Content="Output" IsChecked="True"
-                                 Checked="PanelTab_Checked" ToolTip="What DNN Manager does - each step of its operations, errors and warnings" />
+                    <RadioButton x:Name="OutputTab" Style="{StaticResource PanelTab}" GroupName="PanelTabs" IsChecked="True"
+                                 Checked="PanelTab_Checked" ToolTip="What DNN Manager does - each step of its operations, errors and warnings">
+                        <!-- The red dot: the last operation failed - until Output is opened again. -->
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Output" />
+                            <Ellipse x:Name="OutputDot" Width="6" Height="6" Margin="5,1,0,0" VerticalAlignment="Center"
+                                     Fill="{DynamicResource OutError}" Visibility="Collapsed" />
+                        </StackPanel>
+                    </RadioButton>
                     <RadioButton x:Name="LogsTab" Style="{StaticResource PanelTab}" GroupName="PanelTabs" Content="Logs"
                                  Checked="PanelTab_Checked" ToolTip="A website's logs - DNN, IIS and Windows events - as they are written" />
                     <RadioButton x:Name="TerminalTab" Style="{StaticResource PanelTab}" GroupName="PanelTabs" Content="Terminal"
@@ -244,9 +251,8 @@
         </Thumb>
 
         <Grid>
-            <!-- Output: read-only rich text, lines can be selected and copied. -->
-            <c:OutputView x:Name="LogList" Background="Transparent" BorderThickness="0"
-                       Foreground="{DynamicResource LogFg}" SelectionBrush="{DynamicResource Accent}" />
+            <!-- Output: the operations, stage by stage (the Pipeline Rail) - read-only, the log's text can be selected and copied. -->
+            <c:PipelineView x:Name="Pipeline" />
 
             <c:LogsView x:Name="Logs" Visibility="Collapsed" />
 

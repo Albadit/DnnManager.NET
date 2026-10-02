@@ -98,6 +98,7 @@ public partial class ProjectsPage : UserControl
         }
         ColumnList.ItemsSource = _columnOptions;
         _store.SetTrafficWanted(NetworkColumn.Visibility == Visibility.Visible);
+        _store.SetSizesShown(SizeColumn.Visibility == Visibility.Visible);
 
         // Rows come and go with their projects; each one's check box and state decide what the bulk buttons may do.
         foreach (var row in _store.Projects) row.PropertyChanged += Row_PropertyChanged;
@@ -337,8 +338,9 @@ public partial class ProjectsPage : UserControl
 
         foreach (var option in _columnOptions)
             _optionalColumns[option.Key].Visibility = option.IsVisible ? Visibility.Visible : Visibility.Collapsed;
-        // The sites' traffic is only read while its column is there to show it.
+        // The sites' traffic and folder sizes are only read while their column is there to show them.
         _store.SetTrafficWanted(NetworkColumn.Visibility == Visibility.Visible);
+        _store.SetSizesShown(SizeColumn.Visibility == Visibility.Visible);
         SaveColumns();
     }
 
@@ -395,7 +397,7 @@ public partial class ProjectsPage : UserControl
 
     private void OpenSite_Click(object sender, RoutedEventArgs e) => OnRow(sender, row =>
     {
-        if (row.HasUrl) Projects.ProjectMenu.Shell(row.Url);
+        if (row.HasUrl) Shell.Open(row.Url);
     });
 
     private void OpenFolder_Click(object sender, RoutedEventArgs e) => OnRow(sender, Projects.ProjectMenu.OpenFolder);

@@ -125,6 +125,16 @@ public sealed class SettingsStore
             save = true;
         }
 
+        // sqlServer.user - the container's login, in a build that was never released - is sqlServer.userName.
+        if (root["sqlServer"] is JsonObject sql && sql.ContainsKey("user"))
+        {
+            if (sql["user"] is JsonValue user && user.TryGetValue<string>(out var name) &&
+                (sql["userName"] is not JsonValue current || !current.TryGetValue<string>(out var existing) || existing.Length == 0))
+                sql["userName"] = name;
+            sql.Remove("user");
+            save = true;
+        }
+
         var added = new List<string>();
         AddMissing(root, Serialize(new UserSettings()), "", added);
         if (added.Count > 0 && source == FilePath)

@@ -73,7 +73,6 @@ public sealed class UntouchedIis : IIisManager
     public IReadOnlyDictionary<string, IisSiteRuntime>? GetSiteRuntimes() => new Dictionary<string, IisSiteRuntime>();
     public IReadOnlyDictionary<string, SiteTraffic> GetSiteTraffic() => new Dictionary<string, SiteTraffic>();
     public IReadOnlyDictionary<string, long> GetRequestsServed() => new Dictionary<string, long>();
-    public IisSiteInfo? GetSiteInfo(string siteName) => null;
 }
 
 /// <summary>Answers no to every question (never drops a database) and remembers them.</summary>
@@ -106,6 +105,13 @@ public sealed class RecordingReporter : IProgressReporter
     public void Fail(string message) => Add($"FAIL {message}");
     public void Warn(string message) => Add($"WARN {message}");
     public void Progress(string message) => Add($"...  {message}");
+    public void Step(string title, string name) => Add($"STEP {title} [{name}]");
+    public void Fail(string message, IReadOnlyList<string> details, string? hint) =>
+        Add($"FAIL {message}{string.Concat(details.Select(d => $" | {d}"))}{(hint is null ? "" : $" -> {hint}")}");
+    public void Plan(params string[] stages) => Add($"PLAN {string.Join(", ", stages)}");
+    public void Context(string text) => Add($"CTX  {text}");
+    public void Fact(string name, string value) => Add($"FACT {name} = {value}");
+    public void Link(string url) => Add($"LINK {url}");
 
     private void Add(string line)
     {

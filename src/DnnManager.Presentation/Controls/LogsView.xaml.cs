@@ -78,12 +78,12 @@ public partial class LogsView : UserControl, ISearchTarget
     // ─── Choosing a site and a log ────────────────────────────────────────
 
     /// <summary>Shows <paramref name="site"/>'s log <paramref name="source"/> - its newest one when null.</summary>
-    internal void Show(ProjectRow site, SiteLogSource? source)
+    internal async void Show(ProjectRow site, SiteLogSource? source)
     {
         _filling = true;
         SiteBox.SelectedItem = site;
-        FillLogs(site);
         _filling = false;
+        if (!await FillLogsAsync(site)) return;
         var item = LogBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag is SiteLogSource s && (source is null || SameLog(s, source)))
                    ?? LogBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag is SiteLogSource);
         LogBox.SelectedItem = item;
@@ -96,19 +96,30 @@ public partial class LogsView : UserControl, ISearchTarget
         a.Group == b.Group && a.Title == b.Title && a.FilePath == b.FilePath &&
         a.Events?.LogName == b.Events?.LogName && a.Events?.MessageContains == b.Events?.MessageContains;
 
-    private void Site_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void Site_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_filling || SiteBox.SelectedItem is not ProjectRow site) return;
-        FillLogs(site);
+        if (!await FillLogsAsync(site)) return;
         LogBox.SelectedItem = LogBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag is SiteLogSource);
     }
 
-    // The site's logs, under a heading per kind (DNN, IIS, Windows).
-    private void FillLogs(ProjectRow site)
+    // Which listing the log list belongs to - a site chosen meanwhile makes an older one moot.
+    private int _listing;
+
+    /// <summary>
+    /// The site's logs, under a heading per kind (DNN, IIS, Windows) - found off the UI thread (IIS's configuration and
+    /// log folders of thousands of files are read). False when another site was chosen meanwhile.
+    /// </summary>
+    private async Task<bool> FillLogsAsync(ProjectRow site)
     {
+        var listing = ++_listing;
+        var (name, id, path, pool) = (site.Name, site.IisSite.Id, site.Path, site.IisSite.AppPool);
+        var catalog = _catalog!;
+        var sources = await Task.Run(() => catalog.For(name, id, path, pool).ToList());
+        if (listing != _listing) return false;
         LogBox.Items.Clear();
         string? group = null;
-        foreach (var source in _catalog.For(site.Name, site.IisSite.Id, site.Path, site.IisSite.AppPool))
+        foreach (var source in sources)
         {
             if (source.Group != group)
             {
@@ -117,6 +128,7 @@ public partial class LogsView : UserControl, ISearchTarget
             }
             LogBox.Items.Add(new ComboBoxItem { Content = source.Title, Tag = source, ToolTip = source.Description, Padding = new Thickness(18, 3, 8, 3) });
         }
+        return true;
     }
 
     private void Log_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -201,7 +213,7 @@ public partial class LogsView : UserControl, ISearchTarget
 
     private void OpenFolder_Click(object sender, RoutedEventArgs e)
     {
-        if (_source?.FilePath is { } file) ProjectMenu.Shell(Path.GetDirectoryName(file)!);
+        if (_source?.FilePath is { } file) Shell.Open(Path.GetDirectoryName(file)!);
     }
 
     // ─── Search ───────────────────────────────────────────────────────────

@@ -230,8 +230,8 @@ public sealed class HostExistingProjectUseCase
             // Restoring replaces the database, so an existing one is only overwritten on an explicit yes.
             var fileName = Path.GetFileName(backupFile);
             if (exists.Value &&
-                !await _prompt.ConfirmAsync($"Database [{db.DatabaseName}] already exists - replace it with {fileName}?",
-                    "Replace database", "Keep existing", false, ct))
+                !await _prompt.ConfirmDangerAsync($"Database [{db.DatabaseName}] already exists - replace it with {fileName}?",
+                    "Replace database", "Keep existing", ct))
             {
                 reporter.Info($"Kept the existing database [{db.DatabaseName}] - {fileName} was not restored.");
             }
@@ -291,7 +291,7 @@ public sealed class HostExistingProjectUseCase
             {
                 _undo.RestoreFileOnUndo(webConfigPath);
                 var write = _webConfig.WriteSiteSqlServer(webConfigPath,
-                    new SiteSqlConnection(db.Server, db.DatabaseName, "sa", _opts.Docker.SaPassword));
+                    new SiteSqlConnection(db.Server, db.DatabaseName, _opts.Docker.SqlUser, _opts.Docker.SaPassword));
                 if (write.Success)
                     reporter.Success("web.config updated.");
                 else

@@ -10,6 +10,7 @@ Desktop.
 [**Download**](https://github.com/Bond-for-web-solutions/DnnManager.NET/releases/latest) ·
 [User guide](docs/user-guide.md) ·
 [Development](docs/development.md) ·
+[Architecture](docs/architecture.md) ·
 [Changelog](CHANGELOG.md)
 
 ## Why
@@ -20,7 +21,7 @@ site and app pool, set folder permissions, create a database and a login, edit
 it to sleep after 20 minutes, so the next page takes half a minute again.
 
 DNN Manager does all of that for you - and undoes it just as easily: removing a
-project takes its IIS site and folder with it, and its database if you say so.
+project takes its IIS site, folder and database with it.
 
 ## What you get
 
@@ -79,8 +80,10 @@ dotnet run                    # builds and starts the app (asks for admin rights
 dotnet test tests/DnnManager.IntegrationTests --filter "TestCategory!=Integration"   # fast tests
 ```
 
-Publishing a single `.exe`, building the installer and the full integration
-tests are in [docs/development.md](docs/development.md).
+Debugging, the conventions and how to extend it are in
+[docs/development.md](docs/development.md); the tests in
+[docs/testing.md](docs/testing.md); publishing and the installer in
+[docs/releasing.md](docs/releasing.md).
 
 ## How it's built
 
@@ -93,23 +96,33 @@ A WPF app on .NET 10, laid out as Clean Architecture in a single project:
 | `DnnManager.Infrastructure` | IIS, Docker, SQL Server, GitHub releases, settings, keep warm, logs |
 | `DnnManager.Domain` | Plain records, no dependencies |
 
-Dependencies only point inward. The architecture, a map from each feature to
-its code, and how to add a page, style or setting are in
-[docs/development.md](docs/development.md).
+Domain and Application don't depend on WPF or Infrastructure; use cases reach
+IIS, SQL Server and the file system through interfaces. The layers, how an
+operation runs, how the window stays current and a map from each feature to its
+code are in [docs/architecture.md](docs/architecture.md).
 
 ## Documentation
 
 | | |
 |---|---|
-| [User guide](docs/user-guide.md) | The window, every page and menu, settings, automatic DNN setup, import / host / clone, keep warm, backups, limitations |
-| [Development](docs/development.md) | Build, run, test, publish, the installer, architecture, component map, extending |
-| [Changelog](CHANGELOG.md) | What changed in each version |
+| For | Document | What's in it |
+|---|---|---|
+| Users | [User guide](docs/user-guide.md) | The window, every page and menu, automatic DNN setup, import / host / clone, keep warm, backups, limitations |
+| | [Configuration](docs/configuration.md) | `Documents\DnnManager`, every `settings.json` key, environment variables |
+| | [Troubleshooting](docs/troubleshooting.md) | Known problems, their causes and fixes |
+| Developers | [Development](docs/development.md) | Prerequisites, build, run, debugging, conventions, extending |
+| | [Architecture](docs/architecture.md) | Layers, how an operation runs, live updates, project layout, design decisions, component map |
+| | [Testing](docs/testing.md) | The fast and the integration tests, adding a test |
+| | [Releasing](docs/releasing.md) | Version, changelog, portable exe, installer, GitHub release |
+| | [Security](docs/security.md) | Administrator rights, secrets, what DNN Manager deletes, network exposure, open risks |
+| Everyone | [Changelog](CHANGELOG.md) | What changed in each version |
 
 ## Contributing
 
 Issues and pull requests are welcome. Before opening a pull request, run the
 fast tests, add a line to [CHANGELOG.md](CHANGELOG.md) under *Unreleased*, and
-update the docs when behaviour changes.
+update the docs when behaviour changes. Follow the conventions in
+[docs/development.md](docs/development.md#conventions).
 
 ## License
 

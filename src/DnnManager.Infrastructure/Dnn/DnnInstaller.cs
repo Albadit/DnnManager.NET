@@ -236,7 +236,7 @@ public sealed partial class DnnInstaller : IDnnInstaller
             var expected = DnnVersionOf(site.Directory);
             return await WithSiteDatabaseAsync(site.Directory, database, async conn =>
             {
-                var q = await QualifierAsync(conn, ct);
+                var q = await DnnTables.QualifierAsync(conn, "Version", ct);
                 if (q is null) return Result.Fail("The database has no DNN tables - the installation didn't reach it.");
 
                 string? installed;
@@ -394,7 +394,7 @@ public sealed partial class DnnInstaller : IDnnInstaller
         {
             return await WithSiteDatabaseAsync(siteDirectory, database, async conn =>
             {
-                var q = await QualifierAsync(conn, ct);
+                var q = await DnnTables.QualifierAsync(conn, "Version", ct);
                 if (q is null) return Result.Fail("The site's database has no DNN tables.");
                 using (var host = new SqlCommand($"SELECT COUNT(*) FROM dbo.[{q}Users] WHERE Username = @user AND IsSuperUser = 1", conn))
                 {
@@ -486,15 +486,6 @@ public sealed partial class DnnInstaller : IDnnInstaller
         await using var conn = new SqlConnection(ConnectionStrings.ForApp(database, timeoutSeconds: 30));
         await conn.OpenAsync(ct);
         return await work(conn);
-    }
-
-    /// <summary>DNN's objectQualifier ("" for none) from its Version table, or null when the database has no DNN.</summary>
-    private static async Task<string?> QualifierAsync(SqlConnection conn, CancellationToken ct)
-    {
-        using var find = new SqlCommand(
-            "SELECT TOP 1 LEFT(name, LEN(name) - 7) FROM sys.tables WHERE SCHEMA_NAME(schema_id) = 'dbo' " +
-            "AND (name = 'Version' OR name LIKE '%[_]Version') ORDER BY LEN(name)", conn);
-        return await find.ExecuteScalarAsync(ct) as string;
     }
 
     /// <summary>The DNN version of the site's files (bin\DotNetNuke.dll), e.g. "10.3.3"; null when it can't be read.</summary>

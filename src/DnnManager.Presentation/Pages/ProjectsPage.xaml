@@ -5,12 +5,22 @@
     <UserControl.Resources>
         <!-- "Live" green, "Offline" red, anything else ("(none)") in the normal colour. -->
         <Style x:Key="SqlText" TargetType="TextBlock">
+            <Setter Property="ToolTip" Value="{Binding SqlTip}" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding Sql}" Value="Live">
                     <Setter Property="Foreground" Value="{DynamicResource SuccessText}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Sql}" Value="Offline">
                     <Setter Property="Foreground" Value="{DynamicResource ErrorText}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <!-- The database from web.config - "not set" in amber when it names none, why in the tooltip. -->
+        <Style x:Key="DatabaseText" TargetType="TextBlock">
+            <Setter Property="ToolTip" Value="{Binding DatabaseTip}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding HasDatabaseProblem}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource LogWarn}" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -139,6 +149,8 @@
         <!-- One of the bulk actions: an icon in the group's frame (its name and what it will do are in its tooltip,
              also while it can't be pressed). -->
         <Style x:Key="GroupButton" TargetType="Button">
+            <!-- An icon says nothing to a screen reader: it reads the tooltip. -->
+            <Setter Property="AutomationProperties.Name" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}}" />
             <Setter Property="Width" Value="34" />
             <Setter Property="Height" Value="26" />
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
@@ -337,8 +349,9 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
                     <DataGridTextColumn x:Name="DnnColumn" Header="DNN" Binding="{Binding Dnn}" Width="Auto" MinWidth="70" />
-                    <DataGridTextColumn x:Name="DatabaseColumn" Header="Database" Binding="{Binding Database}" Width="Auto" MinWidth="120" />
-                    <!-- Live (green) / Offline (red) / (none) - see ProjectRow.Sql. -->
+                    <DataGridTextColumn x:Name="DatabaseColumn" Header="Database" Binding="{Binding Database}" Width="Auto" MinWidth="120"
+                                        ElementStyle="{StaticResource DatabaseText}" />
+                    <!-- Live (green) / Offline (red) / (none) - asked with the site's web.config connection, see ProjectRow.Sql. -->
                     <DataGridTextColumn x:Name="SqlColumn" Header="SQL" Binding="{Binding Sql}" Width="Auto" MinWidth="64"
                                         ElementStyle="{StaticResource SqlText}" />
                     <DataGridTextColumn x:Name="CpuColumn" Header="CPU (%)" Binding="{Binding CpuText}" SortMemberPath="CpuSort" Width="Auto" MinWidth="70"

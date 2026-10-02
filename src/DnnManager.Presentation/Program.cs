@@ -4,6 +4,7 @@ using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Presentation.Services;
 using DnnManager.Infrastructure;
+using DnnManager.Infrastructure.Files;
 using DnnManager.Infrastructure.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -69,8 +70,11 @@ internal static class Program
         var options = loaded.Settings.ToAppOptions();
         builder.Configuration.GetSection(AppOptions.SectionName).Bind(options);
 
-        // No console in a WinExe - errors surface in the activity log and message boxes instead.
+        // No console in a WinExe: the app's warnings and errors go to the daily log file (logs\dnnmanager-*.log), with
+        // their stack traces - what the user sees goes through the activity log and message boxes.
         builder.Logging.ClearProviders();
+        builder.Logging.SetMinimumLevel(LogLevel.Warning);
+        builder.Services.AddSingleton<ILoggerProvider, DailyLogFileLoggerProvider>();
 
         builder.Services.AddSingleton(Options.Create(options));
         builder.Services.AddApplication();
@@ -91,6 +95,7 @@ internal static class Program
 
         using var host = builder.Build();
 
+        App.Log = host.Services.GetRequiredService<ILogger<App>>();
         var log = host.Services.GetRequiredService<ActivityLog>();
         foreach (var notice in startupNotices)
         {

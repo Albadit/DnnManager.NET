@@ -50,11 +50,39 @@
     <SolidColorBrush x:Key="LogHeaderFg"      Color="#1F2328" />
     <SolidColorBrush x:Key="LogFg"            Color="#2D333B" />
     <SolidColorBrush x:Key="LogMuted"         Color="#656D76" />
-    <SolidColorBrush x:Key="LogStep"          Color="#1F63C6" />
-    <SolidColorBrush x:Key="LogSuccess"       Color="#1A7F37" />
     <SolidColorBrush x:Key="LogFail"          Color="#C62828" />
     <SolidColorBrush x:Key="LogWarn"          Color="#9A6700" />
-    <SolidColorBrush x:Key="LogProgress"      Color="#6B7280" />
-    <SolidColorBrush x:Key="LogSelection"     Color="#E8EFFD" />
     <SolidColorBrush x:Key="LogTrack"         Color="#E1E4E8" />
+    <!-- Output tab (Controls/PipelineView): the log, the stage icons and the status pills - its header and stage rail use
+         the panel's Log* brushes. -->
+    <SolidColorBrush x:Key="OutBorder"          Color="#E1E4E8" />
+    <SolidColorBrush x:Key="OutLogBg"           Color="#FFFFFF" />
+    <SolidColorBrush x:Key="OutText"            Color="#2D333B" />
+    <SolidColorBrush x:Key="OutHeading"         Color="#1F2328" />
+    <SolidColorBrush x:Key="OutHeadingTime"     Color="#57606A" />
+    <SolidColorBrush x:Key="OutTime"            Color="#57606A" />
+    <SolidColorBrush x:Key="OutMuted"           Color="#656D76" />
+    <SolidColorBrush x:Key="OutDim"             Color="#8C959F" />
+    <SolidColorBrush x:Key="OutSkippedIcon"     Color="#C4C9CF" />
+    <SolidColorBrush x:Key="OutValue"           Color="#0E7C72" />
+    <SolidColorBrush x:Key="OutActive"          Color="#14998C" />
+    <SolidColorBrush x:Key="OutSuccessText"     Color="#1A7F37" />
+    <SolidColorBrush x:Key="OutOk"              Color="#1A7F37" />
+    <SolidColorBrush x:Key="OutWarn"            Color="#9A6700" />
+    <SolidColorBrush x:Key="OutWarnText"        Color="#7A4E00" />
+    <SolidColorBrush x:Key="OutWarnRowBg"       Color="#FFF4DB" />
+    <SolidColorBrush x:Key="OutError"           Color="#CF222E" />
+    <SolidColorBrush x:Key="OutErrorSoft"       Color="#CF222E" />
+    <SolidColorBrush x:Key="OutErrorText"       Color="#82071E" />
+    <SolidColorBrush x:Key="OutErrorDetail"     Color="#A0414B" />
+    <SolidColorBrush x:Key="OutErrorBg"         Color="#FFEBE9" />
+    <SolidColorBrush x:Key="OutBadgeText"       Color="#FFFFFF" />
+    <SolidColorBrush x:Key="OutPillRunningBg"   Color="#DDF4F1" />
+    <SolidColorBrush x:Key="OutPillRunningFg"   Color="#0E7C72" />
+    <SolidColorBrush x:Key="OutPillOkBg"        Color="#DAFBE1" />
+    <SolidColorBrush x:Key="OutPillOkFg"        Color="#1A7F37" />
+    <SolidColorBrush x:Key="OutPillFailBg"      Color="#FFEBE9" />
+    <SolidColorBrush x:Key="OutPillFailFg"      Color="#CF222E" />
+    <SolidColorBrush x:Key="OutPillNeutralBg"   Color="#EAEEF2" />
+    <SolidColorBrush x:Key="OutPillNeutralFg"   Color="#57606A" />
 </ResourceDictionary>

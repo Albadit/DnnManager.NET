@@ -90,6 +90,14 @@ public sealed class SetupProjectUseCase
         _undo = undo;
     }
 
+    /// <summary>The set-up's stages, by their short names in the Output tab's stage list.</summary>
+    private static class Stage
+    {
+        public const string Version = "DNN version", Iis = "Check IIS", Database = "Test database", Folder = "Create project folder",
+            Download = "Download DNN", Site = "Create IIS site", CreateDatabase = "Create database", Configure = "Configure DNN",
+            Install = "Install DNN", Host = "Create host account", Start = "Start website", Verify = "Verify site";
+    }
+
     public async Task<Result> ExecuteAsync(SetupProjectRequest req, IProgressReporter reporter, CancellationToken ct)
     {
         var nameCheck = ProjectName.Validate(req.ProjectName);
@@ -123,14 +131,21 @@ public sealed class SetupProjectUseCase
                 return Result.Fail($"The project's folder is too deep for DNN's installer ({siteDirectory.Length} characters, at most " +
                                    $"{DnnAccountRules.MaxSitePathLength}) - use a shorter projects folder (Settings → Projects).");
 
-            reporter.Step("Step 1: DNN version");
+            // The stages, up front: the Output tab shows those still to come - and as skipped those it never gets to.
+            reporter.Plan(automatic
+                ? [Stage.Version, Stage.Iis, Stage.Database, Stage.Folder, Stage.Download, Stage.Site, Stage.CreateDatabase,
+                   Stage.Configure, Stage.Install, Stage.Host, Stage.Start]
+                : [Stage.Version, Stage.Iis, Stage.Database, Stage.Folder, Stage.Download, Stage.Site, Stage.CreateDatabase, Stage.Verify]);
+            reporter.Context(database.Server);
+
+            reporter.Step("Step 1: DNN version", Stage.Version);
             var releaseResult = await _releases.GetReleaseAsync(req.ReleaseApiUrl, req.Version, ct);
             if (!releaseResult.Success || releaseResult.Value is null)
                 return Result.Fail(releaseResult.Error ?? "Could not resolve a DNN release.");
             var release = releaseResult.Value;
             reporter.Success($"Using DNN {release.Version} ({release.DownloadUrl})");
 
-            reporter.Step("Step 2: Checking IIS");
+            reporter.Step("Step 2: Checking IIS", Stage.Iis);
             var iisAvailable = _iis.IsAvailable();
             if (iisAvailable)
             {
@@ -146,7 +161,7 @@ public sealed class SetupProjectUseCase
                               "setup to host the site, or use your own web server.");
             }
 
-            reporter.Step("Step 3: Testing database connection");
+            reporter.Step("Step 3: Testing database connection", Stage.Database);
             var databaseReady = await CheckDatabaseAsync(project.Name, database, release, automatic, reporter, ct);
             if (!databaseReady.Success && (automatic || chosenDatabase))
                 return Result.Fail($"The database isn't ready: {databaseReady.Error}");
@@ -155,13 +170,13 @@ public sealed class SetupProjectUseCase
                 reporter.Info("Skipping the database. Start the SQL Server container and set the project up again, " +
                               "or point the site's web.config at your own database.");
 
-            reporter.Step("Step 4: Creating project directory");
+            reporter.Step("Step 4: Creating project directory", Stage.Folder);
             // A cancel takes the new project away again - its folder goes last, once nothing uses it any more.
             _undo.DeleteFolderOnUndo(siteDirectory);
             Directory.CreateDirectory(siteDirectory);
             reporter.Success($"Project directory ready: {siteDirectory}");
 
-            reporter.Step($"Step 5: Downloading DNN {release.Version}");
+            reporter.Step($"Step 5: Downloading DNN {release.Version}", Stage.Download);
             var extract = await _packages.DownloadAndExtractAsync(release, siteDirectory, reporter, ct);
             if (!extract.Success) return extract;
             // Drop a DNN-tuned .gitignore next to the freshly extracted site so the project is ready
@@ -182,12 +197,13 @@ public sealed class SetupProjectUseCase
                 if (!prepared.Success) return prepared;
             }
 
-            reporter.Step("Step 6: Creating IIS application pool and website");
+            reporter.Step("Step 6: Creating IIS application pool and website", Stage.Site);
             var siteCreated = false;
             if (iisAvailable)
             {
                 reporter.Info($"Creating IIS application pool and website '{project.Name}' for {url}…");
                 siteCreated = _site.TryCreateSite(project, hostName, port, reporter);
+                if (siteCreated) reporter.Context($"IIS · {alias}");
                 if (siteCreated && database.Kind == DatabaseKind.LocalDbFile)
                 {
                     var profile = _iis.EnableUserProfile(project.Name);
@@ -201,7 +217,7 @@ public sealed class SetupProjectUseCase
             if (automatic && !siteCreated)
                 return Result.Fail("The IIS website couldn't be created, so DNN can't be installed - see the messages above.");
 
-            reporter.Step("Step 7: Creating database");
+            reporter.Step("Step 7: Creating database", Stage.CreateDatabase);
             if (databaseReady.Success)
             {
                 var created = await ProvisionDatabaseAsync(project, database, createDatabase, siteCreated, reporter, ct);
@@ -216,12 +232,12 @@ public sealed class SetupProjectUseCase
                 return await FinishManualAsync(project, release, database, databaseReady.Success, siteCreated, url, reporter, ct);
 
             var account = req.Account!;
-            reporter.Step("Step 8: Configuring DNN");
+            reporter.Step("Step 8: Configuring DNN", Stage.Configure);
             var configured = _webConfig.WriteDatabaseConnection(Path.Combine(siteDirectory, "web.config"), database);
             if (!configured.Success) return Result.Fail($"Could not write the site's connection string: {configured.Error}");
             reporter.Success($"web.config connects to {database.Describe()}.");
 
-            reporter.Step("Step 9: Running DNN installation");
+            reporter.Step("Step 9: Running DNN installation", Stage.Install);
             var site = new DnnSiteAddress(siteDirectory, alias, port);
             var installStarted = DateTime.UtcNow;
             var installed = await _dnn.InstallAsync(site, account, database, reporter, ct);
@@ -232,7 +248,7 @@ public sealed class SetupProjectUseCase
                                    "remove it and set it up again (DNN can't install twice into the same files and database).");
             }
 
-            reporter.Step("Step 10: Creating host account");
+            reporter.Step("Step 10: Creating host account", Stage.Host);
             // A LocalDB file database is only opened by DNN Manager while the site doesn't use it.
             if (database.Kind == DatabaseKind.LocalDbFile) _iis.StopSite(project.Name);
             var completed = await _dnn.CompleteAsync(site, account, database, ct);
@@ -245,13 +261,14 @@ public sealed class SetupProjectUseCase
             }
             reporter.Success($"Host account '{account.UserName}' ready - it signs in without being asked to change its password.");
 
-            reporter.Step("Step 11: Starting website");
+            reporter.Step("Step 11: Starting website", Stage.Start);
             var warmUp = await _dnn.WarmUpAsync(site, installStarted, reporter, ct);
             _dnn.CleanUp(siteDirectory, installed: true);
             _records.Save(new ProjectRecord(project.Name, DnnInstallMode.Automatic, DateTime.UtcNow, release.Version, account.UserName));
             if (!warmUp.Success) return Result.Fail($"DNN is installed, but {Lower(warmUp.Error)}");
 
             reporter.Step("Setup complete");
+            reporter.Link(url);
             reporter.Success($"DNN installation completed. Open {url} - sign in as '{account.UserName}'.");
             return Result.Ok();
         }
@@ -286,9 +303,9 @@ public sealed class SetupProjectUseCase
             var exists = await _databases.DatabaseExistsAsync(database, ct);
             if (exists is { Success: true, Value: true })
             {
-                if (await _prompt.ConfirmAsync($"Database [{database.Database}] already exists on {database.Server}. " +
-                                               "Drop it and create it again? Everything in it is lost.",
-                                               "Drop and recreate", "Keep it", false, ct))
+                if (await _prompt.ConfirmDangerAsync($"Database [{database.Database}] already exists on {database.Server}. " +
+                                                     "Drop it and create it again? Everything in it is lost.",
+                                                     "Drop and recreate", "Keep it", ct))
                 {
                     var dropped = await _databases.DropDatabaseAsync(database, ct);
                     if (!dropped.Success) return Result<bool>.Fail(dropped.Error!);
@@ -383,7 +400,7 @@ public sealed class SetupProjectUseCase
 
         if (siteCreated)
         {
-            reporter.Step("Verify site");
+            reporter.Step("Verify site", Stage.Verify);
             var http = await _http.CheckAsync(url, 15, ct);
             if (http.Success) reporter.Success($"HTTP {http.Value} from {url}");
             else reporter.Info($"HTTP probe: {http.Error} (expected before install wizard runs)");
@@ -392,7 +409,10 @@ public sealed class SetupProjectUseCase
         _records.Save(new ProjectRecord(project.Name, DnnInstallMode.Manual, DateTime.UtcNow, release.Version, null));
         reporter.Step("Setup complete");
         if (siteCreated)
+        {
+            reporter.Link(url);
             reporter.Success($"Open {url} to complete the DNN Installation Wizard.");
+        }
         else
             reporter.Success($"DNN files are ready in {project.ProjectDirectory}. " +
                              "Point a web server (and database) at them to run the install wizard.");

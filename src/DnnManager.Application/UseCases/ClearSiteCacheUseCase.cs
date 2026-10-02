@@ -40,7 +40,9 @@ public sealed class ClearSiteCacheUseCase
             var locked = 0;
             foreach (var folder in CacheFolders.Select(f => Path.Combine(directory, f)).Where(Directory.Exists))
             {
-                foreach (var file in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories))
+                // Not through a junction or link: the app pool can write here, and what one points to isn't the cache.
+                foreach (var file in Directory.EnumerateFiles(folder, "*",
+                             new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint }))
                 {
                     ct.ThrowIfCancellationRequested();
                     try

@@ -67,6 +67,15 @@ public sealed class DockerComposeService : IDockerComposeService
         await _proc.RunAsync("docker", new[] { "network", "rm", OldComposeProjectName + "_default" }, ct);
     }
 
+    /// <summary>
+    /// Where the container's port is published. Reached as localhost (the default), only this PC can reach it - the sa
+    /// login with its default password isn't offered to the rest of the network. Another host in the settings (this
+    /// PC's address on the network, for a VM) publishes it on every network interface, as before.
+    /// </summary>
+    private static string PublishedOn(DockerOptions docker) =>
+        docker.ContainerIp.Trim() is var host && (host.Equals("localhost", StringComparison.OrdinalIgnoreCase) || host is "127.0.0.1" or ".")
+            ? "127.0.0.1:" : "";
+
     private static string Build(DockerOptions docker, bool withPassword)
     {
         // No custom network or static IP: DNN Manager connects through the published port on the host, and a
@@ -92,7 +101,7 @@ public sealed class DockerComposeService : IDockerComposeService
                   MSSQL_PID: {{Q(docker.MssqlPid)}}
                   MSSQL_COLLATION: {{Q(docker.Collation)}}
                 ports:
-                  - "{{docker.DefaultPort}}:1433"
+                  - "{{PublishedOn(docker)}}{{docker.DefaultPort}}:1433"
                 volumes:
                   - {{Q(docker.VolumeName + ":/var/opt/mssql")}}
                 restart: unless-stopped

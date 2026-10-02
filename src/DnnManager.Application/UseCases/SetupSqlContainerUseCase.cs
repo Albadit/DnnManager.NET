@@ -31,6 +31,7 @@ public sealed class SetupSqlContainerUseCase
 
         var server = $"{docker.ContainerIp},{docker.DefaultPort}";
         reporter.Step($"Waiting for SQL Server at {server}");
+        // sa, whatever Settings → Database server → User says: a new container has no other login yet.
         var login = new SiteSqlConnection(server, "master", "sa", docker.SaPassword);
         var started = DateTime.UtcNow;
         string? lastError = null;

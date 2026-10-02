@@ -67,7 +67,7 @@ public sealed class AppDataCleaner
             : [],
         // The projects' folders in backups\ - not the settings copies next to them.
         AppDataKind.ProjectBackups => Directory.Exists(_paths.BackupsDirectory)
-            ? Directory.EnumerateDirectories(_paths.BackupsDirectory).SelectMany(AllFiles)
+            ? Directory.EnumerateDirectories(_paths.BackupsDirectory).Where(d => !IsLink(d)).SelectMany(AllFiles)
             : [],
         AppDataKind.KeepWarmChoices => Directory.Exists(_paths.KeepWarmDirectory)
             ? Directory.EnumerateFiles(_paths.KeepWarmDirectory, "*.json", SearchOption.TopDirectoryOnly)
@@ -79,14 +79,25 @@ public sealed class AppDataCleaner
     {
         AppDataKind.DnnPackages => [_paths.PackagesDirectory],
         AppDataKind.KeepWarmChoices => [_paths.KeepWarmDirectory],
-        AppDataKind.ProjectBackups when Directory.Exists(_paths.BackupsDirectory) => Directory.GetDirectories(_paths.BackupsDirectory),
+        AppDataKind.ProjectBackups when Directory.Exists(_paths.BackupsDirectory) => Directory.GetDirectories(_paths.BackupsDirectory).Where(d => !IsLink(d)),
         _ => []
     };
 
+    // Hidden and system files too - but never through a junction or link: what it points to isn't DNN Manager's.
     private static IEnumerable<string> AllFiles(string folder) =>
         Directory.Exists(folder)
-            ? Directory.EnumerateFiles(folder, "*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = 0 })
+            ? Directory.EnumerateFiles(folder, "*", new EnumerationOptions
+              {
+                  RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = FileAttributes.ReparsePoint
+              })
             : [];
+
+    /// <summary>A junction or link - not followed: what it points to is somewhere else, and not DNN Manager's to delete.</summary>
+    private static bool IsLink(string folder)
+    {
+        try { return new DirectoryInfo(folder).Attributes.HasFlag(FileAttributes.ReparsePoint); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return true; }
+    }
 
     private static long Length(string file)
     {
@@ -98,7 +109,7 @@ public sealed class AppDataCleaner
     private static void DeleteEmptyFolders(string folder)
     {
         if (!Directory.Exists(folder)) return;
-        foreach (var child in Directory.GetDirectories(folder)) DeleteEmptyFolders(child);
+        foreach (var child in Directory.GetDirectories(folder).Where(d => !IsLink(d))) DeleteEmptyFolders(child);
         try
         {
             if (!Directory.EnumerateFileSystemEntries(folder).Any()) Directory.Delete(folder);

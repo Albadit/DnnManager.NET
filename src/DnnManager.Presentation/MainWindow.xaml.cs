@@ -55,13 +55,14 @@ public partial class MainWindow : Window
         StatusBar.Attach(store, runner, version is null ? "" : $"v{version.Major}.{version.Minor}.{version.Build}");
         IisStatus.Attach(store, runner);
         Loaded += (_, _) => store.Start();
-        SizeChanged += (_, _) => IsCompact = ActualWidth < CompactBelow;
+        SizeChanged += (_, _) => UpdateCompact();
         BaseDirText.Text = options.Value.BaseDirectory;
         BaseDirText.ToolTip = options.Value.BaseDirectory;
         // Settings saved: they apply at once. The kept pages were filled in with the old ones (folders, repositories,
         // the container's name) - they are made anew on their next visit. Projects follows by itself.
         options.Value.Changed += () =>
         {
+            UpdateCompact(); // the UI scale may have changed
             BaseDirText.Text = options.Value.BaseDirectory;
             BaseDirText.ToolTip = options.Value.BaseDirectory;
             foreach (var (key, kept) in _pages.Where(p => p.Value is not ProjectsPage).ToList())
@@ -74,7 +75,7 @@ public partial class MainWindow : Window
 
         // The bottom panel (Activity, Logs, Terminal). Closed at first - the status bar shows the running operation, its
         // progress and Cancel; its terminal button opens the panel, and a click on the operation opens it on Activity.
-        TerminalPanel.Attach(_log, terminal, store, logs, efficiency);
+        TerminalPanel.Attach(_log, terminal, store, logs, efficiency, options.Value);
         TerminalPanel.CloseRequested += (_, _) => SetLogOpen(false);
         TerminalPanel.MaximizeToggled += (_, _) => SetPanelMaximized(!_panelMaximized);
         StatusBar.ActivityToggled += (_, _) => SetLogOpen(!LogOpen);
@@ -136,23 +137,24 @@ public partial class MainWindow : Window
         {
             page = (UserControl)ActivatorUtilities.CreateInstance(_services, type);
             if (type != typeof(SettingsPage)) _pages[key] = page;
+            // Settings and Troubleshoot take the whole width; closing them goes back to the sidebar page before them.
+            if (page is SettingsPage settings) settings.CloseRequested += (_, _) => (_lastNav ?? NavProjects).IsChecked = true;
+            if (page is TroubleshootPage troubleshoot) troubleshoot.CloseRequested += (_, _) => (_lastNav ?? NavProjects).IsChecked = true;
         }
         else if (_stale.Remove(page) && page is IRefreshable refreshable)
         {
             refreshable.Refresh();
         }
 
-        // Settings has a sidebar of its own and takes the whole width; closing it goes back to the page before it.
-        if (page is SettingsPage settings) settings.CloseRequested += (_, _) => (_lastNav ?? NavProjects).IsChecked = true;
-        else _lastNav = (RadioButton)sender;
-        var full = page is SettingsPage;
+        var full = page is SettingsPage or TroubleshootPage;
+        if (!full) _lastNav = (RadioButton)sender;
         Sidebar.Visibility = full ? Visibility.Collapsed : Visibility.Visible;
         Grid.SetColumn(ContentArea, full ? 0 : 1);
         Grid.SetColumnSpan(ContentArea, full ? 2 : 1);
         PageHost.Content = page;
     }
 
-    // The sidebar entry of the page shown before Settings was opened.
+    // The sidebar entry of the page shown before Settings or Troubleshoot was opened.
     private RadioButton? _lastNav;
 
     private void OnRunnerChanged(object? sender, PropertyChangedEventArgs e)
@@ -174,6 +176,9 @@ public partial class MainWindow : Window
 
     // Narrower than this, the sidebar shows only its icons, to leave the room to the page.
     private const double CompactBelow = 1100;
+
+    // Measured in the page's own units: at 150 % UI scale a 1500 px window lays out like a 1000 px one.
+    private void UpdateCompact() => IsCompact = ActualWidth / ThemeManager.Scale < CompactBelow;
     private const double ExpandedSidebarWidth = 230, CompactSidebarWidth = 56;
 
     public static readonly DependencyProperty IsCompactProperty = DependencyProperty.Register(nameof(IsCompact), typeof(bool),

@@ -10,7 +10,7 @@ namespace DnnManager.Presentation.Controls;
 /// </summary>
 public partial class MessageDialog : Window
 {
-    private enum Kind { Question, Warning }
+    private enum Kind { Question, Warning, Danger }
 
     private bool _answer;
 
@@ -20,17 +20,19 @@ public partial class MessageDialog : Window
         ThemeManager.Track(this);
         Message.Text = message;
         Glyph.Text = kind == Kind.Question ? "" : "";
-        Glyph.SetResourceReference(TextBlock.ForegroundProperty, kind == Kind.Question ? "Accent" : "LogWarn");
+        Glyph.SetResourceReference(TextBlock.ForegroundProperty, kind switch { Kind.Question => "Accent", Kind.Danger => "ErrorText", _ => "LogWarn" });
     }
 
     /// <summary>
     /// Asks <paramref name="question"/> with buttons labelled <paramref name="yesText"/> and <paramref name="noText"/>
     /// (e.g. "Remove project" / "Cancel"); true for the first. Closing the window counts as the second.
     /// </summary>
-    public static bool Ask(string question, string yesText, string noText, bool defaultYes)
+    /// <param name="danger">Something that can't be taken back: the warning sign, and <paramref name="yesText"/> red.</param>
+    public static bool Ask(string question, string yesText, string noText, bool defaultYes, bool danger = false)
     {
-        var dialog = Create(question, Kind.Question);
+        var dialog = Create(question, danger ? Kind.Danger : Kind.Question);
         var yes = dialog.AddButton(yesText, primary: defaultYes, answer: true);
+        if (danger) yes.SetResourceReference(StyleProperty, "Danger");
         var no = dialog.AddButton(noText, primary: !defaultYes, answer: false);
         no.IsCancel = true;
         (defaultYes ? yes : no).IsDefault = true;

@@ -182,6 +182,58 @@
                 </StackPanel>
             </Border>
 
+            <!-- The database: filled in from Settings → Database server - changed here, for this project only. -->
+            <Border x:Name="DatabaseCard" Style="{StaticResource Card}">
+                <StackPanel>
+                    <DockPanel>
+                        <Button x:Name="ResetDatabaseButton" DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="Use the settings"
+                                FontSize="{DynamicResource TextCaption}" VerticalAlignment="Top" Visibility="Collapsed"
+                                ToolTip="Fill the database in from Settings → Database server again" Click="ResetDatabase_Click" />
+                        <TextBlock Style="{StaticResource CardTitle}" Text="Database" />
+                    </DockPanel>
+                    <TextBlock Style="{StaticResource FieldLabel}" Text="Connection type" Margin="0,0,0,4" />
+                    <WrapPanel>
+                        <RadioButton x:Name="DbContainer" GroupName="DbType" Content="Local SQL container (Docker)" Margin="0,0,20,4" Checked="DbType_Checked" />
+                        <RadioButton x:Name="DbSqlServer" GroupName="DbType" Content="SQL Server / SQL Server Express" Margin="0,0,20,4" Checked="DbType_Checked" />
+                        <RadioButton x:Name="DbLocalDb" GroupName="DbType" Content="LocalDB file" Margin="0,0,0,4" Checked="DbType_Checked" />
+                    </WrapPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel>
+                            <TextBlock x:Name="DbServerLabel" Style="{StaticResource FieldLabel}" Text="Server" />
+                            <TextBox x:Name="DbServerBox" TextChanged="DbField_Changed" />
+                        </StackPanel>
+                        <StackPanel x:Name="DbNamePanel" Grid.Column="2">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Database name" />
+                            <TextBox x:Name="DbNameBox" TextChanged="DbName_Changed" />
+                        </StackPanel>
+                        <StackPanel x:Name="DbAuthPanel" Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,10,0,0">
+                            <RadioButton x:Name="DbWindowsAuth" GroupName="DbAuth" Content="Windows authentication" Margin="0,0,20,0" Checked="DbAuth_Checked" />
+                            <RadioButton x:Name="DbSqlAuth" GroupName="DbAuth" Content="SQL Server authentication" Checked="DbAuth_Checked" />
+                        </StackPanel>
+                        <StackPanel x:Name="DbUserPanel" Grid.Row="2">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Username" />
+                            <TextBox x:Name="DbUserBox" TextChanged="DbField_Changed" />
+                        </StackPanel>
+                        <StackPanel x:Name="DbPasswordPanel" Grid.Row="2" Grid.Column="2">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Password" />
+                            <c:PasswordInput x:Name="DbPasswordBox" PasswordChanged="DbPassword_Changed" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock x:Name="DatabaseError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
+                    <TextBlock x:Name="DatabaseHint" Style="{StaticResource Hint}" />
+                </StackPanel>
+            </Border>
+
             <StackPanel Orientation="Horizontal">
                 <Button x:Name="RunButton" Style="{StaticResource Primary}" Content="Create project" IsEnabled="False" Click="Run_Click" />
             </StackPanel>

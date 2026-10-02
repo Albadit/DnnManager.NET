@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using DnnManager.Application.Abstractions;
+using DnnManager.Application.Configuration;
 using DnnManager.Infrastructure.Settings;
 using DnnManager.Infrastructure.Startup;
 using DnnManager.Presentation.Services;
@@ -8,9 +9,10 @@ using DnnManager.Presentation.Services;
 namespace DnnManager.Presentation.Pages;
 
 /// <summary>
-/// "Troubleshoot" (the title bar's bug button), laid out like Docker Desktop's: restart DNN Manager, clean up the data
-/// it keeps in <c>Documents\DnnManager</c>, or reset it to factory defaults. Nothing here touches a project's IIS
-/// site, folder or database. Not while an operation runs - it would be cut off.
+/// "Troubleshoot" (the title bar's bug button) - a page of its own like Settings, laid out like Docker Desktop's: restart
+/// DNN Manager, clean up the data it keeps in <c>Documents\DnnManager</c>, reset its settings to their defaults, or
+/// reset it to factory defaults. Nothing here touches a project's IIS site, folder or database. Not while an operation
+/// runs - it would be cut off.
 /// </summary>
 public partial class TroubleshootPage : UserControl
 {
@@ -20,14 +22,21 @@ public partial class TroubleshootPage : UserControl
     private readonly ISecretStore _secrets;
     private readonly StartupTask _startup;
     private readonly AppDataPaths _paths;
+    private readonly LiveSettings _live;
+    private readonly TerminalService _terminal;
     // Which measuring the shown sizes belong to - an older one that finishes late is dropped.
     private int _measuring;
 
     public TroubleshootPage(OperationRunner runner, AppDataCleaner cleaner, SettingsStore store, ISecretStore secrets,
-        StartupTask startup, AppDataPaths paths)
+        StartupTask startup, AppDataPaths paths, LiveSettings live, TerminalService terminal)
     {
         _runner = runner; _cleaner = cleaner; _store = store; _secrets = secrets; _startup = startup; _paths = paths;
+        _live = live; _terminal = terminal;
         InitializeComponent();
+        // Focused when shown, so Esc reaches it - the title bar's button that opened it doesn't take the focus.
+        Focusable = true;
+        FocusVisualStyle = null;
+        Loaded += (_, _) => Focus();
         // Logs, packages and settings copies are DNN Manager's own; project backups are the user's - never ticked for them.
         CleanLogs.IsChecked = CleanPackages.IsChecked = CleanSettingsCopies.IsChecked = true;
         // Sizes change while the app runs (a new log line, a kept package) - measured again each time the page is shown.
@@ -35,11 +44,33 @@ public partial class TroubleshootPage : UserControl
         {
             if (e.NewValue is true) Measure();
         };
-        _runner.PropertyChanged += (_, e) =>
+        // Followed only while the page is shown: a page MainWindow lets go of isn't kept alive by the runner.
+        Loaded += (_, _) =>
         {
-            if (e.PropertyName == nameof(OperationRunner.Current)) ShowBusy();
+            _runner.PropertyChanged += OnRunnerChanged;
+            ShowBusy();
         };
+        Unloaded += (_, _) => _runner.PropertyChanged -= OnRunnerChanged;
         ShowBusy();
+    }
+
+    /// <summary>Close was pressed - the window goes back to the page Troubleshoot was opened from.</summary>
+    public event EventHandler? CloseRequested;
+
+    private void Close_Click(object sender, RoutedEventArgs e) => CloseRequested?.Invoke(this, EventArgs.Empty);
+
+    // Esc: back to the page Troubleshoot was opened from.
+    protected override void OnKeyDown(System.Windows.Input.KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Handled || e.Key != System.Windows.Input.Key.Escape) return;
+        CloseRequested?.Invoke(this, EventArgs.Empty);
+        e.Handled = true;
+    }
+
+    private void OnRunnerChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(OperationRunner.Current)) ShowBusy();
     }
 
     // ─── Restart ──────────────────────────────────────────────────────────
@@ -91,7 +122,7 @@ public partial class TroubleshootPage : UserControl
         var backups = chosen.Any(c => c.Kind == AppDataKind.ProjectBackups)
             ? $"{Environment.NewLine}{Environment.NewLine}Project backups can't be brought back."
             : "";
-        if (!Dialogs.Confirm($"Delete this data from {_paths.Root}?{Environment.NewLine}{Environment.NewLine}{list}{backups}",
+        if (!Dialogs.ConfirmDanger($"Delete this data from {_paths.Root}?{Environment.NewLine}{Environment.NewLine}{list}{backups}",
                 "Clean up data", "Cancel"))
             return;
 
@@ -106,13 +137,65 @@ public partial class TroubleshootPage : UserControl
         Measure();
     }
 
+    // ─── Reset settings to defaults ───────────────────────────────────────
+
+    private async void ResetSettings_Click(object sender, RoutedEventArgs e)
+    {
+        if (Busy()) return;
+        var nl = Environment.NewLine;
+        if (!Dialogs.ConfirmDanger(
+                $"Put every setting back to its default, as DNN Manager is installed?{nl}{nl}" +
+                $"The current settings.json is copied to {_paths.BackupsDirectory}. The saved DNN host password and database " +
+                $"server login go too, and DNN Manager stops starting at sign-in. The defaults apply at once - no restart.{nl}{nl}" +
+                "Kept: your projects, the logs, the kept DNN packages and which sites are kept warm.",
+                "Reset settings", "Cancel"))
+            return;
+
+        ResetSettingsButton.IsEnabled = false;
+        try
+        {
+            _store.ResetToDefaults();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SettingsException)
+        {
+            Dialogs.Error($"The settings could not be reset: {ex.Message}");
+            ResetSettingsButton.IsEnabled = !_runner.IsBusy;
+            return;
+        }
+        var problems = await ForgetSecretsAndStartAsync();
+
+        // Put the defaults to work, as Settings' Save does.
+        var settings = new UserSettings();
+        _live.Apply(settings);
+        ThemeManager.Initialize(settings.Appearance.Theme);
+        ThemeManager.ApplyLayout(settings.Appearance.UiScale, settings.Appearance.FontSize);
+        _terminal.Apply(settings.Terminal);
+        ResetSettingsButton.IsEnabled = !_runner.IsBusy;
+
+        if (problems.Count > 0)
+            Dialogs.Error("The settings are reset, except:" + nl + nl + string.Join(nl, problems.Select(p => $"• {p}")));
+        else
+            Toast.Show("The settings are back to their defaults.", ToastKind.Success);
+    }
+
+    /// <summary>Removes the saved passwords and starting at sign-in - what went wrong, if anything.</summary>
+    private async Task<List<string>> ForgetSecretsAndStartAsync()
+    {
+        var problems = new List<string>();
+        foreach (var secret in new[] { SecretNames.DefaultHostPassword, SecretNames.DatabaseServerPassword })
+            if (_secrets.Delete(secret) is { Success: false } deleted) problems.Add(deleted.Error!);
+        if (await _startup.GetTargetAsync() is not null && await _startup.DisableAsync() is { Success: false } disabled)
+            problems.Add($"Starting at sign-in: {disabled.Error}");
+        return problems;
+    }
+
     // ─── Reset to factory defaults ────────────────────────────────────────
 
     private async void Reset_Click(object sender, RoutedEventArgs e)
     {
         if (Busy()) return;
         var nl = Environment.NewLine;
-        if (!Dialogs.Confirm(
+        if (!Dialogs.ConfirmDanger(
                 $"Reset DNN Manager to factory defaults?{nl}{nl}" +
                 $"Removed: the settings (a copy is kept in {_paths.BackupsDirectory}), the saved passwords (the DNN host " +
                 $"password and the database server login's), starting at sign-in, which sites are kept warm, the logs and the " +
@@ -123,7 +206,6 @@ public partial class TroubleshootPage : UserControl
             return;
 
         ResetButton.IsEnabled = false;
-        var problems = new List<string>();
         try
         {
             _store.ResetToDefaults();
@@ -135,10 +217,7 @@ public partial class TroubleshootPage : UserControl
             ResetButton.IsEnabled = true;
             return;
         }
-        foreach (var secret in new[] { SecretNames.DefaultHostPassword, SecretNames.DatabaseServerPassword })
-            if (_secrets.Delete(secret) is { Success: false } deleted) problems.Add(deleted.Error!);
-        if (await _startup.GetTargetAsync() is not null && await _startup.DisableAsync() is { Success: false } disabled)
-            problems.Add($"Starting at sign-in: {disabled.Error}");
+        var problems = await ForgetSecretsAndStartAsync();
         await Task.Run(() =>
         {
             _cleaner.Clean(AppDataKind.Logs);
@@ -164,7 +243,7 @@ public partial class TroubleshootPage : UserControl
     private void ShowBusy()
     {
         var busy = _runner.IsBusy;
-        RestartButton.IsEnabled = ResetButton.IsEnabled = !busy;
+        RestartButton.IsEnabled = ResetSettingsButton.IsEnabled = ResetButton.IsEnabled = !busy;
         Selection_Changed(this, new RoutedEventArgs());
         BusyHint.Text = busy ? $"'{_runner.Current}' is running - these wait until it has finished." : "";
         BusyHint.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
