@@ -233,10 +233,18 @@ public sealed class ProjectRow : INotifyPropertyChanged
     public string KeepWarmAction => KeepWarmOn ? "Stop keeping warm" : "Keep warm";
 
     /// <summary>
-    /// The flame's (and the overview switch's) tooltip: only what a click does. How it is going is in the overview's
+    /// The flame's (and the overview switch's) tooltip: its state in a word or two. The details are in the overview's
     /// Keep warm card, what it is in Settings → Projects → Keep warm.
     /// </summary>
-    public string KeepWarmTip => KeepWarmOn ? "Disable keep warm" : "Enable keep warm";
+    public string KeepWarmTip => "Keep warm: " + _keepWarm.State switch
+    {
+        KeepWarmState.Off => CanToggleKeepWarm ? "Off" : "Unavailable (no http binding)",
+        KeepWarmState.Waiting => "Turning on…",
+        KeepWarmState.WarmingUp => "Warming up…",
+        KeepWarmState.Warm => "On",
+        KeepWarmState.Paused => "Paused",
+        _ => "Error"
+    };
 
     /// <summary>Why keep warm can't be switched on; null when it can, or is on.</summary>
     public string? KeepWarmUnavailable => KeepWarmOn || HasUrl ? null : "The site has no http or https binding to request";

@@ -34,8 +34,8 @@ Manager, and **Cancel** undoes what an operation had already done.
   managed attach too) or the site's SQL container is down; a site that keeps
   failing or crashing is left alone until **Check now**. Requests never go to
   DNN's installer, however a page or a redirect is written. The
-  flame shows how it is going (its tooltip: *Enable keep warm* / *Disable keep
-  warm*); the overview shows the idle time-out, interval
+  flame shows how it is going (its tooltip names the state: *Keep warm: On*, *Off*,
+  *Turning on…*, *Warming up…*, *Paused* or *Error*); the overview shows the idle time-out, interval
   and pages, and gives a site its own. Defaults in **Settings → Projects → Keep
   warm** (`projects.keepWarm`). Plain HTTP requests: switching it on asks
   nothing, and needs no mail server, extension or change in IIS or DNN.

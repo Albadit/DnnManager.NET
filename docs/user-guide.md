@@ -777,8 +777,8 @@ The first failure, giving up and recovering are noted in **Output**.
 
 The flame shows how it is going: an outline while off; filled in orange while
 the site is warm, pulsing while it warms up, grey while paused, with a red dot
-while it fails. Its tooltip only says what a click does - *Enable keep warm* or
-*Disable keep warm*. The overview's **Keep warm** card says how it is going and
+while it fails. Its tooltip names the state in a word: *Keep warm: On*, *Off*, *Turning on…*,
+*Warming up…*, *Paused* or *Error*. The overview's **Keep warm** card says how it is going and
 shows the app pool's idle time-out, how often the site is requested and which
 pages, and gives the site an interval and pages of its own.
 
