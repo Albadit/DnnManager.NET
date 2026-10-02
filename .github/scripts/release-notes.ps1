@@ -3,8 +3,9 @@
     Writes the release notes for a version as Markdown.
 
 .DESCRIPTION
-    The hand-written entry in CHANGELOG.md comes first: its "## vX.Y.Z" section is sorted into What's new,
-    Improvements, Bug fixes, Security, Removed and Installation / Update notes. Without an entry, the same
+    The hand-written entry in CHANGELOG.md comes first: its "## vX.Y.Z" section (or "## Unreleased" when there
+    is none) is sorted into What's new, Improvements, Bug fixes, Security, Removed and Installation / Update
+    notes. Without an entry, the same
     sections are made from the commit subjects since the previous release (new: / fix: / update: ...).
     The commits since the previous release are always listed at the end.
 
@@ -45,8 +46,12 @@ $changelog = Join-Path $root 'CHANGELOG.md'
 if (Test-Path $changelog) {
     $lines = [IO.File]::ReadAllLines($changelog)
     $start = -1
-    for ($i = 0; $i -lt $lines.Count; $i++) {
-        if ($lines[$i] -match "^## v?$([regex]::Escape($Version))(\s|$)") { $start = $i; break }
+    # The version's own entry, or - when its heading wasn't renamed yet - the Unreleased one.
+    foreach ($heading in "^## v?$([regex]::Escape($Version))(\s|$)", '^## Unreleased\s*$') {
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match $heading) { $start = $i; break }
+        }
+        if ($start -ge 0) { break }
     }
     if ($start -ge 0) {
         $end = $lines.Count
