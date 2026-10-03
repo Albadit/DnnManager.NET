@@ -23,7 +23,7 @@ All notable changes to DnnManager.NET are documented here.
   the new version back on the same page, project and Details tab. Anything that
   fails before closing leaves the current version running; a failed install
   starts the old version again and says why. Checked a few seconds after start,
-  every 6 hours, and on Settings → About.
+  every hour, and on Settings → About.
 - **DNN Manager opens where you left it** - after a close, a restart, an update
   or a crash: the window's place and size, the page, the Projects table (search,
   *Only show running*, sorting, expanded and selected rows, scroll position), the

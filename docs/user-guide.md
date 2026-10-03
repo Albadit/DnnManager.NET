@@ -49,7 +49,7 @@ them, delete that folder after uninstalling.
 ## Update
 
 DNN Manager asks GitHub for its newest release a few seconds after it starts,
-every 6 hours after that, and when you open **Settings → About**. When there is a
+every hour after that, and when you open **Settings → About**. When there is a
 newer one, a blue **Update** button appears in the title bar, left of the
 layout buttons. Click it and DNN Manager:
 

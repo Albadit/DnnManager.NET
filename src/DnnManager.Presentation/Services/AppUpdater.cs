@@ -16,7 +16,7 @@ public enum UpdateState { Checking, UpToDate, Available, Unreachable, Downloadin
 /// </summary>
 public sealed class AppUpdater : INotifyPropertyChanged
 {
-    private static readonly TimeSpan FirstCheck = TimeSpan.FromSeconds(5), CheckEvery = TimeSpan.FromHours(6), CleanupAfter = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan FirstCheck = TimeSpan.FromSeconds(5), CheckEvery = TimeSpan.FromHours(1), CleanupAfter = TimeSpan.FromMinutes(2);
 
     private readonly AppReleaseFeed _feed = new(new HttpClient { Timeout = TimeSpan.FromSeconds(15) });
     private readonly UpdateDownloader _downloader = new(new HttpClient { Timeout = TimeSpan.FromMinutes(30) });

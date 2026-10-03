@@ -59,7 +59,7 @@ places tell you most of what went wrong:
 - **Unable to reach GitHub** (gray dot): no internet, a proxy or firewall in the
   way, or GitHub's rate limit (60 requests an hour per IP address). The reason is
   under the status; nothing is wrong with DNN Manager. It asks again when About is
-  opened and every 6 hours.
+  opened and every hour.
 - **The download or its check failed** (*Update failed* on About, and in the Update
   button's tooltip): nothing was changed - DNN Manager kept running. Click **Update**
   to try again; a download that isn't the file
