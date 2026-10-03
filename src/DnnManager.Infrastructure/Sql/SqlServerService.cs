@@ -9,15 +9,10 @@ namespace DnnManager.Infrastructure.Sql;
 /// <summary>
 /// Talks to SQL Server by running <c>sqlcmd</c> inside the shared container.
 /// </summary>
-public sealed class SqlServerService : ISqlServerService
+public sealed class SqlServerService(ProcessRunner proc, IOptions<AppOptions> opts) : ISqlServerService
 {
-    private readonly ProcessRunner _proc;
-    private readonly AppOptions _opts;
-
-    public SqlServerService(ProcessRunner proc, IOptions<AppOptions> opts)
-    {
-        _proc = proc; _opts = opts.Value;
-    }
+    private readonly ProcessRunner _proc = proc;
+    private readonly AppOptions _opts = opts.Value;
 
     private string Container => _opts.Docker.ContainerName;
     private string SaPassword => _opts.Docker.SaPassword;

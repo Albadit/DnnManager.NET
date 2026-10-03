@@ -1,5 +1,3 @@
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -94,6 +92,30 @@ public partial class ProjectView : UserControl
     // The site's database as its web.config has it (null: none of its own yet), and its host accounts as read.
     private DatabaseConnection? _database;
     private IReadOnlyList<string> _hosts = [];
+
+    private IEnumerable<RadioButton> Tabs => [GeneralTab, IisTab, DnnTab, DatabaseTab, AdvancedTab];
+
+    /// <summary>The next tab (<paramref name="by"/> 1) or the one before (-1), round the end - Ctrl+PageUp / Ctrl+PageDown.</summary>
+    public void StepTab(int by)
+    {
+        var tabs = Tabs.ToList();
+        var index = tabs.FindIndex(t => t.IsChecked == true);
+        var next = tabs[((index + by) % tabs.Count + tabs.Count) % tabs.Count];
+        next.IsChecked = true;
+        if (IsKeyboardFocusWithin) next.Focus();
+    }
+
+    /// <summary>The keyboard on the shown tab - the arrows move between them, Tab goes on to the content.</summary>
+    public void FocusTabs() => Tabs.First(t => t.IsChecked == true).Focus();
+
+    /// <summary>The tab shown, by its name: General, IIS, DNN, Database or Advanced.</summary>
+    public string Tab => (string)Tabs.First(t => t.IsChecked == true).Content;
+
+    /// <summary>Shows the tab named <paramref name="name"/>; one that isn't there leaves the tab as it is.</summary>
+    public void ShowTab(string? name)
+    {
+        if (Tabs.FirstOrDefault(t => string.Equals((string)t.Content, name, StringComparison.OrdinalIgnoreCase)) is { } tab) tab.IsChecked = true;
+    }
 
     private void Section_Checked(object sender, RoutedEventArgs e)
     {

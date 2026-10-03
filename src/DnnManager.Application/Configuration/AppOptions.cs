@@ -35,6 +35,8 @@ public sealed class AppOptions
         GitHubReleaseApis = other.GitHubReleaseApis;
         RequiredIisFeatures = other.RequiredIisFeatures;
         ProjectColumns = other.ProjectColumns;
+        KeyboardShortcuts = other.KeyboardShortcuts;
+        Layout = other.Layout;
         Terminal = other.Terminal;
         SaveResourcesWhileMinimized = other.SaveResourcesWhileMinimized;
         Changed?.Invoke();
@@ -67,6 +69,10 @@ public sealed class AppOptions
     public IReadOnlyList<IisFeatureSetting> RequiredIisFeatures { get; set; } = Array.Empty<IisFeatureSetting>();
     /// <summary>The optional columns the Projects table shows at startup; its Columns button changes (and saves) them.</summary>
     public IReadOnlyList<string> ProjectColumns { get; set; } = Array.Empty<string>();
+    /// <summary>The keyboard shortcuts changed from their defaults, by command id (empty: none); Settings - Keyboard shortcuts changes (and saves) them.</summary>
+    public IReadOnlyDictionary<string, string> KeyboardShortcuts { get; set; } = new Dictionary<string, string>();
+    /// <summary>How the window is laid out (Customize Layout changes and saves it while the app runs).</summary>
+    public LayoutSettings Layout { get; set; } = new();
     /// <summary>The terminal's settings at startup; the Settings page changes (and saves) them while the app runs.</summary>
     public TerminalSettings Terminal { get; set; } = new();
     /// <summary>

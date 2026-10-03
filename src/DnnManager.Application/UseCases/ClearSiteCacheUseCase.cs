@@ -9,18 +9,13 @@ namespace DnnManager.Application.UseCases;
 /// site its app pool is recycled, which empties what ASP.NET and DNN keep in memory. The site restarts; its next
 /// request builds everything anew.
 /// </summary>
-public sealed class ClearSiteCacheUseCase
+public sealed class ClearSiteCacheUseCase(IIisManager iis, IUserPrompt prompt)
 {
     // DNN's caches on disk, inside the site's folder. Their files are deleted; the folders stay.
     private static readonly string[] CacheFolders = [@"Portals\_default\Cache", @"App_Data\ClientDependency"];
 
-    private readonly IIisManager _iis;
-    private readonly IUserPrompt _prompt;
-
-    public ClearSiteCacheUseCase(IIisManager iis, IUserPrompt prompt)
-    {
-        _iis = iis; _prompt = prompt;
-    }
+    private readonly IIisManager _iis = iis;
+    private readonly IUserPrompt _prompt = prompt;
 
     public async Task<Result> ExecuteAsync(string siteName, string directory, IProgressReporter reporter, CancellationToken ct)
     {

@@ -10,7 +10,7 @@ namespace DnnManager.Infrastructure.Projects;
 /// <see cref="ProjectRecord"/>s as JSON files in <c>Documents\DnnManager\projects</c>, one per project. They hold no
 /// secrets. A record that can't be read counts as no record - it is only what DNN Manager remembers, never the site.
 /// </summary>
-public sealed class ProjectRecords : IProjectRecords
+public sealed class ProjectRecords(AppDataPaths paths, ILogger<ProjectRecords> log) : IProjectRecords
 {
     private static readonly JsonSerializerOptions Json = new()
     {
@@ -19,14 +19,8 @@ public sealed class ProjectRecords : IProjectRecords
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
     };
 
-    private readonly AppDataPaths _paths;
-    private readonly ILogger<ProjectRecords> _log;
-
-    public ProjectRecords(AppDataPaths paths, ILogger<ProjectRecords> log)
-    {
-        _paths = paths;
-        _log = log;
-    }
+    private readonly AppDataPaths _paths = paths;
+    private readonly ILogger<ProjectRecords> _log = log;
 
     public ProjectRecord? Find(string site)
     {

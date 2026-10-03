@@ -7,15 +7,10 @@ namespace DnnManager.Application.UseCases;
 /// Starts, stops or restarts IIS as a whole (<c>iisreset</c>). A restart clears stuck worker processes and picks up
 /// IIS changes made outside the app - e.g. a newly installed URL Rewrite module behind a 500.19 error.
 /// </summary>
-public sealed class IisServerUseCase
+public sealed class IisServerUseCase(IIisManager iis, IUserPrompt prompt)
 {
-    private readonly IIisManager _iis;
-    private readonly IUserPrompt _prompt;
-
-    public IisServerUseCase(IIisManager iis, IUserPrompt prompt)
-    {
-        _iis = iis; _prompt = prompt;
-    }
+    private readonly IIisManager _iis = iis;
+    private readonly IUserPrompt _prompt = prompt;
 
     public async Task<Result> ExecuteAsync(IisServerAction action, IProgressReporter reporter, CancellationToken ct)
     {

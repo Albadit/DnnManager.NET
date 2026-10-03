@@ -71,7 +71,7 @@ public static class ThemeManager
     ];
 
     // The caption height each custom title bar was made with, at 100 %.
-    private static readonly ConditionalWeakTable<WindowChrome, object> CaptionHeights = new();
+    private static readonly ConditionalWeakTable<WindowChrome, object> CaptionHeights = [];
 
     /// <summary>The UI scale, 1 = 100 %.</summary>
     public static double Scale { get; private set; } = 1;

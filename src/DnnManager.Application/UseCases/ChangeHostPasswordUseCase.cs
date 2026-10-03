@@ -8,17 +8,12 @@ namespace DnnManager.Application.UseCases;
 /// restarts the site (DNN caches its users). A LocalDB file database can only be opened while the site doesn't use it,
 /// so that site is stopped meanwhile - and started again only if it ran.
 /// </summary>
-public sealed class ChangeHostPasswordUseCase
+public sealed class ChangeHostPasswordUseCase(IIisManager iis, IDnnInstaller dnn, IProjectRepository projects, LocalSqlContainer sql)
 {
-    private readonly IIisManager _iis;
-    private readonly IDnnInstaller _dnn;
-    private readonly IProjectRepository _projects;
-    private readonly LocalSqlContainer _sql;
-
-    public ChangeHostPasswordUseCase(IIisManager iis, IDnnInstaller dnn, IProjectRepository projects, LocalSqlContainer sql)
-    {
-        _iis = iis; _dnn = dnn; _projects = projects; _sql = sql;
-    }
+    private readonly IIisManager _iis = iis;
+    private readonly IDnnInstaller _dnn = dnn;
+    private readonly IProjectRepository _projects = projects;
+    private readonly LocalSqlContainer _sql = sql;
 
     public async Task<Result> ExecuteAsync(string siteName, string siteDirectory, string userName, string newPassword,
         IProgressReporter reporter, CancellationToken ct)

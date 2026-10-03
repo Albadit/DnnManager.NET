@@ -1,88 +1,105 @@
 <ResourceDictionary x:Class="DnnManager.Presentation.Themes.LightTheme"
                     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <!-- Same keys as DarkTheme.xaml; everything references them with DynamicResource so a switch repaints live. -->
-    <SolidColorBrush x:Key="WindowBg"         Color="#F4F5F7" />
-    <SolidColorBrush x:Key="CardBg"           Color="#FFFFFF" />
-    <SolidColorBrush x:Key="CardBorder"       Color="#E1E4E8" />
-    <SolidColorBrush x:Key="InputBg"          Color="#FFFFFF" />
-    <SolidColorBrush x:Key="InputBorder"      Color="#C8CDD3" />
-    <SolidColorBrush x:Key="HoverBg"          Color="#EEF1F4" />
-    <SolidColorBrush x:Key="SelectionBg"      Color="#E3ECFD" />
-    <SolidColorBrush x:Key="HeaderBg"         Color="#F7F8FA" />
-    <SolidColorBrush x:Key="GridLine"         Color="#EEF0F2" />
-    <SolidColorBrush x:Key="ScrollThumb"      Color="#C1C7CF" />
-    <SolidColorBrush x:Key="ScrollThumbHover" Color="#9EA6B0" />
+    <!-- VS Code's Light Modern - same keys as DarkTheme.xaml; everything references them with DynamicResource so a switch
+         repaints live. Each colour is VS Code's own, named after the key it comes from:
+         extensions/theme-defaults/themes/light_modern.json, and VS Code's built-in defaults (colorRegistry,
+         terminalColorRegistry) for what that file leaves out. Not VS Code's: the flame (KeepWarmFg) and the Danger button,
+         which it has neither of, and TextMuted - Light Modern's descriptionForeground is its text colour (#3B3B3B), so the
+         muted text is its inactive-tab grey. -->
+    <SolidColorBrush x:Key="WindowBg"         Color="#FFFFFF" />  <!-- editor.background -->
+    <SolidColorBrush x:Key="CardBg"           Color="#F8F8F8" />  <!-- panel.background -->
+    <SolidColorBrush x:Key="CardBorder"       Color="#E5E5E5" />  <!-- panel.border -->
+    <SolidColorBrush x:Key="InputBg"          Color="#FFFFFF" />  <!-- input.background -->
+    <SolidColorBrush x:Key="InputBorder"      Color="#CECECE" />  <!-- input.border -->
+    <SolidColorBrush x:Key="HoverBg"          Color="#F2F2F2" />  <!-- list.hoverBackground -->
+    <SolidColorBrush x:Key="SelectionBg"      Color="#E8E8E8" />  <!-- list.activeSelectionBackground -->
+    <SolidColorBrush x:Key="HeaderBg"         Color="#F8F8F8" />  <!-- sideBarSectionHeader.background -->
+    <SolidColorBrush x:Key="GridLine"         Color="#E5E5E5" />  <!-- tab.border -->
+    <SolidColorBrush x:Key="ScrollThumb"      Color="#66646464" /> <!-- scrollbarSlider.background -->
+    <SolidColorBrush x:Key="ScrollThumbHover" Color="#B3646464" /> <!-- scrollbarSlider.hoverBackground -->
 
-    <SolidColorBrush x:Key="TextPrimary"      Color="#1F2328" />
-    <SolidColorBrush x:Key="TextMuted"        Color="#656D76" />
-    <SolidColorBrush x:Key="ErrorText"        Color="#C62828" />
-    <SolidColorBrush x:Key="SuccessText"      Color="#1A7F37" />
+    <SolidColorBrush x:Key="TextPrimary"      Color="#3B3B3B" />  <!-- foreground -->
+    <SolidColorBrush x:Key="TextMuted"        Color="#616161" />  <!-- tab.inactiveForeground -->
+    <SolidColorBrush x:Key="ErrorText"        Color="#F85149" />  <!-- errorForeground -->
+    <SolidColorBrush x:Key="SuccessText"      Color="#369432" />  <!-- ports.iconRunningProcessForeground -->
     <!-- Keep warm's flame while a site is kept warm. -->
     <SolidColorBrush x:Key="KeepWarmFg"       Color="#D9480F" />
 
-    <SolidColorBrush x:Key="Accent"           Color="#2F6FEB" />
-    <SolidColorBrush x:Key="AccentHover"      Color="#2159C9" />
-    <SolidColorBrush x:Key="DangerBrush"      Color="#D13B3B" />
-    <SolidColorBrush x:Key="DangerHoverBrush" Color="#B02E2E" />
+    <SolidColorBrush x:Key="Accent"           Color="#005FB8" />  <!-- button.background, focusBorder -->
+    <SolidColorBrush x:Key="AccentHover"      Color="#0258A8" />  <!-- button.hoverBackground -->
+    <SolidColorBrush x:Key="DangerBrush"      Color="#C72E0F" />  <!-- statusBarItem.errorBackground -->
+    <SolidColorBrush x:Key="DangerHoverBrush" Color="#A8270D" />
 
-    <SolidColorBrush x:Key="InfoBannerBg"     Color="#EAF2FF" />
-    <SolidColorBrush x:Key="InfoBannerBorder" Color="#B9D2FB" />
-    <SolidColorBrush x:Key="WarnBannerBg"     Color="#FFF8E1" />
-    <SolidColorBrush x:Key="WarnBannerBorder" Color="#F0D68A" />
+    <SolidColorBrush x:Key="InfoBannerBg"     Color="#D6ECF2" />  <!-- inputValidation.infoBackground -->
+    <SolidColorBrush x:Key="InfoBannerBorder" Color="#007ACC" />  <!-- inputValidation.infoBorder -->
+    <SolidColorBrush x:Key="WarnBannerBg"     Color="#F6F5D2" />  <!-- inputValidation.warningBackground -->
+    <SolidColorBrush x:Key="WarnBannerBorder" Color="#B89500" />  <!-- inputValidation.warningBorder -->
 
-    <SolidColorBrush x:Key="SidebarBg"        Color="#FFFFFF" />
-    <SolidColorBrush x:Key="SidebarBorder"    Color="#E1E4E8" />
-    <SolidColorBrush x:Key="SidebarFg"        Color="#454C57" />
-    <SolidColorBrush x:Key="SidebarActiveFg"  Color="#1F2328" />
-    <SolidColorBrush x:Key="SidebarHover"     Color="#F1F3F6" />
-    <SolidColorBrush x:Key="SidebarSelected"  Color="#E8EFFD" />
-    <SolidColorBrush x:Key="SidebarMuted"     Color="#7A828F" />
-    <SolidColorBrush x:Key="SidebarDivider"   Color="#E6E8EC" />
+    <SolidColorBrush x:Key="SidebarBg"        Color="#F8F8F8" />  <!-- sideBar.background, titleBar.activeBackground -->
+    <SolidColorBrush x:Key="SidebarBorder"    Color="#E5E5E5" />  <!-- sideBar.border -->
+    <SolidColorBrush x:Key="SidebarFg"        Color="#3B3B3B" />  <!-- sideBar.foreground -->
+    <SolidColorBrush x:Key="SidebarActiveFg"  Color="#000000" />  <!-- list.activeSelectionForeground -->
+    <SolidColorBrush x:Key="SidebarHover"     Color="#F2F2F2" />  <!-- list.hoverBackground -->
+    <SolidColorBrush x:Key="SidebarSelected"  Color="#E8E8E8" />  <!-- list.activeSelectionBackground -->
+    <SolidColorBrush x:Key="SidebarMuted"     Color="#616161" />  <!-- activityBar.inactiveForeground -->
+    <SolidColorBrush x:Key="SidebarDivider"   Color="#E5E5E5" />  <!-- sideBarSectionHeader.border -->
 
-    <SolidColorBrush x:Key="StatusBarBg"      Color="#FFFFFF" />
+    <SolidColorBrush x:Key="StatusBarBg"      Color="#F8F8F8" />  <!-- statusBar.background -->
+    <!-- A search option (Aa, ab, .*) in the panel's search box, under the mouse. -->
+    <SolidColorBrush x:Key="InputOptionHoverBg"       Color="#50B8B8B8" /> <!-- inputOption.hoverBackground -->
+    <!-- The line between groups of the command palette (Customize Layout). -->
+    <SolidColorBrush x:Key="PickerGroupBorder"        Color="#E5E5E5" />   <!-- pickerGroup.border -->
+    <!-- Behind Settings and Troubleshoot, which open over the page: the page dimmed. -->
+    <SolidColorBrush x:Key="ModalBackdrop"            Color="#33000000" />
+    <!-- The search in the middle of the title bar. -->
+    <SolidColorBrush x:Key="CommandCenterFg"          Color="#1E1E1E" />   <!-- commandCenter.foreground -->
+    <SolidColorBrush x:Key="CommandCenterBg"          Color="#0D000000" /> <!-- commandCenter.background -->
+    <SolidColorBrush x:Key="CommandCenterHoverBg"     Color="#14000000" /> <!-- commandCenter.activeBackground -->
+    <SolidColorBrush x:Key="CommandCenterBorder"      Color="#331E1E1E" /> <!-- commandCenter.border -->
+    <SolidColorBrush x:Key="CommandCenterHoverBorder" Color="#4D1E1E1E" /> <!-- commandCenter.activeBorder -->
 
-    <SolidColorBrush x:Key="LogBg"            Color="#FFFFFF" />
+    <SolidColorBrush x:Key="LogBg"            Color="#F8F8F8" />  <!-- panel.background -->
     <!-- Search (Ctrl+F in the bottom panel): every match, and the current one. -->
-    <SolidColorBrush x:Key="SearchMatchBg"    Color="#FBE7A1" />
-    <SolidColorBrush x:Key="SearchCurrentBg"  Color="#F3B73F" />
-    <SolidColorBrush x:Key="LogHeaderBg"      Color="#F7F8FA" />
-    <SolidColorBrush x:Key="LogHeaderFg"      Color="#1F2328" />
-    <SolidColorBrush x:Key="LogFg"            Color="#2D333B" />
-    <SolidColorBrush x:Key="LogMuted"         Color="#656D76" />
-    <SolidColorBrush x:Key="LogFail"          Color="#C62828" />
-    <SolidColorBrush x:Key="LogWarn"          Color="#9A6700" />
-    <SolidColorBrush x:Key="LogTrack"         Color="#E1E4E8" />
+    <SolidColorBrush x:Key="SearchMatchBg"    Color="#55EA5C00" /> <!-- editor.findMatchHighlightBackground -->
+    <SolidColorBrush x:Key="SearchCurrentBg"  Color="#A8AC94" />  <!-- editor.findMatchBackground -->
+    <SolidColorBrush x:Key="LogHeaderBg"      Color="#F8F8F8" />  <!-- panel.background -->
+    <SolidColorBrush x:Key="LogHeaderFg"      Color="#000000" />  <!-- list.activeSelectionForeground -->
+    <SolidColorBrush x:Key="LogFg"            Color="#3B3B3B" />  <!-- terminal.foreground -->
+    <SolidColorBrush x:Key="LogMuted"         Color="#616161" />  <!-- tab.inactiveForeground -->
+    <SolidColorBrush x:Key="LogFail"          Color="#CD3131" />  <!-- terminal.ansiRed -->
+    <SolidColorBrush x:Key="LogWarn"          Color="#BF8803" />  <!-- editorWarning.foreground -->
+    <SolidColorBrush x:Key="LogTrack"         Color="#E5E5E5" />  <!-- panel.border -->
     <!-- Output tab (Controls/PipelineView): the log, the stage icons and the status pills - its header and stage rail use
          the panel's Log* brushes. -->
-    <SolidColorBrush x:Key="OutBorder"          Color="#E1E4E8" />
-    <SolidColorBrush x:Key="OutLogBg"           Color="#FFFFFF" />
-    <SolidColorBrush x:Key="OutText"            Color="#2D333B" />
-    <SolidColorBrush x:Key="OutHeading"         Color="#1F2328" />
-    <SolidColorBrush x:Key="OutHeadingTime"     Color="#57606A" />
-    <SolidColorBrush x:Key="OutTime"            Color="#57606A" />
-    <SolidColorBrush x:Key="OutMuted"           Color="#656D76" />
-    <SolidColorBrush x:Key="OutDim"             Color="#8C959F" />
-    <SolidColorBrush x:Key="OutSkippedIcon"     Color="#C4C9CF" />
-    <SolidColorBrush x:Key="OutValue"           Color="#0E7C72" />
-    <SolidColorBrush x:Key="OutActive"          Color="#14998C" />
-    <SolidColorBrush x:Key="OutSuccessText"     Color="#1A7F37" />
-    <SolidColorBrush x:Key="OutOk"              Color="#1A7F37" />
-    <SolidColorBrush x:Key="OutWarn"            Color="#9A6700" />
-    <SolidColorBrush x:Key="OutWarnText"        Color="#7A4E00" />
-    <SolidColorBrush x:Key="OutWarnRowBg"       Color="#FFF4DB" />
-    <SolidColorBrush x:Key="OutError"           Color="#CF222E" />
-    <SolidColorBrush x:Key="OutErrorSoft"       Color="#CF222E" />
-    <SolidColorBrush x:Key="OutErrorText"       Color="#82071E" />
-    <SolidColorBrush x:Key="OutErrorDetail"     Color="#A0414B" />
-    <SolidColorBrush x:Key="OutErrorBg"         Color="#FFEBE9" />
-    <SolidColorBrush x:Key="OutBadgeText"       Color="#FFFFFF" />
-    <SolidColorBrush x:Key="OutPillRunningBg"   Color="#DDF4F1" />
-    <SolidColorBrush x:Key="OutPillRunningFg"   Color="#0E7C72" />
-    <SolidColorBrush x:Key="OutPillOkBg"        Color="#DAFBE1" />
-    <SolidColorBrush x:Key="OutPillOkFg"        Color="#1A7F37" />
-    <SolidColorBrush x:Key="OutPillFailBg"      Color="#FFEBE9" />
-    <SolidColorBrush x:Key="OutPillFailFg"      Color="#CF222E" />
-    <SolidColorBrush x:Key="OutPillNeutralBg"   Color="#EAEEF2" />
-    <SolidColorBrush x:Key="OutPillNeutralFg"   Color="#57606A" />
+    <SolidColorBrush x:Key="OutBorder"          Color="#E5E5E5" />  <!-- panel.border -->
+    <SolidColorBrush x:Key="OutLogBg"           Color="#F8F8F8" />  <!-- panel.background -->
+    <SolidColorBrush x:Key="OutText"            Color="#3B3B3B" />  <!-- foreground -->
+    <SolidColorBrush x:Key="OutHeading"         Color="#1F1F1F" />  <!-- settings.headerForeground -->
+    <SolidColorBrush x:Key="OutHeadingTime"     Color="#616161" />  <!-- tab.inactiveForeground -->
+    <SolidColorBrush x:Key="OutTime"            Color="#616161" />  <!-- tab.inactiveForeground -->
+    <SolidColorBrush x:Key="OutMuted"           Color="#616161" />  <!-- tab.inactiveForeground -->
+    <SolidColorBrush x:Key="OutDim"             Color="#8B949E" />  <!-- pickerGroup.foreground -->
+    <SolidColorBrush x:Key="OutSkippedIcon"     Color="#CECECE" />  <!-- input.border -->
+    <SolidColorBrush x:Key="OutValue"           Color="#005FB8" />  <!-- textLink.foreground -->
+    <SolidColorBrush x:Key="OutActive"          Color="#0063D3" />  <!-- editorInfo.foreground -->
+    <SolidColorBrush x:Key="OutSuccessText"     Color="#369432" />  <!-- ports.iconRunningProcessForeground -->
+    <SolidColorBrush x:Key="OutOk"              Color="#369432" />  <!-- ports.iconRunningProcessForeground -->
+    <SolidColorBrush x:Key="OutWarn"            Color="#BF8803" />  <!-- editorWarning.foreground -->
+    <SolidColorBrush x:Key="OutWarnText"        Color="#855F00" />  <!-- list.warningForeground -->
+    <SolidColorBrush x:Key="OutWarnRowBg"       Color="#F6F5D2" />  <!-- inputValidation.warningBackground -->
+    <SolidColorBrush x:Key="OutError"           Color="#CD3131" />  <!-- terminal.ansiRed -->
+    <SolidColorBrush x:Key="OutErrorSoft"       Color="#B01011" />  <!-- list.errorForeground -->
+    <SolidColorBrush x:Key="OutErrorText"       Color="#B01011" />  <!-- list.errorForeground -->
+    <SolidColorBrush x:Key="OutErrorDetail"     Color="#616161" />  <!-- tab.inactiveForeground -->
+    <SolidColorBrush x:Key="OutErrorBg"         Color="#F2DEDE" />  <!-- inputValidation.errorBackground -->
+    <SolidColorBrush x:Key="OutBadgeText"       Color="#FFFFFF" />  <!-- button.foreground -->
+    <SolidColorBrush x:Key="OutPillRunningBg"   Color="#D6ECF2" />  <!-- inputValidation.infoBackground -->
+    <SolidColorBrush x:Key="OutPillRunningFg"   Color="#0063D3" />  <!-- editorInfo.foreground -->
+    <SolidColorBrush x:Key="OutPillOkBg"        Color="#26369432" /> <!-- ports.iconRunningProcessForeground, faint -->
+    <SolidColorBrush x:Key="OutPillOkFg"        Color="#369432" />  <!-- ports.iconRunningProcessForeground -->
+    <SolidColorBrush x:Key="OutPillFailBg"      Color="#F2DEDE" />  <!-- inputValidation.errorBackground -->
+    <SolidColorBrush x:Key="OutPillFailFg"      Color="#B01011" />  <!-- list.errorForeground -->
+    <SolidColorBrush x:Key="OutPillNeutralBg"   Color="#E5E5E5" />  <!-- button.secondaryBackground -->
+    <SolidColorBrush x:Key="OutPillNeutralFg"   Color="#3B3B3B" />  <!-- button.secondaryForeground -->
 </ResourceDictionary>

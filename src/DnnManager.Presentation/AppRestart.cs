@@ -16,16 +16,25 @@ internal static class AppRestart
     /// <summary>Set when the window closed for a restart - <see cref="Program"/> starts the new process once the app has ended.</summary>
     public static bool Requested { get; private set; }
 
+    // What starts instead of DNN Manager itself - the update helper, which starts it once it has installed the update.
+    private static ProcessStartInfo? _instead;
+
     /// <summary>
-    /// Closes the window for a restart. False when closing was cancelled (the user chose to stay) - nothing happens then.
+    /// Closes the window for a restart - and, after it, starts <paramref name="instead"/> when given (else DNN Manager
+    /// again). False when closing was cancelled (the user chose to stay) - nothing happens then.
     /// </summary>
-    public static bool Restart()
+    public static bool Restart(ProcessStartInfo? instead = null)
     {
         if (System.Windows.Application.Current?.MainWindow is not { } window) return false;
         Requested = true;
+        _instead = instead;
         window.Close();
         // Still shown: a question on closing was answered with "stay".
-        if (window.IsVisible) Requested = false;
+        if (window.IsVisible)
+        {
+            Requested = false;
+            _instead = null;
+        }
         return Requested;
     }
 
@@ -35,9 +44,12 @@ internal static class AppRestart
         if (Environment.ProcessPath is not { } exe) return;
         try
         {
-            var start = new ProcessStartInfo(exe) { UseShellExecute = false, WorkingDirectory = AppContext.BaseDirectory };
-            start.ArgumentList.Add(AfterArgument);
-            start.ArgumentList.Add(Environment.ProcessId.ToString());
+            var start = _instead ?? new ProcessStartInfo(exe) { UseShellExecute = false, WorkingDirectory = AppContext.BaseDirectory };
+            if (_instead is null)
+            {
+                start.ArgumentList.Add(AfterArgument);
+                start.ArgumentList.Add(Environment.ProcessId.ToString());
+            }
             Process.Start(start);
         }
         catch (Exception ex)

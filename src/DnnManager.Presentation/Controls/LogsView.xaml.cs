@@ -52,7 +52,7 @@ public partial class LogsView : UserControl, ISearchTarget
     private SiteLogSource? _source;
     private bool _filling;
     // Lines that arrived while the window was minimized - shown when it is restored.
-    private readonly List<string> _held = new();
+    private readonly List<string> _held = [];
 
     public LogsView()
     {
@@ -63,6 +63,10 @@ public partial class LogsView : UserControl, ISearchTarget
 
     /// <summary>The log shown: "ceesboer - DNN log - 2026.10.01"; null when none is.</summary>
     public string? Current { get; private set; }
+
+    /// <summary>The site whose log is shown, and which log - kept for the next start.</summary>
+    public string? CurrentSite { get; private set; }
+    public SiteLogSource? CurrentSource => _source;
 
     internal void Attach(ServerStore store, SiteLogCatalog catalog)
     {
@@ -78,13 +82,23 @@ public partial class LogsView : UserControl, ISearchTarget
     // ─── Choosing a site and a log ────────────────────────────────────────
 
     /// <summary>Shows <paramref name="site"/>'s log <paramref name="source"/> - its newest one when null.</summary>
-    internal async void Show(ProjectRow site, SiteLogSource? source)
+    internal void Show(ProjectRow site, SiteLogSource? source) =>
+        Show(site, s => source is null || SameLog(s, source));
+
+    /// <summary>
+    /// Shows <paramref name="site"/>'s log of kind <paramref name="group"/> named <paramref name="title"/> - as it was
+    /// before DNN Manager restarted; its newest log when that one isn't there (any more).
+    /// </summary>
+    internal void Show(ProjectRow site, string? group, string? title) =>
+        Show(site, s => s.Group == group && s.Title == title);
+
+    private async void Show(ProjectRow site, Func<SiteLogSource, bool> wanted)
     {
         _filling = true;
         SiteBox.SelectedItem = site;
         _filling = false;
         if (!await FillLogsAsync(site)) return;
-        var item = LogBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag is SiteLogSource s && (source is null || SameLog(s, source)))
+        var item = LogBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag is SiteLogSource s && wanted(s))
                    ?? LogBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag is SiteLogSource);
         LogBox.SelectedItem = item;
     }
@@ -142,6 +156,7 @@ public partial class LogsView : UserControl, ISearchTarget
     {
         Stop();
         _source = source;
+        CurrentSite = site;
         Current = $"{site} - {source.Title}";
         Description.Text = source.Description;
         Description.ToolTip = source.Description;

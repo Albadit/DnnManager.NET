@@ -13,13 +13,11 @@ public sealed record SettingsNotice(bool IsWarning, string Message);
 public sealed record SettingsLoadResult(UserSettings Settings, IReadOnlyList<SettingsNotice> Notices);
 
 /// <summary><c>settings.json</c> can't be used as it is: not JSON, a value of the wrong type or not allowed, or unreadable.</summary>
-public sealed class SettingsException : Exception
+public sealed class SettingsException(string message, IReadOnlyList<string>? problems = null, Exception? inner = null) : Exception(message, inner)
 {
-    public SettingsException(string message, IReadOnlyList<string>? problems = null, Exception? inner = null)
-        : base(message, inner) => Problems = problems ?? [];
 
     /// <summary>One line per bad value, e.g. <c>projects.sitePort must be a number between 1 and 65535.</c></summary>
-    public IReadOnlyList<string> Problems { get; }
+    public IReadOnlyList<string> Problems { get; } = problems ?? [];
 }
 
 /// <summary>
@@ -29,7 +27,8 @@ public sealed class SettingsException : Exception
 /// default. Saving keeps keys it doesn't know, and writes through a temporary file so a crash never
 /// leaves half a file behind.
 /// </summary>
-public sealed class SettingsStore
+/// <param name="secrets">Where an upgrade moves secrets the settings name - the Windows Credential Manager unless given.</param>
+public sealed class SettingsStore(AppDataPaths paths, string? legacyDirectory = null, ISecretStore? secrets = null)
 {
     private const int BackupsKept = 20;
 
@@ -52,17 +51,9 @@ public sealed class SettingsStore
         AllowTrailingCommas = true
     };
 
-    private readonly AppDataPaths _paths;
-    private readonly string _legacyDirectory;
-    private readonly ISecretStore _secrets;
-
-    /// <param name="secrets">Where an upgrade moves secrets the settings name - the Windows Credential Manager unless given.</param>
-    public SettingsStore(AppDataPaths paths, string? legacyDirectory = null, ISecretStore? secrets = null)
-    {
-        _paths = paths;
-        _legacyDirectory = legacyDirectory ?? AppDataPaths.LegacyDirectory;
-        _secrets = secrets ?? new WindowsCredentialStore();
-    }
+    private readonly AppDataPaths _paths = paths;
+    private readonly string _legacyDirectory = legacyDirectory ?? AppDataPaths.LegacyDirectory;
+    private readonly ISecretStore _secrets = secrets ?? new WindowsCredentialStore();
 
     public string FilePath => _paths.SettingsFile;
 
@@ -184,9 +175,16 @@ public sealed class SettingsStore
         JsonObject root;
         try { root = File.Exists(FilePath) ? Parse(ReadText(FilePath), FilePath) : new JsonObject(NodeOptions); }
         catch (SettingsException) { root = new JsonObject(NodeOptions); } // unreadable - replaced by what's saved now
-        Assign(root, Serialize(settings));
+        var saved = Serialize(settings);
+        Assign(root, saved);
+        // Maps whose entries come and go: what is saved is all there is (a shortcut put back to its default leaves).
+        foreach (var (section, map) in WholeMaps)
+            if (root[section] is JsonObject target && saved[section]?[map] is JsonObject whole) target[map] = whole.DeepClone();
         Write(root);
     }
+
+    /// <summary>The maps saved whole rather than key by key - see <see cref="Save"/>.</summary>
+    private static readonly (string Section, string Map)[] WholeMaps = [("keyboard", "shortcuts")];
 
     /// <summary>Changes the saved settings: reads the file, applies <paramref name="change"/> and saves it.</summary>
     public UserSettings Update(Action<UserSettings> change)

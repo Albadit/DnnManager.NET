@@ -6,11 +6,9 @@ namespace DnnManager.Application.UseCases;
 public enum SiteAction { Start, Stop, Restart }
 
 /// <summary>Starts, stops or restarts the IIS sites of one or more projects - the Projects table's row and bulk actions.</summary>
-public sealed class ControlSitesUseCase
+public sealed class ControlSitesUseCase(IIisManager iis)
 {
-    private readonly IIisManager _iis;
-
-    public ControlSitesUseCase(IIisManager iis) => _iis = iis;
+    private readonly IIisManager _iis = iis;
 
     /// <summary>
     /// Acts on every project in <paramref name="projectNames"/>, going on past one that fails; fails when any did -

@@ -17,15 +17,17 @@ namespace DnnManager.Presentation.Services;
 /// The plain-text calls - Header, Step, Info… - are what operations have always used: a step whose title ends in
 /// "complete" closes the run's stages, and "Step 3: " is left out of a stage's name.
 /// </remarks>
-public sealed partial class ActivityLog : INotifyPropertyChanged
+public sealed partial class ActivityLog(DailyLogFile file) : INotifyPropertyChanged
 {
     private readonly Dispatcher _dispatcher = System.Windows.Application.Current.Dispatcher;
-    private readonly DailyLogFile _file;
-
-    public ActivityLog(DailyLogFile file) => _file = file;
+    private readonly DailyLogFile _file = file;
 
     // The run going on now; null between runs.
     private OutputRun? _run;
+    // An operation that has begun but done nothing yet - it may first ask (Remove, Stop IIS…). It shows (becomes _run)
+    // with its first step, line or end; said no to, it never does. What was set about it meanwhile waits here.
+    private string? _pendingTitle;
+    private List<Action<OutputRun>>? _pendingSetup;
     // When a cancel was asked for: the stage running then was cut short.
     private DateTime? _cancelAt;
     // The in-place progress line (e.g. a download percentage) and where it is, until the next line takes its place.
@@ -33,7 +35,7 @@ public sealed partial class ActivityLog : INotifyPropertyChanged
     private IList<OutputLine>? _progressIn;
 
     /// <summary>The runs (<see cref="OutputRun"/>) and the lines outside them (<see cref="OutputLine"/>), oldest first.</summary>
-    public ObservableCollection<OutputItem> Items { get; } = new();
+    public ObservableCollection<OutputItem> Items { get; } = [];
 
     /// <summary>The newest run - going on, or the last one that ended. Null before the first, and after Clear.</summary>
     public OutputRun? Latest { get; private set; }
@@ -41,21 +43,64 @@ public sealed partial class ActivityLog : INotifyPropertyChanged
     /// <summary>A run ended - raised on the UI thread.</summary>
     public event Action<OutputRun>? RunEnded;
 
+    /// <summary>The run began to show - its first step or line came. Raised on the UI thread.</summary>
+    public event Action? RunShown;
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     // ─── Runs ─────────────────────────────────────────────────────────────
 
-    /// <summary>An operation begins: what follows is its stages and lines.</summary>
+    /// <summary>
+    /// An operation begins: what follows is its stages and lines. It shows with the first of them - not while it only
+    /// asks whether to go ahead, and never when the answer is no (<see cref="DropRun"/>).
+    /// </summary>
     public void BeginRun(string title) => Post(now =>
     {
         if (_run is not null) EndRunNow(_run, now, RunStatus.Finished, null);
         _cancelAt = null;
+        _pendingTitle = title;
+        _pendingSetup = null;
+    });
+
+    /// <summary>The operation that began does something: it shows - from now, not from when it was still asking.</summary>
+    private void ShowPending(DateTime now)
+    {
+        if (_pendingTitle is not { } title) return;
+        _pendingTitle = null;
         var run = new OutputRun(title, now);
         _run = run;
         Items.Add(run);
         DropOldest();
         SetLatest(run);
-        _file.AppendHeading(now, $"# {title} · {now:yyyy-MM-dd HH:mm:ss}");
+        if (_pendingSetup is { } setup)
+        {
+            foreach (var apply in setup) apply(run);
+            run.Changed();
+        }
+        _pendingSetup = null;
+        RunShown?.Invoke();
+    }
+
+    /// <summary>For the run - at once when it shows, else as soon as it does.</summary>
+    private void ForRun(Action<OutputRun> apply)
+    {
+        if (_run is { } run) apply(run);
+        else if (_pendingTitle is not null) (_pendingSetup ??= []).Add(apply);
+    }
+
+    /// <summary>
+    /// The user said no to the operation's question: it didn't happen. Before it did anything it leaves no trace -
+    /// not in the Output tab, not in the log file; after, it ends as cancelled.
+    /// </summary>
+    public void DropRun() => Post(now =>
+    {
+        if (_pendingTitle is not null)
+        {
+            _pendingTitle = null;
+            _pendingSetup = null;
+            return;
+        }
+        if (_run is { } run) EndRunNow(run, now, RunStatus.Cancelled, $"{run.Title} - not done: the answer was no.");
     });
 
     // The Output tab keeps the newest runs - over a long day it would only grow (it isn't virtualized); every run is in
@@ -76,6 +121,8 @@ public sealed partial class ActivityLog : INotifyPropertyChanged
     /// <summary>The operation ended - finished, failed (with <paramref name="message"/> as its error) or cancelled.</summary>
     public void EndRun(RunStatus status, string? message) => Post(now =>
     {
+        // Ending before it did anything (failed at once): it shows, with how it ended.
+        ShowPending(now);
         if (_run is { } run) EndRunNow(run, now, status, message);
         else if (message is not null) AddLine(now, status == RunStatus.Failed ? LineLevel.Error : LineLevel.Info, message);
     });
@@ -83,6 +130,7 @@ public sealed partial class ActivityLog : INotifyPropertyChanged
     /// <summary>A cancel was asked for: the stage running now is cut short.</summary>
     public void Cancelling() => Post(now =>
     {
+        ShowPending(now);
         _cancelAt ??= now;
         AddLine(now, LineLevel.Info, "Cancelling…");
     });
@@ -122,20 +170,18 @@ public sealed partial class ActivityLog : INotifyPropertyChanged
     // ─── Stages ───────────────────────────────────────────────────────────
 
     /// <summary>The run's stages, by their short names - pending until their step comes.</summary>
-    public void Plan(IReadOnlyList<string> stages) => Post(_ =>
+    public void Plan(IReadOnlyList<string> stages) => Post(_ => ForRun(run =>
     {
-        if (_run is not { } run) return;
         foreach (var name in stages)
             if (!run.Stages.Any(s => s.Name == name)) run.Stages.Add(new OutputStage(name, name));
         run.Changed();
-    });
+    }));
 
     public void Step(string title) => Step(title, NameOf(title));
 
     public void Step(string title, string name) => Post(now =>
     {
-        // A stage is a heading - not the closing step ("Removal complete"), which is no stage.
-        if (!IsClosing(title)) _file.AppendHeading(now, $"## {StripStepNumber(title)}");
+        ShowPending(now);
         if (_run is not { } run)
         {
             AddLine(now, LineLevel.Info, title);
@@ -196,6 +242,7 @@ public sealed partial class ActivityLog : INotifyPropertyChanged
 
     public void Progress(string text) => Post(now =>
     {
+        ShowPending(now);
         if (_progress is { } progress)
         {
             progress.Text = text;
@@ -209,6 +256,7 @@ public sealed partial class ActivityLog : INotifyPropertyChanged
 
     private void AddLine(DateTime now, LineLevel level, string text, IReadOnlyList<string>? details = null, string? hint = null)
     {
+        ShowPending(now);
         var completes = level == LineLevel.Success && _progress is not null;
         RemoveProgress();
         var line = new OutputLine(now, level, text, details, hint, completes);
@@ -256,12 +304,13 @@ public sealed partial class ActivityLog : INotifyPropertyChanged
 
     // ─── About the run ────────────────────────────────────────────────────
 
-    public void Context(string text) => Post(_ => _run?.AddContext(text));
+    public void Context(string text) => Post(_ => ForRun(run => run.AddContext(text)));
 
-    public void Fact(string name, string value) => Post(_ => _run?.SetFact(name, value));
+    public void Fact(string name, string value) => Post(_ => ForRun(run => run.SetFact(name, value)));
 
     public void Link(string url) => Post(now =>
     {
+        ShowPending(now);
         _file.Append(now, $"Open {url}");
         if (_run is { } run) run.Link = url;
     });

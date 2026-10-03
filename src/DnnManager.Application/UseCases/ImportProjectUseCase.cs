@@ -20,30 +20,20 @@ public sealed class ImportProjectRequest
 /// folder, then hosts it the way "Host project" does - the IIS website, plus the database restored from the
 /// backup.
 /// </summary>
-public sealed class ImportProjectUseCase
+public sealed class ImportProjectUseCase(
+    IProjectRepository projects,
+    IProjectFileCopier copier,
+    IProjectScaffolder scaffolder,
+    HostExistingProjectUseCase host,
+    ILogger<ImportProjectUseCase> log,
+    OperationUndo undo)
 {
-    private readonly IProjectRepository _projects;
-    private readonly IProjectFileCopier _copier;
-    private readonly IProjectScaffolder _scaffolder;
-    private readonly HostExistingProjectUseCase _host;
-    private readonly ILogger<ImportProjectUseCase> _log;
-    private readonly OperationUndo _undo;
-
-    public ImportProjectUseCase(
-        IProjectRepository projects,
-        IProjectFileCopier copier,
-        IProjectScaffolder scaffolder,
-        HostExistingProjectUseCase host,
-        ILogger<ImportProjectUseCase> log,
-        OperationUndo undo)
-    {
-        _projects = projects;
-        _copier = copier;
-        _scaffolder = scaffolder;
-        _host = host;
-        _log = log;
-        _undo = undo;
-    }
+    private readonly IProjectRepository _projects = projects;
+    private readonly IProjectFileCopier _copier = copier;
+    private readonly IProjectScaffolder _scaffolder = scaffolder;
+    private readonly HostExistingProjectUseCase _host = host;
+    private readonly ILogger<ImportProjectUseCase> _log = log;
+    private readonly OperationUndo _undo = undo;
 
     public async Task<Result> ExecuteAsync(ImportProjectRequest req, IProgressReporter reporter, CancellationToken ct)
     {

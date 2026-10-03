@@ -1,7 +1,12 @@
 <UserControl x:Class="DnnManager.Presentation.Pages.ProjectsPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:s="clr-namespace:DnnManager.Presentation.Services">
+             xmlns:s="clr-namespace:DnnManager.Presentation.Services"
+             Focusable="True" KeyboardNavigation.IsTabStop="False" FocusVisualStyle="{x:Null}" Background="Transparent"
+             PreviewMouseLeftButtonDown="Page_PreviewMouseLeftButtonDown">
+    <!-- Focusable (not a tab stop): a click outside the table puts the keyboard here, out of the table
+         (Page_PreviewMouseLeftButtonDown). Transparent, not empty: a click on the empty space between its parts (the
+         toolbar's, the title's) has to reach it - without a background it would hit nothing. -->
     <UserControl.Resources>
         <!-- "Live" green, "Offline" red, anything else ("(none)") in the normal colour. -->
         <Style x:Key="SqlText" TargetType="TextBlock">
@@ -157,7 +162,8 @@
             <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Focusable" Value="False" />
+            <!-- Reached with Tab, pressed with Enter or Space; the focus ring shows which one has the keyboard. -->
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
             <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -209,22 +215,29 @@
 
         <!-- Search, columns and "only running" on the left; the bulk actions on the right, only while rows are checked. -->
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-            <!-- For the checked rows: one group of icons - Remove first, then Start, Stop and Restart. -->
+            <!-- For the checked rows: one group of icons in the order of a row's Actions - Start, Stop, Restart and keep warm,
+                 then Remove on the right. -->
             <Border x:Name="BulkActions" DockPanel.Dock="Right" Visibility="Collapsed" VerticalAlignment="Center" Padding="2" CornerRadius="5"
                     Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource InputBorder}" BorderThickness="1">
                 <StackPanel Orientation="Horizontal">
-                    <Button x:Name="BulkRemoveButton" Style="{StaticResource GroupButton}" Content="&#xE74D;"
-                            Foreground="{DynamicResource ErrorText}" Click="BulkRemove_Click" />
-                    <Border Style="{StaticResource GroupDivider}" />
                     <Button x:Name="BulkStartButton" Style="{StaticResource GroupButton}" Content="&#xE768;" Click="BulkStart_Click" />
                     <Button x:Name="BulkStopButton" Style="{StaticResource GroupButton}" Content="&#xE71A;" Click="BulkStop_Click" />
                     <Button x:Name="BulkRestartButton" Style="{StaticResource GroupButton}" Content="&#xE72C;" Click="BulkRestart_Click" />
+                    <!-- The flame, as in the rows: outlined - keep them warm; filled - they all are, stop it (UpdateSelection). -->
+                    <Button x:Name="BulkKeepWarmButton" Style="{StaticResource GroupButton}" Click="BulkKeepWarm_Click">
+                        <Path x:Name="BulkKeepWarmIcon" Data="{StaticResource FlameOutline}" Fill="{DynamicResource TextPrimary}"
+                              Stretch="Uniform" Width="14" Height="14" />
+                    </Button>
+                    <Border Style="{StaticResource GroupDivider}" />
+                    <Button x:Name="BulkRemoveButton" Style="{StaticResource GroupButton}" Content="&#xE74D;"
+                            Foreground="{DynamicResource ErrorText}" Click="BulkRemove_Click" />
                 </StackPanel>
             </Border>
             <StackPanel Orientation="Horizontal">
                 <TextBox x:Name="SearchBox" Style="{StaticResource SearchBox}" Tag="Search projects" Width="280"
                          TextChanged="Search_TextChanged" PreviewKeyDown="Search_PreviewKeyDown"
-                         ToolTip="Name, address, host name, ID, port, status, DNN version, database or path - Esc clears it" />
+                         ToolTip="Search projects"
+                         s:CommandTip.Command="projects.search" />
                 <ToggleButton x:Name="ColumnsButton" Style="{StaticResource IconToggleButton}" Margin="8,0,0,0" ToolTip="Columns"
                               IsChecked="{Binding IsOpen, ElementName=ColumnsPopup, Mode=TwoWay}">
                     <!-- Three columns, like a table header. -->
@@ -250,17 +263,19 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                             <DockPanel Margin="0,10,0,0">
-                                <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="Show all" Click="ShowAllColumns_Click" />
-                                <Button DockPanel.Dock="Left" Style="{StaticResource LinkButton}" Content="Hide all" Click="HideAllColumns_Click" />
+                                <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="Show all" Click="ShowAllColumns_Click"
+                                        ToolTip="Show all" />
+                                <Button DockPanel.Dock="Left" Style="{StaticResource LinkButton}" Content="Hide all" Click="HideAllColumns_Click"
+                                        ToolTip="Hide all" />
                                 <Button Style="{StaticResource LinkButton}" Content="Default" HorizontalAlignment="Center" Click="DefaultColumns_Click"
-                                        ToolTip="The columns DNN Manager starts with" />
+                                        ToolTip="Default columns" />
                             </DockPanel>
                         </StackPanel>
                     </Border>
                 </Popup>
                 <!-- Only the projects whose site runs - a row comes and goes as its site starts and stops. -->
                 <CheckBox x:Name="OnlyRunning" Style="{StaticResource ToggleSwitch}" Content="Only show running" Margin="14,0,0,0"
-                          VerticalAlignment="Center" Click="OnlyRunning_Click" ToolTip="Show only the projects whose site is running" />
+                          VerticalAlignment="Center" Click="OnlyRunning_Click" ToolTip="Only show running" />
             </StackPanel>
         </DockPanel>
 
@@ -271,190 +286,199 @@
         </DockPanel>
 
         <Grid>
-            <!-- The check box, chevron, status and name stay put while the rest scrolls sideways (scrollbar or
-                 Shift + wheel). A filler column takes the room left over, so Actions sits at the right edge. -->
-            <DataGrid x:Name="ProjectsGrid" FrozenColumnCount="4" RowHeight="38" RowStyle="{StaticResource ProjectRowStyle}"
-                      RowDetailsVisibilityMode="Collapsed" AreRowDetailsFrozen="True" HeadersVisibility="Column"
-                      LoadingRow="Grid_LoadingRow" LayoutUpdated="Grid_LayoutUpdated" ScrollViewer.ScrollChanged="Grid_ScrollChanged"
-                      MouseDoubleClick="Grid_MouseDoubleClick" PreviewKeyDown="Grid_PreviewKeyDown"
-                      PreviewMouseWheel="Grid_PreviewMouseWheel" PreviewMouseRightButtonDown="Grid_PreviewMouseRightButtonDown"
-                      ContextMenuOpening="Grid_ContextMenuOpening"
-                      ScrollViewer.CanContentScroll="False" ScrollViewer.VerticalScrollBarVisibility="Auto"
-                      ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.PanningMode="Both">
-                <DataGrid.ContextMenu>
-                    <!-- Filled in Grid_ContextMenuOpening (Pages/Projects/ProjectMenu). -->
-                    <ContextMenu />
-                </DataGrid.ContextMenu>
-                <DataGrid.Columns>
-                    <!-- Header: the select-all check box, made in code. -->
-                    <DataGridTemplateColumn x:Name="SelectColumn" Width="40" MinWidth="40" CanUserResize="False" CanUserSort="False"
-                                            CellStyle="{StaticResource IconCell}">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <CheckBox Style="{StaticResource TableCheckBox}"
-                                          IsChecked="{Binding IsChecked, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                    <DataGridTemplateColumn Width="32" MinWidth="32" CanUserResize="False" CanUserSort="False" CellStyle="{StaticResource IconCell}">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <ToggleButton Style="{StaticResource ExpandToggle}" ToolTip="Show / hide details"
-                                              IsChecked="{Binding IsExpanded, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                    <DataGridTemplateColumn Width="24" MinWidth="24" CanUserResize="False" SortMemberPath="State" CellStyle="{StaticResource IconCell}">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <Grid Background="Transparent" ToolTip="{Binding StateText}">
-                                    <Ellipse Style="{StaticResource StatusDot}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Grid>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                    <!-- The site's name opens its overview (so does a double-click on the row, or Enter). -->
-                    <DataGridTemplateColumn Header="Name" SortMemberPath="Name" Width="Auto" MinWidth="150">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <Button Style="{StaticResource LinkButton}" Content="{Binding Name}" FontWeight="SemiBold" HorizontalAlignment="Left"
-                                        VerticalAlignment="Center" Focusable="False" Click="RowOpen_Click" ToolTip="Open the site's overview" />
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-
-                    <!-- The optional columns, the ones most looked at first - the order of the Columns menu too
-                         (ProjectColumns.All). -->
-                    <!-- The address opens the site in the browser; "-" for a site without a web binding. -->
-                    <DataGridTemplateColumn x:Name="UrlColumn" Header="Site" SortMemberPath="Url" Width="Auto" MinWidth="180">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <Grid VerticalAlignment="Center">
-                                    <Button Style="{StaticResource LinkButton}" Content="{Binding Url}" HorizontalAlignment="Left" Focusable="False"
-                                            Click="OpenSite_Click" ToolTip="Open the site in the browser"
-                                            Visibility="{Binding HasUrl, Converter={StaticResource BoolToVis}}" />
-                                    <TextBlock Text="{Binding Url}" Foreground="{DynamicResource TextMuted}">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding HasUrl}" Value="True">
-                                                        <Setter Property="Visibility" Value="Collapsed" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </Grid>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                    <DataGridTextColumn x:Name="DnnColumn" Header="DNN" Binding="{Binding Dnn}" Width="Auto" MinWidth="70" />
-                    <DataGridTextColumn x:Name="DatabaseColumn" Header="Database" Binding="{Binding Database}" Width="Auto" MinWidth="120"
-                                        ElementStyle="{StaticResource DatabaseText}" />
-                    <!-- Live (green) / Offline (red) / (none) - asked with the site's web.config connection, see ProjectRow.Sql. -->
-                    <DataGridTextColumn x:Name="SqlColumn" Header="SQL" Binding="{Binding Sql}" Width="Auto" MinWidth="64"
-                                        ElementStyle="{StaticResource SqlText}" />
-                    <DataGridTextColumn x:Name="CpuColumn" Header="CPU (%)" Binding="{Binding CpuText}" SortMemberPath="CpuSort" Width="Auto" MinWidth="70"
-                                        ElementStyle="{StaticResource Numeric}" />
-                    <DataGridTextColumn x:Name="MemoryColumn" Header="Memory" Binding="{Binding MemoryText}" SortMemberPath="MemorySort" Width="Auto" MinWidth="84"
-                                        ElementStyle="{StaticResource Numeric}" />
-                    <DataGridTextColumn x:Name="PidColumn" Header="PID" Binding="{Binding PidText}" Width="Auto" MinWidth="60" />
-                    <DataGridTemplateColumn x:Name="LastStartedColumn" Header="Last started" SortMemberPath="LastStartedSort" Width="Auto" MinWidth="100">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding LastStartedText}" ToolTip="{Binding LastStartedTip}" VerticalAlignment="Center" />
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                    <DataGridTextColumn x:Name="StatusColumn" Header="Status" Binding="{Binding StateText}" SortMemberPath="State" Width="Auto" MinWidth="90"
-                                        ElementStyle="{StaticResource StateText}" />
-                    <DataGridTextColumn x:Name="PortsColumn" Header="Port(s)" Binding="{Binding PortsText}" Width="Auto" MinWidth="70" />
-                    <DataGridTextColumn x:Name="IdColumn" Header="Site ID" Binding="{Binding IdText}" SortMemberPath="IdSort" Width="Auto" MinWidth="64"
-                                        ElementStyle="{StaticResource Muted}" />
-                    <DataGridTextColumn x:Name="SizeColumn" Header="Size" Binding="{Binding Size}" SortMemberPath="SizeBytes" Width="Auto" MinWidth="80"
-                                        ElementStyle="{StaticResource Numeric}" />
-                    <DataGridTextColumn x:Name="MemoryPercentColumn" Header="Memory (%)" Binding="{Binding MemoryPercentText}" SortMemberPath="MemorySort"
-                                        Width="Auto" MinWidth="84" ElementStyle="{StaticResource Numeric}" />
-                    <!-- What the worker process read / wrote since it started, and what the site received / sent over HTTP
-                         since IIS started. -->
-                    <DataGridTextColumn x:Name="DiskColumn" Header="Disk read/write" Binding="{Binding DiskText}" SortMemberPath="DiskSort"
-                                        Width="Auto" MinWidth="130" ElementStyle="{StaticResource Numeric}" />
-                    <DataGridTextColumn x:Name="NetworkColumn" Header="Network I/O" Binding="{Binding NetworkText}" SortMemberPath="NetworkSort"
-                                        Width="Auto" MinWidth="130" ElementStyle="{StaticResource Numeric}" />
-                    <!-- The folder opens in Explorer. -->
-                    <DataGridTemplateColumn x:Name="PathColumn" Header="Path" SortMemberPath="Path" Width="Auto" MinWidth="200">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <Button Style="{StaticResource LinkButton}" Content="{Binding Path}" HorizontalAlignment="Left" VerticalAlignment="Center"
-                                        Focusable="False" Click="OpenFolder_Click" ToolTip="Open the folder in Explorer" />
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-
-                    <!-- Sized in code (FitFiller): a star width would make the grid squeeze the other columns instead of scrolling. -->
-                    <DataGridTemplateColumn x:Name="FillerColumn" Width="0" MinWidth="0" CanUserResize="False" CanUserSort="False" />
-                    <!-- Running: Stop and Restart. Stopped: Start. Changing: a progress bar. Always: keep warm (the flame) and Remove
-                         (the rest is on the right-click menu). Stays at the right edge while the table scrolls sideways (ActionsShift). -->
-                    <DataGridTemplateColumn Header="Actions" Width="Auto" MinWidth="120" CanUserResize="False" CanUserSort="False"
-                                            CellStyle="{StaticResource ActionsCell}" HeaderStyle="{StaticResource ActionsHeader}">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Grid Width="56">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Button Style="{StaticResource RowAction}" Content="&#xE768;" ToolTip="Start" Click="RowStart_Click"
-                                                    IsEnabled="{Binding CanStart}" Visibility="{Binding ShowStart, Converter={StaticResource BoolToVis}}" />
-                                            <Button Style="{StaticResource RowAction}" Content="&#xE71A;" ToolTip="Stop" Click="RowStop_Click"
-                                                    IsEnabled="{Binding CanStop}" Visibility="{Binding ShowStop, Converter={StaticResource BoolToVis}}" />
-                                            <Button Style="{StaticResource RowAction}" Content="&#xE72C;" ToolTip="Restart (recycles the app pool)" Click="RowRestart_Click"
-                                                    IsEnabled="{Binding CanRestart}" Visibility="{Binding ShowStop, Converter={StaticResource BoolToVis}}" />
-                                        </StackPanel>
-
-                                        <!-- Only moving while it is shown (RowProgress): hidden, its animation would run on for nothing. -->
-                                        <ProgressBar Style="{StaticResource RowProgress}" Height="3" Margin="4,0" VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource Accent}" Background="{DynamicResource GridLine}" BorderThickness="0"
-                                                     ToolTip="{Binding StateText}" Visibility="{Binding ShowProgress, Converter={StaticResource BoolToVis}}" />
+            <!-- Rounded, like the cards; the table's own square border off - its rows are clipped to the corners
+                 (Grid_SizeChanged). -->
+            <Border CornerRadius="{StaticResource CardRadius}" BorderThickness="1" BorderBrush="{DynamicResource CardBorder}"
+                    Background="{DynamicResource CardBg}">
+                <!-- The check box, chevron, status and name stay put while the rest scrolls sideways (scrollbar or
+                     Shift + wheel). A filler column takes the room left over, so Actions sits at the right edge. -->
+                <DataGrid x:Name="ProjectsGrid" FrozenColumnCount="4" RowHeight="38" RowStyle="{StaticResource ProjectRowStyle}"
+                          BorderThickness="0" Background="Transparent" SizeChanged="Grid_SizeChanged"
+                          IsKeyboardFocusWithinChanged="Grid_IsKeyboardFocusWithinChanged"
+                          RowDetailsVisibilityMode="Collapsed" AreRowDetailsFrozen="True" HeadersVisibility="Column"
+                          LoadingRow="Grid_LoadingRow" LayoutUpdated="Grid_LayoutUpdated" ScrollViewer.ScrollChanged="Grid_ScrollChanged" Sorting="Grid_Sorting"
+                          MouseDoubleClick="Grid_MouseDoubleClick" PreviewKeyDown="Grid_PreviewKeyDown"
+                          PreviewMouseLeftButtonDown="Grid_PreviewMouseLeftButtonDown"
+                          KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Projects"
+                          PreviewMouseWheel="Grid_PreviewMouseWheel" PreviewMouseRightButtonDown="Grid_PreviewMouseRightButtonDown"
+                          ContextMenuOpening="Grid_ContextMenuOpening"
+                          ScrollViewer.CanContentScroll="False" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.PanningMode="Both">
+                    <DataGrid.ContextMenu>
+                        <!-- Filled in Grid_ContextMenuOpening (Pages/Projects/ProjectMenu). -->
+                        <ContextMenu />
+                    </DataGrid.ContextMenu>
+                    <DataGrid.Columns>
+                        <!-- Header: the select-all check box, made in code. -->
+                        <DataGridTemplateColumn x:Name="SelectColumn" Width="40" MinWidth="40" CanUserResize="False" CanUserSort="False"
+                                                CellStyle="{StaticResource IconCell}">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <CheckBox Style="{StaticResource TableCheckBox}"
+                                              IsChecked="{Binding IsChecked, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Width="32" MinWidth="32" CanUserResize="False" CanUserSort="False" CellStyle="{StaticResource IconCell}">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <ToggleButton Style="{StaticResource ExpandToggle}" ToolTip="Details"
+                                                  IsChecked="{Binding IsExpanded, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Width="24" MinWidth="24" CanUserResize="False" SortMemberPath="State" CellStyle="{StaticResource IconCell}">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Grid Background="Transparent" ToolTip="{Binding StateText}">
+                                        <Ellipse Style="{StaticResource StatusDot}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Grid>
-                                    <!-- Keep warm: the flame switches it; its look and tooltip say how it is going (ProjectRow.KeepWarmLook). -->
-                                    <Button Style="{StaticResource RowAction}" Click="RowKeepWarm_Click" IsEnabled="{Binding CanToggleKeepWarm}"
-                                            ToolTip="{Binding KeepWarmTip}" ToolTipService.ShowOnDisabled="True">
-                                        <ContentControl Style="{StaticResource KeepWarmFlame}" />
-                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <!-- The site's name opens its overview (so does a double-click on the row, or Enter). -->
+                        <DataGridTemplateColumn Header="Name" SortMemberPath="Name" Width="Auto" MinWidth="150">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource LinkButton}" Content="{Binding Name}" FontWeight="SemiBold" HorizontalAlignment="Left"
+                                            VerticalAlignment="Center" Focusable="False" Click="RowOpen_Click" ToolTip="Open overview" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
 
-                                    <Border Width="1" Height="18" Margin="8,0" Background="{DynamicResource CardBorder}" />
-                                    <Button Style="{StaticResource IconButton}" Content="&#xE74D;" Foreground="{DynamicResource ErrorText}"
-                                            ToolTip="Remove…" Click="RowRemove_Click" IsEnabled="{Binding CanRemove}" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                </DataGrid.Columns>
+                        <!-- The optional columns, the ones most looked at first - the order of the Columns menu too
+                             (ProjectColumns.All). -->
+                        <!-- The address opens the site in the browser; "-" for a site without a web binding. -->
+                        <DataGridTemplateColumn x:Name="UrlColumn" Header="Site" SortMemberPath="Url" Width="Auto" MinWidth="180">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Grid VerticalAlignment="Center">
+                                        <Button Style="{StaticResource LinkButton}" Content="{Binding Url}" HorizontalAlignment="Left" Focusable="False"
+                                                Click="OpenSite_Click" ToolTip="Open site" s:CommandTip.Command="project.openWebsite"
+                                                Visibility="{Binding HasUrl, Converter={StaticResource BoolToVis}}" />
+                                        <TextBlock Text="{Binding Url}" Foreground="{DynamicResource TextMuted}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasUrl}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn x:Name="DnnColumn" Header="DNN" Binding="{Binding Dnn}" Width="Auto" MinWidth="70" />
+                        <DataGridTextColumn x:Name="DatabaseColumn" Header="Database" Binding="{Binding Database}" Width="Auto" MinWidth="120"
+                                            ElementStyle="{StaticResource DatabaseText}" />
+                        <!-- Live (green) / Offline (red) / (none) - asked with the site's web.config connection, see ProjectRow.Sql. -->
+                        <DataGridTextColumn x:Name="SqlColumn" Header="SQL" Binding="{Binding Sql}" Width="Auto" MinWidth="64"
+                                            ElementStyle="{StaticResource SqlText}" />
+                        <DataGridTextColumn x:Name="CpuColumn" Header="CPU (%)" Binding="{Binding CpuText}" SortMemberPath="CpuSort" Width="Auto" MinWidth="70"
+                                            ElementStyle="{StaticResource Numeric}" />
+                        <DataGridTextColumn x:Name="MemoryColumn" Header="Memory" Binding="{Binding MemoryText}" SortMemberPath="MemorySort" Width="Auto" MinWidth="84"
+                                            ElementStyle="{StaticResource Numeric}" />
+                        <DataGridTextColumn x:Name="PidColumn" Header="PID" Binding="{Binding PidText}" Width="Auto" MinWidth="60" />
+                        <DataGridTemplateColumn x:Name="LastStartedColumn" Header="Last started" SortMemberPath="LastStartedSort" Width="Auto" MinWidth="100">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding LastStartedText}" ToolTip="{Binding LastStartedTip}" VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn x:Name="StatusColumn" Header="Status" Binding="{Binding StateText}" SortMemberPath="State" Width="Auto" MinWidth="90"
+                                            ElementStyle="{StaticResource StateText}" />
+                        <DataGridTextColumn x:Name="PortsColumn" Header="Port(s)" Binding="{Binding PortsText}" Width="Auto" MinWidth="70" />
+                        <DataGridTextColumn x:Name="IdColumn" Header="Site ID" Binding="{Binding IdText}" SortMemberPath="IdSort" Width="Auto" MinWidth="64"
+                                            ElementStyle="{StaticResource Muted}" />
+                        <DataGridTextColumn x:Name="SizeColumn" Header="Size" Binding="{Binding Size}" SortMemberPath="SizeBytes" Width="Auto" MinWidth="80"
+                                            ElementStyle="{StaticResource Numeric}" />
+                        <DataGridTextColumn x:Name="MemoryPercentColumn" Header="Memory (%)" Binding="{Binding MemoryPercentText}" SortMemberPath="MemorySort"
+                                            Width="Auto" MinWidth="84" ElementStyle="{StaticResource Numeric}" />
+                        <!-- What the worker process read / wrote since it started, and what the site received / sent over HTTP
+                             since IIS started. -->
+                        <DataGridTextColumn x:Name="DiskColumn" Header="Disk read/write" Binding="{Binding DiskText}" SortMemberPath="DiskSort"
+                                            Width="Auto" MinWidth="130" ElementStyle="{StaticResource Numeric}" />
+                        <DataGridTextColumn x:Name="NetworkColumn" Header="Network I/O" Binding="{Binding NetworkText}" SortMemberPath="NetworkSort"
+                                            Width="Auto" MinWidth="130" ElementStyle="{StaticResource Numeric}" />
+                        <!-- The folder opens in Explorer. -->
+                        <DataGridTemplateColumn x:Name="PathColumn" Header="Path" SortMemberPath="Path" Width="Auto" MinWidth="200">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource LinkButton}" Content="{Binding Path}" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                            Focusable="False" Click="OpenFolder_Click" ToolTip="Open folder" s:CommandTip.Command="project.openFolder" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
 
-                <DataGrid.RowDetailsTemplate>
-                    <DataTemplate>
-                        <!-- As wide as the visible table, so the facts wrap instead of widening what scrolls. -->
-                        <Border Padding="20,4,16,12" BorderBrush="{DynamicResource GridLine}" BorderThickness="0,1,0,0" HorizontalAlignment="Left"
-                                Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
-                            <ItemsControl ItemsSource="{Binding Details}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Width="250" Margin="0,8,16,0">
-                                            <TextBlock Text="{Binding Key}" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextHint}" />
-                                            <TextBlock Text="{Binding Value}" Foreground="{DynamicResource TextPrimary}" TextTrimming="CharacterEllipsis"
-                                                       ToolTip="{Binding Value}" Margin="0,2,0,0" />
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </Border>
-                    </DataTemplate>
-                </DataGrid.RowDetailsTemplate>
-            </DataGrid>
+                        <!-- Sized in code (FitFiller): a star width would make the grid squeeze the other columns instead of scrolling. -->
+                        <DataGridTemplateColumn x:Name="FillerColumn" Width="0" MinWidth="0" CanUserResize="False" CanUserSort="False" />
+                        <!-- Running: Stop and Restart. Stopped: Start. Changing: a progress bar. Always: keep warm (the flame) and Remove
+                             (the rest is on the right-click menu). Stays at the right edge while the table scrolls sideways (ActionsShift). -->
+                        <DataGridTemplateColumn Header="Actions" Width="Auto" MinWidth="120" CanUserResize="False" CanUserSort="False"
+                                                CellStyle="{StaticResource ActionsCell}" HeaderStyle="{StaticResource ActionsHeader}">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Grid Width="56">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Style="{StaticResource RowAction}" Content="&#xE768;" ToolTip="Start" s:CommandTip.Command="project.start" Click="RowStart_Click"
+                                                        IsEnabled="{Binding CanStart}" Visibility="{Binding ShowStart, Converter={StaticResource BoolToVis}}" />
+                                                <Button Style="{StaticResource RowAction}" Content="&#xE71A;" ToolTip="Stop" s:CommandTip.Command="project.stop" Click="RowStop_Click"
+                                                        IsEnabled="{Binding CanStop}" Visibility="{Binding ShowStop, Converter={StaticResource BoolToVis}}" />
+                                                <Button Style="{StaticResource RowAction}" Content="&#xE72C;" ToolTip="Restart" s:CommandTip.Command="project.restart" Click="RowRestart_Click"
+                                                        IsEnabled="{Binding CanRestart}" Visibility="{Binding ShowStop, Converter={StaticResource BoolToVis}}" />
+                                            </StackPanel>
+
+                                            <!-- Only moving while it is shown (RowProgress): hidden, its animation would run on for nothing. -->
+                                            <ProgressBar Style="{StaticResource RowProgress}" Height="3" Margin="4,0" VerticalAlignment="Center"
+                                                         Foreground="{DynamicResource Accent}" Background="{DynamicResource GridLine}" BorderThickness="0"
+                                                         ToolTip="{Binding StateText}" Visibility="{Binding ShowProgress, Converter={StaticResource BoolToVis}}" />
+                                        </Grid>
+                                        <!-- Keep warm: the flame switches it; its look and tooltip say how it is going (ProjectRow.KeepWarmLook). -->
+                                        <Button Style="{StaticResource RowAction}" Click="RowKeepWarm_Click" IsEnabled="{Binding CanToggleKeepWarm}"
+                                                ToolTip="{Binding KeepWarmTip}" ToolTipService.ShowOnDisabled="True">
+                                            <ContentControl Style="{StaticResource KeepWarmFlame}" />
+                                        </Button>
+
+                                        <Border Width="1" Height="18" Margin="8,0" Background="{DynamicResource CardBorder}" />
+                                        <Button Style="{StaticResource IconButton}" Content="&#xE74D;" Foreground="{DynamicResource ErrorText}"
+                                                ToolTip="Remove (Del)" Click="RowRemove_Click" IsEnabled="{Binding CanRemove}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+
+                    <DataGrid.RowDetailsTemplate>
+                        <DataTemplate>
+                            <!-- As wide as the visible table, so the facts wrap instead of widening what scrolls. -->
+                            <Border Padding="20,4,16,12" BorderBrush="{DynamicResource GridLine}" BorderThickness="0,1,0,0" HorizontalAlignment="Left"
+                                    Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+                                <ItemsControl ItemsSource="{Binding Details}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Width="250" Margin="0,8,16,0">
+                                                <TextBlock Text="{Binding Key}" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextHint}" />
+                                                <TextBlock Text="{Binding Value}" Foreground="{DynamicResource TextPrimary}" TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding Value}" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
+                        </DataTemplate>
+                    </DataGrid.RowDetailsTemplate>
+                </DataGrid>
+            </Border>
             <!-- Only shown while the table is empty (the first snapshot, no projects, or no match) - never over rows. -->
             <Border x:Name="Overlay" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="16,10" CornerRadius="6"
                     Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" Visibility="Collapsed">

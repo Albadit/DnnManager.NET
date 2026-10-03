@@ -6,6 +6,7 @@ using DnnManager.Presentation.Services;
 using DnnManager.Infrastructure;
 using DnnManager.Infrastructure.Files;
 using DnnManager.Infrastructure.Settings;
+using DnnManager.Infrastructure.Updates;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,6 +23,10 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        // The update helper (a copy of this exe, started by an update as DNN Manager closes): it installs the update and
+        // starts DNN Manager again - none of the app below.
+        if (UpdateHelper.IsHelper(args)) return UpdateHelper.Run(args);
+
         // Restarted (Troubleshoot): the previous DNN Manager is still closing - wait for it, or the check below finds it.
         args = AppRestart.WaitForPrevious(args);
 
@@ -48,6 +53,8 @@ internal static class Program
 
         var app = new App();
         app.InitializeComponent();
+        // The keyboard's place, always visible.
+        FocusRing.Install();
         using var activation = SingleInstance.Listen(app.Dispatcher);
         // Until the main window opens, closing a dialog mustn't end the app.
         app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -91,6 +98,9 @@ internal static class Program
         builder.Services.AddSingleton<ServerStore>();
         builder.Services.AddSingleton<TerminalService>();
         builder.Services.AddSingleton<EfficiencyMode>();
+        builder.Services.AddSingleton<AppUpdater>();
+        builder.Services.AddSingleton<WorkspaceService>();
+        builder.Services.AddSingleton<AppCommands>();
         builder.Services.AddSingleton<MainWindow>();
 
         using var host = builder.Build();

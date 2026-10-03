@@ -7,11 +7,9 @@ using Microsoft.Extensions.Logging;
 
 namespace DnnManager.Infrastructure.WebConfigs;
 
-public sealed class WebConfigService : IWebConfigService
+public sealed class WebConfigService(ILogger<WebConfigService> log) : IWebConfigService
 {
-    private readonly ILogger<WebConfigService> _log;
-
-    public WebConfigService(ILogger<WebConfigService> log) => _log = log;
+    private readonly ILogger<WebConfigService> _log = log;
 
     public Result<SiteSqlConnection> ReadSiteSqlServer(string webConfigPath)
     {

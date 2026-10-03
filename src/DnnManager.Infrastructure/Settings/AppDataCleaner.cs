@@ -26,11 +26,9 @@ public sealed record CleanupResult(long FreedBytes, int Skipped);
 /// Measures and deletes DNN Manager's own data in <c>Documents\DnnManager</c> (<see cref="AppDataPaths"/>) - never a
 /// project's folder, IIS site or database. A file that can't be deleted (in use, or not allowed) is skipped and counted.
 /// </summary>
-public sealed class AppDataCleaner
+public sealed class AppDataCleaner(AppDataPaths paths)
 {
-    private readonly AppDataPaths _paths;
-
-    public AppDataCleaner(AppDataPaths paths) => _paths = paths;
+    private readonly AppDataPaths _paths = paths;
 
     /// <summary>How much <paramref name="kind"/> takes now, in bytes.</summary>
     public long Measure(AppDataKind kind) => Files(kind).Sum(f => Length(f));

@@ -15,13 +15,32 @@ Documents\DnnManager\
 ├── settings.json        your settings
 ├── backups\             project backups (user guide: Backups) and settings.json copies made
 │                        before an upgrade of its format or a reset
-├── logs\                one file per day, kept 30 days: every operation (Markdown - # an operation, ## its stages,
-│                        a line per message with its time, [warning] / [error] marked, how it ended) and
-│                        DNN Manager's own warnings and errors with their stack traces
+├── logs\                one file per day, kept 30 days: every operation's messages, one line each after its
+│                        time (`18:21:16 Database seeded.`), [warning] / [error] marked, how it ended - the
+│                        operation's title and stages are the Output tab's - and DNN Manager's own warnings and
+│                        errors with their stack traces
 ├── packages\            downloaded DNN install packages, when projects.keepDnnPackages is on
-└── projects\            how DNN Manager installed the projects it set up, one file each
-    └── keep-warm\       the sites kept warm, one file each
+├── projects\            how DNN Manager installed the projects it set up, one file each
+│   └── keep-warm\       the sites kept warm, one file each
+└── state\               the workspace, for the next start (user guide: Picking up where you left off):
+    ├── window.json      where the window was, its size, the sidebar shown or hidden, the bottom panel's height
+    ├── workspace.json   the page, the Projects table (search, filter, sorting, rows, scroll), the open Details and tab
+    ├── forms.json       what was typed on New project, Host project and unsaved Settings - never a password
+    ├── logs.json        the bottom panel's tab, its search, the site and log on the Logs tab
+    └── update.json      only during an update: which one - the new version reads it once, then deletes it
 ```
+
+The `state` files are saved a moment after something changes and when DNN Manager
+closes, each on its own and whole (written beside the file, then moved over it), so
+a crash leaves the last good one. Each has a `format` number: one of an older format
+is read as the current one; one of a newer format (written by a newer DNN Manager) is
+ignored and left as it is; one that can't be read is renamed `<name>.json.bad` and the
+defaults are used - DNN Manager always starts. Deleting the folder (DNN Manager
+closed) forgets the workspace; nothing else depends on it.
+
+An [update](user-guide.md#update) downloads into `%TEMP%\DnnManager-update\<version>\`,
+with its log (`update.log`, and `update.setup.log` for Setup) - removed a couple of
+minutes after the next start.
 
 The folder and `settings.json` are created the first time the app starts. When
 you upgrade from 1.1 or earlier, the `appsettings.json`
@@ -38,8 +57,9 @@ required fields); a problem shows as a warning and nothing is saved. Saved
 settings apply at once, without a restart: another projects folder shows its
 projects in the table, a new site address or SQL Server is what the next
 operation uses. (Not while an operation runs - save once it has finished.)
-**Discard changes** puts the saved values back, and leaving the page or closing
-the app with unsaved changes asks first. The values the page doesn't show, such
+**Discard changes** puts the saved values back, and leaving the page with unsaved
+changes asks first. Closing or restarting DNN Manager keeps them, unsaved, for the
+next start - all but a changed password, which closing asks about. The values the page doesn't show, such
 as the IIS feature list, are edited in `settings.json` itself (**Settings →
 About** opens its folder) - such a change applies the next time DNN Manager
 starts.
@@ -84,7 +104,9 @@ starts.
   "iis": { "requiredFeatures": [ { "name": "IIS-WebServerRole", "label": "IIS Web Server" }, "..." ] },
   "appearance": { "theme": "system", "uiScale": 100, "fontSize": 13, "projectColumns": [ "url", "dnn", "database", "sql", "cpu", "memory", "pid", "lastStarted" ] },
   "terminal": { "enabled": true, "defaultShell": "powershell", "fontFamily": "", "fontSize": 13 },
-  "window": { "saveResourcesWhileMinimized": true }
+  "window": { "saveResourcesWhileMinimized": true },
+  "keyboard": { "shortcuts": {} },
+  "layout": { "sidebarPosition": "left", "panelAlignment": "center", "statusBarVisible": true, "quickInputPosition": "top", "density": "default" }
 }
 ```
 
@@ -102,11 +124,13 @@ starts.
 | `docker.*` | The SQL Server container: `containerName`, `volumeName`, `edition` (`MSSQL_PID`) and `collation`. **Settings → Docker container → Set up docker-compose** makes the container from these (and `sqlServer.port` / `saPassword`); **Show docker-compose.yml** shows the file to copy. |
 | `ssms.rememberPassword` | `false` by default. When `true`, signing SSMS in from the project menu ticks its *Remember Password*, so SSMS keeps the password. On the Settings page under **Database server**. |
 | `iis.requiredFeatures` | IIS Windows features checked (and optionally enabled). |
-| `appearance.theme` | `system` (follow the Windows app theme), `light` or `dark`. Set in **Settings → General**. |
+| `appearance.theme` | `system` (follow the Windows app theme), `light` or `dark`. Set from the gear's **Themes** (or the command palette's *Color theme…*), applied and saved at once. |
 | `appearance.uiScale` | `100` by default: everything in the window - text, icons and spacing, menus and tooltips too - at this percentage (50 to 200; Settings offers 80-175). Set in **Settings → General**, applied at once. |
 | `appearance.fontSize` | `13` by default: the app's text size in pixels (8 to 32; Settings offers 11-18) - titles and hints keep their proportions, icons keep their size. The terminal has its own (`terminal.fontSize`). Set in **Settings → General**, applied at once. |
 | `appearance.projectColumns` | The optional columns the Projects table shows: `dnn`, `database`, `sql`, `cpu`, `memory`, `pid`, `lastStarted`, `status`, `url`, `ports`, `id`, `size`, `memoryPercent`, `disk`, `network`, `path`. Set by the table's **Columns** button; the default is `url`, `dnn`, `database`, `sql`, `cpu`, `memory`, `pid`, `lastStarted`. |
 | `terminal.*` | The terminal panel, set in **Settings → General** and applied at once: `enabled` (`false`: no Terminal tab, no shells), `defaultShell` (`powershell`, `pwsh`, `cmd` or `gitbash` - the first installed one when that one isn't), `fontFamily` (empty for Cascadia Mono, or Consolas) and `fontSize` (8 to 32) - also the font of the Output and Logs tabs. |
+| `keyboard.shortcuts` | The keyboard shortcuts changed from their defaults, by command: `{ "project.start": "Ctrl+F5", "view.close": "" }` - an empty one takes the command's shortcut away; a command not listed has its default. Written as VS Code writes them (`Ctrl+Shift+P`, `Ctrl+,`, ``Ctrl+` ``, `Shift+F5`); a shortcut needs Ctrl or Alt, or a function key. Set in **Settings → Keyboard shortcuts**, applied and saved at once - see [Keyboard](user-guide.md#keyboard). |
+| `layout.*` | How the window is laid out, as VS Code's **Customize Layout** sets it - applied and saved at once (see [Layout](user-guide.md#layout)): `sidebarPosition` (`left` or `right`), `panelAlignment` (`center` - under the page only; `justify` - the window's width; `left` / `right` - to that edge of the window, under the sidebar when it is on that side), `statusBarVisible` (`true`), `quickInputPosition` (where the command palette opens: `top` or `center`) and `density` (`default`, or `compact` - the frame smaller in width and height: a narrower sidebar (190 pixels, 40 with icons only) with tighter entries, a lower title bar with narrower buttons, a lower status bar). Whether the sidebar and the panel are shown is not here: it is the workspace's (`state\window.json`). |
 | `window.saveResourcesWhileMinimized` | `true` by default: while the window is minimized, what only it shows pauses and, while nothing runs, Windows runs DNN Manager power-efficiently - see [Efficiency mode](user-guide.md#efficiency-mode-while-the-window-cant-be-seen). `false`: everything goes on as while the window is shown. Set in **Settings → General**, applied at once. |
 
 ## When the file is wrong

@@ -10,7 +10,7 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
             <Setter Property="Margin" Value="0,0,0,6" />
         </Style>
-        <!-- A group of settings within a category, e.g. "Theme". -->
+        <!-- A group of settings within a category, e.g. "Scale and font size". -->
         <Style x:Key="GroupLabel" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
             <Setter Property="FontSize" Value="{DynamicResource TextMedium}" />
@@ -50,11 +50,11 @@
     </UserControl.Resources>
 
     <DockPanel>
-        <!-- "Settings" and the way back to the page it was opened from. -->
+        <!-- "Settings" and the way back to the page under it. -->
         <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1" Padding="28,14,20,14">
             <DockPanel>
                 <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE8BB;" FontSize="12"
-                        Foreground="{DynamicResource Accent}" ToolTip="Close settings" Click="Close_Click" />
+                        Foreground="{DynamicResource Accent}" ToolTip="Close (Esc)" Click="Close_Click" />
                 <TextBlock Text="Settings" FontSize="{DynamicResource TextLarge}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" />
             </DockPanel>
         </Border>
@@ -63,11 +63,12 @@
         <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Padding="28,12">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                    <Button x:Name="DiscardButton" Content="Discard changes" Visibility="Collapsed" Click="Discard_Click" />
-                    <Button Content="Close" MinWidth="84" Margin="8,0,0,0" Click="Close_Click" />
+                    <Button x:Name="DiscardButton" Content="Discard changes" Visibility="Collapsed" Click="Discard_Click"
+                            ToolTip="Discard changes" />
+                    <Button Content="Close" MinWidth="84" Margin="8,0,0,0" Click="Close_Click" ToolTip="Close (Esc)" />
                     <Button x:Name="SaveButton" Style="{StaticResource Primary}" Content="Save" MinWidth="84"
                             Margin="8,0,0,0" IsEnabled="False" Click="Save_Click"
-                            ToolTip="Saves the settings - they apply at once, without a restart" />
+                            ToolTip="Save" />
                 </StackPanel>
                 <TextBlock x:Name="StatusText" Style="{StaticResource Hint}" Margin="0" VerticalAlignment="Center" TextWrapping="Wrap" />
             </DockPanel>
@@ -82,7 +83,7 @@
 
             <!-- Search and the categories. -->
             <DockPanel>
-                <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="Search settings" MinHeight="36"
+                <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="Search settings"
                          Margin="0,0,0,20" TextChanged="Search_TextChanged" />
                 <TextBlock x:Name="NoMatch" DockPanel.Dock="Top" Style="{StaticResource Hint}" Text="No setting matches." Visibility="Collapsed" />
                 <ListBox x:Name="Categories" Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource CategoryItem}"
@@ -104,6 +105,9 @@
                     </ListBoxItem>
                     <ListBoxItem Tag="Iis">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="&#xE774;" /><TextBlock Text="IIS" /></StackPanel>
+                    </ListBoxItem>
+                    <ListBoxItem Tag="Keyboard">
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="&#xE765;" /><TextBlock Text="Keyboard shortcuts" /></StackPanel>
                     </ListBoxItem>
                     <ListBoxItem Tag="About">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="&#xE946;" /><TextBlock Text="About" /></StackPanel>
@@ -133,13 +137,6 @@
                                       IsEnabled="False" Click="StartAtSignIn_Click" />
                             <TextBlock x:Name="StartAtSignInHint" Style="{StaticResource Hint}" Margin="22,2,0,0"
                                        Text="With its Administrator rights, without Windows asking for them at every sign-in (a scheduled task)." />
-
-                            <TextBlock Style="{StaticResource GroupLabel}" Text="Choose theme for DNN Manager" />
-                            <StackPanel Orientation="Horizontal">
-                                <RadioButton x:Name="ThemeLight" GroupName="Theme" Content="Light" Tag="light" Checked="Theme_Checked" />
-                                <RadioButton x:Name="ThemeDark" GroupName="Theme" Content="Dark" Tag="dark" Margin="20,4,0,4" Checked="Theme_Checked" />
-                                <RadioButton x:Name="ThemeSystem" GroupName="Theme" Content="Use system settings" Tag="system" Margin="20,4,0,4" Checked="Theme_Checked" />
-                            </StackPanel>
 
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Scale and font size" />
                             <StackPanel Orientation="Horizontal">
@@ -187,7 +184,7 @@
                             <TextBlock Style="{StaticResource CategoryTitle}" Text="Projects" />
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Projects folder" />
                             <DockPanel>
-                                <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="BrowseBaseDir_Click" />
+                                <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="BrowseBaseDir_Click" ToolTip="Browse" />
                                 <TextBox x:Name="BaseDirectory" />
                             </DockPanel>
                             <TextBlock Style="{StaticResource Hint}" Text="Every project is a folder in here." />
@@ -443,6 +440,60 @@
                             <c:IisCard x:Name="IisCard" Margin="0,16,0,0" />
                         </StackPanel>
 
+                        <!-- Every command and its shortcut (SettingsPage.Keyboard.cs): changes apply and are saved at once. -->
+                        <StackPanel x:Name="KeyboardPanel" Visibility="Collapsed">
+                            <TextBlock Style="{StaticResource CategoryTitle}" Text="Keyboard shortcuts" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,14"
+                                       Text="What each key does, and the part of DNN Manager it belongs to. Select a shortcut (or press Enter on it) and press the new keys - Esc cancels, Backspace removes it. Changes apply and are saved at once, no Save needed. Ctrl+Shift+P lists every command to run." />
+                            <DockPanel Margin="0,0,0,12">
+                                <Button x:Name="ResetAllShortcutsButton" DockPanel.Dock="Right" Content="Reset all to defaults" Margin="12,0,0,0"
+                                        Click="ResetAllShortcuts_Click" ToolTip="Reset all to defaults" />
+                                <TextBox x:Name="ShortcutSearch" Style="{StaticResource SearchBox}" Tag="Search by action, area or key"
+                                         AutomationProperties.Name="Search keyboard shortcuts" TextChanged="ShortcutSearch_TextChanged" />
+                            </DockPanel>
+                            <TextBlock x:Name="ShortcutStatus" Style="{StaticResource Hint}" Margin="0,0,0,10" Visibility="Collapsed" />
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="200" />
+                                    <ColumnDefinition Width="36" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Action" Margin="0" />
+                                <TextBlock Grid.Column="1" Style="{StaticResource FieldLabel}" Text="Shortcut" Margin="0" />
+                            </Grid>
+                            <TextBlock x:Name="NoShortcut" Style="{StaticResource Hint}" Text="No command matches." Visibility="Collapsed" />
+                            <ItemsControl x:Name="ShortcutList" Focusable="False" KeyboardNavigation.TabNavigation="Continue">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Padding="0,7">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="200" />
+                                                    <ColumnDefinition Width="36" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                                                    <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimary}" TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextCaption}"
+                                                               TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding Warning}" Foreground="{DynamicResource LogWarn}" FontSize="{DynamicResource TextCaption}"
+                                                               TextWrapping="Wrap" Visibility="{Binding HasWarning, Converter={StaticResource BoolToVis}}" />
+                                                </StackPanel>
+                                                <!-- Pressed: it records the next keys (SettingsPage.Keyboard.cs). -->
+                                                <Button Grid.Column="1" HorizontalContentAlignment="Left" VerticalAlignment="Center"
+                                                        Content="{Binding ShortcutText}" ToolTip="{Binding ShortcutTip}"
+                                                        AutomationProperties.Name="{Binding SpokenShortcut}"
+                                                        Click="Shortcut_Click" PreviewKeyDown="Shortcut_PreviewKeyDown" LostKeyboardFocus="Shortcut_LostKeyboardFocus" />
+                                                <Button Grid.Column="2" Style="{StaticResource IconButton}" Content="&#xE7A7;" HorizontalAlignment="Right"
+                                                        VerticalAlignment="Center" IsEnabled="{Binding IsCustom}" Click="ResetShortcut_Click" Focusable="True"
+                                                        ToolTip="{Binding ResetTip}" AutomationProperties.Name="{Binding ResetTip}" ToolTipService.ShowOnDisabled="True" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
                         <StackPanel x:Name="AboutPanel" Visibility="Collapsed">
                             <TextBlock Style="{StaticResource CategoryTitle}" Text="About" />
                             <!-- Which DNN Manager, what it runs on and works with (AboutInfo) - read when About is opened. -->
@@ -460,7 +511,8 @@
                                             <TextBlock Text="{Binding Key}" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="1" Style="{StaticResource FolderPath}" Text="{Binding Value}" ToolTip="{Binding Value}" />
                                             <Button Grid.Column="2" Style="{StaticResource LinkButton}" Content="Open" Margin="16,0,0,0"
-                                                    Tag="{Binding Value}" Click="OpenListedFolder_Click" VerticalAlignment="Center" />
+                                                    Tag="{Binding Value}" Click="OpenListedFolder_Click" VerticalAlignment="Center"
+                                                    ToolTip="Open folder" />
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>

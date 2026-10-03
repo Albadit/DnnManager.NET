@@ -11,13 +11,11 @@ namespace DnnManager.Infrastructure.Startup;
 /// privileges. A plain startup entry (the Run registry key, or the Startup folder) would ask for Administrator rights
 /// with a UAC prompt at every sign-in, since DNN Manager runs elevated; a task registered while elevated doesn't.
 /// </summary>
-public sealed class StartupTask
+public sealed class StartupTask(ProcessRunner process)
 {
     public const string TaskName = "DNN Manager";
 
-    private readonly ProcessRunner _process;
-
-    public StartupTask(ProcessRunner process) => _process = process;
+    private readonly ProcessRunner _process = process;
 
     private static string Schtasks => Path.Combine(Environment.SystemDirectory, "schtasks.exe");
 

@@ -20,7 +20,7 @@ namespace DnnManager.Infrastructure.Dnn;
 /// "Installation Complete" (DNN then deletes its installer). Proven against clean DNN 10.3.3 installs with SQL Server
 /// (Windows and SQL authentication) and LocalDB file databases; the result matches a wizard install.
 /// </summary>
-public sealed partial class DnnInstaller : IDnnInstaller
+public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstaller
 {
     // Measured: 35-60 s for the whole install, gaps between progress lines of at most ~11 s.
     private static readonly TimeSpan InstallLimit = TimeSpan.FromMinutes(30);
@@ -30,9 +30,7 @@ public sealed partial class DnnInstaller : IDnnInstaller
     private static readonly TimeSpan WarmUpLimit = TimeSpan.FromMinutes(3);
     private const int MaxRedirects = 6;
 
-    private readonly ILogger<DnnInstaller> _log;
-
-    public DnnInstaller(ILogger<DnnInstaller> log) => _log = log;
+    private readonly ILogger<DnnInstaller> _log = log;
 
     // ─── Before installing ────────────────────────────────────────────────
 
@@ -571,12 +569,9 @@ public sealed partial class DnnInstaller : IDnnInstaller
     private static string FirstLine(string text) => text.Split('\n')[0].Trim();
 
     /// <summary>Passwords to keep out of every message - as they are and as XML, HTML or a URL would carry them.</summary>
-    private sealed class Secrets
+    private sealed class Secrets(params string[] secrets)
     {
-        private readonly string[] _forms;
-
-        public Secrets(params string[] secrets) =>
-            _forms = secrets.Where(s => s.Length >= 4)
+        private readonly string[] _forms = secrets.Where(s => s.Length >= 4)
                 .SelectMany(s => new[] { s, SecurityElement.Escape(s) ?? s, WebUtility.HtmlEncode(s), Uri.EscapeDataString(s) })
                 .Distinct()
                 .OrderByDescending(s => s.Length)

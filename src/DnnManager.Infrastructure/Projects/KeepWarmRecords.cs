@@ -9,7 +9,7 @@ namespace DnnManager.Infrastructure.Projects;
 /// <see cref="KeepWarmRecord"/>s as JSON files in <c>Documents\DnnManager\projects\keep-warm</c>, one per site. A record
 /// that can't be read counts as none: the site isn't kept warm until it is switched on again.
 /// </summary>
-public sealed class KeepWarmRecords : IKeepWarmRecords
+public sealed class KeepWarmRecords(AppDataPaths paths, ILogger<KeepWarmRecords> log) : IKeepWarmRecords
 {
     private static readonly JsonSerializerOptions Json = new()
     {
@@ -18,14 +18,8 @@ public sealed class KeepWarmRecords : IKeepWarmRecords
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
     };
 
-    private readonly AppDataPaths _paths;
-    private readonly ILogger<KeepWarmRecords> _log;
-
-    public KeepWarmRecords(AppDataPaths paths, ILogger<KeepWarmRecords> log)
-    {
-        _paths = paths;
-        _log = log;
-    }
+    private readonly AppDataPaths _paths = paths;
+    private readonly ILogger<KeepWarmRecords> _log = log;
 
     public KeepWarmRecord? Find(string site)
     {

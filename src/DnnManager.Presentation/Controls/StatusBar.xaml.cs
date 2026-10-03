@@ -8,40 +8,21 @@ using DnnManager.Presentation.Services;
 namespace DnnManager.Presentation.Controls;
 
 /// <summary>
-/// The bar along the bottom of the window: this PC's memory, CPU and disk use, the running operation with Cancel,
-/// the switch for the terminal panel and the app's version. The figures are the <see cref="ServerStore"/>'s - they
+/// The bar along the bottom of the window: this PC's memory, CPU and disk use and the app's version (the running
+/// operation is a toast - <see cref="OperationToast"/>). The figures are the <see cref="ServerStore"/>'s - they
 /// arrive there every two seconds (the disk every ten; not while the window is minimized - see
 /// <see cref="EfficiencyMode"/>) and only this bar hears about them.
 /// </summary>
 public partial class StatusBar : UserControl
 {
     private ServerStore _store = null!;
-    private OperationRunner _runner = null!;
 
     public StatusBar() => InitializeComponent();
 
-    /// <summary>The terminal button was clicked - the window shows or hides the terminal panel.</summary>
-    public event EventHandler? ActivityToggled;
-
-    /// <summary>The running operation was clicked - the window shows its activity log.</summary>
-    public event EventHandler? OperationClicked;
-
-    /// <summary>Whether the terminal panel is open, shown on its button.</summary>
-    public bool IsActivityOpen
+    public void Attach(ServerStore store, string version)
     {
-        get => ActivityButton.IsChecked == true;
-        set
-        {
-            ActivityButton.IsChecked = value;
-            ActivityButton.ToolTip = value ? "Hide the panel (Ctrl+`)" : "Show the panel - output, logs and terminals (Ctrl+`)";
-        }
-    }
-
-    public void Attach(ServerStore store, OperationRunner runner, string version)
-    {
-        _store = store; _runner = runner;
+        _store = store;
         VersionText.Text = version;
-        _runner.PropertyChanged += OnRunnerChanged;
         _store.SystemStatsChanged += (_, _) => ShowResources();
         Loaded += (_, _) => ReserveWidths();
     }
@@ -75,32 +56,4 @@ public partial class StatusBar : UserControl
               $"{ByteSize.Format(r.DiskTotalBytes - r.DiskUsedBytes)} free";
     }
 
-    private void OnRunnerChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName != nameof(OperationRunner.Current)) return;
-        var busy = _runner.IsBusy;
-        OperationPanel.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
-        OperationText.Text = busy ? $"{_runner.Current}…" : "";
-        ShowProgress();
-    }
-
-    /// <summary>
-    /// The bar moves while an operation runs - but not while the window is minimized (<see cref="EfficiencyMode"/>):
-    /// nobody sees it then, and its animation alone keeps WPF drawing about 60 frames a second.
-    /// </summary>
-    private void ShowProgress() => OperationProgress.IsIndeterminate = _runner.IsBusy && !EfficiencyMode.GetIsSaving(this);
-
-    protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
-    {
-        base.OnPropertyChanged(e);
-        // Minimized or restored while an operation runs: the bar stops, or moves again.
-        if (e.Property == EfficiencyMode.IsSavingProperty && _runner is not null) ShowProgress();
-    }
-
-    private void Cancel_Click(object sender, RoutedEventArgs e) => _runner.Cancel();
-
-    private void Activity_Click(object sender, RoutedEventArgs e) => ActivityToggled?.Invoke(this, EventArgs.Empty);
-
-    private void Operation_Click(object sender, System.Windows.Input.MouseButtonEventArgs e) =>
-        OperationClicked?.Invoke(this, EventArgs.Empty);
 }

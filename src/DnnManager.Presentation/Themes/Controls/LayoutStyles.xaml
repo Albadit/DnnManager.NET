@@ -4,6 +4,19 @@
     <!-- Page building blocks: the text styles (PageTitle, PageSubtitle, CardTitle, FieldLabel, Hint, ErrorLine) and the
          boxes around content (Card, InfoBanner, WarnBanner), each used as Style="{StaticResource …}". -->
 
+    <!-- Where the keyboard is: an accent ring around the control, shown only when the keyboard moved there (Services/FocusRing
+         puts it on every control that would show Windows' faint dotted rectangle). -->
+    <Style x:Key="FocusRing">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Rectangle Margin="-1" RadiusX="4" RadiusY="4" StrokeThickness="2" Stroke="{DynamicResource Accent}"
+                               SnapsToDevicePixels="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style TargetType="TextBlock" x:Key="PageTitle">
         <Setter Property="FontSize" Value="{DynamicResource TextDisplay}" />
         <Setter Property="FontWeight" Value="SemiBold" />

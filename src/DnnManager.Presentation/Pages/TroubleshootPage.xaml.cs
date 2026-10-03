@@ -9,7 +9,7 @@ using DnnManager.Presentation.Services;
 namespace DnnManager.Presentation.Pages;
 
 /// <summary>
-/// "Troubleshoot" (the title bar's bug button) - a page of its own like Settings, laid out like Docker Desktop's: restart
+/// "Troubleshoot" (the bug at the bottom of the sidebar) - opened over the page like Settings, laid out like Docker Desktop's: restart
 /// DNN Manager, clean up the data it keeps in <c>Documents\DnnManager</c>, reset its settings to their defaults, or
 /// reset it to factory defaults. Nothing here touches a project's IIS site, folder or database. Not while an operation
 /// runs - it would be cut off.
@@ -24,14 +24,15 @@ public partial class TroubleshootPage : UserControl
     private readonly AppDataPaths _paths;
     private readonly LiveSettings _live;
     private readonly TerminalService _terminal;
+    private readonly WorkspaceService _workspace;
     // Which measuring the shown sizes belong to - an older one that finishes late is dropped.
     private int _measuring;
 
     public TroubleshootPage(OperationRunner runner, AppDataCleaner cleaner, SettingsStore store, ISecretStore secrets,
-        StartupTask startup, AppDataPaths paths, LiveSettings live, TerminalService terminal)
+        StartupTask startup, AppDataPaths paths, LiveSettings live, TerminalService terminal, WorkspaceService workspace)
     {
         _runner = runner; _cleaner = cleaner; _store = store; _secrets = secrets; _startup = startup; _paths = paths;
-        _live = live; _terminal = terminal;
+        _live = live; _terminal = terminal; _workspace = workspace;
         InitializeComponent();
         // Focused when shown, so Esc reaches it - the title bar's button that opened it doesn't take the focus.
         Focusable = true;
@@ -198,8 +199,8 @@ public partial class TroubleshootPage : UserControl
         if (!Dialogs.ConfirmDanger(
                 $"Reset DNN Manager to factory defaults?{nl}{nl}" +
                 $"Removed: the settings (a copy is kept in {_paths.BackupsDirectory}), the saved passwords (the DNN host " +
-                $"password and the database server login's), starting at sign-in, which sites are kept warm, the logs and the " +
-                $"kept DNN packages.{nl}{nl}" +
+                $"password and the database server login's), starting at sign-in, which sites are kept warm, the logs, the " +
+                $"kept DNN packages, and the remembered workspace (the window, the open page, unsaved form values).{nl}{nl}" +
                 $"Kept: your projects - their IIS sites, folders and databases - and their backups.{nl}{nl}" +
                 "DNN Manager restarts afterwards.",
                 "Reset to factory defaults", "Cancel"))
@@ -225,10 +226,15 @@ public partial class TroubleshootPage : UserControl
             _cleaner.Clean(AppDataKind.KeepWarmChoices);
         });
 
+        // Where the user was, the window, unsaved form values: the next start opens as a first one.
+        _workspace.Forget();
+
         if (problems.Count > 0)
             Dialogs.Error("DNN Manager is reset, except:" + nl + nl + string.Join(nl, problems.Select(p => $"• {p}")));
         // The running app still has the old settings in memory - it starts again with the defaults.
-        if (!AppRestart.Restart()) ResetButton.IsEnabled = true;
+        if (AppRestart.Restart()) return;
+        ResetButton.IsEnabled = true;
+        _workspace.Resume();
     }
 
     // ─── Not while an operation runs ──────────────────────────────────────

@@ -10,7 +10,7 @@ namespace DnnManager.Infrastructure.Docker;
 /// instead of the sa password; run by DNN Manager with the real one, handed to <c>docker compose</c> on standard input,
 /// so it is never written to a file.
 /// </summary>
-public sealed class DockerComposeService : IDockerComposeService
+public sealed class DockerComposeService(ProcessRunner proc) : IDockerComposeService
 {
     // All projects share one SQL container, so there is one compose project name.
     private const string ComposeProjectName = "dnn-mssql";
@@ -20,9 +20,7 @@ public sealed class DockerComposeService : IDockerComposeService
 
     private const string PasswordPlaceholder = "<your-sa-password>";
 
-    private readonly ProcessRunner _proc;
-
-    public DockerComposeService(ProcessRunner proc) => _proc = proc;
+    private readonly ProcessRunner _proc = proc;
 
     public string Render(DockerOptions docker) => Build(docker, withPassword: false);
 

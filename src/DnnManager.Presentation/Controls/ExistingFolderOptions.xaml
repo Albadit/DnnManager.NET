@@ -11,7 +11,8 @@
         <StackPanel x:Name="BackupPanel" Margin="0,8,0,0">
             <TextBlock Style="{StaticResource FieldLabel}" Text="Restore a .bacpac / .bak into the database" />
             <DockPanel>
-                <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="Browse_Click" />
+                <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="Browse_Click"
+                        ToolTip="Browse" />
                 <ComboBox x:Name="BackupCombo" DisplayMemberPath="Label" />
             </DockPanel>
             <TextBlock Style="{StaticResource Hint}" Text="Backups are looked up in the project's backups (Documents\DnnManager\backups\&lt;project&gt;) and the project folder's root, newest first." />

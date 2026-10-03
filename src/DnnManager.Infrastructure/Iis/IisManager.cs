@@ -10,7 +10,7 @@ using Microsoft.Web.Administration;
 
 namespace DnnManager.Infrastructure.Iis;
 
-public sealed class IisManager : IIisManager
+public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : IIisManager
 {
     // App pool names Windows ships with - never delete their shared profiles even if a project
     // were (pathologically) named the same.
@@ -24,14 +24,8 @@ public sealed class IisManager : IIisManager
     // How long StartSite waits for an app pool that is still stopping.
     private static readonly TimeSpan PoolStopWait = TimeSpan.FromSeconds(20);
 
-    private readonly ProcessRunner _proc;
-    private readonly ILogger<IisManager> _log;
-
-    public IisManager(ProcessRunner proc, ILogger<IisManager> log)
-    {
-        _proc = proc;
-        _log = log;
-    }
+    private readonly ProcessRunner _proc = proc;
+    private readonly ILogger<IisManager> _log = log;
 
     public async Task<Result> ControlServerAsync(IisServerAction action, CancellationToken ct)
     {

@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using DnnManager.Application.Abstractions;
@@ -13,11 +14,11 @@ using Microsoft.Win32;
 namespace DnnManager.Presentation.Pages;
 
 /// <summary>
-/// The settings in <c>settings.json</c>, as a page of its own: categories (with a search box) on the left, the chosen
+/// The settings in <c>settings.json</c>, opened over the page (MainWindow.ShowModal): categories (with a search box) on the left, the chosen
 /// one on the right. Every change - in any category - makes <b>Save</b> ready; Save checks the values, writes the
-/// file and puts them to work at once (<see cref="LiveSettings"/>, the theme, the terminal, the start at sign-in) -
-/// no restart. <b>Discard changes</b> puts the saved values back; <b>Close</b> goes back to the page Settings was
-/// opened from.
+/// file and puts them to work at once (<see cref="LiveSettings"/>, the UI scale, the terminal, the start at sign-in) -
+/// no restart. <b>Discard changes</b> puts the saved values back; <b>Close</b> goes back to the page under
+/// Settings.
 /// </summary>
 public partial class SettingsPage : UserControl
 {
@@ -63,6 +64,7 @@ public partial class SettingsPage : UserControl
     // compared with the form to see what Save has to change.
     private string _savedHostPassword = "";
     private string _savedServerPassword = "";
+    private string _savedSaPassword = "";
     // The connection type the database server fields show, and the server typed for each type - switching to LocalDB
     // and back gives the SQL Server its own server again.
     private string _serverType = SqlServerSettings.ContainerType;
@@ -98,13 +100,15 @@ public partial class SettingsPage : UserControl
 
         _categories = new Dictionary<string, (FrameworkElement, string)>
         {
-            ["General"] = (GeneralPanel, "general start sign in startup theme light dark system appearance scale zoom ui font text size bigger smaller efficiency efficient save resources minimized minimize power battery eco terminal shell powershell command prompt git bash font family size"),
+            ["General"] = (GeneralPanel, "general start sign in startup appearance scale zoom ui font text size bigger smaller efficiency efficient save resources minimized minimize power battery eco terminal shell powershell command prompt git bash font family size"),
             ["Projects"] = (ProjectsPanel, "projects folder base directory hostname suffix site port address url dnn defaults install installation automatic manual setup wizard host account username password e-mail email website name language culture template keep warm alive keepalive warm-up idle time-out timeout interval ping cold start slow fast recycle"),
             ["Releases"] = (ReleasesPanel, "dnn releases repositories github versions install packages keep download"),
             ["Sql"] = (SqlPanel, "database server sql server express localdb file connection type local container docker host port user username sa password windows authentication login username ssms management studio remember test connection"),
             ["Docker"] = (DockerPanel, "docker container name volume edition mssql_pid collation desktop engine install start set up docker-compose compose yml test"),
             ["Iis"] = (IisPanel, "iis windows features test set up enable " + string.Join(' ', _options.RequiredIisFeatures.Select(f => $"{f.Label} {f.Name}"))),
-            ["About"] = (AboutPanel, "about version build commit release channel update latest license mit repository github documentation docs runtime .net framework windows architecture administrator iis docker components libraries your files folders settings backups logs packages"),
+            ["Keyboard"] = (KeyboardPanel, "keyboard shortcuts shortcut keys key bindings keybindings hotkeys accelerators command palette " +
+                                           string.Join(' ', services.GetRequiredService<AppCommands>().All.Select(c => $"{c.Title} {c.Area}"))),
+            ["About"] = (AboutPanel, "about version build commit release channel update upgrade install new latest license mit repository github documentation docs runtime .net framework windows architecture administrator iis docker components libraries your files folders settings backups logs packages"),
         };
 
         KeepDnnPackagesHint.Text = $"Saved in {paths.PackagesDirectory} and used again when a new project picks the same " +
@@ -177,29 +181,57 @@ public partial class SettingsPage : UserControl
         foreach (var (key, category) in _categories)
             category.Panel.Visibility = key == selected ? Visibility.Visible : Visibility.Collapsed;
         if (selected == "About") ShowAbout();
+        if (selected == "Keyboard") ShowShortcuts();
     }
 
-    // Asked once while the page is open: GitHub's newest release, and Docker's version.
-    private AboutInfo.UpdateStatus? _update;
+    // Asked once while the page is open: Docker's version. The update status is the updater's, and follows it.
     private string? _docker;
-    private bool _askingAbout;
+    private bool _askingAbout, _followingUpdates;
 
-    /// <summary>Shows About - then, the first time, asks GitHub and Docker and shows it again with their answers.</summary>
+    /// <summary>Shows About - then, the first time, asks Docker (and GitHub, unless it was just asked) and shows it again.</summary>
     private async void ShowAbout()
     {
-        AboutInfoPanel.Show(AboutInfo.Sections(_update, _docker));
-        if (_askingAbout || _update is not null) return;
+        var updater = _services.GetRequiredService<AppUpdater>();
+        if (!_followingUpdates)
+        {
+            _followingUpdates = true;
+            // Checking, downloading, installing: the Update row says so as it happens - while the page is open.
+            PropertyChangedEventHandler follow = (_, _) => { if (AboutPanel.Visibility == Visibility.Visible) ShowAboutInfo(); };
+            updater.PropertyChanged += follow;
+            Unloaded += (_, _) => updater.PropertyChanged -= follow;
+        }
+        ShowAboutInfo();
+        _ = updater.CheckAsync(unlessWithin: TimeSpan.FromMinutes(10));
+        if (_askingAbout || _docker is not null) return;
         _askingAbout = true;
-        var update = AboutInfo.CheckUpdateAsync();
-        var docker = AboutInfo.DockerAsync(_services.GetRequiredService<IPrerequisiteChecker>(), _options.Docker.ContainerName);
-        _update = await update;
-        _docker = await docker;
+        _docker = await AboutInfo.DockerAsync(_services.GetRequiredService<IPrerequisiteChecker>(), _options.Docker.ContainerName);
         _askingAbout = false;
-        AboutInfoPanel.Show(AboutInfo.Sections(_update, _docker));
+        ShowAboutInfo();
     }
 
-    private void ShowCategory(string key) =>
-        Categories.SelectedItem = Categories.Items.OfType<ListBoxItem>().FirstOrDefault(i => (string)i.Tag == key);
+    private void ShowAboutInfo() => AboutInfoPanel.Show(AboutInfo.Sections(_services.GetRequiredService<AppUpdater>(), _docker));
+
+    /// <summary>The category shown: General, Projects, Releases, Sql, Docker, Iis or About.</summary>
+    public string? Category => (Categories.SelectedItem as ListBoxItem)?.Tag as string;
+
+    /// <summary>The keyboard in the search box (Ctrl+F).</summary>
+    public void FocusSearch()
+    {
+        SearchBox.Focus();
+        SearchBox.SelectAll();
+    }
+
+    /// <summary>The next category shown (<paramref name="by"/> 1) or the one before (-1), round the end - Ctrl+PageUp / Ctrl+PageDown.</summary>
+    public void StepCategory(int by)
+    {
+        var shown = Categories.Items.OfType<ListBoxItem>().Where(i => i.Visibility == Visibility.Visible).ToList();
+        if (shown.Count == 0) return;
+        var index = shown.IndexOf(Categories.SelectedItem as ListBoxItem ?? shown[0]);
+        Categories.SelectedItem = shown[((index + by) % shown.Count + shown.Count) % shown.Count];
+    }
+
+    public void ShowCategory(string key) =>
+        Categories.SelectedItem = Categories.Items.OfType<ListBoxItem>().FirstOrDefault(i => (string)i.Tag == key) ?? Categories.SelectedItem;
 
     // Leaves the categories that have a setting matching every word typed, and opens the first of them.
     private void Search_TextChanged(object sender, TextChangedEventArgs e)
@@ -215,21 +247,6 @@ public partial class SettingsPage : UserControl
         var shown = Categories.Items.OfType<ListBoxItem>().Where(i => i.Visibility == Visibility.Visible).ToList();
         NoMatch.Visibility = shown.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (shown.Count > 0 && !shown.Contains(Categories.SelectedItem)) Categories.SelectedItem = shown[0];
-    }
-
-    // ─── Theme ────────────────────────────────────────────────────────────
-
-    private void Theme_Checked(object sender, RoutedEventArgs e) => Edited();
-
-    private string ChosenTheme => ThemeLight.IsChecked == true ? "light" : ThemeDark.IsChecked == true ? "dark" : "system";
-
-    private void ShowTheme(string theme)
-    {
-        _loading = true;
-        ThemeLight.IsChecked = theme.Equals("light", StringComparison.OrdinalIgnoreCase);
-        ThemeDark.IsChecked = theme.Equals("dark", StringComparison.OrdinalIgnoreCase);
-        ThemeSystem.IsChecked = ThemeLight.IsChecked != true && ThemeDark.IsChecked != true;
-        _loading = false;
     }
 
     // ─── UI scale and font size ───────────────────────────────────────────
@@ -379,6 +396,7 @@ public partial class SettingsPage : UserControl
 
         _savedHostPassword = _secrets.Read(SecretNames.DefaultHostPassword) ?? DnnDefaultsSettings.DefaultHostPassword;
         _savedServerPassword = _secrets.Read(SecretNames.DatabaseServerPassword) ?? "";
+        _savedSaPassword = saved.SqlServer.SaPassword;
         ShowSettings(saved, _savedHostPassword, _savedServerPassword, _startsAtSignIn);
 
         _savedForm = FormSnapshot();
@@ -393,7 +411,6 @@ public partial class SettingsPage : UserControl
     private void ShowSettings(UserSettings settings, string hostPassword, string serverPassword, bool? startAtSignIn)
     {
         var saved = settings;
-        ShowTheme(saved.Appearance.Theme);
         ShowAppearance(saved.Appearance);
         ShowTerminal(saved.Terminal);
         _loading = true;
@@ -447,7 +464,7 @@ public partial class SettingsPage : UserControl
             string.Join('\n', ReleaseApis.Text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)),
             KeepDnnPackages.IsChecked == true, ServerSnapshot(),
             ContainerName.Text.Trim(), VolumeName.Text.Trim(), MssqlPid.Text.Trim(), Collation.Text.Trim(),
-            SsmsRememberPassword.IsChecked == true, ChosenTheme, ChosenUiScale, ChosenFontSize, SaveResourcesWhileMinimized.IsChecked == true,
+            SsmsRememberPassword.IsChecked == true, ChosenUiScale, ChosenFontSize, SaveResourcesWhileMinimized.IsChecked == true,
             terminal.Enabled, terminal.DefaultShell, terminal.FontFamily, terminal.FontSize,
             InstallAutomatic.IsChecked == true, HostUsername.Text.Trim(), HostPassword.Password, HostEmail.Text.Trim(), WebsiteName.Text.Trim(),
             (DnnLanguage.SelectedItem as ComboBoxItem)?.Tag, (DnnTemplate.SelectedItem as ComboBoxItem)?.Tag,
@@ -457,6 +474,22 @@ public partial class SettingsPage : UserControl
 
     /// <summary>The form has edits that aren't saved - leaving the page would lose them.</summary>
     public bool HasUnsavedChanges => _dirty;
+
+    /// <summary>A password on the form was changed and not saved - the one unsaved edit that isn't kept for the next start.</summary>
+    public bool HasUnsavedPassword =>
+        _dirty && (HostPassword.Password != _savedHostPassword || ServerPassword.Password != _savedServerPassword ||
+                   SaPassword.Password != _savedSaPassword);
+
+    /// <summary>The unsaved edits, by field - kept when DNN Manager restarts. Null when there are none. Never a password.</summary>
+    public Dictionary<string, string>? CaptureDraft() => _dirty && Form.IsEnabled ? FormDraft.Capture(Form) : null;
+
+    /// <summary>Puts unsaved edits back over the saved settings - they are unsaved again, for Save or Discard.</summary>
+    public void RestoreDraft(IReadOnlyDictionary<string, string> draft)
+    {
+        if (!Form.IsEnabled) return;
+        FormDraft.Restore(Form, draft);
+        Edited();
+    }
 
     private void SetDirty(bool dirty)
     {
@@ -533,10 +566,10 @@ public partial class SettingsPage : UserControl
         }
 
         _live.Apply(settings);
-        ThemeManager.Initialize(settings.Appearance.Theme);
+        _savedSaPassword = settings.SqlServer.SaPassword;
         ThemeManager.ApplyLayout(settings.Appearance.UiScale, settings.Appearance.FontSize);
         _terminal.Apply(settings.Terminal);
-        var secretsSaved = SaveSecrets(settings);
+        SaveSecrets(settings);
         // What another connection type's fields still show wasn't saved - show what is.
         _loading = true;
         ShowServer(settings.SqlServer);
@@ -544,7 +577,8 @@ public partial class SettingsPage : UserControl
         _savedForm = FormSnapshot();
         ShowError(null);
         SetDirty(false);
-        if (await ApplyStartAtSignInAsync() && secretsSaved) Toast.Show("Settings saved - they apply from now on.", ToastKind.Success);
+        // No toast when it worked - the Save button greying out says so; what failed says it itself.
+        await ApplyStartAtSignInAsync();
     }
 
     /// <summary>
@@ -664,7 +698,6 @@ public partial class SettingsPage : UserControl
             return ($"Host password: {passwordProblem}", "Projects");
 
         settings.Ssms.RememberPassword = SsmsRememberPassword.IsChecked == true;
-        settings.Appearance.Theme = ChosenTheme;
         settings.Appearance.UiScale = ChosenUiScale;
         settings.Appearance.FontSize = ChosenFontSize;
         settings.Window.SaveResourcesWhileMinimized = SaveResourcesWhileMinimized.IsChecked == true;

@@ -6,16 +6,10 @@ using Microsoft.Extensions.Options;
 
 namespace DnnManager.Infrastructure.Projects;
 
-public sealed class FileSystemProjectRepository : IProjectRepository
+public sealed class FileSystemProjectRepository(IOptions<AppOptions> opts, AppDataPaths paths) : IProjectRepository
 {
-    private readonly AppOptions _opts;
-    private readonly AppDataPaths _paths;
-
-    public FileSystemProjectRepository(IOptions<AppOptions> opts, AppDataPaths paths)
-    {
-        _opts = opts.Value;
-        _paths = paths;
-    }
+    private readonly AppOptions _opts = opts.Value;
+    private readonly AppDataPaths _paths = paths;
 
     public DnnProject Build(string projectName)
     {

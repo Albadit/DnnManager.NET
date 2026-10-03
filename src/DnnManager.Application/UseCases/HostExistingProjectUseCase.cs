@@ -29,48 +29,32 @@ public sealed class HostExistingProjectRequest
 /// over from an earlier setup…): creates its IIS website, its local database, or both. The site's
 /// files are never downloaded, copied or overwritten.
 /// </summary>
-public sealed class HostExistingProjectUseCase
+public sealed class HostExistingProjectUseCase(
+    IOptions<AppOptions> opts,
+    IProjectRepository projects,
+    IIisManager iis,
+    IisSiteProvisioner site,
+    LocalSqlContainer sqlContainer,
+    ISqlServerService sql,
+    IWebConfigService webConfig,
+    IHttpConnectivityChecker http,
+    IPrerequisiteChecker prereq,
+    IUserPrompt prompt,
+    ILogger<HostExistingProjectUseCase> log,
+    OperationUndo undo)
 {
-    private readonly AppOptions _opts;
-    private readonly IProjectRepository _projects;
-    private readonly IIisManager _iis;
-    private readonly IisSiteProvisioner _site;
-    private readonly LocalSqlContainer _sqlContainer;
-    private readonly ISqlServerService _sql;
-    private readonly IWebConfigService _webConfig;
-    private readonly IHttpConnectivityChecker _http;
-    private readonly IPrerequisiteChecker _prereq;
-    private readonly IUserPrompt _prompt;
-    private readonly ILogger<HostExistingProjectUseCase> _log;
-    private readonly OperationUndo _undo;
-
-    public HostExistingProjectUseCase(
-        IOptions<AppOptions> opts,
-        IProjectRepository projects,
-        IIisManager iis,
-        IisSiteProvisioner site,
-        LocalSqlContainer sqlContainer,
-        ISqlServerService sql,
-        IWebConfigService webConfig,
-        IHttpConnectivityChecker http,
-        IPrerequisiteChecker prereq,
-        IUserPrompt prompt,
-        ILogger<HostExistingProjectUseCase> log,
-        OperationUndo undo)
-    {
-        _opts = opts.Value;
-        _projects = projects;
-        _iis = iis;
-        _site = site;
-        _sqlContainer = sqlContainer;
-        _sql = sql;
-        _webConfig = webConfig;
-        _http = http;
-        _prereq = prereq;
-        _prompt = prompt;
-        _log = log;
-        _undo = undo;
-    }
+    private readonly AppOptions _opts = opts.Value;
+    private readonly IProjectRepository _projects = projects;
+    private readonly IIisManager _iis = iis;
+    private readonly IisSiteProvisioner _site = site;
+    private readonly LocalSqlContainer _sqlContainer = sqlContainer;
+    private readonly ISqlServerService _sql = sql;
+    private readonly IWebConfigService _webConfig = webConfig;
+    private readonly IHttpConnectivityChecker _http = http;
+    private readonly IPrerequisiteChecker _prereq = prereq;
+    private readonly IUserPrompt _prompt = prompt;
+    private readonly ILogger<HostExistingProjectUseCase> _log = log;
+    private readonly OperationUndo _undo = undo;
 
     public async Task<Result> ExecuteAsync(HostExistingProjectRequest req, IProgressReporter reporter, CancellationToken ct)
     {

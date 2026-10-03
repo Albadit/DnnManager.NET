@@ -83,7 +83,7 @@ public partial class ExistingFolderOptions : UserControl
         };
         if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
 
-        var options = (BackupCombo.ItemsSource as IEnumerable<BackupOption>)?.ToList() ?? new List<BackupOption>();
+        var options = (BackupCombo.ItemsSource as IEnumerable<BackupOption>)?.ToList() ?? [];
         var picked = options.FirstOrDefault(o => string.Equals(o.File, dialog.FileName, StringComparison.OrdinalIgnoreCase));
         if (picked is null)
         {

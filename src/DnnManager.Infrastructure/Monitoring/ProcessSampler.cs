@@ -24,8 +24,8 @@ public sealed class ProcessSampler
 {
     private readonly Lock _lock = new();
     // CPU time of each process at its previous sample.
-    private Dictionary<int, (TimeSpan Cpu, DateTime At)> _previous = new();
-    private Dictionary<int, (TimeSpan Cpu, DateTime At)> _current = new();
+    private Dictionary<int, (TimeSpan Cpu, DateTime At)> _previous = [];
+    private Dictionary<int, (TimeSpan Cpu, DateTime At)> _current = [];
 
     /// <summary>
     /// Samples every group in <paramref name="groups"/> (key → process IDs) at once; a group whose processes are all gone
@@ -38,7 +38,7 @@ public sealed class ProcessSampler
         var result = new Dictionary<TKey, ProcessGroupStats>();
         lock (_lock)
         {
-            _current = new Dictionary<int, (TimeSpan, DateTime)>();
+            _current = [];
             foreach (var (key, pids) in groups)
             {
                 if (SampleGroup(pids, totalMemory) is { } stats) result[key] = stats;

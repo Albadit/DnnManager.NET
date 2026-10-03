@@ -13,6 +13,7 @@ using DnnManager.Application.Configuration;
 using DnnManager.Application.UseCases;
 using DnnManager.Infrastructure.Monitoring;
 using DnnManager.Infrastructure.Settings;
+using DnnManager.Presentation.Controls;
 using DnnManager.Presentation.Pages.Projects;
 using DnnManager.Presentation.Services;
 using Microsoft.Extensions.Options;
@@ -78,7 +79,7 @@ public partial class ProjectsPage : UserControl
         }
         ProjectsGrid.ItemsSource = _view;
 
-        _selectAll = new CheckBox { Style = (Style)FindResource("TableCheckBox"), ToolTip = "Select all shown / none" };
+        _selectAll = new CheckBox { Style = (Style)FindResource("TableCheckBox"), ToolTip = "Select all" };
         _selectAll.Click += SelectAll_Click;
         SelectColumn.Header = _selectAll;
 
@@ -148,9 +149,10 @@ public partial class ProjectsPage : UserControl
             case nameof(ProjectRow.IsExpanded):
                 if (sender is ProjectRow row && ProjectsGrid.ItemContainerGenerator.ContainerFromItem(row) is DataGridRow container)
                     ShowDetails(container);
+                WorkspaceChanged?.Invoke(this, EventArgs.Empty);
                 break;
             // Checked or not, and what the row may do now (it comes with every change of state): the bulk buttons.
-            case nameof(ProjectRow.IsChecked) or nameof(ProjectRow.CanStart):
+            case nameof(ProjectRow.IsChecked) or nameof(ProjectRow.CanStart) or nameof(ProjectRow.KeepWarmOn) or nameof(ProjectRow.CanToggleKeepWarm):
                 QueueUpdateSelection();
                 break;
         }
@@ -274,10 +276,18 @@ public partial class ProjectsPage : UserControl
         BulkStopButton.IsEnabled = chosen.Any(r => r.CanStop);
         BulkRestartButton.IsEnabled = chosen.Any(r => r.CanRestart);
         BulkRemoveButton.IsEnabled = chosen.Count > 0 && chosen.All(r => r.CanRemove);
-        BulkStartButton.ToolTip = BulkTip("Start", chosen.Count(r => r.CanStart), "stopped");
-        BulkStopButton.ToolTip = BulkTip("Stop", chosen.Count(r => r.CanStop), "running");
-        BulkRestartButton.ToolTip = BulkTip("Restart", chosen.Count(r => r.CanRestart), "running");
-        BulkRemoveButton.ToolTip = $"Remove the {Plural(chosen.Count, "selected project")} - asks first";
+        BulkStartButton.ToolTip = "Start";
+        BulkStopButton.ToolTip = "Stop";
+        BulkRestartButton.ToolTip = "Restart";
+        BulkRemoveButton.ToolTip = "Remove";
+
+        // Keep warm: on for those that aren't yet - or, when all that can be are, off for them all.
+        var warmable = chosen.Where(r => r.CanToggleKeepWarm).ToList();
+        var allWarm = warmable.Count > 0 && warmable.All(r => r.KeepWarmOn);
+        BulkKeepWarmButton.IsEnabled = warmable.Count > 0;
+        BulkKeepWarmIcon.Data = (Geometry)FindResource(allWarm ? "FlameFilled" : "FlameOutline");
+        BulkKeepWarmIcon.SetResourceReference(Shape.FillProperty, allWarm ? "KeepWarmFg" : "TextPrimary");
+        BulkKeepWarmButton.ToolTip = allWarm ? "Stop keeping warm" : "Keep warm";
 
         // A message in the middle only while there are no rows to show: before the first snapshot, without projects,
         // or when the search matches none. Never over rows that are there.
@@ -292,17 +302,24 @@ public partial class ProjectsPage : UserControl
             : $"No running project matches “{SearchText}”.");
     }
 
-    private static string BulkTip(string verb, int count, string state) =>
-        count == 0 ? $"None of the selected sites is {state}." : $"{verb} {Plural(count, $"{state} site")}";
-
-    private static string Plural(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
-
     // ─── Actions ──────────────────────────────────────────────────────────
 
     private void BulkStart_Click(object sender, RoutedEventArgs e) => ControlSites(SiteAction.Start, Checked.Where(r => r.CanStart).ToList());
     private void BulkStop_Click(object sender, RoutedEventArgs e) => ControlSites(SiteAction.Stop, Checked.Where(r => r.CanStop).ToList());
     private void BulkRestart_Click(object sender, RoutedEventArgs e) => ControlSites(SiteAction.Restart, Checked.Where(r => r.CanRestart).ToList());
     private void BulkRemove_Click(object sender, RoutedEventArgs e) => Remove(Checked);
+
+    /// <summary>
+    /// Keeps the checked sites warm - or, when every one that can be is already, stops keeping them warm. Sites without an
+    /// address to request are left out.
+    /// </summary>
+    private void BulkKeepWarm_Click(object sender, RoutedEventArgs e)
+    {
+        var warmable = Checked.Where(r => r.CanToggleKeepWarm).ToList();
+        var on = !warmable.All(r => r.KeepWarmOn);
+        foreach (var row in warmable.Where(r => r.KeepWarmOn != on)) ToggleKeepWarm(row);
+        UpdateSelection();
+    }
 
     private void RowStart_Click(object sender, RoutedEventArgs e) => OnRow(sender, row => ControlSites(SiteAction.Start, [row]));
     private void RowStop_Click(object sender, RoutedEventArgs e) => OnRow(sender, row => ControlSites(SiteAction.Stop, [row]));
@@ -402,14 +419,98 @@ public partial class ProjectsPage : UserControl
 
     private void OpenFolder_Click(object sender, RoutedEventArgs e) => OnRow(sender, Projects.ProjectMenu.OpenFolder);
 
-    // Space checks / unchecks the selected row, like the check box; Enter opens it.
+    // Space checks / unchecks the selected row, like the check box; Enter opens it; Del removes it (asking first) - as
+    // in the terminal list. Up and Down move the selection (the grid's own); Right shows the row's details in the table,
+    // Left hides them - as its chevron does, like a tree.
     private void Grid_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (ProjectsGrid.SelectedItem is not ProjectRow row) return;
+        if (ProjectsGrid.SelectedItem is not ProjectRow row || Keyboard.Modifiers != ModifierKeys.None) return;
         if (e.Key == Key.Space) row.IsChecked = !row.IsChecked;
+        else if (e.Key == Key.Right) row.IsExpanded = true;
+        else if (e.Key == Key.Left) row.IsExpanded = false;
         else if (e.Key == Key.Enter) OpenProject(row);
+        else if (e.Key == Key.Delete && row.CanRemove) Remove([row]);
         else return;
         e.Handled = true;
+    }
+
+    // A click anywhere on a row - its name, address or a button too, which don't take the keyboard - selects it and puts
+    // the keyboard in the table, so the arrows go on from there, as in the terminal list.
+    // A click in the table's empty space (not on a row, a column header or a scrollbar) puts the keyboard there too - on
+    // the selected row, or the first.
+    private void Grid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        var row = RowAt(e.OriginalSource, ignoreButtons: false);
+        if (row is null)
+        {
+            if (Within<DataGridColumnHeader>(e.OriginalSource) || Within<ScrollBar>(e.OriginalSource) || ProjectsGrid.Items.Count == 0) return;
+            row = ProjectsGrid.SelectedItem as ProjectRow ?? ProjectsGrid.Items[0] as ProjectRow;
+            if (row is null) return;
+        }
+        ProjectsGrid.SelectedItem = row;
+        Dispatcher.BeginInvoke(() => FocusRow(row), DispatcherPriority.Input);
+    }
+
+    /// <summary>
+    /// The keyboard left the table: its row is no longer selected - as a list that isn't being used. Not for a menu or the
+    /// command palette, which act on that row, a question it asked, or another app (the window inactive).
+    /// </summary>
+    private void Grid_IsKeyboardFocusWithinChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if ((bool)e.NewValue) return;
+        // Once the keyboard has arrived where it went.
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (ProjectsGrid.IsKeyboardFocusWithin || Window.GetWindow(this) is not { IsActive: true }) return;
+            if (ProjectsGrid.ContextMenu?.IsOpen == true || Keyboard.FocusedElement is { } focused &&
+                (Within<ContextMenu>(focused) || Within<CommandPalette>(focused))) return;
+            ProjectsGrid.SelectedItem = null;
+        }, DispatcherPriority.Input);
+    }
+
+    // A click on the page outside the table - its title, the room beside it - takes the keyboard out of the table, and so
+    // its selection (Grid_IsKeyboardFocusWithinChanged). To the page itself, so the window's keys still work; what takes
+    // the keyboard on a click (the search box) takes it from there.
+    private void Page_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!TableView.IsVisible || IsIn(e.OriginalSource, ProjectsGrid)) return;
+        if (ProjectsGrid.IsKeyboardFocusWithin) Focus();
+        else ProjectsGrid.SelectedItem = null;
+    }
+
+    private static bool IsIn(object source, DependencyObject ancestor)
+    {
+        for (var d = source as DependencyObject; d is not null;
+             d = d is Visual or Visual3D ? VisualTreeHelper.GetParent(d) ?? LogicalTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
+            if (d == ancestor) return true;
+        return false;
+    }
+
+    // The rows clipped to the frame's rounded corners (its radius less its border).
+    private void Grid_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        ProjectsGrid.Clip = new RectangleGeometry(new Rect(e.NewSize), 5, 5);
+
+    /// <summary>Whether <paramref name="source"/> is a <typeparamref name="T"/> or inside one.</summary>
+    private static bool Within<T>(object source) where T : DependencyObject
+    {
+        for (var d = source as DependencyObject; d is not null;
+             d = d is Visual or Visual3D ? VisualTreeHelper.GetParent(d) ?? LogicalTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
+            if (d is T) return true;
+        return false;
+    }
+
+    /// <summary>The keyboard on <paramref name="row"/>'s first cell - unless something in the row has it already (its check box).</summary>
+    private void FocusRow(ProjectRow row)
+    {
+        if (!TableView.IsVisible || ProjectsGrid.ItemContainerGenerator.ContainerFromItem(row) is not DataGridRow container ||
+            container.IsKeyboardFocusWithin) return;
+        if (ProjectsGrid.Columns.FirstOrDefault(c => c.Visibility == Visibility.Visible) is { } column &&
+            column.GetCellContent(container)?.Parent is DataGridCell cell)
+        {
+            ProjectsGrid.CurrentCell = new DataGridCellInfo(cell);
+            cell.Focus();
+        }
+        else container.Focus();
     }
 
     // ─── A site's overview ────────────────────────────────────────────────
@@ -425,15 +526,144 @@ public partial class ProjectsPage : UserControl
         ProjectHost.Content = view;
         ProjectHost.Visibility = Visibility.Visible;
         TableView.Visibility = Visibility.Collapsed;
+        WorkspaceChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void CloseProject()
     {
+        // Back on the table, on the project that was open.
+        var open = (ProjectHost.Content as ProjectView)?.Row;
         ProjectHost.Content = null;
         ProjectHost.Visibility = Visibility.Collapsed;
         TableView.Visibility = Visibility.Visible;
-        ProjectsGrid.Focus();
+        if (open is not null && ProjectsGrid.Items.Contains(open))
+        {
+            ProjectsGrid.SelectedItem = open;
+            Dispatcher.BeginInvoke(() => FocusRow(open), DispatcherPriority.Input);
+        }
+        else ProjectsGrid.Focus();
+        WorkspaceChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    // ─── The keyboard (commands) ──────────────────────────────────────────
+
+    /// <summary>The project the keyboard's commands act on: the one whose Details are open, else the table's selected row.</summary>
+    public ProjectRow? CurrentProject => ProjectHost.Content is ProjectView view ? view.Row : ProjectsGrid.SelectedItem as ProjectRow;
+
+    /// <summary>The Details are open - Ctrl+W closes them.</summary>
+    public bool DetailsOpen => ProjectHost.Content is ProjectView;
+
+    public ProjectView? Details => ProjectHost.Content as ProjectView;
+
+    public void CloseDetails()
+    {
+        if (DetailsOpen) CloseProject();
+    }
+
+    /// <summary>The keyboard in the search box, its text selected - Ctrl+F on the table.</summary>
+    public void FocusSearch()
+    {
+        CloseDetails();
+        Dispatcher.BeginInvoke(() =>
+        {
+            SearchBox.Focus();
+            SearchBox.SelectAll();
+        }, DispatcherPriority.Input);
+    }
+
+    /// <summary>The keyboard in the table (or the Details), on the selected row - the first when none is.</summary>
+    public void FocusContent() => Dispatcher.BeginInvoke(() =>
+    {
+        if (ProjectHost.Content is ProjectView view)
+        {
+            view.FocusTabs();
+            return;
+        }
+        if (ProjectsGrid.SelectedItem is null && ProjectsGrid.Items.Count > 0) ProjectsGrid.SelectedIndex = 0;
+        if (ProjectsGrid.SelectedItem is { } row && ProjectsGrid.ItemContainerGenerator.ContainerFromItem(row) is DataGridRow container)
+            container.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+        else ProjectsGrid.Focus();
+    }, DispatcherPriority.Input);
+
+    // ─── Kept between starts ──────────────────────────────────────────────
+
+    /// <summary>Details opened or closed, the table sorted, scrolled or a row expanded - what the workspace keeps changed.</summary>
+    public event EventHandler? WorkspaceChanged;
+
+    /// <summary>The table as it is set - search, filter, sorting, expanded and selected rows, scroll position.</summary>
+    public ProjectsTableState CaptureTable()
+    {
+        var sort = _view.SortDescriptions.Count > 0 ? _view.SortDescriptions[0] : (SortDescription?)null;
+        return new ProjectsTableState
+        {
+            Search = SearchBox.Text.Length > 0 ? SearchBox.Text : null,
+            OnlyRunning = OnlyRunning.IsChecked == true,
+            SortBy = sort?.PropertyName,
+            SortDescending = sort?.Direction == ListSortDirection.Descending,
+            Expanded = _store.Projects.Where(r => r.IsExpanded).Select(r => r.Name).ToList(),
+            Selected = (ProjectsGrid.SelectedItem as ProjectRow)?.Name,
+            ScrollOffset = (_gridViewer ??= FindScrollViewer(ProjectsGrid))?.VerticalOffset ?? 0
+        };
+    }
+
+    /// <summary>The project whose Details are open, and their tab; nulls when the table is shown.</summary>
+    public (string? Project, string? Tab) CaptureDetails() =>
+        ProjectHost.Content is ProjectView view ? (view.Row.Name, view.Tab) : (null, null);
+
+    /// <summary>
+    /// Puts the table and the Details back as they were - once the projects have been read. Returns what couldn't be
+    /// restored (the project is gone), or null.
+    /// </summary>
+    public async Task<string?> RestoreAsync(ProjectsTableState table, string? project, string? tab)
+    {
+        SearchBox.Text = table.Search ?? "";
+        OnlyRunning.IsChecked = table.OnlyRunning;
+        Sort(table.SortBy, table.SortDescending);
+        _view.Refresh();
+        UpdateSelection();
+
+        if (!_store.IsLoaded)
+        {
+            var loaded = new TaskCompletionSource();
+            EventHandler wait = (_, _) => { if (_store.IsLoaded) loaded.TrySetResult(); };
+            _store.ConnectionChanged += wait;
+            // The projects can't be read at all (IIS broken): what is there is restored after a while.
+            await Task.WhenAny(loaded.Task, Task.Delay(TimeSpan.FromSeconds(60)));
+            _store.ConnectionChanged -= wait;
+        }
+
+        var rows = _store.Projects.GroupBy(r => r.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        foreach (var name in table.Expanded)
+            if (rows.TryGetValue(name, out var expanded)) expanded.IsExpanded = true;
+        if (table.Selected is { } selected && rows.TryGetValue(selected, out var selectedRow)) ProjectsGrid.SelectedItem = selectedRow;
+        // Once the rows are laid out - there is nothing to scroll before.
+        var offset = table.ScrollOffset;
+        if (offset > 0) _ = Dispatcher.BeginInvoke(() => (_gridViewer ??= FindScrollViewer(ProjectsGrid))?.ScrollToVerticalOffset(offset), DispatcherPriority.Loaded);
+
+        if (project is null) return null;
+        // Gone (removed, renamed) - the table is the closest place to it.
+        if (!rows.TryGetValue(project, out var row)) return $"{project} isn't in IIS any more - here is the Projects table.";
+        OpenProject(row);
+        (ProjectHost.Content as ProjectView)?.ShowTab(tab);
+        return null;
+    }
+
+    /// <summary>Sorts the table by the column that sorts by <paramref name="property"/> - as clicking its header would.</summary>
+    private void Sort(string? property, bool descending)
+    {
+        if (property is null) return;
+        var column = ProjectsGrid.Columns.FirstOrDefault(c => c.CanUserSort && c.SortMemberPath == property);
+        if (column is null) return;
+        var direction = descending ? ListSortDirection.Descending : ListSortDirection.Ascending;
+        foreach (var other in ProjectsGrid.Columns) other.SortDirection = null;
+        column.SortDirection = direction;
+        _view.SortDescriptions.Clear();
+        _view.SortDescriptions.Add(new SortDescription(property, direction));
+    }
+
+    private void Grid_Sorting(object sender, DataGridSortingEventArgs e) =>
+        // After the grid has sorted.
+        Dispatcher.BeginInvoke(() => WorkspaceChanged?.Invoke(this, EventArgs.Empty), DispatcherPriority.Background);
 
     /// <summary>
     /// Gives the filler column whatever width the other columns leave, so Actions sits at the right edge - none when
@@ -452,8 +682,9 @@ public partial class ProjectsPage : UserControl
 
     private void Grid_ScrollChanged(object sender, ScrollChangedEventArgs e)
     {
-        if (e.OriginalSource is ScrollViewer viewer && viewer == (_gridViewer ??= FindScrollViewer(ProjectsGrid)))
-            UpdateActionsShift(viewer);
+        if (e.OriginalSource is not ScrollViewer viewer || viewer != (_gridViewer ??= FindScrollViewer(ProjectsGrid))) return;
+        UpdateActionsShift(viewer);
+        if (e.VerticalChange != 0) WorkspaceChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>

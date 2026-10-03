@@ -17,7 +17,8 @@ Making a new version: the steps, the release workflow, the portable exe and the 
    changelog, the commits and the test results. By hand, start from the draft:
    `.github\scripts\release-notes.ps1 -Version X.Y.Z -OutFile docs\release-notes\vX.Y.Z.md`.
 5. Commit and push, then publish the release - either way the GitHub release gets
-   `DnnManager-X.Y.Z-x64.exe` and `DnnManagerSetup-X.Y.Z-x64.exe`, and Settings → About compares the running version with the newest release there:
+   `DnnManager-X.Y.Z-x64.exe` and `DnnManagerSetup-X.Y.Z-x64.exe`, and every running DNN Manager
+   offers it with its **Update** button (see [The in-app update](#the-in-app-update)):
    - **From VS Code**: run the task **release (GitHub)** - see
      [Release from VS Code](#release-from-vs-code).
    - **From GitHub Actions**: tag the commit and push the tag; the
@@ -91,6 +92,40 @@ pushed tag `vX.Y.Z` (or `vX.Y.Z-suffix`, which becomes a pre-release):
 **Actions → Release → Run workflow** with a version is a dry run: everything
 except publishing the release. Preview the notes locally with
 `.github\scripts\release-notes.ps1 -Version 1.7.0 -OutFile notes.md`.
+
+## The in-app update
+
+Every DNN Manager from 1.7.0 on updates itself from GitHub's **latest release** (never a
+draft or a pre-release - a `vX.Y.Z-rc.1` tag isn't offered) - see
+[Update](user-guide.md#update). A release must keep what it relies on:
+
+- **The file names**: `DnnManagerSetup-<version>-x64.exe` updates an installed DNN
+  Manager, `DnnManager-<version>-x64.exe` a portable one
+  ([`AppRelease.AssetFor`](../src/DnnManager.Infrastructure/Updates/AppRelease.cs)).
+- **The version inside both files**: their *ProductVersion* must be the tag's version
+  (the workflow's check in step 3) - a download whose version differs is refused.
+- **GitHub's SHA-256** of each file (the asset's `digest`): checked when GitHub lists it.
+- **Silent Setup**: the update runs Setup with `/SILENT /SUPPRESSMSGBOXES /NORESTART
+  /NOCANCEL /SP- /CURRENTUSER` (or `/ALLUSERS`) - `DnnManager.iss` must keep
+  installing without questions that way, and keep its `AppId`.
+
+How it works: the running DNN Manager downloads and checks the file, notes the
+update (`Documents\DnnManager\state\update.json` - where the user is, the workspace
+saves as DNN Manager closes), copies its own exe to
+`%TEMP%\DnnManager-update\<version>\helper-…\` and closes, starting that copy with
+`--apply-update plan.json`. The copy ([`UpdateHelper`](../src/DnnManager.Infrastructure/Updates/UpdateHelper.cs))
+waits for it to exit, runs Setup or swaps the portable exe (with a backup it puts
+back if anything fails), and starts DNN Manager again; the new version restores the
+workspace and checks it is the version the update meant to install.
+The helper is the *old* version's code, so a release can change the helper only for
+the updates after it.
+
+**Try it** with the VS Code task **publish (update test, one version below the release)**
+([`.github/scripts/build-update-test.ps1`](../.github/scripts/build-update-test.ps1)): it
+builds the working copy as a portable exe one version below GitHub's newest release
+(1.6.0 → 1.5.9, 1.7.0 → 1.6.9, 2.0.0 → 1.9.9) into
+`publish\update-test\DnnManager-<version>-x64.exe`. Start it and click **Update**: it
+installs the real release over itself. `-Version 1.5.9` picks the version by hand.
 
 ## Publish the portable exe
 

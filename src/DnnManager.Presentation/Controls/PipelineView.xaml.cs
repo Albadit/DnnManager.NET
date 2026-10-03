@@ -126,7 +126,8 @@ public partial class PipelineView : UserControl
         WarningCount.Text = run.Warnings.ToString();
         WarningCount.SetResourceReference(TextBlock.ForegroundProperty, run.Warnings > 0 ? "OutWarn" : "OutText");
         ErrorCount.Text = run.Errors.ToString();
-        ErrorCount.SetResourceReference(TextBlock.ForegroundProperty, run.Errors > 0 ? "OutErrorSoft" : "OutOk");
+        // Coloured only when there are some - a 0 is plain, like the other values.
+        ErrorCount.SetResourceReference(TextBlock.ForegroundProperty, run.Errors > 0 ? "OutErrorSoft" : "OutText");
     }
 
     private void UpdateClock()

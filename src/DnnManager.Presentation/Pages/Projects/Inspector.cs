@@ -6,8 +6,8 @@ using System.Windows.Shapes;
 
 namespace DnnManager.Presentation.Pages.Projects;
 
-/// <summary>How a value or a row stands: nothing to say, as it should be, worth a look, or wrong.</summary>
-public enum Health { None, Ok, Warning, Bad }
+/// <summary>How a value or a row stands: nothing to say, as it should be, worth a look, wrong - or not known (a gray dot).</summary>
+public enum Health { None, Ok, Warning, Bad, Unknown }
 
 /// <summary>A label and what was detected for it - with, when there is more to say, a line under it.</summary>
 public sealed record InspectorRow(string Label, string Value, Health Health = Health.None, string? Detail = null);
@@ -217,7 +217,10 @@ public sealed class InspectorPanel : StackPanel
     {
         if (health == Health.None) return null;
         var dot = new Ellipse { Width = 7, Height = 7, VerticalAlignment = VerticalAlignment.Top, HorizontalAlignment = HorizontalAlignment.Left };
-        dot.SetResourceReference(Shape.FillProperty, health switch { Health.Ok => "SuccessText", Health.Warning => "LogWarn", _ => "ErrorText" });
+        dot.SetResourceReference(Shape.FillProperty, health switch
+        {
+            Health.Ok => "SuccessText", Health.Warning => "LogWarn", Health.Unknown => "TextMuted", _ => "ErrorText"
+        });
         return dot;
     }
 

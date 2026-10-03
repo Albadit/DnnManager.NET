@@ -8,19 +8,13 @@ namespace DnnManager.Application.UseCases;
 /// Sets up the shared SQL Server in Docker from the given settings: runs <c>docker compose up -d</c> with their
 /// docker-compose.yml (no file is written) and waits until SQL Server accepts the sa login.
 /// </summary>
-public sealed class SetupSqlContainerUseCase
+public sealed class SetupSqlContainerUseCase(IDockerComposeService compose, ISqlConnectionTester tester)
 {
     // A fresh container needs a while to initialise its system databases before the first login works.
     private static readonly TimeSpan ReadyTimeout = TimeSpan.FromMinutes(3);
 
-    private readonly IDockerComposeService _compose;
-    private readonly ISqlConnectionTester _tester;
-
-    public SetupSqlContainerUseCase(IDockerComposeService compose, ISqlConnectionTester tester)
-    {
-        _compose = compose;
-        _tester = tester;
-    }
+    private readonly IDockerComposeService _compose = compose;
+    private readonly ISqlConnectionTester _tester = tester;
 
     public async Task<Result> ExecuteAsync(DockerOptions docker, IProgressReporter reporter, CancellationToken ct)
     {

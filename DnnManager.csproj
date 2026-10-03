@@ -12,7 +12,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <DebugType>embedded</DebugType>
-    <Version>1.6.0</Version>
+    <Version>1.7.0</Version>
     <!-- Publishing for a runtime (e.g. -r win-x64) precompiles the code (ReadyToRun), so the app starts without
          JIT-compiling everything first. Plain builds and dotnet run are unaffected. -->
     <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>

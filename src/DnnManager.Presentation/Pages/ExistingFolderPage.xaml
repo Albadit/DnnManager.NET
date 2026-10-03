@@ -2,7 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:c="clr-namespace:DnnManager.Presentation.Controls">
-    <DockPanel Margin="28,24,28,20">
+    <!-- Centred: as wide as there is room, up to the folder list and the 640 of the options beside it. -->
+    <DockPanel Margin="28,24,28,20" MaxWidth="960">
         <StackPanel DockPanel.Dock="Top">
             <StackPanel Orientation="Horizontal">
                 <TextBlock Style="{StaticResource PageTitle}" Text="Host project" />
@@ -39,7 +40,7 @@
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="14,8,10,4">
                         <Button DockPanel.Dock="Right" x:Name="RefreshButton" Padding="10,0" VerticalAlignment="Center"
-                                ToolTip="Read the project folders and their IIS sites again" Click="Refresh_Click">
+                                ToolTip="Refresh" Click="Refresh_Click">
                             <TextBlock Text="&#xE72C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center" />
                         </Button>
                         <TextBlock Style="{StaticResource CardTitle}" Text="Project folders" Margin="0" VerticalAlignment="Center" />
@@ -69,8 +70,8 @@
             </Border>
 
             <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
-                <!-- As wide as there is room, up to 860 - the width of the settings. -->
-                <StackPanel MaxWidth="860" HorizontalAlignment="Left">
+                <!-- As wide as there is room, up to 640 - enough for the choices and a backup's name. -->
+                <StackPanel MaxWidth="640">
                     <TextBlock x:Name="EmptyText" Foreground="{DynamicResource TextMuted}" Text="Select a folder on the left." Margin="0,6,0,0" />
                     <Border x:Name="OptionsCard" Style="{StaticResource Card}" Visibility="Collapsed">
                         <StackPanel>
@@ -80,7 +81,8 @@
                         </StackPanel>
                     </Border>
                     <StackPanel Orientation="Horizontal">
-                        <Button x:Name="RunButton" Style="{StaticResource Primary}" Content="Set up" IsEnabled="False" Click="Run_Click" />
+                        <Button x:Name="RunButton" Style="{StaticResource Primary}" Content="Set up" IsEnabled="False" Click="Run_Click"
+                                ToolTip="Set up" />
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>

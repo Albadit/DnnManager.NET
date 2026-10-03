@@ -4,11 +4,9 @@ using Microsoft.Extensions.Logging;
 
 namespace DnnManager.Infrastructure.Files;
 
-public sealed class ProjectScaffolder : IProjectScaffolder
+public sealed class ProjectScaffolder(ILogger<ProjectScaffolder> log) : IProjectScaffolder
 {
-    private readonly ILogger<ProjectScaffolder> _log;
-
-    public ProjectScaffolder(ILogger<ProjectScaffolder> log) => _log = log;
+    private readonly ILogger<ProjectScaffolder> _log = log;
 
     public Result EnsureGitignore(string projectDirectory)
     {

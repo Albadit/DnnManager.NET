@@ -46,19 +46,106 @@ Your settings and backups are **not** in the install folder - they're in
 writes there, so upgrading, reinstalling or uninstalling keeps them. To remove
 them, delete that folder after uninstalling.
 
+## Update
+
+DNN Manager asks GitHub for its newest release a few seconds after it starts,
+every 6 hours after that, and when you open **Settings → About**. When there is a
+newer one, a blue **Update** button appears in the title bar, left of the
+layout buttons. Click it and DNN Manager:
+
+1. downloads the release's file for your copy - the new Setup for an installed
+   DNN Manager, the new portable exe for a portable one - the button stays
+   **Update**, dimmed while it works, and its tooltip says what it is doing;
+2. checks the download before it uses it: its size, the SHA-256 GitHub lists for
+   it, and the version inside the file;
+3. closes, saving your workspace as on any close (see
+   [Picking up where you left off](#picking-up-where-you-left-off)) - it asks
+   first only when an operation is running or a password on Settings isn't saved;
+   **Stay** cancels the update and leaves everything as it was;
+4. installs the new version: Setup runs over your installation with its progress
+   window and no questions; a portable exe is replaced in place, under its own
+   file name, so your shortcuts and *Start DNN Manager when you sign in* keep
+   working;
+5. opens again - the new version - where you were, with a message that says it
+   updated (*Updated to v1.7.0 - you're back where you left off*).
+
+Until DNN Manager closes nothing is changed: a download or a check that fails
+leaves this version running and says why; **Update** tries again.
+After it closes, a failed install starts the old version again and says why
+(**Show log** opens the update's log). A new portable exe that closes with an
+error right after it starts is swapped back for the old one. Your settings are
+never touched - they're in `Documents\DnnManager`.
+
+The button is disabled while an operation runs, and missing in a development
+build (`dotnet build` output) - that is rebuilt, not updated. **Settings →
+About** shows the status: *Checking for updates…*, *Up to date* (green dot),
+*Update available* (orange), *Downloading update…*, *Installing update…*,
+*Restarting…*, or *Unable to reach GitHub* (gray dot, with the reason under it).
+
+## Picking up where you left off
+
+DNN Manager opens the way you left it - after you close it, after **Restart** on
+Troubleshoot, after an update, and after a crash. It keeps:
+
+- **the window** - where it was, its size, maximized or not, the sidebar shown
+  or hidden, the bottom panel's height and whether it is open or maximized;
+- **where you were** - the page; on Projects the search, *Only show running*, the
+  column the table is sorted by, the expanded and selected rows, how far it was
+  scrolled, and the project whose Details were open with their tab; the Settings
+  category, and Settings or Troubleshoot when one was open over the page;
+- **what you typed and didn't use yet** - the **New project** and **Host project**
+  forms, and unsaved changes on **Settings** (they come back unsaved, for
+  **Save** or **Discard changes**);
+- **the bottom panel** - which tab was shown (Output or Logs), the search, the
+  site and log on the Logs tab, and how wide the terminal list is.
+
+**Never kept:** the terminals - a shell can't outlive DNN Manager, so each start
+begins without any (open one with **Ctrl+`**); passwords (type them again -
+closing with a changed, unsaved password asks first), dialogs and questions,
+running operations, messages. What
+no longer exists falls back to the place above it: a removed project leaves you
+on the Projects table (a message says so), a log that is gone shows the site's
+newest one, a window place on a monitor that isn't there any more centres the
+window. A project whose database doesn't answer opens as usual, saying so on its
+Details.
+
+It is saved a moment after anything changes and when DNN Manager closes, in
+`Documents\DnnManager\state` (see [Configuration](configuration.md#where-your-files-are)) -
+never in the program's folder, so updates don't touch it. **Reset to factory
+defaults** on Troubleshoot forgets it; so does deleting that folder while DNN
+Manager is closed.
+
 ## Using the app
 
 ### Window
 
-- **Title bar** - DNN Manager draws its own: next to the minimize / maximize /
-  close buttons is **Settings** (gear icon, underlined while Settings is open -
-  a page of its own, without the sidebar; the theme is chosen there). Drag it to move the window, double-click it to maximize; on Windows 11,
-  resting on maximize shows Snap layouts.
-- **Sidebar** - the pages below, and the **Projects folder** at the bottom. In a
-  window narrower than 1100 pixels it slides to a narrow one with only the page
-  icons (their names as tooltips).
-- **Status bar** - along the bottom of the window, always visible, laid out
-  like Docker Desktop's:
+- **Title bar** - DNN Manager draws its own. In the middle, as in VS Code, is
+  the search: click it to open the [command palette](#keyboard) on the projects
+  (**Ctrl+P**; type **>** for the commands). It narrows with the window and is
+  gone in a very narrow one. Next to the minimize / maximize / close buttons are
+  VS Code's layout buttons: **Customize Layout** (see [Layout](#layout)), then
+  the sidebar and the bottom panel - each drawn filled in while it is shown; a
+  click shows or hides it. Drag the title bar to move the window, double-click it
+  to maximize; on Windows 11, resting on maximize shows Snap layouts.
+- **Theme** - *Dark* and *Light*, with the colours of VS Code's *Dark Modern* and
+  *Light Modern*; *System* follows the Windows app theme. Chosen from the
+  gear's **Themes** or the command palette's *Color theme…* (applied and saved
+  at once).
+- **Sidebar** - the pages; at the bottom the **gear**. (The
+  projects folder is in **Settings → Projects**.) The gear opens VS Code's *Manage* menu: **Command Palette…**,
+  **Settings**, **Keyboard Shortcuts**, **Themes**, **Customize Layout…**,
+  **Troubleshoot** and **Check for Updates…**. In a window narrower than 1100
+  pixels the sidebar slides to a narrow one with only the icons (their names as
+  tooltips). **Ctrl+B** hides it, and shows it again.
+- **Window size** - like VS Code's, the window shrinks down to 400 × 270 pixels:
+  the title bar's search goes when there is no room for it, the page keeps at
+  least a strip above an open panel.
+- **Settings and Troubleshoot** open over the page, like VS Code's modal
+  editors: the page dimmed behind them, the title bar and status bar still
+  working. Their **✕**, **Esc**, **Ctrl+W** or a click on the dimmed page closes
+  them - Settings asks first when it has unsaved changes.
+- **Status bar** - along the bottom of the window (Customize Layout can hide it),
+  laid out like Docker Desktop's:
   - *under the sidebar*: **IIS running** / **stopped** in its colour (the IIS
     web service, W3SVC - Windows reports when it starts or stops, from wherever
     that is done) with **Restart** and **Stop**
@@ -71,16 +158,20 @@ them, delete that folder after uninstalling.
     **Disk** space used on the projects folder's drive, with its size as the
     *limit* - each keeps the room of its widest value, so the figures don't
     move as the numbers change (measured every 2 seconds, the disk every 10);
-  - *while an operation runs*: its name, a progress bar and **Cancel** - click
-    the name to open the panel on **Output**. **Cancel** puts everything back
-    as it was before the operation started: what it made is taken away again,
-    the last first - the IIS site and app pool, the database, the files and
-    folders, an edited `web.config` - each step shown in **Output**. What can't
-    be put back (a database or site that was there and was replaced as you
-    chose, or what **Remove…** had already deleted) is named there;
-  - *right*: the **>_** (terminal) button and the app's version.
-- **Bottom panel** - opened and closed with the status bar's terminal button or
-  **Ctrl+`** (it starts closed, and comes back at the height it had). Like VS
+  - *right*: the app's version.
+- **The running operation** - a toast over the bottom-right corner, as VS Code
+  shows a task in progress: its name, **Cancel**, and a bar moving along its
+  bottom edge, from when it gets under way until it ends (one that asks first -
+  Remove, Stop IIS - shows once you said yes). Click the name to open the panel
+  on **Output**. **Cancel** puts everything back
+  as it was before the operation started: what it made is taken away again,
+  the last first - the IIS site and app pool, the database, the files and
+  folders, an edited `web.config` - each step shown in **Output**. What can't
+  be put back (a database or site that was there and was replaced as you
+  chose, or what **Remove…** had already deleted) is named there.
+- **Bottom panel** - opened and closed with the title bar's panel button,
+  **Ctrl+J**, or **Ctrl+`** for the terminal (see [Keyboard](#keyboard); it comes
+  back at the height it had). Like VS
   Code's: its tabs on the left of its header - **Output**, **Logs**,
   **Terminal** -, then new terminal (on Terminal), clear (on Output), search,
   maximize and hide on the right. Copy and paste are **Ctrl+C** / **Ctrl+V** and
@@ -88,7 +179,7 @@ them, delete that folder after uninstalling.
   room - the tabs stay, the sidebar and status bar too -; again restores it.
   - **Output** - what DNN Manager does, operation by operation, stage by stage
     (the *Pipeline Rail*). It comes to the front when an operation starts, or
-    when you click the running operation in the status bar. A red dot next to
+    when you click the running operation's toast. A red dot next to
     its name says the last operation failed - also while another tab is shown -
     until you open it, or the next operation starts.
     - *Header*: the newest operation's status (**RUNNING** with a spinner,
@@ -132,7 +223,15 @@ them, delete that folder after uninstalling.
     the event logs, new entries as they are logged).
   - **Terminal** - only shells; the open ones are listed on the right, each
     with its shell's icon - drag the list's left edge to make it wider or
-    narrower; a terminal's bin shows while the mouse is on it. Opening the tab
+    narrower; a terminal's bin shows while the mouse is on it. A click (or the
+    arrows) shows that terminal and keeps the keyboard in the list - outlined in
+    blue; a click on the list's empty part does that for the terminal shown:
+    **Del** closes it (and the next **Del** the next one), **F2** (or a
+    double-click) renames it - **Enter** takes the name and the keyboard stays in
+    the list -, **Enter** or a second click on it puts the keyboard in the
+    terminal to type (as does a click in the terminal). Drag a terminal - or
+    **Alt+↑** / **Alt+↓** - to change the order. Terminals aren't kept when DNN
+    Manager closes: their shells end with it. Opening the tab
     with none open starts one. **+** opens one with the default shell; the arrow next to
     it offers the shells installed on this PC: **PowerShell** (the default),
     **PowerShell 7**, **Command Prompt** and **Git Bash**. They start in the
@@ -172,10 +271,96 @@ them, delete that folder after uninstalling.
   again, and so does every finished operation (a page not on screen catches up
   when it's next shown). **Projects** has no Refresh - it keeps itself up to
   date (see [Projects table](#projects-table)). Settings is read on every visit.
-- **Toasts** - short messages over the bottom-right of the page, e.g. why an
+- **Toasts** - short messages over the bottom-right of the window, e.g. why an
   operation failed (with **Show output**, which opens its log) or why the
   settings couldn't be saved. They fade out by themselves; warnings and errors
   stay until closed.
+
+### Layout
+
+**Customize Layout** - the first of the title bar's layout buttons, the gear's
+menu, or the command palette - lists VS Code's layout choices in one list that
+stays open: each choice applies at once and is saved (`layout` in
+[settings.json](configuration.md#settingsjson)), the current one checked. Type to
+narrow the list; **↺** next to its name puts the defaults back.
+
+| Group | Choices |
+|---|---|
+| **Visibility** | **Sidebar** (**Ctrl+B**), **Panel** (**Ctrl+J**) and **Status Bar**, shown or hidden. With the sidebar hidden, the IIS cell of the status bar keeps its dot and **⋮** menu. |
+| **Sidebar Position** | **Left** (the default) or **Right**. |
+| **Panel Alignment** | How far the bottom panel reaches: **Center** (the default) - under the page only, the sidebar full height beside it; **Justify** - the window's whole width, under the sidebar too; **Left** / **Right** - to that edge of the window, so under the sidebar when it is on that side. |
+| **Quick Input Position** | Where the command palette opens: **Top** (over the title bar's search, the default) or **Center**. |
+| **Layout Density** | **Default**, or **Compact** - the frame smaller in width and height: a narrower sidebar (190 pixels, 40 with icons only) with tighter entries, a lower title bar with narrower buttons, a lower status bar. |
+
+Whether the sidebar and the panel are shown is kept with the workspace
+([Picking up where you left off](#picking-up-where-you-left-off)); the rest is a
+setting.
+
+### Keyboard
+
+DNN Manager works without a mouse, the way VS Code does.
+
+- **Moving around**: **Tab** / **Shift+Tab** go from control to control, the
+  **arrows** move in lists, the Projects table, menus and drop-downs, **Enter**
+  opens or runs what is selected (a project row opens its Details), **Space**
+  ticks check boxes and switches (and a project row's check box), **Esc** closes
+  the palette, menus, drop-downs, the Details, Settings and Troubleshoot. Tab
+  enters the Projects table once and leaves it with the next Tab - the arrows move
+  inside it. A click on a row - its name, address or a button too - selects it
+  and puts the keyboard there, so the arrows go on from it, as in the terminal
+  list; **→** shows the selected project's details in the table (as its **›**),
+  **←** hides them; **Del** removes the selected project (asking first). A click in the
+  table's empty space puts the keyboard on its first row; when the keyboard
+  leaves the table, no row stays selected. Where the keyboard is shows as a blue ring (only when the keyboard
+  moved there, not on a click).
+- **The command palette** - **Ctrl+Shift+P** lists every command that makes sense
+  now (*Start project* only for a stopped one…), with its shortcut; type to
+  narrow it down, the arrows choose, **Enter** runs, **Esc** closes and the
+  keyboard goes back where it was. **Ctrl+P** lists the projects instead - Enter
+  opens one's Details; typing **>** switches to the commands, deleting it back.
+  A project command acts on the selected project (the table's selected row, or
+  the open Details); without one the palette asks which project.
+- **Tooltips** - resting the pointer on a button or a field shows its name, as
+  in VS Code, with its shortcut when it has one - as set now, so a changed
+  shortcut shows there at once.
+- **Shortcuts** (the defaults - change them in **Settings → Keyboard shortcuts**):
+
+  | Shortcut | Does |
+  |---|---|
+  | **Ctrl+Shift+P** / **Ctrl+P** | Command palette / go to a project |
+  | **Ctrl+,** | Settings - a second time closes it |
+  | **Ctrl+B** | Show or hide the sidebar |
+  | **Ctrl+F** | Search in the view: the panel's tab when it has the keyboard, else the Projects or Settings search |
+  | **Ctrl+Shift+F** | Search projects (the Projects table's search box) |
+  | **F5** / **Shift+F5** / **Ctrl+Shift+R** | Start / stop / restart the selected project |
+  | **Ctrl+1** / **Ctrl+2** / **Ctrl+3** | Projects / New project / Host project |
+  | **Ctrl+Tab** / **Ctrl+Shift+Tab** | Next / previous page |
+  | **Ctrl+PageUp** / **Ctrl+PageDown** | Next / previous tab - the Details' tabs, the Settings categories, the panel's tabs (when it has the keyboard) |
+  | **Ctrl+W** | Close the view: Settings or Troubleshoot, back to the page under them; the Details back to the table |
+  | **Ctrl+J** | Show or hide the bottom panel |
+  | **Ctrl+`** / **Ctrl+Shift+`** | The terminal (again in it: hides the panel) / a new terminal |
+  | **Ctrl+Shift+U** | Show Output |
+  | **Ctrl+Shift+M** | Maximize or restore the panel |
+
+  The palette also has, without a shortcut until you give them one: open the
+  website, the project folder, its logs, a terminal in its folder, keep it warm
+  (or stop), open its Details, clear the output, run troubleshooting, the
+  keyboard shortcuts, the color theme, Customize Layout, the status bar, check
+  for updates, install the update, restart DNN Manager.
+  While a **terminal** has the keyboard, its keys go to the shell - only the
+  palette (Ctrl+Shift+P, Ctrl+P), Settings, Ctrl+F, Ctrl+B, the panel and
+  terminal keys (Ctrl+J, Ctrl+`, Ctrl+Shift+`, Ctrl+Shift+U, Ctrl+Shift+M) are
+  DNN Manager's, as in VS Code.
+- **Settings → Keyboard shortcuts** lists every command with its shortcut and
+  the part of DNN Manager it belongs to, with a search (by action, part or key).
+  Select a shortcut - or press Enter on it - and press the new keys; **Esc**
+  cancels, **Backspace** removes it. A shortcut needs Ctrl or Alt, or a function
+  key (plain keys are for typing and moving around). Two commands on one
+  shortcut are flagged (the first listed runs), and so is a text box's editing key
+  (Ctrl+C, Ctrl+V…). The ↺ button puts one back to its default, **Reset all to
+  defaults** all of them. Changes apply and are saved at once, in `settings.json`
+  (`keyboard.shortcuts` - see [Configuration](configuration.md)), so they are kept
+  through restarts and updates.
 
 ### Efficiency mode (while the window can't be seen)
 
@@ -225,8 +410,8 @@ also slows minimized apps down by itself.
 | **New project** | Enter a name (validated as you type), then **Start from**: *a new site* - pick the **Repository** (e.g. `dnnsoftware/Dnn.Platform`), then a **Version** from its GitHub releases (highest version first; pre-releases are listed too, marked *(pre-release)*, but the latest release - marked *(latest)* - is what's selected; *kept, no download* marks a version whose package is kept). The lists are loaded once, when the app starts - the refresh button next to Version asks GitHub again - or *an existing site* - pick the site `.zip` and its database `.bacpac` (see [Import a site .zip](#import-a-site-zip)). A name whose folder already exists is refused - set up an existing folder on **Host project**. For a new site: **IIS** - the host name and port it answers on; **DNN installation** - *Automatic setup* (the default) or *Manual DNN setup*; **DNN account and website** (automatic setup) - host username and password (**Generate** makes one), e-mail, website name, language and site template, filled in from **Settings → Projects → DNN defaults**. **Database** - filled in from **Settings → Database server** (connection type, server, authentication, username and password) and named like the project; change any of it here for this project only (**Use the settings** fills it in again - the settings stay as they are). A LocalDB file is the site's own `App_Data\Database.mdf`. It is tested before anything is created. Host name and website name follow the project's name until you type your own. **Create project** is ready once everything is valid. See [Automatic DNN setup](#automatic-dnn-setup). |
 | **Host project** | Pick a folder, then *IIS website + database* (the default), *database only* or *IIS website only*, and optionally a backup to restore. See [Host a project](#host-a-project). |
 | **Test and set up** (Settings → Docker container, Database server and IIS) | A card at the end of each of those categories, checked when you press its **Test** button (nothing runs on opening it; an action re-tests what it changed), with a green / red status and a button to fix it. **Docker**: **Docker Desktop** (**Install Docker Desktop** via winget), the **Docker engine** (**Start Docker Desktop**, then waits for the engine) and the **SQL Server container**. **Set up docker-compose** runs the docker-compose.yml made from the settings (`docker compose up -d`, handed to Docker directly - no file is written, and it has the real SA password): it creates the container, starts it, or updates it after the settings changed, then waits for the sa login. The compose project is `dnn-mssql`; a container made by an older DNN Manager under `dnn-shared` is removed and made again under the new name - the databases stay, they're in the volume. **Show docker-compose.yml** shows the same file with a **Copy** button, to run yourself - without the SA password: replace `<your-sa-password>` after copying. **Database server**: the server from **Settings → Database server**, whichever connection type it is - it answers, the sign-in works, its version, and whether the login may create the databases new projects get. **IIS**: the Windows features as a table with their status. **Set up IIS** checks them and, after a confirmation, enables the missing ones (a reboot may be needed). Restarting IIS is on the status bar. |
-| **Settings** (the gear in the title bar) | Edits `settings.json` on a page of its own, laid out like Docker Desktop's settings: the categories on the left, under a **search** box that leaves the ones with a matching setting (its **✕** empties it), and the chosen category on the right. **General**: **Start DNN Manager when you sign in** (a scheduled task that starts it with its Administrator rights, so Windows doesn't ask for them at every sign-in), the theme (*Light*, *Dark* or *Use system settings*), the **UI scale** (80-175 %, everything bigger or smaller like a browser's zoom) and **font size** (11-18 px, only the text), **Save resources while the window can't be seen** (see [Efficiency mode](#efficiency-mode-while-the-window-cant-be-seen)), and the **terminal** (on or off, the default shell, font family and size) - putting every setting back to its default is on **Troubleshoot**. **Projects**: the projects folder, hostname suffix and site port, the **DNN defaults** new projects start with (install mode, host username and password, e-mail, website name, language, site template - the password is kept in the Windows Credential Manager, not in `settings.json`), and **Keep warm** - the interval, keep-alive page and warm-up page of the sites kept warm (see [Keep warm](#keep-warm)). **DNN releases**: the repositories, and keeping downloaded packages. **Database server**: the **connection type** new projects get their database on - the *Local SQL container (Docker)* (host, port, SA password), *SQL Server / SQL Server Express* (server, Windows or SQL Server authentication, login - its password kept in the Windows Credential Manager) or a *SQL Server Express LocalDB (file)* (the LocalDB instance); only the chosen type's settings are saved, the others keep what they had - and remembering the password in SSMS. **Docker container**: its name, volume, edition and collation. **IIS**: the Windows features DNN Manager needs (the list is edited in the file). **About**: which DNN Manager this is (version, commit, build date, program folder, release channel, whether a newer release is on GitHub, license, repository and documentation as links), what it runs on (.NET, architecture, Windows, Administrator or not) and works with (IIS, .NET Framework, Docker, its IIS and SQL libraries), then the folders with your files (settings, backups, logs, DNN packages), each with **Open**. Nothing is saved until **Save** (bottom right, ready once you change something in any category; **Discard changes** puts the saved values back), which saves the settings and applies them at once - no restart. **Close** (or the ✕, or **Esc**) goes back to the page you came from. **Docker container**, **Database server** and **IIS** each end with their **Test and set up** card - **Test**, **Set up docker-compose**, **Set up IIS** and the rest - working with the saved settings (while there are unsaved changes they wait for **Save**). See [Configuration](configuration.md). |
-| **Troubleshoot** (the bug next to the gear) | A page of the whole window, like Settings - **✕** goes back to the page you came from - laid out like Docker Desktop's: **Restart** closes DNN Manager (asking first, as on any quit) and starts it again - projects, settings and data are kept. **Clean up data** deletes what is ticked from `Documents\DnnManager`, each with its size: the logs, the kept DNN packages, the settings copies and - never ticked for you - the project backups. **Reset settings to defaults** puts every setting in every category back as DNN Manager is installed - the saved passwords and starting at sign-in too - and applies them at once, without a restart (the old `settings.json` is copied to `backups`; the logs, kept packages and which sites are kept warm stay). **Reset to factory defaults** puts DNN Manager back as it was installed: the settings (a copy is kept in `backups`), the saved passwords, starting at sign-in, which sites are kept warm, the logs and the kept packages go, then it restarts. Your projects - their IIS sites, folders and databases - and their backups are never touched. Not while an operation runs. |
+| **Settings** (the gear's menu at the bottom of the sidebar, or **Ctrl+,** - a second time closes it) | Opens over the page and edits `settings.json`, laid out like Docker Desktop's settings: the categories on the left, under a **search** box that leaves the ones with a matching setting, and the chosen category on the right. **General**: **Start DNN Manager when you sign in** (a scheduled task that starts it with its Administrator rights, so Windows doesn't ask for them at every sign-in), the **UI scale** (80-175 %, everything bigger or smaller like a browser's zoom) and **font size** (11-18 px, only the text), **Save resources while the window can't be seen** (see [Efficiency mode](#efficiency-mode-while-the-window-cant-be-seen)), and the **terminal** (on or off, the default shell, font family and size) - putting every setting back to its default is on **Troubleshoot**. **Projects**: the projects folder, hostname suffix and site port, the **DNN defaults** new projects start with (install mode, host username and password, e-mail, website name, language, site template - the password is kept in the Windows Credential Manager, not in `settings.json`), and **Keep warm** - the interval, keep-alive page and warm-up page of the sites kept warm (see [Keep warm](#keep-warm)). **DNN releases**: the repositories, and keeping downloaded packages. **Database server**: the **connection type** new projects get their database on - the *Local SQL container (Docker)* (host, port, SA password), *SQL Server / SQL Server Express* (server, Windows or SQL Server authentication, login - its password kept in the Windows Credential Manager) or a *SQL Server Express LocalDB (file)* (the LocalDB instance); only the chosen type's settings are saved, the others keep what they had - and remembering the password in SSMS. **Docker container**: its name, volume, edition and collation. **IIS**: the Windows features DNN Manager needs (the list is edited in the file). **Keyboard shortcuts**: every command's shortcut, to search, change and reset - saved at once, no Save needed (see [Keyboard](#keyboard)). **About**: which DNN Manager this is (version, commit, build date, program folder, release channel, the update status - see [Update](#update) -, license, repository and documentation as links), what it runs on (.NET, architecture, Windows, Administrator or not) and works with (IIS, .NET Framework, Docker, its IIS and SQL libraries), then the folders with your files (settings, backups, logs, DNN packages), each with **Open**. Nothing is saved until **Save** (bottom right, ready once you change something in any category; **Discard changes** puts the saved values back), which saves the settings and applies them at once - no restart. **Close** (or the ✕, **Esc**, or a click on the dimmed page) goes back to the page under it. **Docker container**, **Database server** and **IIS** each end with their **Test and set up** card - **Test**, **Set up docker-compose**, **Set up IIS** and the rest - working with the saved settings (while there are unsaved changes they wait for **Save**). See [Configuration](configuration.md). |
+| **Troubleshoot** (the gear's menu, or the command palette) | Opens over the page, like Settings - **✕**, **Esc** or a click on the dimmed page goes back to the page under it - laid out like Docker Desktop's: **Restart** closes DNN Manager (asking first, as on any quit) and starts it again - projects, settings and data are kept. **Clean up data** deletes what is ticked from `Documents\DnnManager`, each with its size: the logs, the kept DNN packages, the settings copies and - never ticked for you - the project backups. **Reset settings to defaults** puts every setting in every category back as DNN Manager is installed - the saved passwords and starting at sign-in too - and applies them at once, without a restart (the old `settings.json` is copied to `backups`; the logs, kept packages and which sites are kept warm stay). **Reset to factory defaults** puts DNN Manager back as it was installed: the settings (a copy is kept in `backups`), the saved passwords, starting at sign-in, which sites are kept warm, the logs and the kept packages go, then it restarts. Your projects - their IIS sites, folders and databases - and their backups are never touched. Not while an operation runs. |
 
 ### Projects table
 
@@ -272,11 +457,14 @@ and its `web.config`) - a site that isn't DNN shows *(none)* and *-*.
   and a toast says why. When IIS itself is stopped, start it from the status
   bar first.
 - **Check boxes** - check rows (or press **Space** on the selected row) and the
-  bulk actions appear above the table as one group of icons: **Remove…** (the
-  red bin, on the left), then **Start**, **Stop** and **Restart** - rest the
-  mouse on one for what it will do. Each acts on the checked rows it applies to - Start on the
-  stopped ones, Stop and Restart on the running ones - and is greyed out when
-  none of them qualifies. **Remove…** asks once for all of them, listing
+  bulk actions appear above the table as one group of icons, in the order of a
+  row's Actions: **Start**, **Stop**, **Restart**, the **keep warm** flame, then
+  **Remove…** (the red bin, on the right) - rest the mouse on one for what it will do. Each acts on the
+  checked rows it applies to - Start on the stopped ones, Stop and Restart on the
+  running ones, keep warm on those with an address to request - and is greyed out
+  when none of them qualifies. The flame is outlined while some of them aren't kept
+  warm (a click keeps them all warm) and filled once they all are (a click stops
+  keeping them warm). **Remove…** asks once for all of them, listing
   each one's database - which goes with it. The header check box checks every
   row the search shows, or none; it shows a dash when some are checked. Under
   the table: *12 projects* (or *4 of 12 projects* while searching) and

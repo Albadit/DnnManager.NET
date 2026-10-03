@@ -4,8 +4,6 @@ using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Application.UseCases;
 using DnnManager.Domain;
-using DnnManager.Infrastructure.Settings;
-using DnnManager.Presentation.Controls;
 using DnnManager.Presentation.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;

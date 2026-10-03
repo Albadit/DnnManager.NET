@@ -217,7 +217,7 @@ public static class DatabaseInspector
             await using var r = await cmd.ExecuteReaderAsync(ct);
             while (await r.ReadAsync(ct)) byType[r.GetString(0)] = r.GetInt32(1);
             return byType;
-        }) ?? new Dictionary<string, int>();
+        }) ?? [];
 
         var authentication = await Try(notes, "the authentication providers", async () =>
         {
@@ -237,7 +237,7 @@ public static class DatabaseInspector
             await using var r = await cmd.ExecuteReaderAsync(ct);
             while (await r.ReadAsync(ct)) found[r.GetString(0)] = r.IsDBNull(1) ? "" : r.GetString(1);
             return found;
-        }) ?? new Dictionary<string, string>();
+        }) ?? [];
 
         return new DnnDatabaseFacts(q.Length == 0 ? null : q, version, installed, upgraded, portals, users, roles, scheduled, enabled, events, oldest,
             newest, modules, packages, authentication, settings);

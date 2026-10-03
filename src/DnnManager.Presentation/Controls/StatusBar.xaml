@@ -1,4 +1,5 @@
 <UserControl x:Class="DnnManager.Presentation.Controls.StatusBar"
+             xmlns:s="clr-namespace:DnnManager.Presentation.Services"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <UserControl.Resources>
@@ -12,35 +13,14 @@
         </Style>
     </UserControl.Resources>
 
-    <!-- Along the bottom of the window, right of IIS (IisStatus, under the sidebar): this PC's resources, the running
-         operation, then the activity log's switch and the version on the right. -->
+    <!-- Along the bottom of the window, right of IIS (IisStatus, under the sidebar): this PC's resources, then the
+         version on the right. (The running operation is a toast - OperationToast.) -->
     <Border Background="{DynamicResource StatusBarBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0"
-            Height="30" TextElement.FontSize="{DynamicResource TextCaption}">
+            Height="{DynamicResource StatusBarHeight}" TextElement.FontSize="{DynamicResource TextCaption}">
         <DockPanel Margin="14,0,0,0">
 
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,14,0">
-                <!-- A prompt (>_) - what it opens is in its tooltip. -->
-                <ToggleButton x:Name="ActivityButton" Style="{StaticResource IconToggleButton}" Width="NaN" Height="24"
-                              ToolTip="Show the panel - output, logs and terminals (Ctrl+`)" Click="Activity_Click">
-                    <StackPanel Orientation="Horizontal" Margin="8,0">
-                        <Path Data="M1,1.5 L5,5 L1,8.5 M7,9.25 H13" StrokeThickness="1.6" VerticalAlignment="Center"
-                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" />
-                    </StackPanel>
-                </ToggleButton>
                 <TextBlock x:Name="VersionText" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="12,0,0,0" />
-            </StackPanel>
-
-            <!-- The running operation, its progress and Cancel - a click on the text opens the activity log. (The bar
-                 only moves while it is shown: hidden, its animation would run on for nothing.) -->
-            <StackPanel x:Name="OperationPanel" DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,12,0" Visibility="Collapsed">
-                <ProgressBar x:Name="OperationProgress" Width="70" Height="3" VerticalAlignment="Center"
-                             Foreground="{DynamicResource Accent}" Background="{DynamicResource LogTrack}" BorderThickness="0" />
-                <TextBlock x:Name="OperationText" Foreground="{DynamicResource TextPrimary}" Margin="8,0,8,0" MaxWidth="280"
-                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Cursor="Hand"
-                           MouseLeftButtonUp="Operation_Click" ToolTip="Show activity" />
-                <Button x:Name="CancelButton" Content="Cancel" Style="{StaticResource Danger}" MinHeight="20" Padding="8,0" FontSize="{DynamicResource TextHint}"
-                        VerticalAlignment="Center" Click="Cancel_Click" />
             </StackPanel>
 
             <!-- Clipped rather than wrapped when the window is narrow. -->

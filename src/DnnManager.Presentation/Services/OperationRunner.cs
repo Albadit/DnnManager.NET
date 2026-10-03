@@ -22,15 +22,23 @@ public sealed class OperationRunner : INotifyPropertyChanged
     private readonly ILogger<OperationRunner> _logger;
     private CancellationTokenSource? _cts;
     private string? _current;
+    // The operation going on - from its start, also while it only asks whether to go ahead (Current waits for more).
+    private string? _title;
 
     public OperationRunner(IServiceProvider services, ActivityLog log, IProgressReporter reporter, ILogger<OperationRunner> logger)
     {
         _services = services; _log = log; _reporter = reporter; _logger = logger;
+        // Under way (its first step or line): now the status bar and the pages see it.
+        _log.RunShown += () => { if (_title is not null && _current is null) Current = _title; };
     }
 
-    public bool IsBusy => _current is not null;
+    /// <summary>An operation is going on - also while it is still asking whether to go ahead: a second one waits.</summary>
+    public bool IsBusy => _title is not null;
 
-    /// <summary>Title of the running operation, or null when idle.</summary>
+    /// <summary>
+    /// Title of the running operation, or null when idle - and while it is still asking whether to go ahead (Remove,
+    /// Stop IIS…): until it does something, nothing says it runs.
+    /// </summary>
     public string? Current
     {
         get => _current;
@@ -53,13 +61,14 @@ public sealed class OperationRunner : INotifyPropertyChanged
         // Pages stay usable (scrolling, browsing) while an operation runs; only a second one is refused - said, not asked.
         if (IsBusy)
         {
-            Toast.Show($"'{Current}' is still running - wait for it to finish, or cancel it first.", ToastKind.Warning);
+            Toast.Show($"'{_title}' is still running - wait for it to finish, or cancel it first.", ToastKind.Warning);
             return false;
         }
 
         using var cts = new CancellationTokenSource();
         _cts = cts;
-        Current = title;
+        _title = title;
+        OnPropertyChanged(nameof(IsBusy));
         _log.BeginRun(title);
         // Outside the operation, so what it noted to undo is still there when it was cancelled.
         using var scope = _services.CreateScope();
@@ -74,9 +83,15 @@ public sealed class OperationRunner : INotifyPropertyChanged
                 _log.EndRun(RunStatus.Finished, null);
                 return true;
             }
+            // Said no to: it didn't happen - no error, and before it did anything no trace at all.
+            if (result.IsAborted)
+            {
+                _log.DropRun();
+                return false;
+            }
             var error = result.Error ?? $"{title} failed.";
             _log.EndRun(RunStatus.Failed, error);
-            if (!result.IsAborted) Failed?.Invoke(title, error);
+            Failed?.Invoke(title, error);
             return false;
         }
         catch (OperationCanceledException)
@@ -98,6 +113,7 @@ public sealed class OperationRunner : INotifyPropertyChanged
         finally
         {
             _cts = null;
+            _title = null;
             Current = null;
         }
     }

@@ -78,37 +78,32 @@
         </Setter>
     </Style>
 
-    <!-- Search field with a magnifier; Tag is the placeholder shown while it's empty, and a ✕ empties it again
-         (SearchClear_Click in InputStyles.xaml.cs). -->
+    <!-- Search field: a plain box whose Tag is the placeholder shown while it's empty. -->
     <Style TargetType="TextBox" x:Key="SearchBox" BasedOn="{StaticResource {x:Type TextBox}}">
-        <Setter Property="MinHeight" Value="32" />
+        <!-- As tall as the panel's search, wherever it is - centred, so a taller button beside it doesn't stretch it. -->
+        <Setter Property="MinHeight" Value="{StaticResource SearchHeight}" />
+        <Setter Property="Padding" Value="{StaticResource SearchPadding}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
                     <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{StaticResource ControlRadius}"
                             SnapsToDevicePixels="True">
-                        <Grid Margin="10,0,4,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Button x:Name="Clear" Grid.Column="2" Style="{StaticResource IconButton}" Width="24" Height="24" FontSize="10"
-                                    Content="&#xE8BB;" Foreground="{DynamicResource TextMuted}" Cursor="Arrow" ToolTip="Clear"
-                                    VerticalAlignment="Center" Click="SearchClear_Click" />
-                            <TextBlock Text="&#xE721;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13"
-                                       Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" />
-                            <TextBlock x:Name="Placeholder" Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center"
-                                       Text="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"
-                                       Foreground="{DynamicResource TextMuted}" IsHitTestVisible="False" Visibility="Collapsed" />
-                            <ScrollViewer x:Name="PART_ContentHost" Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center" />
+                        <Grid>
+                            <!-- Exactly where the caret and the typed text are: the box's padding (which the text area
+                                 applies too) and the 2 px WPF keeps in front of the text. -->
+                            <Border x:Name="Placeholder" Padding="{TemplateBinding Padding}"
+                                    VerticalAlignment="Center" IsHitTestVisible="False" Visibility="Collapsed">
+                                <TextBlock Margin="2,0,0,0" Text="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"
+                                           Foreground="{DynamicResource TextMuted}" TextTrimming="CharacterEllipsis" />
+                            </Border>
+                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="Text" Value="">
                             <Setter TargetName="Placeholder" Property="Visibility" Value="Visible" />
-                            <Setter TargetName="Clear" Property="Visibility" Value="Collapsed" />
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}" />

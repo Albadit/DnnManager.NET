@@ -24,17 +24,12 @@ public sealed record SiteLogSource(string Group, string Title, string Descriptio
 /// Finds a website's logs: DNN's own (Portals\_default\Logs), IIS's request logs for the site, HTTP.sys's errors,
 /// and the Windows event log entries about it (ASP.NET errors, its app pool, worker process crashes).
 /// </summary>
-public sealed class SiteLogCatalog
+public sealed class SiteLogCatalog(IIisManager iis, ILogger<SiteLogCatalog> log)
 {
     private const int FilesPerKind = 8;
 
-    private readonly IIisManager _iis;
-    private readonly ILogger<SiteLogCatalog> _log;
-
-    public SiteLogCatalog(IIisManager iis, ILogger<SiteLogCatalog> log)
-    {
-        _iis = iis; _log = log;
-    }
+    private readonly IIisManager _iis = iis;
+    private readonly ILogger<SiteLogCatalog> _log = log;
 
     /// <summary>The logs of site <paramref name="siteName"/> (ID <paramref name="siteId"/>), newest files first within each kind.</summary>
     public IReadOnlyList<SiteLogSource> For(string siteName, long siteId, string directory, string appPool)
@@ -114,19 +109,17 @@ public interface ILogTail : IDisposable
 }
 
 /// <summary>The end of a text file, then what is appended to it - looked at every second, the file shared with its writer.</summary>
-internal sealed class FileLogTail : ILogTail
+internal sealed class FileLogTail(string path) : ILogTail
 {
     private const int PollEvery = 1000;
 
-    private readonly string _path;
+    private readonly string _path = path;
     // Also the lock for the timer and the flags below.
     private readonly StringBuilder _partial = new();
     private Timer? _timer;
     private long _position;
     private int _busy;
     private bool _disposed, _paused;
-
-    public FileLogTail(string path) => _path = path;
 
     public event Action<IReadOnlyList<string>>? Lines;
 
@@ -251,16 +244,14 @@ internal sealed class FileLogTail : ILogTail
 }
 
 /// <summary>Windows event log entries that match a filter: the newest ones, then each new one as Windows writes it.</summary>
-internal sealed class EventLogTail : ILogTail
+internal sealed class EventLogTail(EventLogFilter filter) : ILogTail
 {
-    private readonly EventLogFilter _filter;
+    private readonly EventLogFilter _filter = filter;
     private readonly object _lock = new();
     private EventLogWatcher? _watcher;
     private bool _disposed;
 
     private const int MaxScanned = 5000;
-
-    public EventLogTail(EventLogFilter filter) => _filter = filter;
 
     public event Action<IReadOnlyList<string>>? Lines;
 

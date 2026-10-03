@@ -12,18 +12,18 @@
 
     <!-- The status bar's first cell, as wide as the sidebar above it (like the engine status in Docker Desktop):
          the dot, "IIS running" in its colour and the buttons on the right. Compact: the dot and a ⋮ menu. -->
-    <Border Background="{DynamicResource SidebarBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,1,0"
-            Height="30" TextElement.FontSize="{DynamicResource TextCaption}">
+    <Border x:Name="Frame" Background="{DynamicResource SidebarBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,1,0"
+            Height="{DynamicResource StatusBarHeight}" TextElement.FontSize="{DynamicResource TextCaption}">
         <DockPanel x:Name="Layout" Margin="14,0,6,0">
             <StackPanel x:Name="Buttons" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button x:Name="StartButton" Style="{StaticResource IisButton}" Content="&#xE768;" ToolTip="Start IIS"
                         Click="Start_Click" Visibility="Collapsed" />
                 <Button x:Name="RestartButton" Style="{StaticResource IisButton}" Content="&#xE72C;"
-                        ToolTip="Restart IIS (every site stops for a few seconds)" Click="Restart_Click" Visibility="Collapsed" />
-                <Button x:Name="StopButton" Style="{StaticResource IisButton}" Content="&#xE71A;" ToolTip="Stop IIS (every site on this PC)"
+                        ToolTip="Restart IIS" Click="Restart_Click" Visibility="Collapsed" />
+                <Button x:Name="StopButton" Style="{StaticResource IisButton}" Content="&#xE71A;" ToolTip="Stop IIS"
                         Click="Stop_Click" Visibility="Collapsed" />
             </StackPanel>
-            <Button x:Name="MoreButton" DockPanel.Dock="Right" Style="{StaticResource IisButton}" FontFamily="Segoe UI" FontSize="14"
+            <Button x:Name="MoreButton" DockPanel.Dock="Right" Style="{StaticResource IisButton}" Width="16" FontFamily="Segoe UI" FontSize="14"
                     Content="⋮" ToolTip="IIS actions" Click="More_Click" Visibility="Collapsed" />
             <StackPanel x:Name="State" Orientation="Horizontal" VerticalAlignment="Center" Background="Transparent">
                 <Ellipse x:Name="Dot" Width="9" Height="9" StrokeThickness="1.5" VerticalAlignment="Center" />

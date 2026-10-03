@@ -32,63 +32,42 @@ public sealed class SetupProjectRequest
 /// with <see cref="DnnInstallMode.Automatic"/> - installs DNN, so the first visit shows the new site instead of DNN's
 /// installation wizard. Everything that can be checked is checked before anything is created.
 /// </summary>
-public sealed class SetupProjectUseCase
+public sealed class SetupProjectUseCase(
+    IOptions<AppOptions> opts,
+    IProjectRepository projects,
+    IDnnReleaseService releases,
+    IDnnPackageInstaller packages,
+    IProjectScaffolder scaffolder,
+    IIisManager iis,
+    IisSiteProvisioner site,
+    LocalSqlContainer sqlContainer,
+    IDatabaseProvisioner databases,
+    IDnnInstaller dnn,
+    IWebConfigService webConfig,
+    IProjectRecords records,
+    IHttpConnectivityChecker http,
+    IPrerequisiteChecker prereq,
+    IUserPrompt prompt,
+    ILogger<SetupProjectUseCase> log,
+    OperationUndo undo)
 {
-    private readonly AppOptions _opts;
-    private readonly IProjectRepository _projects;
-    private readonly IDnnReleaseService _releases;
-    private readonly IDnnPackageInstaller _packages;
-    private readonly IProjectScaffolder _scaffolder;
-    private readonly IIisManager _iis;
-    private readonly IisSiteProvisioner _site;
-    private readonly LocalSqlContainer _sqlContainer;
-    private readonly IDatabaseProvisioner _databases;
-    private readonly IDnnInstaller _dnn;
-    private readonly IWebConfigService _webConfig;
-    private readonly IProjectRecords _records;
-    private readonly IHttpConnectivityChecker _http;
-    private readonly IPrerequisiteChecker _prereq;
-    private readonly IUserPrompt _prompt;
-    private readonly ILogger<SetupProjectUseCase> _log;
-    private readonly OperationUndo _undo;
-
-    public SetupProjectUseCase(
-        IOptions<AppOptions> opts,
-        IProjectRepository projects,
-        IDnnReleaseService releases,
-        IDnnPackageInstaller packages,
-        IProjectScaffolder scaffolder,
-        IIisManager iis,
-        IisSiteProvisioner site,
-        LocalSqlContainer sqlContainer,
-        IDatabaseProvisioner databases,
-        IDnnInstaller dnn,
-        IWebConfigService webConfig,
-        IProjectRecords records,
-        IHttpConnectivityChecker http,
-        IPrerequisiteChecker prereq,
-        IUserPrompt prompt,
-        ILogger<SetupProjectUseCase> log,
-        OperationUndo undo)
-    {
-        _opts = opts.Value;
-        _projects = projects;
-        _releases = releases;
-        _packages = packages;
-        _scaffolder = scaffolder;
-        _iis = iis;
-        _site = site;
-        _sqlContainer = sqlContainer;
-        _databases = databases;
-        _dnn = dnn;
-        _webConfig = webConfig;
-        _records = records;
-        _http = http;
-        _prereq = prereq;
-        _prompt = prompt;
-        _log = log;
-        _undo = undo;
-    }
+    private readonly AppOptions _opts = opts.Value;
+    private readonly IProjectRepository _projects = projects;
+    private readonly IDnnReleaseService _releases = releases;
+    private readonly IDnnPackageInstaller _packages = packages;
+    private readonly IProjectScaffolder _scaffolder = scaffolder;
+    private readonly IIisManager _iis = iis;
+    private readonly IisSiteProvisioner _site = site;
+    private readonly LocalSqlContainer _sqlContainer = sqlContainer;
+    private readonly IDatabaseProvisioner _databases = databases;
+    private readonly IDnnInstaller _dnn = dnn;
+    private readonly IWebConfigService _webConfig = webConfig;
+    private readonly IProjectRecords _records = records;
+    private readonly IHttpConnectivityChecker _http = http;
+    private readonly IPrerequisiteChecker _prereq = prereq;
+    private readonly IUserPrompt _prompt = prompt;
+    private readonly ILogger<SetupProjectUseCase> _log = log;
+    private readonly OperationUndo _undo = undo;
 
     /// <summary>The set-up's stages, by their short names in the Output tab's stage list.</summary>
     private static class Stage

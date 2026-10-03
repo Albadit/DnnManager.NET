@@ -45,10 +45,11 @@ public interface IChangeSource : IDisposable
 /// subfolders being made, removed or renamed (the project folders). Holds a handle to that folder only, never to
 /// anything inside a project, so it is never in the way of removing one.
 /// </summary>
-public sealed class FolderChangeSource : IChangeSource
+/// <param name="directory">The folder to watch, asked for whenever it attaches: a setting that can change.</param>
+public sealed class FolderChangeSource(ChangeKind kind, string name, Func<string> directory, string? file = null) : IChangeSource
 {
-    private readonly Func<string> _directory;
-    private readonly string? _file;
+    private readonly Func<string> _directory = directory;
+    private readonly string? _file = file;
     private readonly object _lock = new();
     private FileSystemWatcher? _watcher;
     // The folder the watcher is on - not the one to watch any more after the setting changed.
@@ -58,15 +59,7 @@ public sealed class FolderChangeSource : IChangeSource
     public FolderChangeSource(ChangeKind kind, string name, string directory, string? file = null)
         : this(kind, name, () => directory, file) { }
 
-    /// <param name="directory">The folder to watch, asked for whenever it attaches: a setting that can change.</param>
-    public FolderChangeSource(ChangeKind kind, string name, Func<string> directory, string? file = null)
-    {
-        Kind = kind; Name = name; _directory = directory; _file = file;
-    }
-
-    public ChangeKind Kind { get; }
-    public string Name { get; }
-    public bool IsAttached => _watcher is not null && string.Equals(_watched, _directory(), StringComparison.OrdinalIgnoreCase);
+    public ChangeKind Kind { get; } = kind; public string Name { get; } = name; public bool IsAttached => _watcher is not null && string.Equals(_watched, _directory(), StringComparison.OrdinalIgnoreCase);
 
     public event Action? Changed;
     public event Action<string>? Lost;
@@ -242,9 +235,10 @@ public sealed class ServiceStatusSource : IChangeSource
 /// the process activation service (WAS) and the web service report in the System log, such as an app pool that
 /// failed, was disabled after repeated failures, or recycled.
 /// </summary>
-public sealed class EventLogSource : IChangeSource
+/// <param name="query">An XPath event query, e.g. <c>*[System[Provider[@Name='Microsoft-Windows-WAS']]]</c>.</param>
+public sealed class EventLogSource(ChangeKind kind, string name, string log, string query) : IChangeSource
 {
-    private readonly string _log, _query;
+    private readonly string _log = log, _query = query;
     private readonly object _lock = new();
     private EventLogWatcher? _watcher;
     // While TryAttach runs: a subscription that can't be made doesn't throw - it says so through the event, before
@@ -252,15 +246,7 @@ public sealed class EventLogSource : IChangeSource
     private volatile bool _attaching;
     private volatile string? _attachError;
 
-    /// <param name="query">An XPath event query, e.g. <c>*[System[Provider[@Name='Microsoft-Windows-WAS']]]</c>.</param>
-    public EventLogSource(ChangeKind kind, string name, string log, string query)
-    {
-        Kind = kind; Name = name; _log = log; _query = query;
-    }
-
-    public ChangeKind Kind { get; }
-    public string Name { get; }
-    public bool IsAttached => _watcher is not null;
+    public ChangeKind Kind { get; } = kind; public string Name { get; } = name; public bool IsAttached => _watcher is not null;
 
     public event Action? Changed;
     public event Action<string>? Lost;

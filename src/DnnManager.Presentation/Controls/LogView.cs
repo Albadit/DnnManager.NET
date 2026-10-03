@@ -25,12 +25,14 @@ namespace DnnManager.Presentation.Controls;
 /// </summary>
 internal sealed class LogView : FrameworkElement, IScrollInfo
 {
-    private static readonly Thickness Padding = new(10, 4, 10, 4);
+    // Room around the text - above the first line and below the last, as in the terminal; part of the scrolled extent.
+    private static readonly Thickness Padding = new(10, 8, 10, 8);
 
     private readonly List<LogLine> _lines = [];
     private readonly DispatcherTimer _edgeScroll;
     private Typeface _typeface = new("Consolas");
-    private double _fontSize = 13, _charWidth = 7, _lineHeight = 16;
+    // A row is 1.6 × the font size, as the Output tab's lines; the text is drawn in its middle (_textTop down).
+    private double _fontSize = 13, _charWidth = 7, _lineHeight = 21, _textTop = 2;
     // Wrapping: the characters a row holds, where each line's rows start (null for a line of one row), and the row each
     // line starts on - with the rows of all lines after the last.
     private int _rowWidth = int.MaxValue;
@@ -80,7 +82,8 @@ internal sealed class LogView : FrameworkElement, IScrollInfo
         _fontSize = size;
         var sample = Text("MMMMMMMMMM", Brushes.Black);
         _charWidth = sample.WidthIncludingTrailingWhitespace / 10;
-        _lineHeight = Math.Ceiling(sample.Height);
+        _lineHeight = Math.Ceiling(Math.Max(sample.Height, size * 1.6));
+        _textTop = Math.Floor((_lineHeight - sample.Height) / 2);
         // Another character width: another number of them to a row.
         _rowWidth = RowWidthFor(_viewport.Width);
         Rewrap();
@@ -211,7 +214,7 @@ internal sealed class LogView : FrameworkElement, IScrollInfo
                 }
             }
 
-            if (end > start) dc.DrawText(Text(line.Text.Substring(start, end - start), brushes[line.Level]), new Point(Padding.Left, y));
+            if (end > start) dc.DrawText(Text(line.Text.Substring(start, end - start), brushes[line.Level]), new Point(Padding.Left, y + _textTop));
         }
     }
 

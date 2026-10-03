@@ -3,8 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:c="clr-namespace:DnnManager.Presentation.Controls">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <!-- As wide as there is room, up to 860 - the width of the settings. -->
-        <StackPanel Margin="28,24,28,20" MaxWidth="860" HorizontalAlignment="Left">
+        <!-- Centred: as wide as there is room, up to 860 - the width of the settings. -->
+        <StackPanel Margin="28,24,28,20" MaxWidth="860">
             <TextBlock Style="{StaticResource PageTitle}" Text="New project" />
             <TextBlock Style="{StaticResource PageSubtitle}"
                        Text="Creates a project from a fresh DNN download - installed for you, so the first visit shows your new site - or from a .zip of an existing site (with its .bacpac / .bak), with its IIS website, hostname and database." />
@@ -47,14 +47,14 @@
                     </StackPanel>
                     <TextBlock Style="{StaticResource FieldLabel}" Text="Site .zip" />
                     <DockPanel>
-                        <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="BrowseZip_Click" />
+                        <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="BrowseZip_Click" ToolTip="Browse" />
                         <TextBox x:Name="ZipBox" TextChanged="ImportField_Changed" />
                     </DockPanel>
                     <TextBlock Style="{StaticResource Hint}"
                                Text="The site's files - web.config at the top of the zip or in one folder inside it." />
                     <TextBlock Style="{StaticResource FieldLabel}" Text="Database .bacpac" />
                     <DockPanel>
-                        <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="BrowseBackup_Click" />
+                        <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="BrowseBackup_Click" ToolTip="Browse" />
                         <TextBox x:Name="BackupBox" TextChanged="ImportField_Changed" />
                     </DockPanel>
                     <TextBlock Style="{StaticResource Hint}"
@@ -80,7 +80,7 @@
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Version" Margin="0,0,0,4" />
                             <DockPanel>
                                 <Button DockPanel.Dock="Right" x:Name="RefreshVersionsButton" Margin="8,0,0,0" Padding="10,0"
-                                        ToolTip="Ask GitHub for the repository's releases again" Click="RefreshVersions_Click">
+                                        ToolTip="Refresh" Click="RefreshVersions_Click">
                                     <TextBlock Text="&#xE72C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center" />
                                 </Button>
                                 <ComboBox x:Name="VersionCombo" DisplayMemberPath="Label" SelectionChanged="VersionCombo_SelectionChanged" />
@@ -155,7 +155,7 @@
                         <StackPanel Grid.Column="2">
                             <DockPanel Margin="0,0,0,4">
                                 <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="Generate" FontSize="{DynamicResource TextCaption}"
-                                        ToolTip="A strong random password - shown, so you can copy it" Click="GeneratePassword_Click" />
+                                        ToolTip="Generate password" Click="GeneratePassword_Click" />
                                 <TextBlock Style="{StaticResource FieldLabel}" Text="Host password" Margin="0" />
                             </DockPanel>
                             <c:PasswordInput x:Name="HostPasswordBox" PasswordChanged="Password_Changed" />
@@ -188,7 +188,7 @@
                     <DockPanel>
                         <Button x:Name="ResetDatabaseButton" DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="Use the settings"
                                 FontSize="{DynamicResource TextCaption}" VerticalAlignment="Top" Visibility="Collapsed"
-                                ToolTip="Fill the database in from Settings → Database server again" Click="ResetDatabase_Click" />
+                                ToolTip="Use the settings" Click="ResetDatabase_Click" />
                         <TextBlock Style="{StaticResource CardTitle}" Text="Database" />
                     </DockPanel>
                     <TextBlock Style="{StaticResource FieldLabel}" Text="Connection type" Margin="0,0,0,4" />
@@ -235,7 +235,8 @@
             </Border>
 
             <StackPanel Orientation="Horizontal">
-                <Button x:Name="RunButton" Style="{StaticResource Primary}" Content="Create project" IsEnabled="False" Click="Run_Click" />
+                <Button x:Name="RunButton" Style="{StaticResource Primary}" Content="Create project" IsEnabled="False" Click="Run_Click"
+                        ToolTip="Create project" />
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

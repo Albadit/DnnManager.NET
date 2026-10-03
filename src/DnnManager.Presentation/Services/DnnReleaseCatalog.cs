@@ -9,12 +9,10 @@ namespace DnnManager.Presentation.Services;
 /// starts - and kept for the rest of the run, so New project shows its versions at once. <see cref="GetAsync"/>
 /// with <c>refresh</c> asks again. A failed lookup isn't kept, so the next request tries again.
 /// </summary>
-public sealed class DnnReleaseCatalog
+public sealed class DnnReleaseCatalog(IServiceProvider services)
 {
-    private readonly IServiceProvider _services;
+    private readonly IServiceProvider _services = services;
     private readonly Dictionary<string, Task<Result<IReadOnlyList<DnnRelease>>>> _lists = new(StringComparer.OrdinalIgnoreCase);
-
-    public DnnReleaseCatalog(IServiceProvider services) => _services = services;
 
     /// <summary>Starts loading every repository's releases, without waiting for them.</summary>
     public void Preload()

@@ -99,6 +99,27 @@
             }
         },
         {
+            // A portable exe one version below GitHub's newest release (1.6.0 -> 1.5.9), so its Update button installs
+            // that release: publish\update-test\DnnManager-<version>-x64.exe. See docs/releasing.md, The in-app update.
+            "label": "publish (update test, one version below the release)",
+            "type": "process",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.github/scripts/build-update-test.ps1"
+            ],
+            "group": "build",
+            "problemMatcher": "$msCompile",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            }
+        },
+        {
             // Pick docs/release-notes/vX.Y.Z.md (its name is the tag and the title) and a commit on GitHub; builds both
             // exes for that commit and, after you confirm, tags it and publishes the GitHub release. See docs/releasing.md.
             // The two pickers are filled fresh each time by the extension Tasks Shell Input (augustocdias.tasks-shell-input).

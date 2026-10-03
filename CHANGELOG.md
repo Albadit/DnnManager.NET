@@ -2,7 +2,7 @@
 
 All notable changes to DnnManager.NET are documented here.
 
-## Unreleased
+## v1.7.0
 
 ### Upgrading
 
@@ -13,8 +13,122 @@ All notable changes to DnnManager.NET are documented here.
   newer than any 1.x release, so install the newest release over it by hand
   once.
 
+### Added
+
+- **DNN Manager updates itself.** When GitHub has a newer release, a blue
+  **Update** button appears in the title bar, left of the layout buttons. It downloads
+  the release's Setup (installed) or portable exe, checks its size, SHA-256 and
+  version, remembers where you are, closes, installs it - Setup silently with its
+  progress window, the portable exe replaced in place with a backup - and opens
+  the new version back on the same page, project and Details tab. Anything that
+  fails before closing leaves the current version running; a failed install
+  starts the old version again and says why. Checked a few seconds after start,
+  every 6 hours, and on Settings → About.
+- **DNN Manager opens where you left it** - after a close, a restart, an update
+  or a crash: the window's place and size, the page, the Projects table (search,
+  *Only show running*, sorting, expanded and selected rows, scroll position), the
+  project whose Details were open and their tab, the Settings category, what was
+  typed on New project and Host project, unsaved Settings changes, and the bottom
+  panel (its tab, search, and the site and log on the Logs tab). Terminals and
+  passwords are never kept - a shell doesn't outlive DNN Manager. Saved a
+  moment after anything changes, in `Documents\DnnManager\state` (one file per
+  area, written whole; one that can't be read is set aside and the defaults are
+  used). Reset to factory defaults forgets it.
+
+- **DNN Manager works from the keyboard**, like VS Code: a **command palette**
+  (**Ctrl+Shift+P** - every command that makes sense now, with its shortcut;
+  **Ctrl+P** - go to a project), shortcuts for the common actions (**F5** /
+  **Shift+F5** / **Ctrl+Shift+R** start, stop and restart the selected project,
+  **Ctrl+,** Settings, **Ctrl+F** search, **Ctrl+J** the panel, **Ctrl+`** the
+  terminal, **Ctrl+1-3** the pages, **Ctrl+Tab** and **Ctrl+PageUp** the next
+  page and tab, **Ctrl+W** close…), a blue focus ring wherever the keyboard is,
+  and **Settings → Keyboard shortcuts** to search, change, reset and spot
+  conflicting shortcuts - kept in `settings.json` (`keyboard.shortcuts`). Tab
+  goes into the Projects table and out again; the bulk buttons are reached with
+  Tab too.
+- **Keep warm for the checked projects**: the bulk actions above the Projects
+  table end with the keep-warm flame - it keeps every checked site warm, or, when
+  they all are already, stops keeping them warm.
+- **A search in the middle of the title bar**, as VS Code's: click it to open
+  the command palette on the projects (type **>** for the commands).
+- **Customize Layout**, as in VS Code - from the title bar's new layout buttons,
+  the gear's menu or the command palette: show or hide the sidebar
+  (**Ctrl+B**), the panel and the status bar; the sidebar on the left or right;
+  the panel under the page only, the window's whole width, or to its left or
+  right edge; the command palette at the top or in the center; a default or
+  compact density (a narrower sidebar, a lower title bar and status bar). Applied and saved at once (`layout` in `settings.json`).
+- **The theme is chosen from the gear's Themes** (or the palette's *Color theme…*),
+  applied and saved at once - no longer on Settings → General.
+- **The gear's menu**, VS Code's *Manage*: Command Palette, Settings, Keyboard
+  Shortcuts, Themes (Dark, Light, System - applied and saved
+  at once), Customize Layout, Troubleshoot and Check for Updates. A **Color
+  theme…** command does the same from the palette.
+
 ### Changed
 
+- **The running operation is a toast** over the bottom-right corner - its name
+  (a click opens Output), **Cancel** and a moving bar, as VS Code shows a task in
+  progress - instead of a part of the status bar.
+- **The log file is one line per message** - its time, one space, the message
+  (`18:21:16 Database seeded.`), without the operation and stage headings, which
+  are the Output tab's.
+- **The Dark and Light themes are VS Code's Dark Modern and Light Modern** -
+  their own colours for the window, panels, lists, inputs, buttons, banners,
+  the Output tab and search matches.
+- **Search fields are lower** - 26 pixels, as VS Code's, and all as tall as the
+  panel's search (the Projects search was stretched to the buttons beside it) -
+  and plain, without the magnifier and the ✕. The command palette no longer has
+  a line of help under its list.
+- **The command palette opens at the top**, over the title bar's search, as in
+  VS Code, with a compact list (22-pixel rows).
+- **The sidebar's pages are rounded**, without the accent bar on the left; so are
+  the panel's tabs (Output, Logs, Terminal) - the shown one on a background
+  instead of underlined.
+- **The window shrinks as far as VS Code's** - down to 400 × 270 pixels (it was
+  900 × 600). In a short window the open panel gets lower and the status bar
+  always keeps its place; a taller window gives the panel its height back.
+- **The status bar's panel button is gone** - the title bar's panel button and
+  **Ctrl+J** show and hide the panel.
+- **The command palette says "No matching results"** as a row of its list, as VS
+  Code does; choosing it does nothing.
+- **The narrow sidebar is narrower** - 48 pixels, as VS Code's activity bar (it
+  was 56) - and its icons are centred in their highlight.
+- **Every button has a tooltip** - its name, as in VS Code - with its keyboard
+  shortcut when it has one -
+  the shortcut as set now, so one changed in Settings → Keyboard shortcuts shows
+  there at once.
+- **The gear moved to the bottom of the sidebar**, and Troubleshoot into its
+  menu; the title bar has the layout buttons in their place. The sidebar no
+  longer shows the projects folder - it is in Settings → Projects.
+- **New project, Host project and a project's Details are centred** in the
+  window, as Troubleshoot is.
+- **The Projects table takes the keyboard on a click** - on a row's name,
+  address or buttons too - so the arrows go on from there, as in the terminal
+  list; **Del** removes the selected project (asking first).
+- **The Projects table is rounded**, like the cards; a click in its empty space
+  selects the first row, and leaving it clears the selection. **→** shows a row's
+  details in the table, **←** hides them.
+- **Settings and Troubleshoot open over the page**, like VS Code's modal
+  editors - the page dimmed behind them, the title bar and status bar still
+  working. **✕**, **Esc**, **Ctrl+W** or a click on the dimmed page closes them.
+- **Saving settings no longer shows a "Settings saved" toast** - Save greying
+  out says it; a problem still shows one.
+
+- **The terminal list works like a list**: a click or the arrows show a terminal
+  and keep the keyboard in the list (outlined in blue) - **Del** closes it, **F2**
+  renames it (and the keyboard stays in the list), **Enter** or a second click
+  goes in to type. Drag a terminal, or **Alt+↑** / **Alt+↓**, to reorder them.
+- **Ctrl+`** now opens the panel on the Terminal tab with the keyboard in it
+  (again in the terminal: hides the panel), as in VS Code; **Ctrl+J** shows or
+  hides the panel.
+- **Closing DNN Manager with unsaved settings no longer asks** - they are kept for
+  the next start. It still asks when a changed password isn't saved, as passwords
+  aren't kept.
+
+- **Settings → About → Update** follows the update as it happens (*Checking for
+  updates…*, *Update available*, *Downloading update…*, *Installing update…*,
+  *Restarting…*). It no longer shows the release page's address, and *Unable to
+  reach GitHub* has a gray dot instead of an orange one.
 - Releases are built, tested and published by GitHub Actions when a `vX.Y.Z`
   tag is pushed; the version comes from the tag (see `docs/releasing.md`).
 - The notes of every GitHub release are in `docs/release-notes`, one file per
@@ -22,6 +136,22 @@ All notable changes to DnnManager.NET are documented here.
   when it exists.
 - `build.ps1 -Version X.Y.Z` builds the installer for a version other than
   `<Version>` in `DnnManager.csproj`.
+
+### Fixed
+
+- **An operation that asks first no longer shows before you answer** - Remove,
+  Stop / Restart IIS and Clear cache showed as running (Output tab, status bar)
+  while their question was open, and a No logged *Aborted by user* as an error.
+  They now show once they start; a No leaves no trace, in the Output tab or the
+  log file.
+- **The Output tab's last line could end half under the panel's edge** - the result
+  line (SUCCESS, its link) is laid out a moment after it is added, and the tab
+  had already scrolled. While the end is in view it now stays in view, also when
+  the panel gets lower, with room under the last line to scroll to.
+- **A maximized window lost a few pixels at the screen edges.** It kept in
+  only the resize border of the frame Windows still gives it, not the padded
+  border around it; it now keeps in what the window really reaches past the
+  screen, at any scaling.
 
 ## v1.6.0
 

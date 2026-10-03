@@ -15,14 +15,12 @@ namespace DnnManager.Infrastructure.Settings;
 ///     keep-warm\  the sites kept warm, and their own keep-warm values - one file each
 /// </code>
 /// </summary>
-public sealed class AppDataPaths
+public sealed class AppDataPaths(string root)
 {
     public const string FolderName = "DnnManager";
 
     /// <summary>The folder's name in 1.2.0 before it was renamed - moved to <see cref="FolderName"/> on first start.</summary>
     public const string OldFolderName = "DNN Manager";
-
-    public AppDataPaths(string root) => Root = root;
 
     /// <summary>The current Windows user's <c>Documents\DnnManager</c> (follows a Documents folder moved to OneDrive or elsewhere).</summary>
     public static AppDataPaths ForCurrentUser()
@@ -33,7 +31,7 @@ public sealed class AppDataPaths
         return new AppDataPaths(Path.Combine(documents, FolderName));
     }
 
-    public string Root { get; }
+    public string Root { get; } = root;
     public string SettingsFile => Path.Combine(Root, "settings.json");
     /// <summary>Project backups (one folder per project) and the settings.json copies.</summary>
     public string BackupsDirectory => Path.Combine(Root, "backups");
@@ -44,6 +42,11 @@ public sealed class AppDataPaths
     public string ProjectRecordsDirectory => Path.Combine(Root, "projects");
     /// <summary>One <c>&lt;site&gt;.json</c> per site switched to "keep warm" (or with keep-warm values of its own).</summary>
     public string KeepWarmDirectory => Path.Combine(ProjectRecordsDirectory, "keep-warm");
+    /// <summary>
+    /// What is kept between starts besides the settings - where the user was, the window, unsaved form values - one file
+    /// per area (<c>StateStore</c>).
+    /// </summary>
+    public string StateDirectory => Path.Combine(Root, "state");
 
     /// <summary>The same folder under its old name (<c>Documents\DNN Manager</c>).</summary>
     public string OldRoot => Path.Combine(Path.GetDirectoryName(Root)!, OldFolderName);

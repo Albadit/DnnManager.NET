@@ -22,33 +22,23 @@ public sealed class ExportProjectRequest
 /// Exports a project as the pair "New project → An existing site" imports - a <c>.zip</c> of the site's files
 /// and a <c>.bacpac</c> of its database - or just one of the two.
 /// </summary>
-public sealed class ExportProjectUseCase
+public sealed class ExportProjectUseCase(
+    IProjectRepository projects,
+    IProjectFileCopier copier,
+    IBacpacService bacpac,
+    LocalSqlContainer sqlContainer,
+    ILogger<ExportProjectUseCase> log,
+    OperationUndo undo)
 {
     // Never part of the site: source control. The site's _backup.filter adds its own paths.
     private static readonly string[] AlwaysExcluded = { ".git" };
 
-    private readonly IProjectRepository _projects;
-    private readonly IProjectFileCopier _copier;
-    private readonly IBacpacService _bacpac;
-    private readonly LocalSqlContainer _sqlContainer;
-    private readonly ILogger<ExportProjectUseCase> _log;
-    private readonly OperationUndo _undo;
-
-    public ExportProjectUseCase(
-        IProjectRepository projects,
-        IProjectFileCopier copier,
-        IBacpacService bacpac,
-        LocalSqlContainer sqlContainer,
-        ILogger<ExportProjectUseCase> log,
-        OperationUndo undo)
-    {
-        _projects = projects;
-        _copier = copier;
-        _bacpac = bacpac;
-        _sqlContainer = sqlContainer;
-        _log = log;
-        _undo = undo;
-    }
+    private readonly IProjectRepository _projects = projects;
+    private readonly IProjectFileCopier _copier = copier;
+    private readonly IBacpacService _bacpac = bacpac;
+    private readonly LocalSqlContainer _sqlContainer = sqlContainer;
+    private readonly ILogger<ExportProjectUseCase> _log = log;
+    private readonly OperationUndo _undo = undo;
 
     public async Task<Result> ExecuteAsync(ExportProjectRequest req, IProgressReporter reporter, CancellationToken ct)
     {

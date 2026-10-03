@@ -11,16 +11,10 @@ namespace DnnManager.Infrastructure.Sql;
 /// into a local SQL Server. SqlPackage is the supported way to copy an Azure SQL Database, which
 /// cannot produce a native .bak.
 /// </summary>
-public sealed class SqlPackageService : IBacpacService
+public sealed class SqlPackageService(ProcessRunner proc, ILogger<SqlPackageService> log) : IBacpacService
 {
-    private readonly ProcessRunner _proc;
-    private readonly ILogger<SqlPackageService> _log;
-
-    public SqlPackageService(ProcessRunner proc, ILogger<SqlPackageService> log)
-    {
-        _proc = proc; _log = log;
-    }
-
+    private readonly ProcessRunner _proc = proc;
+    private readonly ILogger<SqlPackageService> _log = log;
     private const string InstallHint =
         "SqlPackage was not found. Install it with:  dotnet tool install -g microsoft.sqlpackage";
 

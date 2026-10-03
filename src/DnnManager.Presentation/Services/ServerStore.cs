@@ -68,7 +68,7 @@ public sealed class ServerStore
     }
 
     /// <summary>The projects, by name. Rows stay the same objects while their project exists.</summary>
-    public ObservableCollection<ProjectRow> Projects { get; } = new();
+    public ObservableCollection<ProjectRow> Projects { get; } = [];
 
     /// <summary>The first snapshot has arrived - before that there is nothing to show yet.</summary>
     public bool IsLoaded { get; private set; }

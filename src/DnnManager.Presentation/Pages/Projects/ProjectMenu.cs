@@ -1,7 +1,5 @@
-using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Application.UseCases;
@@ -19,24 +17,19 @@ namespace DnnManager.Presentation.Pages.Projects;
 /// overview, open (site, folder, IDE, SSMS), the site's tools (clear its cache, its logs), export and remove. The
 /// site's tools are also the row's ⋮ button and the overview's (<see cref="ShowSiteTools"/>).
 /// </summary>
-internal sealed class ProjectMenu
+/// <param name="control">Starts, stops or restarts the row's site - the page's row actions.</param>
+/// <param name="remove">Removes the row's project - the page's row action.</param>
+/// <param name="open">Opens the row's overview (ProjectView).</param>
+/// <param name="keepWarm">Switches keep warm on or off for the row's site - the page's flame.</param>
+internal sealed class ProjectMenu(IServiceProvider services, OperationRunner runner, Action<SiteAction, ProjectRow> control,
+    Action<ProjectRow> remove, Action<ProjectRow> open, Action<ProjectRow> keepWarm)
 {
-    private readonly IServiceProvider _services;
-    private readonly OperationRunner _runner;
-    private readonly Action<SiteAction, ProjectRow> _control;
-    private readonly Action<ProjectRow> _remove;
-    private readonly Action<ProjectRow> _open;
-    private readonly Action<ProjectRow> _keepWarm;
-
-    /// <param name="control">Starts, stops or restarts the row's site - the page's row actions.</param>
-    /// <param name="remove">Removes the row's project - the page's row action.</param>
-    /// <param name="open">Opens the row's overview (ProjectView).</param>
-    /// <param name="keepWarm">Switches keep warm on or off for the row's site - the page's flame.</param>
-    public ProjectMenu(IServiceProvider services, OperationRunner runner, Action<SiteAction, ProjectRow> control,
-        Action<ProjectRow> remove, Action<ProjectRow> open, Action<ProjectRow> keepWarm)
-    {
-        _services = services; _runner = runner; _control = control; _remove = remove; _open = open; _keepWarm = keepWarm;
-    }
+    private readonly IServiceProvider _services = services;
+    private readonly OperationRunner _runner = runner;
+    private readonly Action<SiteAction, ProjectRow> _control = control;
+    private readonly Action<ProjectRow> _remove = remove;
+    private readonly Action<ProjectRow> _open = open;
+    private readonly Action<ProjectRow> _keepWarm = keepWarm;
 
     /// <summary>Fills <paramref name="menu"/> for <paramref name="row"/>; the IDE entries depend on what is installed.</summary>
     public void Fill(ContextMenu menu, ProjectRow row)

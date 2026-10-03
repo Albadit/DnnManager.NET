@@ -65,7 +65,7 @@ public partial class TerminalPanel : UserControl
 
     private enum Pane { Activity, Logs, Terminal }
 
-    private readonly ObservableCollection<Tab> _tabs = new();
+    private readonly ObservableCollection<Tab> _tabs = [];
     private ActivityLog _log = null!;
     private TerminalService _service = null!;
     private EfficiencyMode _efficiency = null!;
@@ -96,7 +96,7 @@ public partial class TerminalPanel : UserControl
         set
         {
             MaximizeIcon.Data = value ? RestoreGlyph : MaximizeGlyph;
-            MaximizeButton.ToolTip = value ? "Restore the panel (Ctrl+Shift+M)" : "Maximize the panel (Ctrl+Shift+M)";
+            MaximizeButton.ToolTip = value ? "Restore panel" : "Maximize panel";
         }
     }
 
@@ -133,7 +133,7 @@ public partial class TerminalPanel : UserControl
 
         var enabled = _service.Settings.Enabled;
         TerminalTab.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
-        NewButton.ToolTip = $"New terminal ({_service.DefaultShell.Name})";
+        NewButton.ToolTip = "New terminal";
         if (enabled) return;
         CloseAll();
         if (_pane == Pane.Terminal) OutputTab.IsChecked = true;
@@ -175,10 +175,29 @@ public partial class TerminalPanel : UserControl
         if (pane == Pane.Terminal) FocusTerminal();
         else if (pane == Pane.Activity) Pipeline.Log.ScrollToEnd();
         if (SearchBar.Visibility == Visibility.Visible) Search(reveal: true);
+        WorkspaceChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Shows the activity log - e.g. when the running operation is clicked in the status bar.</summary>
     public void ShowActivity() => ShowPane(Pane.Activity);
+
+    /// <summary>Shows the Terminal tab with the keyboard in its terminal - a new one when none is open (Ctrl+`).</summary>
+    public void ShowTerminal()
+    {
+        if (_pane == Pane.Terminal) FocusTerminal();
+        else ShowPane(Pane.Terminal);
+    }
+
+    /// <summary>The Terminal tab is shown.</summary>
+    public bool IsTerminalShown => _pane == Pane.Terminal;
+
+    /// <summary>The next tab (<paramref name="by"/> 1) or the one before (-1) - Output, Logs, Terminal - round the end.</summary>
+    public void StepPane(int by)
+    {
+        var panes = _service.Settings.Enabled ? new[] { Pane.Activity, Pane.Logs, Pane.Terminal } : [Pane.Activity, Pane.Logs];
+        var index = Array.IndexOf(panes, _pane);
+        ShowPane(panes[((index + by) % panes.Length + panes.Length) % panes.Length]);
+    }
 
     /// <summary>Shows <paramref name="site"/>'s log <paramref name="source"/> (its newest when null) on the Logs tab.</summary>
     internal void ShowLogs(ProjectRow site, SiteLogSource? source)
@@ -235,7 +254,11 @@ public partial class TerminalPanel : UserControl
         if (shell.Arguments.Length > 0) details.Add(new("Arguments", shell.Arguments));
         details.Add(new("Started in", directory));
         details.Add(new("Started", DateTime.Now.ToString("g")));
-        var tab = new Tab { Title = title, Description = "Double-click to rename.", Details = details, Session = session, View = view, Icon = IconOf(shell) };
+        var tab = new Tab
+        {
+            Title = title, Description = "Click again or Enter: type in it · Del: close it · F2 or double-click: rename · drag or Alt+↑/↓: move",
+            Details = details, Session = session, View = view, Icon = IconOf(shell)
+        };
         // The shell ended by itself ("exit"): its tab goes too.
         session.Exited += (_, _) => Close(tab);
         // A shell that prints keeps the app out of EcoQoS while minimized: its output is read at full speed.
@@ -297,7 +320,9 @@ public partial class TerminalPanel : UserControl
         {
             view.ScrollChanged += View_ScrollChanged;
             SyncScrollBar(view);
-            FocusTerminal();
+            // Chosen in the list (a click, the arrows): the keyboard stays there - Del closes it, Enter goes in. Opened
+            // or shown otherwise: the keyboard goes into it.
+            if (!Tabs.IsKeyboardFocusWithin) FocusTerminal();
         }
         ShowTerminalState();
         if (_pane == Pane.Terminal && SearchBar.Visibility == Visibility.Visible) Search(reveal: true);
@@ -353,7 +378,11 @@ public partial class TerminalPanel : UserControl
 
     private void CloseTab_Click(object sender, RoutedEventArgs e)
     {
-        if (TabOf(sender) is { } tab) Close(tab);
+        if (TabOf(sender) is not { } tab) return;
+        var inList = Tabs.IsKeyboardFocusWithin;
+        Close(tab);
+        // As with Del: the keyboard stays in the list, on the terminal shown now.
+        if (inList) FocusShownTab();
     }
 
     /// <summary>The terminal a button in its row, or an item of its right-click menu, belongs to.</summary>
@@ -381,13 +410,128 @@ public partial class TerminalPanel : UserControl
         e.Handled = true;
     }
 
-    // F2 on the selected terminal.
+    // In the list: F2 renames the selected terminal, Del closes it, Enter puts the keyboard in it, Alt+Up / Alt+Down move
+    // it up or down the list. (Not while its name is being typed - those keys are the rename box's then.)
     private void Tabs_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.F2 || ShownTab is not { IsRenaming: false } tab) return;
-        BeginRename(tab);
+        if (ShownTab is not { IsRenaming: false } tab) return;
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (Keyboard.Modifiers == ModifierKeys.Alt && key is Key.Up or Key.Down)
+        {
+            MoveTab(tab, _tabs.IndexOf(tab) + (key == Key.Up ? -1 : 1));
+            FocusShownTab();
+            e.Handled = true;
+            return;
+        }
+        if (Keyboard.Modifiers != ModifierKeys.None) return;
+        switch (key)
+        {
+            case Key.F2:
+                BeginRename(tab);
+                break;
+            case Key.Delete:
+                Close(tab);
+                FocusShownTab();
+                break;
+            case Key.Enter:
+                FocusTerminal();
+                break;
+            default:
+                return;
+        }
         e.Handled = true;
     }
+
+    /// <summary>Moves <paramref name="tab"/> to <paramref name="index"/> in the list (kept within it), still the one shown.</summary>
+    private void MoveTab(Tab tab, int index)
+    {
+        var from = _tabs.IndexOf(tab);
+        index = Math.Clamp(index, 0, _tabs.Count - 1);
+        if (from < 0 || from == index) return;
+        _tabs.Move(from, index);
+        Tabs.SelectedItem = tab;
+    }
+
+    /// <summary>
+    /// A click on a terminal in the list puts the keyboard there - on that entry - so Del, F2 and Enter act on it at
+    /// once; a second click on it (the keyboard already there) goes into the terminal. Holding the button and moving
+    /// drags it to another place in the list. (Not on its rename box or bin: they take the click themselves.)
+    /// </summary>
+    private void TabItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not ListBoxItem { DataContext: Tab tab } item || e.OriginalSource is not DependencyObject source ||
+            IsInside<TextBox>(source, item) || IsInside<ButtonBase>(source, item)) return;
+        _dragging = tab;
+        _dragFrom = e.GetPosition(Tabs);
+        if (e.ClickCount == 1 && item.IsSelected && item.IsKeyboardFocused) FocusTerminal();
+        else item.Focus();
+    }
+
+    /// <summary>A click in the list away from the terminals: the keyboard on the one shown.</summary>
+    private void Tabs_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is not DependencyObject source || IsInside<ListBoxItem>(source, Tabs) || IsInside<ScrollBar>(source, Tabs)) return;
+        FocusShownTab();
+        e.Handled = true;
+    }
+
+    // ─── Dragging a terminal to another place in the list ─────────────────
+
+    private Tab? _dragging;
+    private Point _dragFrom;
+
+    // Moved far enough with the button held: the drag starts (Windows' drag distance, so a click isn't one).
+    private void Tabs_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_dragging is not { IsRenaming: false } tab || e.LeftButton != MouseButtonState.Pressed) return;
+        var moved = e.GetPosition(Tabs) - _dragFrom;
+        if (Math.Abs(moved.X) < SystemParameters.MinimumHorizontalDragDistance && Math.Abs(moved.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+        _dragging = null;
+        DragDrop.DoDragDrop(Tabs, new DataObject(typeof(Tab), tab), DragDropEffects.Move);
+    }
+
+    private void Tabs_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e) => _dragging = null;
+
+    // Over another terminal: the dragged one takes its place at once - the list shows where it will be.
+    private void Tabs_DragOver(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        if (e.Data.GetData(typeof(Tab)) is not Tab dragged)
+        {
+            e.Effects = DragDropEffects.None;
+            return;
+        }
+        e.Effects = DragDropEffects.Move;
+        if (Tabs.InputHitTest(e.GetPosition(Tabs)) is DependencyObject over && ItemOf(over) is { DataContext: Tab target } && target != dragged)
+            MoveTab(dragged, _tabs.IndexOf(target));
+    }
+
+    private void Tabs_Drop(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        FocusShownTab();
+    }
+
+    private ListBoxItem? ItemOf(DependencyObject element)
+    {
+        for (var current = element; current is not null && current != Tabs; current = VisualTreeHelper.GetParent(current))
+            if (current is ListBoxItem item) return item;
+        return null;
+    }
+
+    private static bool IsInside<T>(DependencyObject element, DependencyObject stop) where T : DependencyObject
+    {
+        for (var current = element; current is not null && current != stop; current = VisualTreeHelper.GetParent(current))
+            if (current is T) return true;
+        return false;
+    }
+
+    /// <summary>The keyboard on the list's selected terminal - after one was closed with Del, so the next Del closes the next.</summary>
+    private void FocusShownTab() => Dispatcher.BeginInvoke(() =>
+    {
+        if (ShownTab is { } shown && Tabs.ItemContainerGenerator.ContainerFromItem(shown) is ListBoxItem item) item.Focus();
+        else Focus();
+    }, DispatcherPriority.Input);
 
     private static void BeginRename(Tab tab)
     {
@@ -396,12 +540,14 @@ public partial class TerminalPanel : UserControl
     }
 
     /// <summary>Takes the typed name (an empty one keeps the old name), or drops it.</summary>
-    private void EndRename(Tab tab, bool keep)
+    /// <param name="backToList">Ended with Enter or Esc: the keyboard goes back to the list, on the renamed terminal (a
+    /// second click or Enter goes into it). Ended by a click elsewhere: it stays where it went.</param>
+    private void EndRename(Tab tab, bool keep, bool backToList)
     {
         if (!tab.IsRenaming) return;
         tab.IsRenaming = false;
         if (keep && tab.EditTitle.Trim() is { Length: > 0 } name) tab.Title = name;
-        if (Tabs.SelectedItem == tab) FocusTerminal();
+        if (backToList && Tabs.SelectedItem == tab) FocusShownTab();
     }
 
     // The box appears: put the keyboard in it, with the old name selected.
@@ -418,14 +564,50 @@ public partial class TerminalPanel : UserControl
     private void Rename_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key is not (Key.Enter or Key.Escape) || TabOf(sender) is not { } tab) return;
-        EndRename(tab, keep: e.Key == Key.Enter);
+        EndRename(tab, keep: e.Key == Key.Enter, backToList: true);
         e.Handled = true;
     }
 
     private void Rename_LostFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
-        if (TabOf(sender) is { } tab) EndRename(tab, keep: true);
+        if (TabOf(sender) is { } tab) EndRename(tab, keep: true, backToList: false);
     }
+
+    // ─── Kept between starts ──────────────────────────────────────────────
+
+    /// <summary>The panel's tab or search changed - what the workspace keeps. (Terminals aren't kept: their shells end with DNN Manager.)</summary>
+    public event EventHandler? WorkspaceChanged;
+
+    /// <summary>The width of the terminal list - kept with the window.</summary>
+    public double TerminalListWidth
+    {
+        get => TerminalList.Width;
+        set => TerminalList.Width = Math.Clamp(value, ListMinWidth, ListMaxWidth);
+    }
+
+    internal LogsState CaptureLogs() => new()
+    {
+        Pane = _pane switch { Pane.Logs => "Logs", Pane.Terminal => "Terminal", _ => "Output" },
+        LogSite = Logs.CurrentSite, LogGroup = Logs.CurrentSource?.Group, LogTitle = Logs.CurrentSource?.Title,
+        SearchOpen = SearchBar.Visibility == Visibility.Visible, SearchText = SearchBox.Text.Length > 0 ? SearchBox.Text : null,
+        MatchCase = MatchCase.IsChecked == true, WholeWord = WholeWord.IsChecked == true, UseRegex = UseRegex.IsChecked == true
+    };
+
+    /// <summary>The tab shown and the search, as they were. The Logs tab's log follows once the sites are read (<see cref="ShowLog"/>).</summary>
+    internal void RestoreLogs(LogsState state)
+    {
+        SearchBox.Text = state.SearchText ?? "";
+        MatchCase.IsChecked = state.MatchCase;
+        WholeWord.IsChecked = state.WholeWord;
+        UseRegex.IsChecked = state.UseRegex;
+        // The Terminal tab only with a terminal open (never after a start: they aren't kept) - it doesn't start a shell by itself.
+        var pane = state.Pane switch { "Logs" => Pane.Logs, "Terminal" when _service.Settings.Enabled && _tabs.Count > 0 => Pane.Terminal, _ => Pane.Activity };
+        ShowPane(pane);
+        if (state.SearchOpen) SearchBar.Visibility = Visibility.Visible;
+    }
+
+    /// <summary>The Logs tab on <paramref name="site"/>'s log of kind <paramref name="group"/> named <paramref name="title"/> - without switching to it.</summary>
+    internal void ShowLog(ProjectRow site, string? group, string? title) => Logs.Show(site, group, title);
 
     // ─── Search (Ctrl+F) ──────────────────────────────────────────────────
 
@@ -510,12 +692,16 @@ public partial class TerminalPanel : UserControl
     private void SearchPrevious_Click(object sender, RoutedEventArgs e) => Step(-1);
     private void SearchClose_Click(object sender, RoutedEventArgs e) => CloseSearch();
 
-    /// <summary>Takes the highlights away - the text itself stays as it was.</summary>
-    public void CloseSearch()
+    /// <summary>
+    /// Takes the highlights away - the text itself stays as it was - and gives the keyboard back to the terminal, unless
+    /// <paramref name="focus"/> is false (the panel is being hidden).
+    /// </summary>
+    public void CloseSearch(bool focus = true)
     {
+        if (SearchBar.Visibility != Visibility.Visible) return;
         SearchBar.Visibility = Visibility.Collapsed;
         Detach();
-        if (_pane == Pane.Terminal) FocusTerminal();
+        if (focus && _pane == Pane.Terminal) FocusTerminal();
     }
 
     private void Detach()

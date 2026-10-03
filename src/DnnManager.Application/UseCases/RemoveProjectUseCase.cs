@@ -13,51 +13,34 @@ namespace DnnManager.Application.UseCases;
 /// </param>
 public sealed record SiteToRemove(string Name, string Directory, bool InProjectsFolder);
 
-public sealed class RemoveProjectUseCase
+public sealed class RemoveProjectUseCase(
+    IOptions<AppOptions> opts,
+    IProjectRepository projects,
+    IIisManager iis,
+    ISqlServerService sql,
+    IWebConfigService webConfig,
+    IFileLockService locks,
+    IUserPrompt prompt,
+    LocalSqlContainer container,
+    IDatabaseProvisioner databases,
+    IProjectRecords records,
+    IKeepWarmRecords keepWarm,
+    ILogger<RemoveProjectUseCase> log,
+    OperationUndo undo)
 {
-    private readonly AppOptions _opts;
-    private readonly IProjectRepository _projects;
-    private readonly IIisManager _iis;
-    private readonly ISqlServerService _sql;
-    private readonly IWebConfigService _webConfig;
-    private readonly IFileLockService _locks;
-    private readonly IUserPrompt _prompt;
-    private readonly LocalSqlContainer _container;
-    private readonly IDatabaseProvisioner _databases;
-    private readonly IProjectRecords _records;
-    private readonly IKeepWarmRecords _keepWarm;
-    private readonly ILogger<RemoveProjectUseCase> _log;
-    private readonly OperationUndo _undo;
-
-    public RemoveProjectUseCase(
-        IOptions<AppOptions> opts,
-        IProjectRepository projects,
-        IIisManager iis,
-        ISqlServerService sql,
-        IWebConfigService webConfig,
-        IFileLockService locks,
-        IUserPrompt prompt,
-        LocalSqlContainer container,
-        IDatabaseProvisioner databases,
-        IProjectRecords records,
-        IKeepWarmRecords keepWarm,
-        ILogger<RemoveProjectUseCase> log,
-        OperationUndo undo)
-    {
-        _opts = opts.Value;
-        _projects = projects;
-        _iis = iis;
-        _sql = sql;
-        _webConfig = webConfig;
-        _locks = locks;
-        _prompt = prompt;
-        _container = container;
-        _databases = databases;
-        _records = records;
-        _keepWarm = keepWarm;
-        _log = log;
-        _undo = undo;
-    }
+    private readonly AppOptions _opts = opts.Value;
+    private readonly IProjectRepository _projects = projects;
+    private readonly IIisManager _iis = iis;
+    private readonly ISqlServerService _sql = sql;
+    private readonly IWebConfigService _webConfig = webConfig;
+    private readonly IFileLockService _locks = locks;
+    private readonly IUserPrompt _prompt = prompt;
+    private readonly LocalSqlContainer _container = container;
+    private readonly IDatabaseProvisioner _databases = databases;
+    private readonly IProjectRecords _records = records;
+    private readonly IKeepWarmRecords _keepWarm = keepWarm;
+    private readonly ILogger<RemoveProjectUseCase> _log = log;
+    private readonly OperationUndo _undo = undo;
 
     /// <summary>
     /// Removes the sites - each with its database - after asking once for all of them, saying what goes: the IIS site,

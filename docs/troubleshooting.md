@@ -6,7 +6,8 @@ places tell you most of what went wrong:
 - **The Output tab** (bottom panel) - every step of every operation, with the
   error and what to do next.
 - **The log file** `Documents\DnnManager\logs\dnnmanager-<date>.log` - the same
-  steps, plus DNN Manager's own warnings and errors with their stack traces
+  messages, one line each after its time (the title and stages are the Output
+  tab's), plus DNN Manager's own warnings and errors with their stack traces
   (`[warning]`, `[error]`, `[critical]`). See
   [configuration.md](configuration.md#where-your-files-are).
 
@@ -52,6 +53,34 @@ places tell you most of what went wrong:
 - **Investigate:** the last `[critical]` line in the day's log file has the
   exception and its stack trace.
 - **Fix:** report it with that part of the log.
+
+### The update failed, or About says "Unable to reach GitHub"
+
+- **Unable to reach GitHub** (gray dot): no internet, a proxy or firewall in the
+  way, or GitHub's rate limit (60 requests an hour per IP address). The reason is
+  under the status; nothing is wrong with DNN Manager. It asks again when About is
+  opened and every 6 hours.
+- **The download or its check failed** (*Update failed* on About, and in the Update
+  button's tooltip): nothing was changed - DNN Manager kept running. Click **Update**
+  to try again; a download that isn't the file
+  GitHub published (another size, SHA-256 or version) is never used.
+- **It closed and the old version came back** with *The update to vX wasn't
+  installed*: **Show log** opens `%TEMP%\DnnManager-update\<version>\update.log`
+  (and `update.setup.log` for Setup). For a portable exe in a folder you can't
+  write to, move it somewhere you can. You can always install the release by hand
+  from GitHub - your settings are in `Documents\DnnManager` either way.
+
+### It opens somewhere odd, or keeps bringing back something I don't want
+
+- **Cause:** DNN Manager opens the way it was left - the page, the Details, the
+  Logs tab's log, unsaved form values ([Picking up where you left
+  off](user-guide.md#picking-up-where-you-left-off)).
+- **Fix:** close what you don't want and it is gone next time (the Details,
+  **Discard changes** on Settings). To start completely fresh, close
+  DNN Manager and delete `Documents\DnnManager\state` - only the remembered
+  workspace goes; settings, passwords and projects stay. A state file that can't be
+  read is set aside as `state\<name>.json.bad` by itself (the log file says so) and
+  DNN Manager starts from the defaults.
 
 ## Sites
 

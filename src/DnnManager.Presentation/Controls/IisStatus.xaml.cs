@@ -29,6 +29,9 @@ public partial class IisStatus : UserControl
         set => SetValue(IsCompactProperty, value);
     }
 
+    /// <summary>Under a sidebar on the window's right: the line between it and the status bar on its left.</summary>
+    public void SetSide(bool right) => Frame.BorderThickness = right ? new Thickness(1, 1, 0, 0) : new Thickness(0, 1, 1, 0);
+
     public void Attach(ServerStore store, OperationRunner runner)
     {
         _store = store; _runner = runner;

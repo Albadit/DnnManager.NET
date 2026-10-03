@@ -4,7 +4,8 @@ description: >-
   Writes the release notes for the next DNN Manager release as docs/release-notes/vX.Y.Z.md, in the structure every
   release uses (bold summary, Highlights, Other changes, Upgrading, Tested, link to the changelog), from the
   CHANGELOG.md entry, the commits since the previous tag and real test results - every claim checked against the
-  code. The release workflow publishes that file as the GitHub release's notes. Use when asked to write, draft,
+  code - and the release commit's message, ready to paste. The release workflow publishes that file as the GitHub
+  release's notes. Use when asked to write, draft,
   update or review release notes, prepare a release or "the next release", or turn the Unreleased changelog entry
   into notes.
 ---
@@ -38,9 +39,11 @@ Readers are **people who use DNN Manager**, deciding whether to update and what 
 6. **Check it**: every relative link resolves, the changelog anchor exists, and
    `.github\scripts\release-notes.ps1 -Version X.Y.Z -OutFile <temp>\notes.md` shows the notes as GitHub will get
    them (relative links turned into links to the tag's files).
-7. Report what the notes say and anything left unverified. Don't commit, tag or publish - the owner does, with the
-   VS Code task **release (GitHub)** (`.github/scripts/publish-release.ps1`, see `docs/releasing.md`), which picks
-   this file and a commit, builds both exes and publishes the release.
+7. **Write the commit message** for the release commit (see [Commit message](#commit-message)) and give it in the
+   report, ready to paste.
+8. Report what the notes say, the commit message, and anything left unverified. Don't commit, tag or publish - the
+   owner does, with the VS Code task **release (GitHub)** (`.github/scripts/publish-release.ps1`, see
+   `docs/releasing.md`), which picks this file and a commit, builds both exes and publishes the release.
 
 ## Structure
 
@@ -92,3 +95,16 @@ Full list of changes: [CHANGELOG.md](../../CHANGELOG.md#vxyz)
   (then say what changes).
 - No emoji, no marketing words ("powerful", "seamless", "exciting"), no filler introductions.
 - UTF-8 without BOM, CRLF line endings, like the rest of the repository.
+
+## Commit message
+
+One line - no body. It follows the repository's release commits (`git log --grep "^release:"`):
+
+```text
+release: vX.Y.Z - <the Highlights' themes, lower case, comma-separated>
+```
+
+- `release: vX.Y.Z - ` and the release's themes, a few words each, in the order of the Highlights - e.g.
+  `release: v1.7.0 - self-update, workspace restore, keyboard and command palette, VS Code look, customizable layout`.
+- No full stop, no body, no bullets: what changed is in the notes and the changelog.
+- Give it in a `text` code block in the report, so it can be pasted into `git commit` or the VS Code commit box as is.

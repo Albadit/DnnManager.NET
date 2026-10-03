@@ -12,15 +12,13 @@ namespace DnnManager.Infrastructure.Sql;
 /// wizard runs, and what DNN Manager itself needs), creating the database, letting the site's Windows identity own
 /// it, and dropping it.
 /// </summary>
-public sealed partial class DatabaseProvisioner : IDatabaseProvisioner
+public sealed partial class DatabaseProvisioner(ILogger<DatabaseProvisioner> log) : IDatabaseProvisioner
 {
     private const int ConnectTimeoutSeconds = 10;
     // LocalDB may have to create and start the instance first.
     private const int LocalDbConnectTimeoutSeconds = 60;
 
-    private readonly ILogger<DatabaseProvisioner> _log;
-
-    public DatabaseProvisioner(ILogger<DatabaseProvisioner> log) => _log = log;
+    private readonly ILogger<DatabaseProvisioner> _log = log;
 
     // ─── Test connection ──────────────────────────────────────────────────
 

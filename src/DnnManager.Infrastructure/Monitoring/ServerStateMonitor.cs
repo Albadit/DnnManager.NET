@@ -129,7 +129,7 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _sizesAsked = new(StringComparer.OrdinalIgnoreCase);
     private volatile bool _sizesShown;
     // What couldn't be read or listened to: a key per thing, with the message shown while reconnecting.
-    private readonly Dictionary<string, string> _problems = new();
+    private readonly Dictionary<string, string> _problems = [];
 
     // Each site's database as its web.config connects to it, and what the last look at it found - per site, as
     // sites can be on different servers with different logins.

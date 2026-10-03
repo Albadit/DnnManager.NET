@@ -27,14 +27,11 @@ public sealed class DailyLogFile : IDisposable
         DeleteOldFiles();
     }
 
-    /// <summary>A line, after its time: <c>11:57:09  IIS site and app pool 'test-web' removed.</c></summary>
-    public void Append(DateTime time, string line) => Write(time, $"{time:HH:mm:ss}  {line}");
-
     /// <summary>
-    /// A Markdown heading - <c># Remove 'test-web'</c> for an operation, <c>## Delete project directory</c> for a stage -
-    /// on a line of its own after an empty one, so the file reads as Markdown.
+    /// A line, after its time: <c>11:57:09 IIS site and app pool 'test-web' removed.</c> - one a message, no headings:
+    /// an operation's title and its stages are the Output tab's.
     /// </summary>
-    public void AppendHeading(DateTime time, string heading) => Write(time, Environment.NewLine + heading);
+    public void Append(DateTime time, string line) => Write(time, $"{time:HH:mm:ss} {line}");
 
     private void Write(DateTime time, string text)
     {

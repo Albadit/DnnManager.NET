@@ -15,6 +15,22 @@
     <!-- Buttons, text boxes and selects share one height, so they line up side by side. -->
     <sys:Double x:Key="ControlHeight">30</sys:Double>
     <Thickness x:Key="InputPadding">6,4</Thickness>
+    <!-- The window's frame: the sidebar's entries - with their names, and only their icons (a narrow window) -, the title
+         bar and its buttons, the status bar. Customize Layout's Compact density makes them all smaller, in width and
+         height (MainWindow.ApplyLayout sets these). -->
+    <Thickness x:Key="NavPadding">13,9</Thickness>
+    <Thickness x:Key="NavMargin">8,1</Thickness>
+    <Thickness x:Key="NavIconPadding">3,9</Thickness>
+    <Thickness x:Key="NavIconMargin">6,1</Thickness>
+    <sys:Double x:Key="TitleBarHeight">36</sys:Double>
+    <sys:Double x:Key="CaptionButtonWidth">46</sys:Double>
+    <sys:Double x:Key="LayoutButtonWidth">28</sys:Double>
+    <sys:Double x:Key="LayoutButtonHeight">24</sys:Double>
+    <sys:Double x:Key="StatusBarHeight">30</sys:Double>
+
+    <!-- Every search field - the SearchBox style, the panel's search, the command palette - VS Code's 26 px. -->
+    <sys:Double x:Key="SearchHeight">26</sys:Double>
+    <Thickness x:Key="SearchPadding">6,2</Thickness>
 
     <!-- Text sizes, by role - the values for the default font size (13); ThemeManager.ApplyLayout sets them for the one
          chosen in Settings → General, keeping these proportions. Icon glyphs keep their sizes: UI scale grows those. -->

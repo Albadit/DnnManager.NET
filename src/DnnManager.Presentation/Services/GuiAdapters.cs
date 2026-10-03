@@ -4,10 +4,10 @@ using DnnManager.Presentation.Controls;
 namespace DnnManager.Presentation.Services;
 
 /// <summary>Adapts the activity log to the application-layer reporter interface.</summary>
-public sealed class GuiProgressReporter : IProgressReporter
+public sealed class GuiProgressReporter(ActivityLog log) : IProgressReporter
 {
-    private readonly ActivityLog _log;
-    public GuiProgressReporter(ActivityLog log) => _log = log;
+    private readonly ActivityLog _log = log;
+
     public void Step(string title)   => _log.Step(title);
     public void Info(string message) => _log.Info(message);
     public void Success(string m)    => _log.Success(m);

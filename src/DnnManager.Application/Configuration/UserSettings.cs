@@ -27,6 +27,8 @@ public sealed class UserSettings
     public AppearanceSettings Appearance { get; set; } = new();
     public TerminalSettings Terminal { get; set; } = new();
     public WindowSettings Window { get; set; } = new();
+    public KeyboardSettings Keyboard { get; set; } = new();
+    public LayoutSettings Layout { get; set; } = new();
 
     /// <summary>The values that aren't allowed, each with the key it is about; empty when the settings are usable.</summary>
     public IReadOnlyList<SettingsProblem> Validate()
@@ -118,6 +120,12 @@ public sealed class UserSettings
             $"must be a number between {AppearanceSettings.MinFontSize} and {AppearanceSettings.MaxFontSize}.");
         Check(Terminal.FontSize is >= TerminalSettings.MinFontSize and <= TerminalSettings.MaxFontSize, "terminal.fontSize",
             $"must be a number between {TerminalSettings.MinFontSize} and {TerminalSettings.MaxFontSize}.");
+        void OneOf(string value, string[] allowed, string key) =>
+            Check(allowed.Contains(value, StringComparer.OrdinalIgnoreCase), key, $"must be one of: {string.Join(", ", allowed)}.");
+        OneOf(Layout.SidebarPosition, LayoutSettings.SidebarPositions, "layout.sidebarPosition");
+        OneOf(Layout.PanelAlignment, LayoutSettings.PanelAlignments, "layout.panelAlignment");
+        OneOf(Layout.QuickInputPosition, LayoutSettings.QuickInputPositions, "layout.quickInputPosition");
+        OneOf(Layout.Density, LayoutSettings.Densities, "layout.density");
         return problems;
     }
 
@@ -144,6 +152,8 @@ public sealed class UserSettings
         },
         Theme = Appearance.Theme,
         ProjectColumns = Appearance.ProjectColumns.ToList(),
+        KeyboardShortcuts = new Dictionary<string, string>(Keyboard.Shortcuts, StringComparer.Ordinal),
+        Layout = Layout.Copy(),
         Terminal = new TerminalSettings
         {
             Enabled = Terminal.Enabled,
@@ -462,6 +472,59 @@ public sealed class WindowSettings
     /// the window is shown.
     /// </summary>
     public bool SaveResourcesWhileMinimized { get; set; } = true;
+}
+
+public sealed class KeyboardSettings
+{
+    /// <summary>
+    /// The keyboard shortcuts changed from their defaults (Settings - Keyboard shortcuts), by command:
+    /// <c>"project.start": "Ctrl+F5"</c>; an empty one takes the command's shortcut away. A command not listed has its default.
+    /// </summary>
+    public Dictionary<string, string> Shortcuts { get; set; } = new(StringComparer.Ordinal);
+}
+
+/// <summary>
+/// How the window is laid out, as VS Code's Customize Layout sets it: where the sidebar is, how far the bottom panel
+/// reaches, the status bar, where the command palette opens, how roomy the title bar and sidebar are. Changed from the
+/// title bar's Customize Layout (or the gear's menu) - applied and saved at once. Whether the sidebar and the panel are
+/// shown is the workspace's (state\window.json), as in VS Code.
+/// </summary>
+public sealed class LayoutSettings
+{
+    public static readonly string[] SidebarPositions = ["left", "right"];
+    public static readonly string[] PanelAlignments = ["left", "right", "center", "justify"];
+    public static readonly string[] QuickInputPositions = ["top", "center"];
+    public static readonly string[] Densities = ["default", "compact"];
+
+    /// <summary>"left" or "right" - the side of the window the sidebar is on.</summary>
+    public string SidebarPosition { get; set; } = "left";
+    /// <summary>
+    /// How far the bottom panel reaches: "center" - under the page only, the sidebar beside it full height; "justify" -
+    /// the window's width, under the sidebar too; "left" / "right" - to that edge of the window (under the sidebar when it
+    /// is on that side).
+    /// </summary>
+    public string PanelAlignment { get; set; } = "center";
+    public bool StatusBarVisible { get; set; } = true;
+    /// <summary>"top" (over the title bar, as VS Code's) or "center" - where the command palette opens.</summary>
+    public string QuickInputPosition { get; set; } = "top";
+    /// <summary>"default" or "compact" - the frame smaller in width and height: sidebar, title bar, status bar.</summary>
+    public string Density { get; set; } = "default";
+
+    [JsonIgnore] public bool SidebarRight => SidebarPosition.Equals("right", StringComparison.OrdinalIgnoreCase);
+    [JsonIgnore] public bool Compact => Density.Equals("compact", StringComparison.OrdinalIgnoreCase);
+    [JsonIgnore] public bool QuickInputCentered => QuickInputPosition.Equals("center", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Whether the panel reaches under the sidebar - with its alignment towards the sidebar's side, or justified.</summary>
+    [JsonIgnore]
+    public bool PanelUnderSidebar => PanelAlignment.ToLowerInvariant() switch
+    {
+        "justify" => true,
+        "left" => !SidebarRight,
+        "right" => SidebarRight,
+        _ => false
+    };
+
+    public LayoutSettings Copy() => (LayoutSettings)MemberwiseClone();
 }
 
 /// <summary>A value in <c>settings.json</c> that isn't allowed: <paramref name="Key"/> is its path, e.g. <c>projects.sitePort</c>.</summary>

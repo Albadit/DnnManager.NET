@@ -31,7 +31,8 @@
     <Border Style="{StaticResource Card}">
         <StackPanel>
             <DockPanel Margin="0,0,0,8">
-                <Button DockPanel.Dock="Right" x:Name="TestButton" Content="Test" MinWidth="80" Click="Test_Click" />
+                <Button DockPanel.Dock="Right" x:Name="TestButton" Content="Test" MinWidth="80" Click="Test_Click"
+                        ToolTip="Test" />
                 <TextBlock Style="{StaticResource CardTitle}" Text="Docker" Margin="0" VerticalAlignment="Center" />
             </DockPanel>
             <Grid Grid.IsSharedSizeScope="True">
@@ -47,7 +48,8 @@
                             <TextBlock Style="{StaticResource StatusName}" Text="Docker Desktop" Margin="0,0,24,0" />
                             <TextBlock Style="{StaticResource StatusValue}" Grid.Column="1" x:Name="DockerStatus" Text="Not tested" Margin="0,0,16,0" />
                             <TextBlock Style="{StaticResource StatusDetail}" Grid.Column="2" x:Name="DockerDetail" />
-                            <Button Style="{StaticResource StatusAction}" Grid.Column="3" x:Name="InstallDockerButton" Content="Install Docker Desktop" Click="InstallDocker_Click" />
+                            <Button Style="{StaticResource StatusAction}" Grid.Column="3" x:Name="InstallDockerButton" Content="Install Docker Desktop" Click="InstallDocker_Click"
+                                    ToolTip="Install Docker Desktop" />
                         </Grid>
                     </Border>
                     <Border Style="{StaticResource StatusRow}">
@@ -61,7 +63,8 @@
                             <TextBlock Style="{StaticResource StatusName}" Text="Docker engine" Margin="0,0,24,0" />
                             <TextBlock Style="{StaticResource StatusValue}" Grid.Column="1" x:Name="EngineStatus" Text="Not tested" Margin="0,0,16,0" />
                             <TextBlock Style="{StaticResource StatusDetail}" Grid.Column="2" x:Name="EngineDetail" />
-                            <Button Style="{StaticResource StatusAction}" Grid.Column="3" x:Name="StartDockerButton" Content="Start Docker Desktop" Click="StartDocker_Click" />
+                            <Button Style="{StaticResource StatusAction}" Grid.Column="3" x:Name="StartDockerButton" Content="Start Docker Desktop" Click="StartDocker_Click"
+                                    ToolTip="Start Docker Desktop" />
                         </Grid>
                     </Border>
                     <Border Style="{StaticResource StatusRow}">
@@ -82,8 +85,10 @@
 
             <WrapPanel Margin="0,10,0,0">
                 <Button x:Name="SetupComposeButton" Style="{StaticResource Primary}" Content="Set up docker-compose"
-                        Margin="0,0,8,0" Click="SetupCompose_Click" />
-                <Button x:Name="ShowYamlButton" Content="Show docker-compose.yml" Click="ShowYaml_Click" />
+                        Margin="0,0,8,0" Click="SetupCompose_Click"
+                        ToolTip="Set up docker-compose" />
+                <Button x:Name="ShowYamlButton" Content="Show docker-compose.yml" Click="ShowYaml_Click"
+                        ToolTip="Show docker-compose.yml" />
             </WrapPanel>
             <StackPanel x:Name="YamlPanel" Visibility="Collapsed" Margin="0,10,0,0">
                 <Grid>
@@ -92,7 +97,7 @@
                              VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" />
                     <!-- Over the top-right corner of the box, clear of its vertical scrollbar. -->
                     <Button x:Name="CopyYamlButton" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,24,0"
-                            Padding="10,3" ToolTip="Copy docker-compose.yml to the clipboard" Click="CopyYaml_Click">
+                            Padding="10,3" ToolTip="Copy" Click="CopyYaml_Click">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE8C8;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
                                        VerticalAlignment="Center" Margin="0,0,6,0" />

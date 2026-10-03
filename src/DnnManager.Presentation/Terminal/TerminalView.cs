@@ -30,7 +30,7 @@ internal sealed class TerminalView : FrameworkElement, Controls.ISearchTarget
     ];
 
     private readonly TerminalSession _session;
-    private readonly Dictionary<uint, Brush> _brushes = new();
+    private readonly Dictionary<uint, Brush> _brushes = [];
     private Typeface _typeface = new("Consolas");
     private double _fontSize = 13, _cellWidth = 7, _cellHeight = 16;
     // The first line shown, in scrollback + screen lines; null while following the output.

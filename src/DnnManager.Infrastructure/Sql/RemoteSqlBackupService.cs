@@ -5,11 +5,9 @@ using Microsoft.Extensions.Logging;
 
 namespace DnnManager.Infrastructure.Sql;
 
-public sealed class RemoteSqlBackupService : IRemoteSqlBackupService
+public sealed class RemoteSqlBackupService(ILogger<RemoteSqlBackupService> log) : IRemoteSqlBackupService
 {
-    private readonly ILogger<RemoteSqlBackupService> _log;
-
-    public RemoteSqlBackupService(ILogger<RemoteSqlBackupService> log) => _log = log;
+    private readonly ILogger<RemoteSqlBackupService> _log = log;
 
     public async Task<Result<string>> BackupAsync(SiteSqlConnection source, string backupServerPath,
         IProgressReporter reporter, CancellationToken ct)

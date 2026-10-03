@@ -8,15 +8,10 @@ namespace DnnManager.Presentation.Services;
 /// Puts saved settings to work in the running app: the Settings page saves <c>settings.json</c> and hands the
 /// settings here, and everything that reads <see cref="AppOptions"/> has the new values - without a restart.
 /// </summary>
-public sealed class LiveSettings
+public sealed class LiveSettings(IOptions<AppOptions> options, IConfiguration configuration)
 {
-    private readonly AppOptions _options;
-    private readonly IConfiguration _configuration;
-
-    public LiveSettings(IOptions<AppOptions> options, IConfiguration configuration)
-    {
-        _options = options.Value; _configuration = configuration;
-    }
+    private readonly AppOptions _options = options.Value;
+    private readonly IConfiguration _configuration = configuration;
 
     public void Apply(UserSettings settings)
     {

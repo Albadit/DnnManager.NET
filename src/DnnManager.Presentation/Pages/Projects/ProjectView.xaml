@@ -113,31 +113,37 @@
         </Style>
     </UserControl.Resources>
 
-    <DockPanel Margin="28,20,28,12">
+    <!-- Centred: as wide as there is room, up to 1100 - its header and tabs as wide as what they are for. -->
+    <DockPanel Margin="28,20,28,12" MaxWidth="1100">
         <!-- Back, the site's name and state; its actions on the right. -->
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,18">
             <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}" Content="&#xE72B;" Width="32" Height="32" Margin="0,2,10,0"
-                    VerticalAlignment="Top" ToolTip="Back to the projects (Esc)" Click="Back_Click" />
+                    VerticalAlignment="Top" ToolTip="Back (Esc)" Click="Back_Click" />
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,4,0,0">
                 <Button Style="{StaticResource HeaderButton}" Click="Start_Click" IsEnabled="{Binding CanStart}"
+                        ToolTip="Start" s:CommandTip.Command="project.start"
                         Visibility="{Binding ShowStart, Converter={StaticResource Visible}}">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE768;" /><TextBlock Text="Start" /></StackPanel>
                 </Button>
                 <Button Style="{StaticResource HeaderButton}" Click="Stop_Click" IsEnabled="{Binding CanStop}"
+                        ToolTip="Stop" s:CommandTip.Command="project.stop"
                         Visibility="{Binding ShowStop, Converter={StaticResource Visible}}">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE71A;" /><TextBlock Text="Stop" /></StackPanel>
                 </Button>
                 <Button Style="{StaticResource HeaderButton}" Click="Restart_Click" IsEnabled="{Binding CanRestart}"
-                        Visibility="{Binding ShowStop, Converter={StaticResource Visible}}" ToolTip="Recycles the app pool">
+                        Visibility="{Binding ShowStop, Converter={StaticResource Visible}}" ToolTip="Restart"
+                        s:CommandTip.Command="project.restart">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE72C;" /><TextBlock Text="Restart" /></StackPanel>
                 </Button>
-                <Button Style="{StaticResource HeaderButton}" Click="OpenSite_Click" IsEnabled="{Binding HasUrl}">
+                <Button Style="{StaticResource HeaderButton}" Click="OpenSite_Click" IsEnabled="{Binding HasUrl}"
+                        ToolTip="Open site" s:CommandTip.Command="project.openWebsite">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE774;" /><TextBlock Text="Open site" /></StackPanel>
                 </Button>
-                <Button Style="{StaticResource HeaderButton}" Click="OpenFolder_Click">
+                <Button Style="{StaticResource HeaderButton}" Click="OpenFolder_Click" ToolTip="Open folder"
+                        s:CommandTip.Command="project.openFolder">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE838;" /><TextBlock Text="Open folder" /></StackPanel>
                 </Button>
-                <Button x:Name="MoreButton" Style="{StaticResource HeaderButton}" Click="More_Click" ToolTip="More actions (clear cache, view logs)">
+                <Button x:Name="MoreButton" Style="{StaticResource HeaderButton}" Click="More_Click" ToolTip="More actions">
                     <TextBlock Style="{StaticResource Glyph}" Text="&#xE712;" Margin="0" RenderTransformOrigin="0.5,0.5">
                         <TextBlock.RenderTransform>
                             <RotateTransform Angle="90" />
@@ -153,6 +159,7 @@
                     <TextBlock Text="·" Foreground="{DynamicResource TextMuted}" Margin="8,0" VerticalAlignment="Center"
                                Visibility="{Binding HasUrl, Converter={StaticResource Visible}}" />
                     <Button Style="{StaticResource LinkButton}" Content="{Binding Url}" Tag="{Binding Url}" Click="Link_Click" VerticalAlignment="Center"
+                            ToolTip="Open site" s:CommandTip.Command="project.openWebsite"
                             Visibility="{Binding HasUrl, Converter={StaticResource Visible}}" />
                     <ProgressBar Style="{StaticResource SiteProgress}" Width="60" Height="3" Margin="12,0,0,0" VerticalAlignment="Center"
                                  Foreground="{DynamicResource Accent}" Background="{DynamicResource GridLine}" BorderThickness="0"
@@ -198,7 +205,7 @@
                             <DockPanel>
                                 <Button x:Name="KeepWarmCheckButton" DockPanel.Dock="Right" Content="Check now" Margin="12,0,0,0" VerticalAlignment="Center"
                                         IsEnabled="{Binding KeepWarmOn}" Click="KeepWarmCheck_Click"
-                                        ToolTip="Requests the site now - also after it failed too often - and shows how it answers." />
+                                        ToolTip="Check now" />
                                 <ContentControl Style="{StaticResource KeepWarmFlame}" VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding KeepWarmText}" Foreground="{DynamicResource TextPrimary}" TextWrapping="Wrap"
                                            Margin="8,0,0,0" VerticalAlignment="Center" />
@@ -216,7 +223,8 @@
                             <TextBlock Style="{StaticResource CardTitle}" Text="Host accounts" />
                             <ItemsControl x:Name="HostFacts" ItemTemplate="{StaticResource FactTemplate}" />
                             <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                                <Button x:Name="ChangePasswordButton" Content="Change host password…" IsEnabled="False" Click="ChangePassword_Click" />
+                                <Button x:Name="ChangePasswordButton" Content="Change host password…" IsEnabled="False" Click="ChangePassword_Click"
+                                        ToolTip="Change host password" />
                             </StackPanel>
                             <TextBlock x:Name="PasswordHint" Style="{StaticResource Hint}" />
                         </StackPanel>

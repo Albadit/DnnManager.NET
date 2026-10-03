@@ -6,23 +6,18 @@ namespace DnnManager.Infrastructure.Monitoring;
 /// twice at the same time - so what it reads and what it then applies can't overtake each other. A short wait before
 /// each run lets a burst settle first.
 /// </summary>
-internal sealed class CoalescedJob
+/// <param name="settle">How long to wait before a run starts, so requests arriving together share it.</param>
+/// <param name="failed">Called when the work throws - the job carries on.</param>
+internal sealed class CoalescedJob(Func<CancellationToken, Task> work, TimeSpan settle, Action<Exception> failed, CancellationToken stop)
 {
-    private readonly Func<CancellationToken, Task> _work;
-    private readonly TimeSpan _settle;
-    private readonly Action<Exception> _failed;
-    private readonly CancellationToken _stop;
+    private readonly Func<CancellationToken, Task> _work = work;
+    private readonly TimeSpan _settle = settle;
+    private readonly Action<Exception> _failed = failed;
+    private readonly CancellationToken _stop = stop;
     private readonly object _lock = new();
     private bool _running, _again, _atOnce;
     // Callers waiting for a run that starts after they asked.
-    private List<TaskCompletionSource> _waiters = new();
-
-    /// <param name="settle">How long to wait before a run starts, so requests arriving together share it.</param>
-    /// <param name="failed">Called when the work throws - the job carries on.</param>
-    public CoalescedJob(Func<CancellationToken, Task> work, TimeSpan settle, Action<Exception> failed, CancellationToken stop)
-    {
-        _work = work; _settle = settle; _failed = failed; _stop = stop;
-    }
+    private List<TaskCompletionSource> _waiters = [];
 
     /// <summary>Asks for a run; returns at once.</summary>
     public void Request()
@@ -71,7 +66,7 @@ internal sealed class CoalescedJob
                 // Everything asked for up to here is covered by the run that starts now.
                 _again = _atOnce = false;
                 waiters = _waiters;
-                _waiters = new();
+                _waiters = [];
             }
 
             try
@@ -87,7 +82,7 @@ internal sealed class CoalescedJob
                 if (_again && !_stop.IsCancellationRequested) continue;
                 _running = false;
                 waiters = _waiters;
-                _waiters = new();
+                _waiters = [];
             }
             // Only when stopping: nobody is left to run for them.
             foreach (var waiter in waiters) waiter.TrySetResult();

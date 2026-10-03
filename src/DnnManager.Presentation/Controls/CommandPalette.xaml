@@ -1,0 +1,125 @@
+<UserControl x:Class="DnnManager.Presentation.Controls.CommandPalette"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Visibility="Collapsed">
+    <!-- Over the whole window, like VS Code's: a click outside the box closes it (the transparent background catches it) -
+         on the title bar too, which takes clicks only from what is hit-test visible in it. The box is at the very top,
+         its search over the title bar's. -->
+    <Grid x:Name="Overlay" Background="Transparent" MouseLeftButtonDown="Outside_MouseLeftButtonDown" WindowChrome.IsHitTestVisibleInChrome="True">
+        <!-- 600 wide, as VS Code's - narrower only when the window is; centred (stretched up to its MaxWidth). -->
+        <Border x:Name="Box" MaxWidth="600"
+                VerticalAlignment="Top" Margin="16,1,16,0" Padding="6,5,6,6"
+                Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="8"
+                MouseLeftButtonDown="Box_MouseLeftButtonDown">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="24" ShadowDepth="4" Opacity="0.35" />
+            </Border.Effect>
+            <DockPanel>
+                <!-- A list with a name of its own (Customize Layout): the name, Reset and close, as in VS Code. -->
+                <DockPanel x:Name="TitleRow" DockPanel.Dock="Top" Margin="0,0,0,5" Visibility="Collapsed">
+                    <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Width="22" Height="22" MinHeight="0" FontSize="10"
+                            Content="&#xE8BB;" ToolTip="Close (Esc)" Click="TitleClose_Click" />
+                    <Button x:Name="ResetButton" DockPanel.Dock="Right" Style="{StaticResource IconButton}" Width="22" Height="22" MinHeight="0"
+                            FontSize="12" Content="&#xE7A7;" Click="Reset_Click" />
+                    <!-- Room on the left as wide as the buttons, so the name is in the middle. -->
+                    <Border DockPanel.Dock="Left" Width="44" />
+                    <TextBlock x:Name="TitleText" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimary}" />
+                </DockPanel>
+                <TextBox x:Name="Query" DockPanel.Dock="Top" Style="{StaticResource SearchBox}"
+                         TextChanged="Query_TextChanged" PreviewKeyDown="Query_PreviewKeyDown"
+                         AutomationProperties.Name="{Binding Tag, RelativeSource={RelativeSource Self}}" />
+                <!-- Not focusable: the keyboard stays in the box, the arrows move the selection (Query_PreviewKeyDown). -->
+                <ListBox x:Name="Results" Margin="0,5,0,0" MaxHeight="440" Background="Transparent" BorderThickness="0"
+                         Focusable="False" ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizing="True"
+                         AutomationProperties.Name="Results">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Focusable" Value="False" />
+                            <Setter Property="AutomationProperties.Name" Value="{Binding Spoken}" />
+                            <EventSetter Event="MouseLeftButtonUp" Handler="Item_MouseLeftButtonUp" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <DockPanel>
+                                            <!-- A line above the first of a group, after the one before it. -->
+                                            <Border x:Name="Separator" DockPanel.Dock="Top" Height="1" Margin="0,3" Background="{DynamicResource PickerGroupBorder}"
+                                                    Visibility="Collapsed" />
+                                            <!-- VS Code's rows: 22 px. -->
+                                            <Border x:Name="Bd" Background="Transparent" CornerRadius="3" Padding="8,0" MinHeight="22" Cursor="Hand">
+                                                <ContentPresenter VerticalAlignment="Center" />
+                                            </Border>
+                                        </DockPanel>
+                                        <ControlTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding ShowsSeparator}" Value="True">
+                                                <Setter TargetName="Separator" Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}" />
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SelectionBg}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel>
+                                <Border DockPanel.Dock="Right" Padding="5,0" CornerRadius="3" VerticalAlignment="Center" Margin="12,0,0,0"
+                                        BorderBrush="{DynamicResource InputBorder}" BorderThickness="1">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Shortcut}" Value="">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding Shortcut}" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextSmall}" />
+                                </Border>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding Side}" Foreground="{DynamicResource TextMuted}"
+                                           FontSize="{DynamicResource TextCaption}" VerticalAlignment="Center" Margin="12,0,0,0"
+                                           TextTrimming="CharacterEllipsis" MaxWidth="260" />
+                                <!-- Its icon, when it has one: a drawing of what it changes (Customize Layout). -->
+                                <Grid DockPanel.Dock="Left" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center">
+                                    <Grid.Style>
+                                        <Style TargetType="Grid">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Icon}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Grid.Style>
+                                    <Path Data="{Binding IconFill}" Fill="{DynamicResource TextMuted}" />
+                                    <Path Data="{Binding Icon}" Stroke="{DynamicResource TextPrimary}" StrokeThickness="1" />
+                                </Grid>
+                                <!-- The title - with a check mark after it while it is what is chosen. -->
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Left" Text="{Binding Title}" Foreground="{DynamicResource TextPrimary}"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="&#xE73E;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11" Margin="6,0,0,0"
+                                               HorizontalAlignment="Left" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimary}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsChecked}" Value="False">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DockPanel>
+                            </DockPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

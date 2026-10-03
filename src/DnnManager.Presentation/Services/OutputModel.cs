@@ -86,7 +86,7 @@ public sealed class OutputStage(string name, string title) : OutputItem
     public DateTime? StartedAt { get; private set; }
     public DateTime? EndedAt { get; private set; }
 
-    public ObservableCollection<OutputLine> Lines { get; } = new();
+    public ObservableCollection<OutputLine> Lines { get; } = [];
 
     public bool IsRunning => _status == StageStatus.Running;
 
@@ -159,14 +159,14 @@ public sealed class OutputRun(string title, DateTime startedAt) : OutputItem
     public string Title { get; } = title;
     public DateTime StartedAt { get; } = startedAt;
 
-    public ObservableCollection<OutputStage> Stages { get; } = new();
+    public ObservableCollection<OutputStage> Stages { get; } = [];
 
     /// <summary>Lines after its closing step ("Setup complete"): shown after the stages, under no heading.</summary>
-    public ObservableCollection<OutputLine> Notes { get; } = new();
+    public ObservableCollection<OutputLine> Notes { get; } = [];
 
-    public ObservableCollection<OutputFact> Facts { get; } = new();
+    public ObservableCollection<OutputFact> Facts { get; } = [];
 
-    private readonly List<string> _context = new();
+    private readonly List<string> _context = [];
 
     /// <summary>What it works with: "localhost,1433 · SQL Server 16.0.4255.1 · IIS · mysite.dnndev.me".</summary>
     public string Meta => string.Join(" · ", _context);

@@ -9,18 +9,11 @@ namespace DnnManager.Application.UseCases;
 /// Creates a project's IIS website. Shared by setup, clone and hosting an existing folder so all three
 /// bind, permission and start the site the same way.
 /// </summary>
-public sealed class IisSiteProvisioner
+public sealed class IisSiteProvisioner(IOptions<AppOptions> opts, IIisManager iis, OperationUndo undo)
 {
-    private readonly AppOptions _opts;
-    private readonly IIisManager _iis;
-    private readonly OperationUndo _undo;
-
-    public IisSiteProvisioner(IOptions<AppOptions> opts, IIisManager iis, OperationUndo undo)
-    {
-        _opts = opts.Value;
-        _iis = iis;
-        _undo = undo;
-    }
+    private readonly AppOptions _opts = opts.Value;
+    private readonly IIisManager _iis = iis;
+    private readonly OperationUndo _undo = undo;
 
     /// <summary>
     /// Creates (or recreates) the site and its app pool, grants the IIS identities access to the project
@@ -73,26 +66,17 @@ public sealed class IisSiteProvisioner
 /// The shared local SQL Server container every project's database lives in. Shared by setup, clone and
 /// hosting an existing folder. The container is never started from here - it must already be running.
 /// </summary>
-public sealed class LocalSqlContainer
+public sealed class LocalSqlContainer(IOptions<AppOptions> opts, ISqlServerService sql, ISqlConnectionTester tester,
+    IBacpacService bacpac, IWebConfigService webConfig)
 {
     // A local server either answers straight away or isn't running - no point waiting the default 15s.
     private const int ConnectTimeoutSeconds = 5;
 
-    private readonly AppOptions _opts;
-    private readonly ISqlServerService _sql;
-    private readonly ISqlConnectionTester _tester;
-    private readonly IBacpacService _bacpac;
-    private readonly IWebConfigService _webConfig;
-
-    public LocalSqlContainer(IOptions<AppOptions> opts, ISqlServerService sql, ISqlConnectionTester tester,
-        IBacpacService bacpac, IWebConfigService webConfig)
-    {
-        _opts = opts.Value;
-        _sql = sql;
-        _tester = tester;
-        _bacpac = bacpac;
-        _webConfig = webConfig;
-    }
+    private readonly AppOptions _opts = opts.Value;
+    private readonly ISqlServerService _sql = sql;
+    private readonly ISqlConnectionTester _tester = tester;
+    private readonly IBacpacService _bacpac = bacpac;
+    private readonly IWebConfigService _webConfig = webConfig;
 
     /// <summary>The local SQL Server's address (<c>ip,port</c>) from the settings.</summary>
     public string Server => _opts.ServerFor(_opts.Docker.DefaultPort);

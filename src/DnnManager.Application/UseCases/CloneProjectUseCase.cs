@@ -22,7 +22,20 @@ public sealed class CloneProjectRequest
     public bool SeedDatabase { get; init; } = true;
 }
 
-public sealed class CloneProjectUseCase
+public sealed class CloneProjectUseCase(
+    IOptions<AppOptions> opts,
+    IProjectRepository projects,
+    IProjectFileCopier copier,
+    IProjectScaffolder scaffolder,
+    IWebConfigService webConfig,
+    IRemoteSqlBackupService remoteBackup,
+    IBacpacService bacpac,
+    LocalSqlContainer sqlContainer,
+    ISqlServerService sql,
+    IIisManager iis,
+    IisSiteProvisioner site,
+    ILogger<CloneProjectUseCase> log,
+    OperationUndo undo)
 {
     /// <summary>The clone's stages, by their short names in the Output tab's stage list.</summary>
     private static class Stage
@@ -32,49 +45,19 @@ public sealed class CloneProjectUseCase
             Seed = "Seed database", Alias = "Update PortalAlias", WebConfig = "Rewrite web.config", Iis = "Create IIS site";
     }
 
-    private readonly AppOptions _opts;
-    private readonly IProjectRepository _projects;
-    private readonly IProjectFileCopier _copier;
-    private readonly IProjectScaffolder _scaffolder;
-    private readonly IWebConfigService _webConfig;
-    private readonly IRemoteSqlBackupService _remoteBackup;
-    private readonly IBacpacService _bacpac;
-    private readonly LocalSqlContainer _sqlContainer;
-    private readonly ISqlServerService _sql;
-    private readonly IIisManager _iis;
-    private readonly IisSiteProvisioner _site;
-    private readonly ILogger<CloneProjectUseCase> _log;
-    private readonly OperationUndo _undo;
-
-    public CloneProjectUseCase(
-        IOptions<AppOptions> opts,
-        IProjectRepository projects,
-        IProjectFileCopier copier,
-        IProjectScaffolder scaffolder,
-        IWebConfigService webConfig,
-        IRemoteSqlBackupService remoteBackup,
-        IBacpacService bacpac,
-        LocalSqlContainer sqlContainer,
-        ISqlServerService sql,
-        IIisManager iis,
-        IisSiteProvisioner site,
-        ILogger<CloneProjectUseCase> log,
-        OperationUndo undo)
-    {
-        _opts = opts.Value;
-        _projects = projects;
-        _copier = copier;
-        _scaffolder = scaffolder;
-        _webConfig = webConfig;
-        _remoteBackup = remoteBackup;
-        _bacpac = bacpac;
-        _sqlContainer = sqlContainer;
-        _sql = sql;
-        _iis = iis;
-        _site = site;
-        _log = log;
-        _undo = undo;
-    }
+    private readonly AppOptions _opts = opts.Value;
+    private readonly IProjectRepository _projects = projects;
+    private readonly IProjectFileCopier _copier = copier;
+    private readonly IProjectScaffolder _scaffolder = scaffolder;
+    private readonly IWebConfigService _webConfig = webConfig;
+    private readonly IRemoteSqlBackupService _remoteBackup = remoteBackup;
+    private readonly IBacpacService _bacpac = bacpac;
+    private readonly LocalSqlContainer _sqlContainer = sqlContainer;
+    private readonly ISqlServerService _sql = sql;
+    private readonly IIisManager _iis = iis;
+    private readonly IisSiteProvisioner _site = site;
+    private readonly ILogger<CloneProjectUseCase> _log = log;
+    private readonly OperationUndo _undo = undo;
 
     public async Task<Result> ExecuteAsync(CloneProjectRequest req, IProgressReporter reporter, CancellationToken ct)
     {

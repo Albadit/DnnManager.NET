@@ -1,28 +1,24 @@
 using System.Diagnostics;
 using DnnManager.Application.Abstractions;
-using System.Net.Http;
-using System.Net.Http.Json;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Text.Json.Serialization;
 using DnnManager.Infrastructure.Diagnostics;
+using DnnManager.Infrastructure.Updates;
 using DnnManager.Presentation.Pages.Projects;
+using DnnManager.Presentation.Services;
 
 namespace DnnManager.Presentation.Pages;
 
 /// <summary>
 /// Settings → About: which DNN Manager this is, what it runs on and what it works with - each read from where it is (the
-/// program, Windows, the registry), the update status from GitHub's releases. Its data folders are listed under it.
+/// program, Windows, the registry), the update status from GitHub's releases (<see cref="AppUpdater"/>). Its data
+/// folders are listed under it.
 /// </summary>
 internal static class AboutInfo
 {
-    public const string Repository = "https://github.com/Bond-for-web-solutions/DnnManager.NET";
-    private const string LatestRelease = "https://api.github.com/repos/Bond-for-web-solutions/DnnManager.NET/releases/latest";
+    public const string Repository = AppReleaseFeed.Repository;
 
-    /// <summary>What GitHub says the newest release is - or why it couldn't be asked.</summary>
-    public sealed record UpdateStatus(string Text, Health Health, string? Link = null);
-
-    public static IEnumerable<InspectorSection> Sections(UpdateStatus? update, string? docker)
+    public static IEnumerable<InspectorSection> Sections(AppUpdater update, string? docker)
     {
         var assembly = Assembly.GetExecutingAssembly();
         var version = assembly.GetName().Version;
@@ -37,7 +33,8 @@ internal static class AboutInfo
         if (exe is not null && File.Exists(exe)) app.Add("Built", File.GetLastWriteTime(exe).ToString("g"));
         app.Add("Program folder", AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar));
         app.Add("Release channel", debug ? "development (Debug build)" : informational.Split('+')[0].Contains('-') ? "pre-release" : "stable");
-        app.Add("Update", update?.Text ?? "checking GitHub's releases…", update?.Health ?? Health.None, update?.Link);
+        // Why GitHub couldn't be reached is said under it; the release itself is installed with the title bar's Update button.
+        app.Add("Update", update.StatusText, UpdateHealth(update.State), update.State == UpdateState.Unreachable ? update.Problem : null);
         app.Add("License", "MIT");
         app.Add("Repository", Repository);
         app.Add("Documentation", $"{Repository}/tree/main/docs");
@@ -64,31 +61,18 @@ internal static class AboutInfo
         type.Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
         ?? type.Assembly.GetName().Version?.ToString() ?? "unknown";
 
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(8) };
-
-    /// <summary>Compares this version with GitHub's newest release.</summary>
-    public static async Task<UpdateStatus> CheckUpdateAsync()
+    /// <summary>
+    /// The dot: orange while a newer release waits (or is being installed), green when up to date, gray when GitHub
+    /// couldn't be asked - nothing is known then - and red when the update failed.
+    /// </summary>
+    private static Health UpdateHealth(UpdateState state) => state switch
     {
-        var current = Assembly.GetExecutingAssembly().GetName().Version;
-        try
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Get, LatestRelease);
-            request.Headers.UserAgent.ParseAdd("DnnManager");
-            request.Headers.Accept.ParseAdd("application/vnd.github+json");
-            using var response = await Http.SendAsync(request);
-            if (!response.IsSuccessStatusCode) return new UpdateStatus($"couldn't check - GitHub answered {(int)response.StatusCode}", Health.Warning);
-            var release = await response.Content.ReadFromJsonAsync<Release>();
-            if (release?.Tag is not { } tag || !Version.TryParse(tag.TrimStart('v', 'V'), out var latest))
-                return new UpdateStatus("couldn't check - GitHub's answer has no version", Health.Warning);
-            return current is null || latest > new Version(current.Major, current.Minor, Math.Max(current.Build, 0))
-                ? new UpdateStatus($"{tag} is available", Health.Warning, release.Url)
-                : new UpdateStatus($"up to date - {tag} is the newest release", Health.Ok);
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or NotSupportedException)
-        {
-            return new UpdateStatus($"couldn't check - {ex.Message}", Health.Warning);
-        }
-    }
+        UpdateState.UpToDate => Health.Ok,
+        UpdateState.Available or UpdateState.Downloading or UpdateState.Installing or UpdateState.Restarting => Health.Warning,
+        UpdateState.Unreachable => Health.Unknown,
+        UpdateState.Failed => Health.Bad,
+        _ => Health.None
+    };
 
     /// <summary>
     /// Docker as the Docker container settings card sees it (<see cref="IPrerequisiteChecker.GetDockerStatusAsync"/>):
@@ -109,6 +93,4 @@ internal static class AboutInfo
             return "didn't answer within 10 seconds";
         }
     }
-
-    private sealed record Release([property: JsonPropertyName("tag_name")] string? Tag, [property: JsonPropertyName("html_url")] string? Url);
 }

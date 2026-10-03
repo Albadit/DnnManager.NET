@@ -108,7 +108,7 @@ public sealed class GitHubDnnReleaseService : IDnnReleaseService
         [JsonPropertyName("tag_name")] public string TagName { get; set; } = "";
         [JsonPropertyName("prerelease")] public bool Prerelease { get; set; }
         [JsonPropertyName("draft")] public bool Draft { get; set; }
-        [JsonPropertyName("assets")] public List<GhAsset> Assets { get; set; } = new();
+        [JsonPropertyName("assets")] public List<GhAsset> Assets { get; set; } = [];
     }
     private sealed class GhAsset
     {
@@ -122,17 +122,12 @@ public sealed class GitHubDnnReleaseService : IDnnReleaseService
 /// the package is kept in <c>Documents\DnnManager\packages\&lt;owner&gt;.&lt;repo&gt;\</c> and used again next time
 /// instead of downloading it; otherwise it is downloaded into the project and deleted after extracting.
 /// </summary>
-public sealed class DnnPackageInstaller : IDnnPackageInstaller
+public sealed class DnnPackageInstaller(HttpClient http, IOptions<AppOptions> opts, AppDataPaths paths, ILogger<DnnPackageInstaller> log) : IDnnPackageInstaller
 {
-    private readonly HttpClient _http;
-    private readonly AppOptions _opts;
-    private readonly AppDataPaths _paths;
-    private readonly ILogger<DnnPackageInstaller> _log;
-
-    public DnnPackageInstaller(HttpClient http, IOptions<AppOptions> opts, AppDataPaths paths, ILogger<DnnPackageInstaller> log)
-    {
-        _http = http; _opts = opts.Value; _paths = paths; _log = log;
-    }
+    private readonly HttpClient _http = http;
+    private readonly AppOptions _opts = opts.Value;
+    private readonly AppDataPaths _paths = paths;
+    private readonly ILogger<DnnPackageInstaller> _log = log;
 
     public bool IsKept(DnnRelease release) => _opts.KeepDnnPackages && File.Exists(KeptPath(release));
 

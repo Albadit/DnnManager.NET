@@ -35,7 +35,8 @@ namespace DnnManager.Infrastructure.KeepWarm;
 /// (the site was stopped, switched off) is dropped without counting, and so is a failure an operation may have
 /// caused.</para>
 /// </summary>
-public sealed class KeepWarmService : IDisposable
+public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKeepWarmRecords store, IOptions<AppOptions> options,
+    ILogger<KeepWarmService> log) : IDisposable
 {
     private const long Never = long.MaxValue;
 
@@ -52,11 +53,11 @@ public sealed class KeepWarmService : IDisposable
     // The loop never spins: when something is due "now" but nothing could be done, it looks again after this.
     private static readonly TimeSpan MinWait = TimeSpan.FromMilliseconds(250);
 
-    private readonly IServerStateFeed _feed;
-    private readonly IIisManager _iis;
-    private readonly IKeepWarmRecords _store;
-    private readonly AppOptions _options;
-    private readonly ILogger<KeepWarmService> _log;
+    private readonly IServerStateFeed _feed = feed;
+    private readonly IIisManager _iis = iis;
+    private readonly IKeepWarmRecords _store = store;
+    private readonly AppOptions _options = options.Value;
+    private readonly ILogger<KeepWarmService> _log = log;
     private readonly KeepWarmRequester _requester = new();
     private readonly CancellationTokenSource _stop = new();
     private readonly Channel<Message> _inbox = Channel.CreateUnbounded<Message>(new UnboundedChannelOptions { SingleReader = true });
@@ -83,12 +84,6 @@ public sealed class KeepWarmService : IDisposable
     private readonly object _countersLock = new();
     private IReadOnlyDictionary<string, long>? _counters;
     private long _countersAt;
-
-    public KeepWarmService(IServerStateFeed feed, IIisManager iis, IKeepWarmRecords store, IOptions<AppOptions> options,
-        ILogger<KeepWarmService> log)
-    {
-        _feed = feed; _iis = iis; _store = store; _options = options.Value; _log = log;
-    }
 
     /// <summary>How long after <see cref="Start"/> sites without a worker process are first warmed up (tests make it shorter).</summary>
     internal TimeSpan StartUpDelay { get; init; } = KeepWarmRules.StartUpDelay;

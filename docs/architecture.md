@@ -9,6 +9,7 @@ and debug it, see [development.md](development.md).
 - [Layers](#layers)
 - [How an operation runs](#how-an-operation-runs)
 - [Live updates](#live-updates)
+- [The workspace kept between starts](#the-workspace-kept-between-starts)
 - [Project layout](#project-layout)
 - [Key design decisions](#key-design-decisions)
 - [Control styles](#control-styles)
@@ -177,6 +178,52 @@ and a source that stopped notifying is attached again the same way. An IIS
 that doesn't answer at all isn't waited for longer than 15 s. The only loading
 state is the first snapshot.
 
+## The workspace kept between starts
+
+DNN Manager opens where it was left - after a close, a restart, an update or a
+crash ([user guide](user-guide.md#picking-up-where-you-left-off)). Settings are
+`settings.json`, as before; the rest is state, kept apart in
+`Documents\DnnManager\state`, one file per area:
+
+| File | Holds | Captured / restored by |
+|---|---|---|
+| `window.json` | The window's place and size, maximized, the sidebar shown or hidden, the panel's height, open or maximized, the terminal list's width | `MainWindow` |
+| `workspace.json` | The page (Settings or Troubleshoot when one is open over the sidebar page), the sidebar page, the Settings category, the Projects table (search, filter, sorting, expanded and selected rows, scroll) and the open Details with its tab | `MainWindow`, `ProjectsPage.CaptureTable` / `RestoreAsync` |
+| `forms.json` | New project, Host project and unsaved Settings, by field name | [`FormDraft`](../src/DnnManager.Presentation/Services/FormDraft.cs), `SettingsPage.CaptureDraft` / `RestoreDraft` |
+| `logs.json` | The panel's tab, its search, the Logs tab's site and log | `TerminalPanel.CaptureLogs` / `RestoreLogs` |
+| `update.json` | The update under way (from, to, the helper's result file) | `AppUpdater` writes it; `MainWindow` reads and deletes it |
+
+- **One place reads and writes them**:
+  [`StateStore`](../src/DnnManager.Infrastructure/State/StateStore.cs). A state is a
+  class implementing `IStateFile` (its file name, its format number, an optional
+  `Upgrade` from older formats) - see
+  [`WorkspaceStates.cs`](../src/DnnManager.Presentation/Services/WorkspaceStates.cs).
+  A write goes beside the file (flushed to disk) and is moved over it, so a crash
+  leaves the old file or the new one; an unchanged state isn't written. A file
+  that can't be read is renamed `.bad` and the defaults are used; one of a newer
+  format is ignored and left alone. It never throws - DNN Manager always starts.
+- **When it is saved**: [`WorkspaceService`](../src/DnnManager.Presentation/Services/WorkspaceService.cs)
+  holds what to capture for each file (`Track`) and saves 2 s after something
+  changed (`Changed` - at most once per 2 s, however much changes), and at once as
+  the window closes (`SaveNow`, last). `MainWindow` calls `Changed` for anything
+  typed, ticked or chosen in the window (routed `TextChanged`, `Checked`,
+  `SelectionChanged`), the window moved or sized, and what the Projects page and
+  the panel report (`WorkspaceChanged`: Details opened, a sort, a scroll, the
+  panel's tab). No timer runs while nothing changes.
+- **Restoring** happens once, on `Loaded`: the panel, the pages, the Settings draft, then -
+  once the projects are read - the table, the Details and the Logs tab's log.
+  Until then the loaded state is what is saved, not the half-restored one. A
+  draft for New project / Host project is applied when that page is first made.
+  Anything that throws falls back to the Projects page.
+- **What isn't kept**, on purpose: passwords (`FormDraft` skips `PasswordBox` and
+  `PasswordInput`), dialogs, running operations, messages, and terminals - their
+  shells end with the app, so a start begins without any (a `terminals.json` left
+  by an earlier build is deleted).
+- To add a state: a class in `WorkspaceStates.cs`, a `Track` in `MainWindow`, and
+  its restore in `RestoreWorkspace`. Changing a state's shape: raise its
+  `CurrentFormat`, and give it an `Upgrade` when an older file needs more than
+  defaults for what is new.
+
 ## Project layout
 
 One `.csproj` at the root; the source is organised by layer under `src/` and
@@ -229,8 +276,8 @@ DnnManager.NET/
         ├── RunningMarker.cs     ← named mutex while the app runs - the installer checks it before replacing the app
         ├── SingleInstance.cs    ← a second start hands over to the running app, which shows its window
         ├── App.xaml             ← merges the palette, tokens and control styles; the sidebar's own styles
-        ├── MainWindow.xaml      ← sidebar navigation + page host + activity log + status bar
-        ├── Pages/               ← one page per sidebar item, plus Settings and Troubleshoot (whole-window pages); AboutInfo (Settings → About)
+        ├── MainWindow.xaml      ← sidebar navigation + page host + activity log + status bar; .Layout.cs: Customize Layout, the gear's menu
+        ├── Pages/               ← one page per sidebar item, plus Settings and Troubleshoot (opened over the page); AboutInfo (Settings → About)
         │   └── Projects/        ← the Projects table's row, columns and right-click menu; a site's Details (ProjectView, ProjectDiagnostics, Inspector)
         ├── Assets/              ← dnn.ico - the exe and window icon (DNN logo mark)
         ├── Controls/            ← StatusBar, IisStatus, TerminalPanel (Output / Logs / Terminal), PipelineView + PipelineLog (the Output tab), LogView, LogsView, PanelSearch, ToastView, InputDialog, MessageDialog, ExistingFolderOptions, PasswordInput, DatabaseCheckList, HostPasswordDialog; DockerCard, DatabaseServerCard, IisCard (Settings' Test and set up cards)
@@ -271,7 +318,7 @@ dictionaries in [`Themes/Controls/`](../src/DnnManager.Presentation/Themes/Contr
 | Dictionary | Default look for | Keyed variants (`Style="{StaticResource …}"`) |
 |---|---|---|
 | `ButtonStyles` | `Button` | `Primary`, `Danger`, `IconButton`, `IconToggleButton`, `LinkButton`, `ExpandToggle` |
-| `InputStyles` | `TextBox`, `PasswordBox`, `ComboBox` (select) | `SearchBox` (magnifier, `Tag` as placeholder, ✕ to clear) |
+| `InputStyles` | `TextBox`, `PasswordBox`, `ComboBox` (select) | `SearchBox` (the search fields: `Tag` as placeholder) |
 | `SelectionStyles` | `CheckBox`, `RadioButton` | `ToggleSwitch`, `TableCheckBox` |
 | `MenuStyles` | `ToolTip`, `ContextMenu`, `MenuItem`, menu separators | - |
 | `ListStyles` | `ListBox`, `ScrollBar`, `DataGrid` | - |
@@ -312,6 +359,9 @@ the theme switch repaints them.
 | Keep warm (the flame) | [`KeepWarm/KeepWarmService.cs`](../src/DnnManager.Infrastructure/KeepWarm/KeepWarmService.cs), [`KeepWarm/KeepWarmRules.cs`](../src/DnnManager.Infrastructure/KeepWarm/KeepWarmRules.cs) (why sites go cold, the numbers), [`KeepWarm/KeepWarmPlan.cs`](../src/DnnManager.Infrastructure/KeepWarm/KeepWarmPlan.cs), [`KeepWarm/KeepWarmRequester.cs`](../src/DnnManager.Infrastructure/KeepWarm/KeepWarmRequester.cs), [`Projects/KeepWarmRecords.cs`](../src/DnnManager.Infrastructure/Projects/KeepWarmRecords.cs), [`Services/ServerStore.cs`](../src/DnnManager.Presentation/Services/ServerStore.cs) |
 | Site tools: clear cache, the Logs tab | [`UseCases/ClearSiteCacheUseCase.cs`](../src/DnnManager.Application/UseCases/ClearSiteCacheUseCase.cs), [`SiteLogs/SiteLogs.cs`](../src/DnnManager.Infrastructure/SiteLogs/SiteLogs.cs), [`Controls/LogsView.xaml`](../src/DnnManager.Presentation/Controls/LogsView.xaml.cs), [`Controls/PanelSearch.cs`](../src/DnnManager.Presentation/Controls/PanelSearch.cs) |
 | Start at sign-in | [`Startup/StartupTask.cs`](../src/DnnManager.Infrastructure/Startup/StartupTask.cs) |
+| The workspace kept between starts (window, page, Projects table, Details, form drafts, panel) - see [The workspace kept between starts](#the-workspace-kept-between-starts) | [`State/StateStore.cs`](../src/DnnManager.Infrastructure/State/StateStore.cs), [`Services/WorkspaceService.cs`](../src/DnnManager.Presentation/Services/WorkspaceService.cs), [`Services/WorkspaceStates.cs`](../src/DnnManager.Presentation/Services/WorkspaceStates.cs) (the files), [`Services/FormDraft.cs`](../src/DnnManager.Presentation/Services/FormDraft.cs), `MainWindow` (*The workspace, kept between starts*), `CaptureTable`/`RestoreAsync` in [`ProjectsPage`](../src/DnnManager.Presentation/Pages/ProjectsPage.xaml.cs), `CaptureLogs`/`RestoreLogs` in [`Controls/TerminalPanel.xaml`](../src/DnnManager.Presentation/Controls/TerminalPanel.xaml.cs) |
+| Keyboard: commands, shortcuts, command palette, focus ring ([user guide](user-guide.md#keyboard)) | [`Services/AppCommands.cs`](../src/DnnManager.Presentation/Services/AppCommands.cs) (every command and its shortcut, kept in `keyboard.shortcuts`), [`Services/Shortcut.cs`](../src/DnnManager.Presentation/Services/Shortcut.cs), [`MainWindow.Commands.cs`](../src/DnnManager.Presentation/MainWindow.Commands.cs) (the commands, the key dispatch, what each does), [`Controls/CommandPalette.xaml`](../src/DnnManager.Presentation/Controls/CommandPalette.xaml.cs), [`Pages/SettingsPage.Keyboard.cs`](../src/DnnManager.Presentation/Pages/SettingsPage.Keyboard.cs) (Settings → Keyboard shortcuts), [`Services/FocusRing.cs`](../src/DnnManager.Presentation/Services/FocusRing.cs) + the `FocusRing` style in `Themes/Controls/LayoutStyles.xaml`. A new command: one `Add` in `RegisterCommands` - its id is what settings.json keeps, so never rename it |
+| DNN Manager's own update (the title bar's Update button; how it works: [releasing.md](releasing.md#the-in-app-update)) | [`Services/AppUpdater.cs`](../src/DnnManager.Presentation/Services/AppUpdater.cs), `UpdateRecord` in [`Services/WorkspaceStates.cs`](../src/DnnManager.Presentation/Services/WorkspaceStates.cs), [`Updates/`](../src/DnnManager.Infrastructure/Updates/) (`AppReleaseFeed`, `UpdateDownloader`, `UpdateTarget`, `UpdateHelper` - the helper process), [`AppRestart.cs`](../src/DnnManager.Presentation/AppRestart.cs), [`Program.cs`](../src/DnnManager.Presentation/Program.cs) (`--apply-update`) |
 | Efficiency mode while out of sight | [`Services/WindowOcclusion.cs`](../src/DnnManager.Presentation/Services/WindowOcclusion.cs), [`Services/EfficiencyMode.cs`](../src/DnnManager.Presentation/Services/EfficiencyMode.cs), [`Processes/PowerThrottling.cs`](../src/DnnManager.Infrastructure/Processes/PowerThrottling.cs) (EcoQoS) |
 | Themes | [`Themes/`](../src/DnnManager.Presentation/Themes/), [`Services/ThemeManager.cs`](../src/DnnManager.Presentation/Services/ThemeManager.cs) |
 | Control styles (buttons, inputs, selects, switches…) | [`Themes/Controls/`](../src/DnnManager.Presentation/Themes/Controls/), [`Themes/Tokens.xaml`](../src/DnnManager.Presentation/Themes/Tokens.xaml) |

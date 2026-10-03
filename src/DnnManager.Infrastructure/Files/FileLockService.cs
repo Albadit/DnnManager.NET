@@ -18,7 +18,7 @@ namespace DnnManager.Infrastructure.Files;
 /// </list>
 /// </summary>
 [SupportedOSPlatform("windows")]
-public sealed class FileLockService : IFileLockService
+public sealed class FileLockService(ILogger<FileLockService> log) : IFileLockService
 {
     // Never closed: Windows itself, the shell, security software and this app.
     private static readonly HashSet<string> Protected = new(StringComparer.OrdinalIgnoreCase)
@@ -31,9 +31,7 @@ public sealed class FileLockService : IFileLockService
     // Restart Manager takes the files to check; past this many, the first ones are enough to find the culprits.
     private const int MaxFilesToCheck = 20_000;
 
-    private readonly ILogger<FileLockService> _log;
-
-    public FileLockService(ILogger<FileLockService> log) => _log = log;
+    private readonly ILogger<FileLockService> _log = log;
 
     public IReadOnlyList<LockingProcess> FindLockers(string directory)
     {

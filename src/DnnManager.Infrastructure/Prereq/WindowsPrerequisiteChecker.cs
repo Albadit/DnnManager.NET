@@ -8,16 +8,11 @@ using Microsoft.Extensions.Options;
 
 namespace DnnManager.Infrastructure.Prereq;
 
-public sealed class WindowsPrerequisiteChecker : IPrerequisiteChecker
+public sealed class WindowsPrerequisiteChecker(ProcessRunner proc, IOptions<AppOptions> opts, ILogger<WindowsPrerequisiteChecker> log) : IPrerequisiteChecker
 {
-    private readonly ProcessRunner _proc;
-    private readonly AppOptions _opts;
-    private readonly ILogger<WindowsPrerequisiteChecker> _log;
-
-    public WindowsPrerequisiteChecker(ProcessRunner proc, IOptions<AppOptions> opts, ILogger<WindowsPrerequisiteChecker> log)
-    {
-        _proc = proc; _opts = opts.Value; _log = log;
-    }
+    private readonly ProcessRunner _proc = proc;
+    private readonly AppOptions _opts = opts.Value;
+    private readonly ILogger<WindowsPrerequisiteChecker> _log = log;
 
     public async Task<Result> EnsureIisFeaturesAsync(IProgressReporter reporter, IUserPrompt prompt, CancellationToken ct)
     {

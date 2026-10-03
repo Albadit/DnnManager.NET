@@ -1,4 +1,5 @@
 <UserControl x:Class="DnnManager.Presentation.Pages.TroubleshootPage"
+             xmlns:s="clr-namespace:DnnManager.Presentation.Services"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <UserControl.Resources>
@@ -26,12 +27,12 @@
         </Style>
     </UserControl.Resources>
 
-    <!-- A page of its own, like Settings: it takes the whole window; closing it goes back to the page it was opened from. -->
+    <!-- Opened over the page, like Settings (MainWindow.ShowModal); closing it goes back to the page under it. -->
     <DockPanel>
         <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1" Padding="28,14,20,14">
             <DockPanel>
                 <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE8BB;" FontSize="12"
-                        Foreground="{DynamicResource Accent}" ToolTip="Close troubleshoot" Click="Close_Click" />
+                        Foreground="{DynamicResource Accent}" ToolTip="Close (Esc)" Click="Close_Click" />
                 <TextBlock Text="Troubleshoot" FontSize="{DynamicResource TextLarge}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" />
             </DockPanel>
         </Border>
@@ -44,7 +45,8 @@
 
                 <Border Style="{StaticResource ActionRow}" BorderThickness="0,1,0,1">
                     <DockPanel>
-                        <Button x:Name="RestartButton" Style="{StaticResource ActionButton}" Content="Restart" Click="Restart_Click" />
+                        <Button x:Name="RestartButton" Style="{StaticResource ActionButton}" Content="Restart" Click="Restart_Click"
+                                ToolTip="Restart" s:CommandTip.Command="app.restart" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Style="{StaticResource ActionTitle}" Text="Restart DNN Manager" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" Text="Closes and starts it again. Your projects, settings and data are kept." />
@@ -55,7 +57,8 @@
                 <Border Style="{StaticResource ActionRow}">
                     <StackPanel>
                         <DockPanel>
-                            <Button x:Name="CleanupButton" Style="{StaticResource ActionButton}" Content="Clean up data" Click="Cleanup_Click" />
+                            <Button x:Name="CleanupButton" Style="{StaticResource ActionButton}" Content="Clean up data" Click="Cleanup_Click"
+                                    ToolTip="Clean up data" />
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Style="{StaticResource ActionTitle}" Text="Clean up data" />
                                 <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" Text="The data selected below is removed from Documents\DnnManager." />
@@ -74,7 +77,8 @@
 
                 <Border Style="{StaticResource ActionRow}">
                     <DockPanel>
-                        <Button x:Name="ResetSettingsButton" Style="{StaticResource ActionButton}" Content="Reset settings" Click="ResetSettings_Click" />
+                        <Button x:Name="ResetSettingsButton" Style="{StaticResource ActionButton}" Content="Reset settings" Click="ResetSettings_Click"
+                                ToolTip="Reset settings" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Style="{StaticResource ActionTitle}" Text="Reset settings to defaults" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
@@ -85,7 +89,8 @@
 
                 <Border Style="{StaticResource ActionRow}">
                     <DockPanel>
-                        <Button x:Name="ResetButton" Style="{StaticResource DangerAction}" Content="Reset to factory defaults" Click="Reset_Click" />
+                        <Button x:Name="ResetButton" Style="{StaticResource DangerAction}" Content="Reset to factory defaults" Click="Reset_Click"
+                                ToolTip="Reset to factory defaults" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Style="{StaticResource ActionTitle}" Text="Reset to factory defaults" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"

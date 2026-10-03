@@ -7,7 +7,6 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Media;
-using System.Windows.Shapes;
 using DnnManager.Presentation.Services;
 
 namespace DnnManager.Presentation.Controls;
@@ -22,12 +21,9 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
 {
     // The width of a stage heading's duration ("3.1s · failed").
     private const double DurationWidth = 150;
-    // Everything is this far in, so a box's background can stick out to the left while its text stays in line.
-    private const double Inset = 12;
-
-    private readonly Dictionary<OutputItem, Block> _items = new();
-    private readonly Dictionary<OutputRun, RunView> _runs = new();
-    private readonly Dictionary<Block, RunView> _runBlocks = new();
+    private readonly Dictionary<OutputItem, Block> _items = [];
+    private readonly Dictionary<OutputRun, RunView> _runs = [];
+    private readonly Dictionary<Block, RunView> _runBlocks = [];
     private ActivityLog? _log;
     private Regex _highlights = HighlightsFor("");
 
@@ -47,13 +43,37 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
 
         Document = new FlowDocument
         {
-            PagePadding = new Thickness(22 - Inset, 12, 22, 12),
+            // 10 from the sides, as the header's and the stage rail's contents. (The room under the last line is _end.)
+            PagePadding = new Thickness(10, 12, 10, 12),
             LineStackingStrategy = LineStackingStrategy.BlockLineHeight
         };
         // A FlowDocument has its own default font - use the box's instead.
         Document.SetBinding(FlowDocument.FontFamilyProperty, new Binding(nameof(FontFamily)) { Source = this });
         Document.SetBinding(FlowDocument.FontSizeProperty, new Binding(nameof(FontSize)) { Source = this });
         Document.LineHeight = FontSize * 1.6;
+        Document.Blocks.Add(_end);
+        AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(OnScrollChanged));
+    }
+
+    // Always the last block: room under the last line to scroll to. In a RichTextBox neither the document's bottom
+    // padding nor the last block's bottom margin make any at the end.
+    private readonly BlockUIContainer _end = new(new Border { Height = 8 }) { Margin = new Thickness(0) };
+
+    // Whether the end is in view - as the reader left it: changed by scrolling, not by the content growing under it.
+    private bool _atEnd = true;
+
+    /// <summary>
+    /// Keeps the end in view while it was: a block is laid out a moment after it was added (a badge, a wrapped line) and
+    /// the panel can get lower - the end would slip out of view, the last line half under the edge.
+    /// </summary>
+    private void OnScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (e.ExtentHeightChange == 0 && e.ViewportHeightChange == 0)
+        {
+            _atEnd = e.VerticalOffset + e.ViewportHeight >= e.ExtentHeight - 4;
+            return;
+        }
+        if (_atEnd) ScrollToEnd();
     }
 
     protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
@@ -97,6 +117,7 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
             case NotifyCollectionChangedAction.Reset:
                 foreach (var item in _items.Keys.ToList()) Remove(item);
                 Document.Blocks.Clear();
+                Document.Blocks.Add(_end);
                 break;
         }
         Arrange();
@@ -119,7 +140,8 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
             if (line.Level == LineLevel.Progress) WatchProgress(line, () => block);
         }
         _items[item] = block;
-        if (index >= Document.Blocks.Count) Document.Blocks.Add(block);
+        // The items' blocks, in their order, then _end.
+        if (index >= Document.Blocks.Count - 1) Document.Blocks.InsertBefore(_end, block);
         else Document.Blocks.InsertBefore(Document.Blocks.ElementAt(index), block);
     }
 
@@ -153,7 +175,7 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
     /// <summary>Changes the document: while the end was in view it stays in view - scrolled up, it stays put.</summary>
     private void Change(Action change)
     {
-        var follow = IsAtEnd();
+        var follow = _atEnd || IsAtEnd();
         change();
         // Later, not now: scrolling lays the window out, in the middle of a change others (the stage list) haven't
         // heard of yet - they would show it twice.
@@ -180,9 +202,9 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
     {
         private readonly PipelineLog _log;
         private readonly OutputRun _run;
-        private readonly Dictionary<OutputStage, StageView> _stages = new();
+        private readonly Dictionary<OutputStage, StageView> _stages = [];
         private readonly Section _notes = new();
-        private readonly Dictionary<OutputLine, Block> _noteBlocks = new();
+        private readonly Dictionary<OutputLine, Block> _noteBlocks = [];
         private Paragraph? _title;
         private Block? _result;
 
@@ -220,7 +242,7 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
         {
             if (show && _title is null)
             {
-                _title = new Paragraph { Margin = new Thickness(Inset, 22, 0, 6), Padding = new Thickness(0, 10, 0, 0),
+                _title = new Paragraph { Margin = new Thickness(0, 22, 0, 6), Padding = new Thickness(0, 10, 0, 0),
                     BorderThickness = new Thickness(0, 1, 0, 0) };
                 _title.SetResourceReference(Block.BorderBrushProperty, "OutBorder");
                 _title.Inlines.Add(Styled(_run.Title, "OutMuted", bold: true));
@@ -325,7 +347,7 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
     {
         private readonly PipelineLog _log;
         private readonly OutputStage _stage;
-        private readonly Dictionary<OutputLine, Block> _lines = new();
+        private readonly Dictionary<OutputLine, Block> _lines = [];
         private readonly Paragraph _heading;
         private readonly Run _title;
         private readonly Run _duration;
@@ -343,7 +365,7 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
             _duration = new Run();
             // The title, with its duration floating on the right of the same line - a floater is placed where it is
             // anchored, so it goes first.
-            _heading = new Paragraph { Margin = new Thickness(Inset, 8, 0, 0) };
+            _heading = new Paragraph { Margin = new Thickness(0, 8, 0, 0) };
             _heading.Inlines.Add(new Floater(new Paragraph(_duration) { TextAlignment = TextAlignment.Right, Margin = new Thickness(0) })
             {
                 HorizontalAlignment = HorizontalAlignment.Right, Width = DurationWidth, Padding = new Thickness(0), Margin = new Thickness(0)
@@ -357,7 +379,7 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
 
         public void Detach() => _stage.Lines.CollectionChanged -= OnLinesChanged;
 
-        public void SetTopSpace(double space) => _heading.Margin = new Thickness(Inset, space, 0, 0);
+        public void SetTopSpace(double space) => _heading.Margin = new Thickness(0, space, 0, 0);
 
         /// <summary>The heading's colours and duration, as the stage stands now.</summary>
         public void UpdateHeading()
@@ -405,7 +427,7 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
 
     private Paragraph MakePlain(OutputLine line)
     {
-        var p = new Paragraph { Margin = new Thickness(Inset, 0, 0, 2) };
+        var p = new Paragraph { Margin = new Thickness(0, 0, 0, 2) };
         FillPlain(p, line);
         return p;
     }
@@ -436,7 +458,7 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
     private Paragraph MakeWarning(OutputLine line)
     {
         // A line like the others - its badge and colour say it is a warning.
-        var p = new Paragraph { Margin = new Thickness(Inset, 0, 0, 2) };
+        var p = new Paragraph { Margin = new Thickness(0, 0, 0, 2) };
         p.Inlines.Add(Stamp(line));
         p.Inlines.Add(Badge("WARN", "OutWarn"));
         p.Inlines.Add(new Run("  "));
@@ -447,7 +469,7 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
     private Section MakeError(OutputLine line)
     {
         // Lines like the others - the badge and colour say it is an error; what lies behind it and what to do under it.
-        var box = new Section { Margin = new Thickness(Inset, 0, 0, 2) };
+        var box = new Section { Margin = new Thickness(0, 0, 0, 2) };
 
         var first = new Paragraph { Margin = new Thickness(0) };
         first.Inlines.Add(Stamp(line));
@@ -490,7 +512,8 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
     /// </summary>
     private Paragraph MakeResult(OutputRun run)
     {
-        var p = new Paragraph { Margin = new Thickness(Inset, 6, 0, 16) };
+        // No room under it of its own: the next run's title has its own above, and at the end _end gives the room.
+        var p = new Paragraph { Margin = new Thickness(0, 6, 0, 0) };
         p.Inlines.Add(Stamp(run.EndedAt ?? DateTime.Now));
         var (badge, badgeBrush, text, textBrush) = run.Status switch
         {
@@ -627,7 +650,7 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
 
     // ─── Search (Ctrl+F) ─────────────────────────────────────────────────
 
-    private List<TextRange> _matches = new();
+    private List<TextRange> _matches = [];
 
     /// <summary>The log grew - a search looks again.</summary>
     public event EventHandler? ContentChanged;
@@ -704,7 +727,7 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
     public void ClearSearch()
     {
         foreach (var match in _matches) match.ApplyPropertyValue(TextElement.BackgroundProperty, null);
-        _matches = new List<TextRange>();
+        _matches = [];
         Selection.Select(Document.ContentEnd, Document.ContentEnd);
     }
 }

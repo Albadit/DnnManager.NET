@@ -17,7 +17,7 @@ public sealed class DailyLogFileLoggerProvider(DailyLogFile file) : ILoggerProvi
 {
     internal static readonly TimeSpan RepeatAfter = TimeSpan.FromMinutes(10);
 
-    private readonly Dictionary<string, DateTime> _lastWritten = new();
+    private readonly Dictionary<string, DateTime> _lastWritten = [];
 
     public ILogger CreateLogger(string categoryName) => new Logger(this, categoryName[(categoryName.LastIndexOf('.') + 1)..]);
 
