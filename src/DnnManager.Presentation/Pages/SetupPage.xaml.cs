@@ -125,10 +125,11 @@ public partial class SetupPage : UserControl, IRefreshable
         {
             // Still usable: the latest release is looked up when the project is set up.
             ShowVersions([new VersionOption(null, "Latest release")],
-                $"Could not load the versions ({result.Error}) - the latest release is used. Refresh to try again.");
+                $"Could not load the versions ({result.Error}) - the latest release is used. Refresh to try again." +
+                (_options.KeepDnnPackages ? "" : " To set up projects without internet, turn on Settings → DNN releases → Keep downloaded DNN install packages while online."));
             return;
         }
-        var releases = result.Value!;
+        var releases = result.Value!.Releases;
         if (releases.Count == 0)
         {
             ShowVersions([], $"{source.Label} has no release with a DNN install package.");
@@ -139,7 +140,9 @@ public partial class SetupPage : UserControl, IRefreshable
         ShowVersions(releases.Select(r => new VersionOption(r,
                 r.Version + (r == latest ? "  (latest)" : "") + (r.Prerelease ? "  (pre-release)" : "")
                 + (_packages.IsKept(r) ? "  - kept, no download" : ""))).ToList(),
-            $"{releases.Count} releases of {source.Label}, highest version first - the latest release is selected.",
+            result.Value.SavedAt is { } savedAt
+                ? $"GitHub can't be reached - the releases of {source.Label} as of {savedAt:g}. Without internet only a version marked \"kept, no download\" can be set up. Refresh to try again."
+                : $"{releases.Count} releases of {source.Label}, highest version first - the latest release is selected.",
             selected: releases.ToList().IndexOf(latest));
     }
 

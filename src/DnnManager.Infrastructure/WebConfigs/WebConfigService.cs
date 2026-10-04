@@ -95,7 +95,7 @@ public sealed class WebConfigService(ILogger<WebConfigService> log) : IWebConfig
         }
     }
 
-    private Result WriteConnectionString(string webConfigPath, string connStr)
+    public Result WriteConnectionString(string webConfigPath, string connStr)
     {
         try
         {
@@ -193,6 +193,55 @@ public sealed class WebConfigService(ILogger<WebConfigService> log) : IWebConfig
         {
             _log.LogError(ex, "Failed to disable HTTPS redirect rules in web.config");
             return Result<HttpsRedirectRules>.Fail(ex.Message);
+        }
+    }
+
+    public Result<IReadOnlyList<string>> EnableHttpsRedirectRules(string webConfigPath)
+    {
+        try
+        {
+            if (!File.Exists(webConfigPath)) return Result<IReadOnlyList<string>>.Ok([]);
+            var doc = XDocument.Load(webConfigPath, LoadOptions.PreserveWhitespace);
+            var ours = doc.Descendants("system.webServer")
+                .Elements("rewrite").Elements("rules").Elements("rule")
+                .Where(r => IsHttpsRedirect(r) && IsDisabled(r) && HasDisabledComment(r))
+                .ToList();
+            foreach (var rule in ours)
+            {
+                rule.Attribute("enabled")!.Remove();
+                // The comment, and the line it had to itself.
+                var node = rule.PreviousNode;
+                while (node is XText text && string.IsNullOrWhiteSpace(text.Value)) node = node.PreviousNode;
+                if (node is XComment comment)
+                {
+                    if (comment.NextNode is XText indent && indent.NextNode == rule) indent.Remove();
+                    comment.Remove();
+                }
+            }
+            if (ours.Count > 0) Save(doc, webConfigPath);
+            return Result<IReadOnlyList<string>>.Ok(ours.Select(NameOf).ToList());
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Failed to enable the HTTPS redirect rules in web.config");
+            return Result<IReadOnlyList<string>>.Fail(ex.Message);
+        }
+    }
+
+    public Result SetDebug(string webConfigPath, bool debug)
+    {
+        try
+        {
+            var doc = XDocument.Load(webConfigPath, LoadOptions.PreserveWhitespace);
+            if (doc.Root?.Element("system.web")?.Element("compilation") is not { } compilation) return Result.Ok();
+            compilation.SetAttributeValue("debug", debug ? "true" : "false");
+            Save(doc, webConfigPath);
+            return Result.Ok();
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Failed to set compilation debug in web.config");
+            return Result.Fail(ex.Message);
         }
     }
 

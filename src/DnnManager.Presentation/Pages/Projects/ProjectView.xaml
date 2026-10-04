@@ -28,6 +28,11 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+        <!-- A tab's Edit buttons (one operation at a time: ProjectEdits does nothing while another runs). -->
+        <Style x:Key="EditButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+        </Style>
         <Style x:Key="HeaderButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Padding" Value="10,4" />
             <Setter Property="Margin" Value="6,0,0,0" />
@@ -185,11 +190,22 @@
                     <ColumnDefinition Width="*" MaxWidth="1100" />
                 </Grid.ColumnDefinitions>
                 <!-- What was detected about the site, tab by tab (ProjectDiagnostics) - an environment inspector. -->
+                <!-- Each tab's changes start with its Edit buttons (ProjectEdits) - the facts below show what they changed. -->
                 <StackPanel x:Name="GeneralSection">
+                    <WrapPanel Margin="0,0,0,12">
+                        <Button Style="{StaticResource EditButton}" Content="Rename…" Click="Rename_Click" ToolTip="Rename the project: its folder, IIS site and app pool - and its host name and database if you like"
+                                s:CommandTip.Command="project.rename" />
+                    </WrapPanel>
                     <p:InspectorPanel x:Name="GeneralPanel" />
                 </StackPanel>
 
                 <StackPanel x:Name="IisSection" Visibility="Collapsed">
+                    <WrapPanel Margin="0,0,0,12">
+                        <Button Style="{StaticResource EditButton}" Content="Edit host names…" Click="EditBindings_Click"
+                                ToolTip="The host names and ports the site answers on - DNN's portal aliases follow" s:CommandTip.Command="project.editBindings" />
+                        <Button Style="{StaticResource EditButton}" Content="Edit app pool…" Click="EditAppPool_Click"
+                                ToolTip=".NET CLR version, pipeline, 32-bit, identity, idle time-out, start mode" s:CommandTip.Command="project.editAppPool" />
+                    </WrapPanel>
                     <p:InspectorPanel x:Name="IisPanel" />
                     <!-- Keep warm: switched here too; how it is going and how it is done. -->
                     <Border Style="{StaticResource Card}">
@@ -232,6 +248,10 @@
                 </StackPanel>
 
                 <StackPanel x:Name="DatabaseSection" Visibility="Collapsed">
+                    <WrapPanel Margin="0,0,0,12">
+                        <Button Style="{StaticResource EditButton}" Content="Change connection…" Click="ChangeDatabase_Click"
+                                ToolTip="Point web.config at another server, database or sign-in" s:CommandTip.Command="project.editDatabase" />
+                    </WrapPanel>
                     <p:InspectorPanel x:Name="DatabasePanel" />
                 </StackPanel>
 

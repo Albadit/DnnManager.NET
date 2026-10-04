@@ -7,12 +7,13 @@ namespace DnnManager.Presentation.Services;
 /// <summary>
 /// The DNN releases of each repository in the settings, asked of GitHub once - in the background when the app
 /// starts - and kept for the rest of the run, so New project shows its versions at once. <see cref="GetAsync"/>
-/// with <c>refresh</c> asks again. A failed lookup isn't kept, so the next request tries again.
+/// with <c>refresh</c> asks again. A failed lookup isn't kept, nor one answered from the releases saved for offline
+/// use, so the next request tries again.
 /// </summary>
 public sealed class DnnReleaseCatalog(IServiceProvider services)
 {
     private readonly IServiceProvider _services = services;
-    private readonly Dictionary<string, Task<Result<IReadOnlyList<DnnRelease>>>> _lists = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Task<Result<DnnReleaseList>>> _lists = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Starts loading every repository's releases, without waiting for them.</summary>
     public void Preload()
@@ -22,17 +23,18 @@ public sealed class DnnReleaseCatalog(IServiceProvider services)
     }
 
     /// <summary>The releases of <paramref name="api"/>, highest version first - from the earlier lookup unless <paramref name="refresh"/>.</summary>
-    public Task<Result<IReadOnlyList<DnnRelease>>> GetAsync(string api, bool refresh = false)
+    public Task<Result<DnnReleaseList>> GetAsync(string api, bool refresh = false)
     {
         lock (_lists)
         {
             if (!refresh && _lists.TryGetValue(api, out var known)) return known;
             var lookup = LoadAsync(api);
             _lists[api] = lookup;
-            // Forget a failed lookup (unless a newer one has replaced it meanwhile), so the next request tries again.
+            // Forget a failed lookup, or one answered from the saved releases (offline) - unless a newer one has replaced
+            // it meanwhile - so the next request tries GitHub again.
             _ = lookup.ContinueWith(done =>
             {
-                if (done.Result.Success) return;
+                if (done.Result is { Success: true, Value.SavedAt: null }) return;
                 lock (_lists)
                     if (_lists.TryGetValue(api, out var current) && current == done) _lists.Remove(api);
             }, TaskScheduler.Default);
@@ -40,7 +42,7 @@ public sealed class DnnReleaseCatalog(IServiceProvider services)
         }
     }
 
-    private async Task<Result<IReadOnlyList<DnnRelease>>> LoadAsync(string api)
+    private async Task<Result<DnnReleaseList>> LoadAsync(string api)
     {
         try
         {
@@ -49,7 +51,7 @@ public sealed class DnnReleaseCatalog(IServiceProvider services)
         }
         catch (Exception ex)
         {
-            return Result<IReadOnlyList<DnnRelease>>.Fail(ex.Message);
+            return Result<DnnReleaseList>.Fail(ex.Message);
         }
     }
 }

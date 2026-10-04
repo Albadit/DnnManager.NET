@@ -95,16 +95,7 @@ public sealed class SqlPackageService(ProcessRunner proc, ILogger<SqlPackageServ
         var exe = ResolveExe();
         if (exe is null) return Result.Fail(InstallHint);
 
-        var cs = new SqlConnectionStringBuilder
-        {
-            DataSource = NormalizeServer(source.Server),
-            InitialCatalog = source.Database,
-            UserID = source.User,
-            Password = source.Password,
-            Encrypt = true,
-            TrustServerCertificate = true,
-            ConnectTimeout = 60
-        }.ConnectionString;
+        var cs = ConnectionString(NormalizeServer(source.Server), source.Database, source.User, source.Password);
 
         var args = new[]
         {
@@ -138,16 +129,7 @@ public sealed class SqlPackageService(ProcessRunner proc, ILogger<SqlPackageServ
         var exe = ResolveExe();
         if (exe is null) return Result.Fail(InstallHint);
 
-        var cs = new SqlConnectionStringBuilder
-        {
-            DataSource = targetServer,
-            InitialCatalog = databaseName,
-            UserID = saUser,
-            Password = saPassword,
-            Encrypt = true,
-            TrustServerCertificate = true,
-            ConnectTimeout = 60
-        }.ConnectionString;
+        var cs = ConnectionString(targetServer, databaseName, saUser, saPassword);
 
         var args = new List<string>
         {
@@ -166,6 +148,26 @@ public sealed class SqlPackageService(ProcessRunner proc, ILogger<SqlPackageServ
         }
         reporter.Success("BACPAC imported.");
         return Result.Ok();
+    }
+
+    /// <summary>A SQL login - or, without a user, Windows authentication as whoever runs DNN Manager.</summary>
+    private static string ConnectionString(string server, string database, string user, string password)
+    {
+        var builder = new SqlConnectionStringBuilder
+        {
+            DataSource = server,
+            InitialCatalog = database,
+            Encrypt = true,
+            TrustServerCertificate = true,
+            ConnectTimeout = 60
+        };
+        if (user.Length == 0) builder.IntegratedSecurity = true;
+        else
+        {
+            builder.UserID = user;
+            builder.Password = password;
+        }
+        return builder.ConnectionString;
     }
 
     // SqlPackage/SqlClient accept "host,port"; drop the optional "tcp:" prefix.

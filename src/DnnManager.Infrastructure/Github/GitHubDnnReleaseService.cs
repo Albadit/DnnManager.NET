@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
@@ -9,15 +10,23 @@ using Microsoft.Extensions.Options;
 
 namespace DnnManager.Infrastructure.Github;
 
+/// <summary>
+/// The DNN releases of a GitHub repository. With <see cref="AppOptions.KeepDnnPackages"/> on, each list GitHub
+/// returns is saved beside the kept packages (<c>packages\&lt;owner&gt;.&lt;repo&gt;\releases.json</c>), so New project
+/// still offers the versions - and sets up the kept ones - when GitHub can't be reached.
+/// </summary>
 public sealed class GitHubDnnReleaseService : IDnnReleaseService
 {
+    private const string SavedListName = "releases.json";
+
     private readonly HttpClient _http;
     private readonly AppOptions _opts;
+    private readonly AppDataPaths _paths;
     private readonly ILogger<GitHubDnnReleaseService> _log;
 
-    public GitHubDnnReleaseService(HttpClient http, IOptions<AppOptions> opts, ILogger<GitHubDnnReleaseService> log)
+    public GitHubDnnReleaseService(HttpClient http, IOptions<AppOptions> opts, AppDataPaths paths, ILogger<GitHubDnnReleaseService> log)
     {
-        _http = http; _opts = opts.Value; _log = log;
+        _http = http; _opts = opts.Value; _paths = paths; _log = log;
         if (!_http.DefaultRequestHeaders.UserAgent.Any())
             _http.DefaultRequestHeaders.Add("User-Agent", "DnnManager-NET");
     }
@@ -33,7 +42,8 @@ public sealed class GitHubDnnReleaseService : IDnnReleaseService
                 var list = await ListReleasesAsync(apiUrl, ct);
                 if (!list.Success) return Result<DnnRelease>.Fail(list.Error ?? "Could not list the releases.");
                 // The latest means the latest release - a pre-release only when the repository has nothing else.
-                var latest = list.Value!.FirstOrDefault(r => !r.Prerelease) ?? list.Value!.FirstOrDefault();
+                var releases = list.Value!.Releases;
+                var latest = releases.FirstOrDefault(r => !r.Prerelease) ?? releases.FirstOrDefault();
                 return latest is not null
                     ? Result<DnnRelease>.Ok(latest)
                     : Result<DnnRelease>.Fail("No suitable DNN release found.");
@@ -53,21 +63,32 @@ public sealed class GitHubDnnReleaseService : IDnnReleaseService
             }
             return Result<DnnRelease>.Fail($"Release {version} not found.");
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        // Not reached, or timed out (a timeout is an OperationCanceledException too - but not a cancel).
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
+            // Offline: the release as saved at the last lookup.
+            var saved = LoadSavedList(apiUrl);
+            var known = version is null ? null : saved?.Releases.FirstOrDefault(r =>
+                string.Equals(r.Version, version.TrimStart('v'), StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(r.TagName, version, StringComparison.OrdinalIgnoreCase));
+            if (known is not null)
+            {
+                _log.LogWarning("GitHub can't be reached ({Error}) - DNN {Version} as saved on {SavedAt:g}", ex.Message, known.Version, saved!.SavedAt);
+                return Result<DnnRelease>.Ok(known);
+            }
             _log.LogError(ex, "GitHub release lookup failed");
-            return Result<DnnRelease>.Fail(ex.Message);
+            return Result<DnnRelease>.Fail($"GitHub can't be reached: {ex.Message}");
         }
     }
 
-    public async Task<Result<IReadOnlyList<DnnRelease>>> ListReleasesAsync(string apiUrl, CancellationToken ct)
+    public async Task<Result<DnnReleaseList>> ListReleasesAsync(string apiUrl, CancellationToken ct)
     {
         try
         {
             // GitHub returns 30 releases a page by default - 100 covers years of DNN releases.
             var url = apiUrl + (apiUrl.Contains('?') ? "&" : "?") + "per_page=100";
             var releases = await _http.GetFromJsonAsync<List<GhRelease>>(url, ct);
-            if (releases is null) return Result<IReadOnlyList<DnnRelease>>.Fail("Empty release list.");
+            if (releases is null) return Result<DnnReleaseList>.Fail("Empty release list.");
             var usable = releases
                 .Where(r => !r.Draft)
                 .Select(r => (Release: r, Asset: FindAsset(r)))
@@ -84,14 +105,75 @@ public sealed class GitHubDnnReleaseService : IDnnReleaseService
                 .ThenBy(r => r.Index)
                 .Select(r => r.Release)
                 .ToList();
-            return Result<IReadOnlyList<DnnRelease>>.Ok(usable);
+            if (_opts.KeepDnnPackages) SaveList(apiUrl, usable);
+            return Result<DnnReleaseList>.Ok(new DnnReleaseList(usable));
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        // Not reached, or timed out (a timeout is an OperationCanceledException too - but not a cancel).
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            _log.LogError(ex, "GitHub release list failed");
-            return Result<IReadOnlyList<DnnRelease>>.Fail(ex.Message);
+            var saved = LoadSavedList(apiUrl);
+            if (saved is not null)
+            {
+                _log.LogWarning("GitHub can't be reached ({Error}) - the releases of {Api} as saved on {SavedAt:g}", ex.Message, apiUrl, saved.SavedAt);
+                return Result<DnnReleaseList>.Ok(saved);
+            }
+            _log.LogWarning("GitHub release list failed: {Error}", ex.Message);
+            return Result<DnnReleaseList>.Fail(ex.Message);
         }
     }
+
+    // ── The list saved for offline use ──
+
+    private sealed record SavedReleases(DateTime SavedAt, List<DnnRelease> Releases);
+
+    /// <summary><c>packages\&lt;owner&gt;.&lt;repo&gt;\releases.json</c> - beside the repository's kept packages.</summary>
+    private string SavedListPath(string apiUrl)
+    {
+        // https://api.github.com/repos/<owner>/<repo>/releases
+        var folder = apiUrl;
+        if (Uri.TryCreate(apiUrl, UriKind.Absolute, out var uri))
+        {
+            var parts = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            folder = parts.Length >= 3 && parts[0] == "repos" ? $"{parts[1]}.{parts[2]}" : uri.Host + uri.AbsolutePath;
+        }
+        foreach (var bad in Path.GetInvalidFileNameChars()) folder = folder.Replace(bad, '_');
+        return Path.Combine(_paths.PackagesDirectory, folder, SavedListName);
+    }
+
+    /// <summary>Saves the list whole - written beside the file, then moved over it. Best effort: it's only for offline use.</summary>
+    private void SaveList(string apiUrl, List<DnnRelease> releases)
+    {
+        var path = SavedListPath(apiUrl);
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var tmp = path + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(new SavedReleases(DateTime.Now, releases), SavedJson));
+            File.Move(tmp, path, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _log.LogWarning("Could not save the DNN releases to {Path}: {Error}", path, ex.Message);
+        }
+    }
+
+    private DnnReleaseList? LoadSavedList(string apiUrl)
+    {
+        var path = SavedListPath(apiUrl);
+        try
+        {
+            if (!File.Exists(path)) return null;
+            var saved = JsonSerializer.Deserialize<SavedReleases>(File.ReadAllText(path), SavedJson);
+            return saved is { Releases.Count: > 0 } ? new DnnReleaseList(saved.Releases, saved.SavedAt) : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            _log.LogWarning("Could not read the saved DNN releases {Path}: {Error}", path, ex.Message);
+            return null;
+        }
+    }
+
+    private static readonly JsonSerializerOptions SavedJson = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
     /// <summary>The number part of a version - <c>10.1.0</c> of <c>10.1.0-rc1</c> - or null when it doesn't start with one.</summary>
     private static Version? VersionNumber(string version)
@@ -165,6 +247,14 @@ public sealed class DnnPackageInstaller(HttpClient http, IOptions<AppOptions> op
             if (!keep) File.Delete(zipPath);
             reporter.Success("Extraction complete.");
             return Result.Ok();
+        }
+        catch (HttpRequestException ex)
+        {
+            // Offline, most likely: only a kept package installs without a download.
+            _log.LogError(ex, "DNN download failed");
+            return Result.Fail($"DNN {release.Version} could not be downloaded ({ex.Message}). " + (keep
+                ? "Without internet only a version marked \"kept, no download\" can be set up."
+                : "To set up projects without internet, turn on Settings → DNN releases → Keep downloaded DNN install packages while online."));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

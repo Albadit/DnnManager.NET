@@ -68,7 +68,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<KeepWarm.KeepWarmService>();
         services.AddSingleton<SiteLogs.SiteLogCatalog>();
 
-        services.AddHttpClient<IDnnReleaseService, GitHubDnnReleaseService>();
+        // A lookup that doesn't answer within 30 seconds counts as offline (the saved releases are used) - not 100.
+        services.AddHttpClient<IDnnReleaseService, GitHubDnnReleaseService>(http => http.Timeout = TimeSpan.FromSeconds(30));
         services.AddHttpClient<IDnnPackageInstaller, DnnPackageInstaller>();
         return services;
     }

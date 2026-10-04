@@ -122,6 +122,7 @@ public partial class SettingsPage : UserControl
         {
             new("Settings", paths.Root),
             new("Backups", paths.BackupsDirectory),
+            new("Deployments", paths.DeploymentsDirectory),
             new("Logs", paths.LogsDirectory),
             new("DNN packages", paths.PackagesDirectory),
         };
@@ -718,11 +719,13 @@ public partial class SettingsPage : UserControl
         if (sender is FrameworkElement { Tag: string folder }) OpenFolder(folder);
     }
 
+    /// <summary>Opens one of the folders with your files - made first when nothing has needed it yet (or Clean up emptied it).</summary>
     private static void OpenFolder(string folder)
     {
-        if (!Directory.Exists(folder))
+        try { Directory.CreateDirectory(folder); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            Toast.Show($"{folder} doesn't exist yet - it is made when it's first needed.", ToastKind.Info);
+            Toast.Show($"{folder} couldn't be made: {ex.Message}", ToastKind.Error);
             return;
         }
         Shell.Open(folder);

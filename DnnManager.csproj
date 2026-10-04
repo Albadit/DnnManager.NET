@@ -12,7 +12,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <DebugType>embedded</DebugType>
-    <Version>1.7.1</Version>
+    <!-- The version is the newest release's: see VersionFromGitTag below. A release passes its own (-p:Version). -->
+    <VersionFromGitTag Condition="'$(Version)' == ''">true</VersionFromGitTag>
     <!-- Publishing for a runtime (e.g. -r win-x64) precompiles the code (ReadyToRun), so the app starts without
          JIT-compiling everything first. Plain builds and dotnet run are unaffected. -->
     <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
@@ -49,6 +50,26 @@
     <!-- The state of the IIS service (W3SVC) for the status bar. -->
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
   </ItemGroup>
+
+  <!-- The version of a local build: the newest version tag (v1.7.1 -> 1.7.1) reachable from the commit built - the
+       GitHub release it is, or comes after - so there is no version number to raise by hand. The release workflow
+       and the VS Code release task pass the tag's version instead (-p:Version), which skips this. Without git or a
+       tag (e.g. a source zip) the build is 0.0.0 - with a warning. -->
+  <Target Name="VersionFromGitTag" BeforeTargets="GetAssemblyVersion;GenerateAssemblyInfo;RenamePortableExe"
+          Condition="'$(VersionFromGitTag)' == 'true'">
+    <Exec Command="git describe --tags --abbrev=0 --match &quot;v[0-9]*&quot;" WorkingDirectory="$(MSBuildProjectDirectory)"
+          ConsoleToMSBuild="true" StandardOutputImportance="low" StandardErrorImportance="low" IgnoreExitCode="true"
+          EchoOff="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_GitVersionTag" />
+      <Output TaskParameter="ExitCode" PropertyName="_GitVersionExitCode" />
+    </Exec>
+    <PropertyGroup>
+      <_GitVersion>0.0.0</_GitVersion>
+      <_GitVersion Condition="'$(_GitVersionExitCode)' == '0' And $([System.Text.RegularExpressions.Regex]::IsMatch('$(_GitVersionTag)', '^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$'))">$(_GitVersionTag.Substring(1))</_GitVersion>
+      <Version>$(_GitVersion)</Version>
+    </PropertyGroup>
+    <Warning Condition="'$(Version)' == '0.0.0'" Text="No version tag (v1.2.3) found with git - this build is version 0.0.0." />
+  </Target>
 
   <!-- Nothing but the program is published: settings.json is created in Documents\DnnManager on first run
        (src/DnnManager.Infrastructure/Settings). -->

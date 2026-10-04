@@ -15,7 +15,7 @@ public enum AppDataKind
     /// <summary>Project backups - each project's site .zip and database .bacpac (<c>backups\&lt;project&gt;\</c>).</summary>
     ProjectBackups,
 
-    /// <summary>Which sites are kept warm, and their own keep-warm values (<c>projects\keep-warm\</c>) - for a factory reset.</summary>
+    /// <summary>Which sites are kept warm, and their own keep-warm values (<c>state\keep-warm.json</c>) - for a factory reset.</summary>
     KeepWarmChoices
 }
 
@@ -29,6 +29,8 @@ public sealed record CleanupResult(long FreedBytes, int Skipped);
 public sealed class AppDataCleaner(AppDataPaths paths)
 {
     private readonly AppDataPaths _paths = paths;
+
+    private string KeepWarmFile => Path.Combine(_paths.StateDirectory, Projects.KeepWarmSites.FileName);
 
     /// <summary>How much <paramref name="kind"/> takes now, in bytes.</summary>
     public long Measure(AppDataKind kind) => Files(kind).Sum(f => Length(f));
@@ -67,16 +69,14 @@ public sealed class AppDataCleaner(AppDataPaths paths)
         AppDataKind.ProjectBackups => Directory.Exists(_paths.BackupsDirectory)
             ? Directory.EnumerateDirectories(_paths.BackupsDirectory).Where(d => !IsLink(d)).SelectMany(AllFiles)
             : [],
-        AppDataKind.KeepWarmChoices => Directory.Exists(_paths.KeepWarmDirectory)
-            ? Directory.EnumerateFiles(_paths.KeepWarmDirectory, "*.json", SearchOption.TopDirectoryOnly)
-            : [],
+        // state\keep-warm.json, and a copy of it set aside as unreadable.
+        AppDataKind.KeepWarmChoices => new[] { KeepWarmFile, KeepWarmFile + ".bad" }.Where(File.Exists),
         _ => []
     };
 
     private IEnumerable<string> EmptiedFolders(AppDataKind kind) => kind switch
     {
         AppDataKind.DnnPackages => [_paths.PackagesDirectory],
-        AppDataKind.KeepWarmChoices => [_paths.KeepWarmDirectory],
         AppDataKind.ProjectBackups when Directory.Exists(_paths.BackupsDirectory) => Directory.GetDirectories(_paths.BackupsDirectory).Where(d => !IsLink(d)),
         _ => []
     };

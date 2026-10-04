@@ -359,6 +359,95 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
         }
     }
 
+    public Result ReplaceHttpBindings(string siteName, IReadOnlyList<(string Host, int Port)> bindings)
+    {
+        try
+        {
+            using var sm = new ServerManager();
+            if (sm.Sites[siteName] is not { } site) return Result.Fail($"Site '{siteName}' not found");
+            foreach (var old in site.Bindings.Where(b => b.Protocol.Equals("http", StringComparison.OrdinalIgnoreCase)).ToList())
+                site.Bindings.Remove(old);
+            foreach (var (host, port) in bindings)
+                site.Bindings.Add($"*:{port}:{host}", "http");
+            sm.CommitChanges();
+            return Result.Ok();
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "IIS ReplaceHttpBindings failed");
+            return Result.Fail(ex.Message);
+        }
+    }
+
+    public Result SetPoolSettings(string siteName, IisPoolSettings settings)
+    {
+        try
+        {
+            using var sm = new ServerManager();
+            if (sm.Sites[siteName] is not { } site || PoolOf(sm, site) is not { } pool) return Result.Fail($"IIS site '{siteName}' has no app pool.");
+            if (sm.Sites.Any(s => s.Name != site.Name && s.Applications.Any(a => a.ApplicationPoolName.Equals(pool.Name, StringComparison.OrdinalIgnoreCase))))
+                return Result.Fail($"The app pool '{pool.Name}' is used by other sites too - change it in IIS Manager.");
+
+            pool.ManagedRuntimeVersion = settings.Runtime;
+            pool.ManagedPipelineMode = Enum.Parse<ManagedPipelineMode>(settings.Pipeline, ignoreCase: true);
+            pool.Enable32BitAppOnWin64 = settings.Enable32Bit;
+            // A specific account keeps its user and password - they're changed in IIS Manager.
+            if (Enum.TryParse<ProcessModelIdentityType>(settings.Identity, ignoreCase: true, out var identity) &&
+                identity != ProcessModelIdentityType.SpecificUser)
+                pool.ProcessModel.IdentityType = identity;
+            pool.ProcessModel.IdleTimeout = settings.IdleTimeout;
+            pool.SetAttributeValue("startMode", settings.StartMode.Equals("AlwaysRunning", StringComparison.OrdinalIgnoreCase) ? 1 : 0);
+            sm.CommitChanges();
+            return Result.Ok();
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "IIS SetPoolSettings failed");
+            return Result.Fail(ex.Message);
+        }
+    }
+
+    public Result RenameSite(string siteName, string newName, string physicalPath)
+    {
+        try
+        {
+            // Stopped first, its worker gone: the pool can't be renamed while a worker runs as its identity, and the
+            // caller may move the folder the worker holds files in.
+            bool renamePool;
+            using (var sm = new ServerManager())
+            {
+                if (sm.Sites[siteName] is not { } site) return Result.Fail($"Site '{siteName}' not found");
+                if (sm.Sites[newName] is not null) return Result.Fail($"IIS already has a site named '{newName}'.");
+                var pool = PoolOf(sm, site);
+                renamePool = pool is not null && pool.Name.Equals(siteName, StringComparison.OrdinalIgnoreCase) &&
+                             !PoolUsedByOthers(sm, siteName) && sm.ApplicationPools[newName] is null;
+                if (site.State != ObjectState.Stopped) try { site.Stop(); } catch { /* already stopping */ }
+                if (renamePool && pool!.State != ObjectState.Stopped) try { pool.Stop(); } catch { /* already stopping */ }
+                sm.CommitChanges();
+            }
+            if (renamePool) WaitForPoolToStop(siteName, TimeSpan.FromSeconds(30));
+
+            using (var sm = new ServerManager())
+            {
+                var site = sm.Sites[siteName]!;
+                site.Name = newName;
+                if (renamePool)
+                {
+                    sm.ApplicationPools[siteName]!.Name = newName;
+                    foreach (var app in site.Applications) app.ApplicationPoolName = newName;
+                }
+                if (site.Applications["/"]?.VirtualDirectories["/"] is { } root) root.PhysicalPath = physicalPath;
+                sm.CommitChanges();
+            }
+            return Result.Ok();
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "IIS RenameSite failed");
+            return Result.Fail(ex.Message);
+        }
+    }
+
     private static ApplicationPool? PoolOf(ServerManager sm, Site site) =>
         site.Applications["/"]?.ApplicationPoolName is { Length: > 0 } name ? sm.ApplicationPools[name] : null;
 

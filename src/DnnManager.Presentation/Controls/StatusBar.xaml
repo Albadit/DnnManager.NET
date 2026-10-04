@@ -25,11 +25,22 @@
                 <TextBlock x:Name="VersionText" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="12,0,0,1.5" />
             </StackPanel>
 
-            <!-- Clipped rather than wrapped when the window is narrow. -->
+            <!-- Clipped rather than wrapped when the window is narrow. Each figure keeps the width of its widest value
+                 (the hidden texts: this PC's memory, 100%, the drive's size), so nothing moves as one goes from 9.99 to
+                 10.00. The texts are placeholders until the first sample with all three figures (StatusBar.ShowResources). -->
             <StackPanel Orientation="Horizontal" ClipToBounds="True">
-                <TextBlock x:Name="RamText" Style="{StaticResource Figure}" />
-                <TextBlock x:Name="CpuText" Style="{StaticResource Figure}" />
-                <TextBlock x:Name="DiskText" Style="{StaticResource Figure}" />
+                <Grid>
+                    <TextBlock x:Name="RamWidest" Style="{StaticResource Figure}" Visibility="Hidden" />
+                    <TextBlock x:Name="RamText" Style="{StaticResource Figure}" Text="RAM 0.00 GB" />
+                </Grid>
+                <Grid>
+                    <TextBlock Style="{StaticResource Figure}" Text="CPU 100.00%" Visibility="Hidden" />
+                    <TextBlock x:Name="CpuText" Style="{StaticResource Figure}" Text="CPU 0.00%" />
+                </Grid>
+                <Grid>
+                    <TextBlock x:Name="DiskWidest" Style="{StaticResource Figure}" Visibility="Hidden" />
+                    <TextBlock x:Name="DiskText" Style="{StaticResource Figure}" Text="Disk: --.-- GB used (limit --.-- GB)" />
+                </Grid>
             </StackPanel>
         </DockPanel>
     </Border>

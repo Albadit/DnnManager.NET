@@ -1,0 +1,52 @@
+<Window x:Class="DnnManager.Presentation.Controls.AppPoolDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Edit app pool" Icon="pack://application:,,,/DnnManager;component/src/DnnManager.Presentation/Assets/dnn.ico" Width="460" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
+        Background="{DynamicResource WindowBg}" Foreground="{DynamicResource TextPrimary}">
+    <!-- The app pool settings a project's Details can change; the choices are filled in code, with the current value among them. -->
+    <StackPanel Margin="20">
+        <TextBlock x:Name="Intro" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimary}" />
+        <Grid Margin="0,4,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Style="{StaticResource FieldLabel}" Text=".NET CLR version" />
+                <ComboBox x:Name="RuntimeBox" SelectionChanged="Setting_Changed" />
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock Style="{StaticResource FieldLabel}" Text="Pipeline mode" />
+                <ComboBox x:Name="PipelineBox" SelectionChanged="Setting_Changed" />
+            </StackPanel>
+        </Grid>
+        <CheckBox x:Name="Enable32BitBox" Content="Enable 32-bit applications" Margin="0,12,0,0" Click="Setting_Changed" />
+        <TextBlock Style="{StaticResource FieldLabel}" Text="Identity" Margin="0,12,0,4" />
+        <ComboBox x:Name="IdentityBox" SelectionChanged="Setting_Changed" />
+        <TextBlock x:Name="IdentityHint" Style="{StaticResource Hint}" />
+        <Grid Margin="0,4,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Style="{StaticResource FieldLabel}" Text="Idle time-out (minutes)" />
+                <TextBox x:Name="IdleBox" TextChanged="Setting_Changed" />
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock Style="{StaticResource FieldLabel}" Text="Start mode" />
+                <ComboBox x:Name="StartModeBox" SelectionChanged="Setting_Changed" />
+            </StackPanel>
+        </Grid>
+        <TextBlock Style="{StaticResource Hint}" Text="An idle time-out of 0 never shuts the pool down for being idle." />
+        <TextBlock x:Name="Problem" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button x:Name="OkButton" Content="Save" Style="{StaticResource Primary}" MinWidth="80" IsDefault="True" IsEnabled="False" Click="Ok_Click"
+                    ToolTip="Save (Enter)" />
+            <Button Content="Cancel" MinWidth="80" Margin="8,0,0,0" IsCancel="True" ToolTip="Cancel (Esc)" />
+        </StackPanel>
+    </StackPanel>
+</Window>

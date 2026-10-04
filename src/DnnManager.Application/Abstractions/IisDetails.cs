@@ -33,6 +33,26 @@ public sealed record IisBindingDetails(
 
 public sealed record IisCertificate(string Subject, string? FriendlyName, string Issuer, DateTime NotBefore, DateTime NotAfter);
 
+/// <summary>The app pool settings a project's Details can change (Edit app pool).</summary>
+/// <param name="Runtime">"v4.0", or "" for No Managed Code.</param>
+/// <param name="Pipeline">"Integrated" or "Classic".</param>
+/// <param name="Identity">"ApplicationPoolIdentity", "NetworkService", "LocalService" or "LocalSystem" - or "SpecificUser", which is
+/// kept as it is (its password isn't known here).</param>
+/// <param name="IdleTimeout">Zero: never shut down for being idle.</param>
+/// <param name="StartMode">"OnDemand" or "AlwaysRunning".</param>
+public sealed record IisPoolSettings(string Runtime, string Pipeline, bool Enable32Bit, string Identity, TimeSpan IdleTimeout, string StartMode)
+{
+    public static IisPoolSettings From(IisPoolDetails pool) =>
+        new(pool.Runtime == "No Managed Code" ? "" : pool.Runtime, pool.Pipeline, pool.Enable32Bit, pool.IdentityType, pool.IdleTimeout, pool.StartMode);
+}
+
+/// <summary>
+/// One of a site's http bindings as Edit host names leaves it: <paramref name="Host"/> on <paramref name="Port"/>, and what it
+/// was - null for one added - so DNN's portal alias of the old host and port can follow it.
+/// </summary>
+/// <param name="Host">Empty: any host name.</param>
+public sealed record HttpBindingEdit(string? OldHost, int? OldPort, string Host, int Port);
+
 /// <param name="Account">The Windows account the worker process runs as - <c>IIS APPPOOL\&lt;pool&gt;</c> for ApplicationPoolIdentity.</param>
 /// <param name="RecycleInterval">Regular recycling; zero when it is off.</param>
 /// <param name="PrivateMemoryLimitKb">Recycled above this much private memory; zero for no limit.</param>

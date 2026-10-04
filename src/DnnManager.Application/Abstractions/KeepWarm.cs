@@ -15,8 +15,8 @@ public sealed record KeepWarmRecord(string Site, bool Enabled, int? PingMinutes 
 }
 
 /// <summary>
-/// The <see cref="KeepWarmRecord"/>s, one file per site in <c>Documents\DnnManager\projects\keep-warm</c>. They hold no
-/// secrets; one that can't be read counts as none (the site isn't kept warm).
+/// The <see cref="KeepWarmRecord"/>s, in <c>Documents\DnnManager\state\keep-warm.json</c>. They hold no secrets; a file
+/// that can't be read counts as none (no site is kept warm).
 /// </summary>
 public interface IKeepWarmRecords
 {

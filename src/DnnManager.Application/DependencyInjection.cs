@@ -21,6 +21,11 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ChangeHostPasswordUseCase>();
         services.AddScoped<SetupSqlContainerUseCase>();
         services.AddScoped<CloneProjectUseCase>();
+        services.AddScoped<RenameProjectUseCase>();
+        services.AddScoped<EditBindingsUseCase>();
+        services.AddScoped<EditAppPoolUseCase>();
+        services.AddScoped<ChangeDatabaseConnectionUseCase>();
+        services.AddScoped<ExportForDeploymentUseCase>();
         return services;
     }
 }

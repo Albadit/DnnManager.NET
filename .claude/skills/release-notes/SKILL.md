@@ -21,8 +21,8 @@ Readers are **people who use DNN Manager**, deciding whether to update and what 
 
 ## Workflow
 
-1. **Find the version and the range.** The version is the one asked for, or `<Version>` in `DnnManager.csproj` when it
-   is already raised. The previous release is the newest tag: `git describe --tags --abbrev=0`.
+1. **Find the version and the range.** The version is the one asked for; when none is, ask (there is no
+   `<Version>` in `DnnManager.csproj` to raise or read - builds take the newest tag's). The previous release is the newest tag: `git describe --tags --abbrev=0`.
 2. **Collect what changed:**
    - the `## Unreleased` (or `## vX.Y.Z`) entry in `CHANGELOG.md` - the main source, written by hand;
    - `git log --no-merges --format="%h %s%n%b" <previous tag>..HEAD` - for what the changelog misses;

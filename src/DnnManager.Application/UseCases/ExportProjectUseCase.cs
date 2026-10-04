@@ -87,7 +87,10 @@ public sealed class ExportProjectUseCase(
             if (bacpacPath is not null)
             {
                 reporter.Step("Exporting the database");
-                var source = _sqlContainer.ConnectionOf(project);
+                // The database web.config names, as it signs in - Windows authentication too.
+                var exportSource = _sqlContainer.ExportSourceOf(project);
+                if (!exportSource.Success) return Result.Fail(exportSource.Error!);
+                var source = exportSource.Value!;
                 var ensured = await _bacpac.EnsureAvailableAsync(reporter, ct);
                 var export = ensured.Success ? await _bacpac.ExportAsync(source, bacpacPath, reporter, ct) : ensured;
                 if (!export.Success)

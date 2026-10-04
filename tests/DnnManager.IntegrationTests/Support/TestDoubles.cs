@@ -12,8 +12,8 @@ public sealed class TestDnnPackages(string zip, string version) : IDnnReleaseSer
     public Task<Result<DnnRelease>> GetReleaseAsync(string apiUrl, string? version, CancellationToken ct) =>
         Task.FromResult(Result<DnnRelease>.Ok(Release));
 
-    public Task<Result<IReadOnlyList<DnnRelease>>> ListReleasesAsync(string apiUrl, CancellationToken ct) =>
-        Task.FromResult(Result<IReadOnlyList<DnnRelease>>.Ok([Release]));
+    public Task<Result<DnnReleaseList>> ListReleasesAsync(string apiUrl, CancellationToken ct) =>
+        Task.FromResult(Result<DnnReleaseList>.Ok(new DnnReleaseList([Release])));
 
     public IReadOnlyList<string> KnownReleaseApis => ["https://api.github.com/repos/dnnsoftware/Dnn.Platform/releases"];
 

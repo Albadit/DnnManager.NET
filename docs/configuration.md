@@ -15,14 +15,17 @@ Documents\DnnManager\
 ├── settings.json        your settings
 ├── backups\             project backups (user guide: Backups) and settings.json copies made
 │                        before an upgrade of its format or a reset
+├── deployments\         packages made by Export for deployment: <project>_<date>\ with .zip, .bacpac and DEPLOY.txt
 ├── logs\                one file per day, kept 30 days: every operation's messages, one line each after its
 │                        time (`18:21:16 Database seeded.`), [warning] / [error] marked, how it ended - the
 │                        operation's title and stages are the Output tab's - and DNN Manager's own warnings and
 │                        errors with their stack traces
-├── packages\            downloaded DNN install packages, when projects.keepDnnPackages is on
-├── projects\            how DNN Manager installed the projects it set up, one file each
-│   └── keep-warm\       the sites kept warm, one file each
+├── packages\            downloaded DNN install packages, when projects.keepDnnPackages is on - per repository
+│                        (<owner>.<repo>\), with releases.json: its versions at the last lookup, for offline use
+├── projects\            how DNN Manager installed the projects it set up, one file each - data only, no state
 └── state\               the workspace, for the next start (user guide: Picking up where you left off):
+    ├── keep-warm.json   which sites are kept warm (and their own interval and pages) - switched on again at the
+    │                    next start; saved the moment one is switched
     ├── window.json      where the window was, its size, the sidebar shown or hidden, the bottom panel's height
     ├── workspace.json   the page, the Projects table (search, filter, sorting, rows, scroll), the open Details and tab
     ├── forms.json       what was typed on New project, Host project and unsaved Settings - never a password
@@ -36,7 +39,10 @@ a crash leaves the last good one. Each has a `format` number: one of an older fo
 is read as the current one; one of a newer format (written by a newer DNN Manager) is
 ignored and left as it is; one that can't be read is renamed `<name>.json.bad` and the
 defaults are used - DNN Manager always starts. Deleting the folder (DNN Manager
-closed) forgets the workspace; nothing else depends on it.
+closed) forgets the workspace and which sites are kept warm; nothing else depends on it.
+
+`projects\` and `state\` are kept apart: `projects\` holds data about the projects
+(how each was installed), `state\` what is switched on or remembered between starts.
 
 An [update](user-guide.md#update) downloads into `%TEMP%\DnnManager-update\<version>\`,
 with its log (`update.log`, and `update.setup.log` for Setup) - removed a couple of
@@ -116,9 +122,9 @@ starts.
 | `projects.baseDirectory` | Where projects live (`C:\DNN` by default). |
 | `projects.sitePort`, `projects.hostnameSuffix` | Sites answer at `http://<project>.<hostnameSuffix>[:sitePort]`. |
 | `projects.dnnReleaseSources` | GitHub releases API URLs - the repositories **New project** offers, with their versions. |
-| `projects.keepDnnPackages` | `false` by default. When `true`, each downloaded DNN install package is kept in `Documents\DnnManager\packages\<owner>.<repo>\` and used again when a new project picks the same version - no download. When `false`, the package is downloaded into the project and deleted after installing. |
+| `projects.keepDnnPackages` | `false` by default. When `true`, each downloaded DNN install package is kept in `Documents\DnnManager\packages\<owner>.<repo>\` and used again when a new project picks the same version - no download. Each repository's version list is saved there too (`releases.json`), so New project works without internet for the kept versions. When `false`, the package is downloaded into the project and deleted after installing. |
 | `projects.dnnDefaults.*` | What **New project** starts with for a new site: `installMode` (`automatic` or `manual`), `hostUsername` (`host`), `hostEmail` (`admin@admin.com`; empty: `host@<hostnameSuffix>`), `websiteName` (`My Website`; empty: the project's name), `language` (`en-US`, `de-DE`, `es-ES`, `fr-FR`, `it-IT` or `nl-NL`) and `template` (`Default Website` or `Blank Website`). The host password is not in the file: it is in the Windows Credential Manager of your account (`DnnManager/dnn-defaults/host-password`); while none is saved there it is `Admin@123`. Set in **Settings → Projects**. |
-| `projects.keepWarm.*` | How the sites switched to [keep warm](user-guide.md#keep-warm) are kept warm: `pingMinutes` (`5`, 1 to 60) - the longest wait between two requests, shortened for a site whose app pool idles out sooner; `pingPath` (`/KeepAlive.aspx`) - the page requested to keep a running site warm (`/` keeps the home page's caches warm too, as Azure's *Always On* does); `warmUpPath` (`/`) - the page requested to warm up a site without a worker process. Pages are on the site itself (a leading `/` is added), never one of DNN's installer (`/Install/…`, `mode=`). Set in **Settings → Projects → Keep warm**. Which sites are kept warm is not in the file: it is in `projects\keep-warm\`. |
+| `projects.keepWarm.*` | How the sites switched to [keep warm](user-guide.md#keep-warm) are kept warm: `pingMinutes` (`5`, 1 to 60) - the longest wait between two requests, shortened for a site whose app pool idles out sooner; `pingPath` (`/KeepAlive.aspx`) - the page requested to keep a running site warm (`/` keeps the home page's caches warm too, as Azure's *Always On* does); `warmUpPath` (`/`) - the page requested to warm up a site without a worker process. Pages are on the site itself (a leading `/` is added), never one of DNN's installer (`/Install/…`, `mode=`). Set in **Settings → Projects → Keep warm**. Which sites are kept warm is not in the file: it is in `state\keep-warm.json`. |
 | `sqlServer.type` | Where a new project's database goes: `container` (the local SQL container - the default), `sqlServer` (SQL Server / SQL Server Express at `server`, with `authentication` `windows` or `sql` and, for `sql`, the login `userName` - its password is in the Windows Credential Manager, `DnnManager/database-server/password`) or `localDbFile` (the site's own `App_Data\Database.mdf` on the LocalDB instance `server`, e.g. `(LocalDB)\MSSQLLocalDB`). Set in **Settings → Database server**; a project keeps the database it was made with. |
 | `sqlServer.host`, `port`, `userName`, `saPassword` | The local SQL container DNN Manager connects to: `host` (`localhost` by default), `port`, `userName` (the login it signs in with - `sa` when empty; another one has to exist on the container already - the same setting as the SQL Server login of `sqlServer.type` `sqlServer`) and `saPassword` (that login's password - and the `sa` password **Set up docker-compose** creates the container with). The password is stored encrypted for your Windows account (Windows DPAPI, `dpapi:…`) - not hashed, since DNN Manager needs it to sign in. To change it in the file, replace the value with the new password as plain text; it's encrypted on the next start. A new project's database is named like the project. The Docker container publishes SQL Server on this port with this password - on this PC only (`127.0.0.1`) when `host` is `localhost` or `127.0.0.1`, on every network interface for any other host (this PC's address on the network, for a VM). An existing data volume keeps the sa password it was created with. |
 | `docker.*` | The SQL Server container: `containerName`, `volumeName`, `edition` (`MSSQL_PID`) and `collation`. **Settings → Docker container → Set up docker-compose** makes the container from these (and `sqlServer.port` / `saPassword`); **Show docker-compose.yml** shows the file to copy. |

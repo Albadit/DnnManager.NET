@@ -129,6 +129,26 @@ public interface IDatabaseProvisioner
 
     /// <summary>The site's DNN host accounts (superusers): user name and e-mail, oldest first.</summary>
     Task<Result<IReadOnlyList<DnnHostAccount>>> ListHostAccountsAsync(DatabaseConnection connection, CancellationToken ct);
+
+    /// <summary>Renames the database to <paramref name="newName"/>, closing the connections still open to it.</summary>
+    Task<Result> RenameDatabaseAsync(DatabaseConnection connection, string newName, CancellationToken ct);
+
+    /// <summary>
+    /// Follows changed host names in DNN's portal aliases: every alias <c>From</c> (or <c>From/child</c>) becomes <c>To</c>, in
+    /// every portal; each of <paramref name="added"/> that no portal has yet becomes an alias of portal 0. A LocalDB file
+    /// database is opened through <paramref name="siteDirectory"/> - the site must be stopped. Returns how many aliases changed.
+    /// </summary>
+    Task<Result<int>> UpdatePortalAliasesAsync(DatabaseConnection connection, string siteDirectory,
+        IReadOnlyList<(string From, string To)> renamed, IReadOnlyList<string> added, CancellationToken ct);
+
+    /// <summary>
+    /// Makes <paramref name="aliases"/> portal 0's only aliases, the first the primary one - for a copy of the database that
+    /// goes to the live server. Child portals (<c>host/child</c>) keep theirs.
+    /// </summary>
+    Task<Result> ReplacePortalAliasesAsync(DatabaseConnection connection, IReadOnlyList<string> aliases, CancellationToken ct);
+
+    /// <summary>Switches DNN's SSL setting on or off for every portal (DNN 10: SSLSetup; DNN 9: SSLEnabled and SSLEnforced).</summary>
+    Task<Result> SetSslAsync(DatabaseConnection connection, bool on, CancellationToken ct);
 }
 
 public sealed record DnnHostAccount(int UserId, string UserName, string Email);

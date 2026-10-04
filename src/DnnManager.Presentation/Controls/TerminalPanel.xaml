@@ -142,8 +142,11 @@
     </UserControl.Resources>
 
     <DockPanel Background="{DynamicResource LogBg}">
+        <!-- About as much room at the ends as above and below what is there: 33 high above the line, the tabs 22 (5.5 above
+             and below; 4 here and their own 2 on the left) and the buttons 26 (3.5 above and below, 4 on the right) -
+             whole pixels, so the text stays sharp. -->
         <Border DockPanel.Dock="Top" Background="{DynamicResource LogHeaderBg}" BorderBrush="{DynamicResource CardBorder}"
-                BorderThickness="0,0,0,1" Height="34" Padding="6,0,6,0">
+                BorderThickness="0,0,0,1" Height="34" Padding="4,0">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- Terminal: a new one with the default shell, or with another shell. -->

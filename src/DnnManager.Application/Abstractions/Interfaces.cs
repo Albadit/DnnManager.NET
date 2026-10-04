@@ -75,13 +75,15 @@ public interface IProjectRepository
 
 public interface IDnnReleaseService
 {
+    /// <summary>The release of that version, or the latest release - offline, from the releases saved at the last lookup.</summary>
     Task<Result<DnnRelease>> GetReleaseAsync(string apiUrl, string? version, CancellationToken ct);
 
     /// <summary>
     /// The releases of <paramref name="apiUrl"/> that have a DNN install package, pre-releases included (no drafts),
-    /// highest version first - a release before a pre-release of the same version.
+    /// highest version first - a release before a pre-release of the same version. When GitHub can't be reached, the
+    /// releases saved at the last lookup (<see cref="DnnReleaseList.SavedAt"/>), if any.
     /// </summary>
-    Task<Result<IReadOnlyList<DnnRelease>>> ListReleasesAsync(string apiUrl, CancellationToken ct);
+    Task<Result<DnnReleaseList>> ListReleasesAsync(string apiUrl, CancellationToken ct);
 
     IReadOnlyList<string> KnownReleaseApis { get; }
 }
@@ -167,6 +169,22 @@ public interface IIisManager
 
     /// <summary>The site in detail - its bindings with their certificates, its app pool's settings; null when IIS has no such site.</summary>
     IisSiteDetails? GetSiteDetails(string siteName) => null;
+
+    /// <summary>
+    /// Replaces the site's http bindings with <paramref name="bindings"/> (an empty host answers any); its https and other
+    /// bindings stay as they are.
+    /// </summary>
+    Result ReplaceHttpBindings(string siteName, IReadOnlyList<(string Host, int Port)> bindings) => Result.Fail("Not supported here.");
+
+    /// <summary>Changes the settings of the site's app pool - refused for a pool other sites use too.</summary>
+    Result SetPoolSettings(string siteName, IisPoolSettings settings) => Result.Fail("Not supported here.");
+
+    /// <summary>
+    /// Renames the site to <paramref name="newName"/> - and its app pool, when it is named like the site and no other site
+    /// uses it - and points its root at <paramref name="physicalPath"/>. The site and its pool are stopped first, and the
+    /// worker process waited for; the caller starts it again.
+    /// </summary>
+    Result RenameSite(string siteName, string newName, string physicalPath) => Result.Fail("Not supported here.");
 
     Result GrantPermissions(string path, IEnumerable<string> identities);
 
@@ -444,6 +462,18 @@ public interface IWebConfigService
 
     /// <summary>A few settings worth knowing about a site's web.config, for the project details view.</summary>
     Result<WebConfigFacts> ReadFacts(string webConfigPath);
+
+    /// <summary>
+    /// Switches the HTTPS redirect rules <see cref="DisableHttpsRedirectRules"/> switched off back on, its comment removed -
+    /// for a copy that goes to a server with HTTPS. Returns their names.
+    /// </summary>
+    Result<IReadOnlyList<string>> EnableHttpsRedirectRules(string webConfigPath);
+
+    /// <summary>Sets SiteSqlServer (connectionStrings and appSettings) to <paramref name="connectionString"/> as it is.</summary>
+    Result WriteConnectionString(string webConfigPath, string connectionString);
+
+    /// <summary>Sets &lt;compilation debug&gt; - off for a live server.</summary>
+    Result SetDebug(string webConfigPath, bool debug);
 }
 
 /// <summary>

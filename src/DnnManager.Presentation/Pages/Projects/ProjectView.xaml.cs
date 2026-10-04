@@ -26,8 +26,9 @@ public sealed record ProjectFact(string Label, string Value, FactKind Kind = Fac
 /// <summary>
 /// A site's Details - opened from the Projects table - in tabs: what was detected about it, where it really is (IIS, its
 /// folder, web.config, bin, its database through web.config's connection, this PC), with what is wrong or unusual in it
-/// (<see cref="ProjectDiagnostics"/>). Read again when the site changes outside DNN Manager. Information, not actions -
-/// apart from keep warm and the host password, which live here. No password or key is shown anywhere.
+/// (<see cref="ProjectDiagnostics"/>). Read again when the site changes outside DNN Manager. Information first; each tab's
+/// Edit buttons change what it shows (<see cref="ProjectEdits"/>), and keep warm and the host password live here. No
+/// password or key is shown anywhere.
 /// </summary>
 public partial class ProjectView : UserControl
 {
@@ -140,6 +141,13 @@ public partial class ProjectView : UserControl
     private void Restart_Click(object sender, RoutedEventArgs e) => _control(SiteAction.Restart);
 
     private void More_Click(object sender, RoutedEventArgs e) => ProjectMenu.ShowSiteTools(MoreButton, _services, _row);
+
+    // ─── Changing the project (ProjectEdits) ──────────────────────────────
+
+    private void Rename_Click(object sender, RoutedEventArgs e) => ProjectEdits.Rename(_services, _row);
+    private void EditBindings_Click(object sender, RoutedEventArgs e) => ProjectEdits.EditBindings(_services, _row);
+    private void EditAppPool_Click(object sender, RoutedEventArgs e) => ProjectEdits.EditAppPool(_services, _row);
+    private void ChangeDatabase_Click(object sender, RoutedEventArgs e) => ProjectEdits.ChangeDatabase(_services, _row);
     private void OpenSite_Click(object sender, RoutedEventArgs e) => Shell.Open(_row.Url);
 
     private void OpenFolder_Click(object sender, RoutedEventArgs e)

@@ -1,0 +1,61 @@
+<Window x:Class="DnnManager.Presentation.Controls.DatabaseConnectionDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:DnnManager.Presentation.Controls"
+        Title="Change database connection" Icon="pack://application:,,,/DnnManager;component/src/DnnManager.Presentation/Assets/dnn.ico" Width="520" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
+        Background="{DynamicResource WindowBg}" Foreground="{DynamicResource TextPrimary}">
+    <!-- Where the site's web.config points SiteSqlServer: the same fields as the Database card of New project. -->
+    <StackPanel Margin="20">
+        <TextBlock x:Name="Intro" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimary}" />
+        <TextBlock Style="{StaticResource FieldLabel}" Text="Connection type" Margin="0,12,0,4" />
+        <WrapPanel>
+            <RadioButton x:Name="DbContainer" GroupName="DbType" Content="Local SQL container (Docker)" Margin="0,0,20,4" Checked="DbType_Checked" />
+            <RadioButton x:Name="DbSqlServer" GroupName="DbType" Content="SQL Server" Margin="0,0,20,4" Checked="DbType_Checked" />
+            <RadioButton x:Name="DbLocalDb" GroupName="DbType" Content="SQL Server Express LocalDB (file)" Margin="0,0,0,4" Checked="DbType_Checked" />
+        </WrapPanel>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <!-- Only for SQL Server: the container's server and the LocalDB instance are fixed. -->
+            <StackPanel x:Name="DbServerPanel">
+                <TextBlock Style="{StaticResource FieldLabel}" Text="Server" />
+                <TextBox x:Name="DbServerBox" TextChanged="DbField_Changed" />
+            </StackPanel>
+            <StackPanel x:Name="DbNamePanel" Grid.Column="2">
+                <TextBlock x:Name="DbNameLabel" Style="{StaticResource FieldLabel}" Text="Database name" />
+                <TextBox x:Name="DbNameBox" TextChanged="DbField_Changed" />
+            </StackPanel>
+            <StackPanel x:Name="DbAuthPanel" Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,10,0,0">
+                <RadioButton x:Name="DbWindowsAuth" GroupName="DbAuth" Content="Windows authentication" Margin="0,0,20,0" Checked="DbAuth_Checked" />
+                <RadioButton x:Name="DbSqlAuth" GroupName="DbAuth" Content="SQL Server authentication" Checked="DbAuth_Checked" />
+            </StackPanel>
+            <StackPanel x:Name="DbUserPanel" Grid.Row="2">
+                <TextBlock Style="{StaticResource FieldLabel}" Text="Username" />
+                <TextBox x:Name="DbUserBox" TextChanged="DbField_Changed" />
+            </StackPanel>
+            <StackPanel x:Name="DbPasswordPanel" Grid.Row="2" Grid.Column="2">
+                <TextBlock Style="{StaticResource FieldLabel}" Text="Password" />
+                <c:PasswordInput x:Name="DbPasswordBox" PasswordChanged="DbPassword_Changed" />
+            </StackPanel>
+        </Grid>
+        <TextBlock x:Name="DatabaseHint" Style="{StaticResource Hint}" />
+        <Button x:Name="TestButton" Content="Test connection" HorizontalAlignment="Left" MinWidth="80" Margin="0,12,0,0"
+                ToolTip="Test connection" Click="Test_Click" />
+        <c:DatabaseCheckList x:Name="CheckList" Margin="0,8,0,0" />
+        <TextBlock x:Name="Problem" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button x:Name="OkButton" Content="Save" Style="{StaticResource Primary}" MinWidth="80" IsDefault="True" IsEnabled="False" Click="Ok_Click"
+                    ToolTip="Save (Enter)" />
+            <Button Content="Cancel" MinWidth="80" Margin="8,0,0,0" IsCancel="True" ToolTip="Cancel (Esc)" />
+        </StackPanel>
+    </StackPanel>
+</Window>

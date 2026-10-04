@@ -129,6 +129,19 @@ public sealed class LocalSqlContainer(IOptions<AppOptions> opts, ISqlServerServi
         return new SiteSqlConnection(Server, database, _opts.Docker.SqlUser, _opts.Docker.SaPassword);
     }
 
+    /// <summary>
+    /// The database to export <paramref name="project"/>'s data from: the one its web.config names, signed in to as it says
+    /// (Windows authentication as you); without one of its own, its database on the local SQL Server. A LocalDB file can't
+    /// be exported - its instance is the site's own.
+    /// </summary>
+    public Result<SiteSqlConnection> ExportSourceOf(DnnProject project)
+    {
+        if (DatabaseOf(project) is { Kind: DatabaseKind.LocalDbFile } file)
+            return Result<SiteSqlConnection>.Fail($"The site's database is a LocalDB file (App_Data\\{file.Database}), which can't be exported as " +
+                                                  ".bacpac - move it to SQL Server first (Details → Database → Change connection).");
+        return Result<SiteSqlConnection>.Ok(SiteConnectionOf(project) ?? ConnectionOf(project));
+    }
+
     /// <summary>True for a file <see cref="RestoreAsync"/> can restore: a <c>.bacpac</c> or a native <c>.bak</c>.</summary>
     public static bool IsBackupFile(string path)
     {

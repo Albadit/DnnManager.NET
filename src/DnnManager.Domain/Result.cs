@@ -19,4 +19,7 @@ public sealed record Result<T>(bool Success, T? Value, string? Error = null)
 {
     public static Result<T> Ok(T value) => new(true, value);
     public static Result<T> Fail(string error) => new(false, default, error);
+
+    /// <summary>Whether it worked, and why not - without the value.</summary>
+    public Result WithoutValue() => new(Success, Error);
 }

@@ -260,11 +260,6 @@ try {
     $manifest = Join-Path $work 'app.manifest'
     [IO.File]::WriteAllText($manifest, ([IO.File]::ReadAllText($manifest) -replace '(<assemblyIdentity version=")[0-9.]+(")', "`${1}$fileVersion`${2}"), [Text.UTF8Encoding]::new($false))
 
-    $declared = Select-String -Path (Join-Path $work 'DnnManager.csproj') -Pattern '<Version>([^<]+)</Version>' | Select-Object -First 1
-    if ($declared -and $declared.Matches[0].Groups[1].Value -ne $version) {
-        Write-Host "  <Version> in DnnManager.csproj is $($declared.Matches[0].Groups[1].Value) - the build uses $version." -ForegroundColor Yellow
-    }
-
     $tests = Join-Path $work 'tests\DnnManager.IntegrationTests'
     if ($SkipTests) { Write-Host '  Tests skipped (-SkipTests).' -ForegroundColor Yellow }
     elseif (Test-Path $tests) {

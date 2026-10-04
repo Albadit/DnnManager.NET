@@ -2,7 +2,75 @@
 
 All notable changes to DnnManager.NET are documented here.
 
-## v1.7.1
+## v1.7.2
+
+### Upgrading
+
+- Your settings keep their format.
+- **Which sites are kept warm is now in `state\keep-warm.json`.** The per-site
+  files of earlier versions (`projects\keep-warm\`) aren't read: switch keep
+  warm on again for the sites you want it for (and set their own interval or
+  pages again).
+- Setup installs the newest release from GitHub from this version's Setup on;
+  the 1.7.1 Setup still installs the version it carries.
+
+### Added
+
+- **Edit a project after it was set up**, from the Edit buttons on its Details
+  tabs, the right-click menu and the command palette - each a small dialog, then
+  an operation on the Output tab that **Cancel** takes back:
+  - **Rename…** (General, right-click menu): the IIS site and its app pool, the
+    folder when it is the project's in the projects folder, and - ticked by
+    default - its host name `<old>.<suffix>` → `<new>.<suffix>` with DNN's
+    portal alias, and its database when it is named like the project
+    (`web.config` follows). The site is stopped meanwhile and started again;
+    the new app pool identity gets the folder and, with Windows
+    authentication, the database. A step that fails takes back the ones before.
+  - **Edit host names…** (IIS): the site's http bindings - host name and port,
+    added or removed; https bindings stay. DNN's portal aliases follow.
+  - **Edit app pool…** (IIS): .NET CLR version, pipeline mode, 32-bit,
+    identity, idle time-out and start mode of the site's own app pool.
+  - **Change connection…** (Database): `web.config`'s `SiteSqlServer` pointed
+    at the local SQL container, a SQL Server (Windows or SQL Server
+    authentication) or a LocalDB file, with **Test connection**.
+- **Export for deployment…** (Export ▸ on the right-click menu and the Details
+  ⋮, and the command palette): a package for the live server in
+  `Documents\DnnManager\deployments\<project>_<date>\` - `<project>.zip`
+  without `.git`, `.vs`, `.vscode`, `.idea`, `node_modules`, DNN's logs and
+  cache and the search index, with `web.config` ready for the server (the live
+  connection string or a placeholder, debug off, the HTTPS rules DNN Manager
+  switched off back on); `<project>.bacpac` with the live domains as portal
+  aliases and DNN's SSL setting to match (changed in a temporary copy of the
+  database); and `DEPLOY.txt`.
+- **Setup installs the newest release from GitHub.** A new install and
+  **Update to version X** get GitHub's newest, **Repair** downloads the
+  installed version again; any version but its own is downloaded (GitHub's
+  SHA-256 and its version checked) and handed over to. Without internet, Setup
+  installs the version it carries, and offers it when a download fails.
+- **New project works without internet** for kept packages: with **Keep
+  downloaded DNN install packages** on, each repository's versions are saved
+  (`packages\<owner>.<repo>\releases.json`) and offered when GitHub can't be
+  reached.
+
+### Changed
+
+- **The status bar's figures keep their place.** RAM, CPU and Disk are each as
+  wide as their largest value (all of the PC's memory, 100%, the drive full),
+  and they show `RAM 0.00 GB`, `CPU 0.00%` and `Disk: --.-- GB used (limit
+  --.-- GB)` until all three are measured, then change together.
+- The Details ⋮ has the whole **Export** ▸ menu, as the right-click menu.
+- Every folder in `Documents\DnnManager` is made at start; **Settings → About**
+  lists **Deployments** too, and **Open** makes a folder that isn't there.
+- A GitHub version lookup that doesn't answer within 30 seconds counts as
+  offline (was 100), and a failed DNN download says what to do without internet.
+- The bottom panel's header has as much room at its ends as above and below.
+- Builds take their version from the newest `v*` tag - `DnnManager.csproj` has
+  no `<Version>` to raise any more (see `docs/releasing.md`).
+
+### Fixed
+
+- Exporting the database of a site that signs in with Windows authentication
+  exported from the local SQL container instead of the site's own database.
 
 ### Upgrading
 

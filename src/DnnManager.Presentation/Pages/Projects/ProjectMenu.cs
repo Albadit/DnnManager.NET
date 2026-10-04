@@ -61,8 +61,9 @@ internal sealed class ProjectMenu(IServiceProvider services, OperationRunner run
         menu.Items.Add(new Separator());
         AddSiteTools(menu.Items, _services, row);
         menu.Items.Add(new Separator());
+        menu.Items.Add(Item("Rename…", (_, _) => ProjectEdits.Rename(_services, row), ProjectEdits.CanEdit(_services, row)));
         menu.Items.Add(Item("Clone…", (_, _) => Clone(row), Directory.Exists(row.Path) && !_runner.IsBusy));
-        menu.Items.Add(ExportMenu(row));
+        menu.Items.Add(ExportMenu(_services, row));
         menu.Items.Add(Item("Remove…", (_, _) => _remove(row), row.CanRemove));
     }
 
@@ -168,11 +169,16 @@ internal sealed class ProjectMenu(IServiceProvider services, OperationRunner run
 
     // ─── The site's tools (⋮) ─────────────────────────────────────────────
 
-    /// <summary>Opens the site's tools under <paramref name="button"/> - the ⋮ next to a row's actions, or the overview's.</summary>
+    /// <summary>
+    /// Opens the site's tools under <paramref name="button"/> - the overview's ⋮ - and Export, as on the right-click menu:
+    /// for deployment, or a backup.
+    /// </summary>
     public static void ShowSiteTools(FrameworkElement button, IServiceProvider services, ProjectRow row)
     {
         var menu = new ContextMenu { PlacementTarget = button, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
         AddSiteTools(menu.Items, services, row);
+        menu.Items.Add(new Separator());
+        menu.Items.Add(ExportMenu(services, row));
         menu.IsOpen = true;
     }
 
@@ -253,25 +259,30 @@ internal sealed class ProjectMenu(IServiceProvider services, OperationRunner run
     private enum ExportParts { Both, Site, Database }
 
     /// <summary>
-    /// "Export": a backup into the project's backups folder (Documents\DnnManager\backups\&lt;project&gt;) - site and
-    /// database, or just one of them.
+    /// "Export": a package for the live server (Export for deployment), or a backup into the project's backups folder
+    /// (Documents\DnnManager\backups\&lt;project&gt;) - site and database, or just one of them.
     /// </summary>
-    private MenuItem ExportMenu(ProjectRow row)
+    private static MenuItem ExportMenu(IServiceProvider services, ProjectRow row)
     {
         var export = new MenuItem { Header = "Export" };
-        export.Items.Add(Item("Site and database  (.zip + .bacpac)", (_, _) => Backup(row, ExportParts.Both)));
-        export.Items.Add(Item("Site files  (.zip)", (_, _) => Backup(row, ExportParts.Site)));
-        export.Items.Add(Item("Database  (.bacpac)", (_, _) => Backup(row, ExportParts.Database)));
+        var busy = services.GetRequiredService<OperationRunner>().IsBusy;
+        var deploy = Item("For deployment…", (_, _) => ProjectEdits.ExportForDeployment(services, row), ProjectEdits.CanEdit(services, row));
+        deploy.ToolTip = "A package for the live server: the site's files with web.config ready for it, the database with the live domain, and DEPLOY.txt.";
+        export.Items.Add(deploy);
         export.Items.Add(new Separator());
-        var backups = _services.GetRequiredService<IProjectRepository>().Build(row.Name, row.Path).BackupDirectory;
+        export.Items.Add(Item("Site and database  (.zip + .bacpac)", (_, _) => Backup(services, row, ExportParts.Both), !busy));
+        export.Items.Add(Item("Site files  (.zip)", (_, _) => Backup(services, row, ExportParts.Site), !busy));
+        export.Items.Add(Item("Database  (.bacpac)", (_, _) => Backup(services, row, ExportParts.Database), !busy));
+        export.Items.Add(new Separator());
+        var backups = services.GetRequiredService<IProjectRepository>().Build(row.Name, row.Path).BackupDirectory;
         export.Items.Add(Item("Open backups folder", (_, _) => Presentation.Shell.Open(backups), Directory.Exists(backups)));
         return export;
     }
 
     /// <summary>A dated backup: backups\&lt;project&gt;\&lt;project&gt;_&lt;yyyyMMdd_HHmmss&gt;\ with &lt;project&gt;.zip and / or &lt;project&gt;.bacpac.</summary>
-    private async void Backup(ProjectRow row, ExportParts parts)
+    private static async void Backup(IServiceProvider services, ProjectRow row, ExportParts parts)
     {
-        var project = _services.GetRequiredService<IProjectRepository>().Build(row.Name, row.Path);
+        var project = services.GetRequiredService<IProjectRepository>().Build(row.Name, row.Path);
         var folder = ProjectBackups.NewFolder(project, DateTime.Now);
         var request = new ExportProjectRequest
         {
@@ -280,7 +291,7 @@ internal sealed class ProjectMenu(IServiceProvider services, OperationRunner run
             ZipPath = parts == ExportParts.Database ? null : System.IO.Path.Combine(folder, ProjectBackups.SiteZipName(project)),
             BacpacPath = parts == ExportParts.Site ? null : System.IO.Path.Combine(folder, ProjectBackups.DatabaseName(project, ".bacpac"))
         };
-        if (await _runner.RunAsync($"Back up '{row.Name}'",
+        if (await services.GetRequiredService<OperationRunner>().RunAsync($"Back up '{row.Name}'",
                 (sp, reporter, ct) => sp.GetRequiredService<ExportProjectUseCase>().ExecuteAsync(request, reporter, ct)))
             Toast.Show($"'{row.Name}' is backed up in {folder}.", ToastKind.Success, "Open folder", () => Presentation.Shell.Open(folder));
     }

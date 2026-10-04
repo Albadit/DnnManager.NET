@@ -69,6 +69,16 @@ public partial class MainWindow
         }, "shell powershell command prompt");
         AddForProject("project.keepWarm", "Keep website warm", null, r => !r.KeepWarmOn && r.CanToggleKeepWarm, _store.ToggleKeepWarm, "ping alive flame");
         AddForProject("project.stopKeepWarm", "Stop keeping website warm", null, r => r.KeepWarmOn, _store.ToggleKeepWarm, "ping alive flame");
+        AddForProject("project.rename", "Rename project…", null, r => ProjectEdits.CanEdit(_services, r), r => ProjectEdits.Rename(_services, r),
+            "name folder iis site app pool");
+        AddForProject("project.editBindings", "Edit host names…", null, r => ProjectEdits.CanEdit(_services, r), r => ProjectEdits.EditBindings(_services, r),
+            "bindings port hostname domain alias iis");
+        AddForProject("project.editAppPool", "Edit app pool…", null, r => ProjectEdits.CanEdit(_services, r), r => ProjectEdits.EditAppPool(_services, r),
+            "application pool clr pipeline identity 32-bit idle iis");
+        AddForProject("project.editDatabase", "Change database connection…", null, r => ProjectEdits.CanEdit(_services, r),
+            r => ProjectEdits.ChangeDatabase(_services, r), "sql server connection string web.config");
+        AddForProject("project.exportForDeployment", "Export for deployment…", null, r => ProjectEdits.CanEdit(_services, r),
+            r => ProjectEdits.ExportForDeployment(_services, r), "deploy publish live server production package zip bacpac");
 
         // ── Pages ──
         Add("pages.projects", "Go to Projects", "Pages", "Ctrl+1", () => Go(NavProjects), keywords: "table sites");

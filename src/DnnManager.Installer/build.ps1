@@ -10,8 +10,8 @@
        src\DnnManager.Installer\bin\tools.
 
     Everything the build makes along the way is in src\DnnManager.Installer\bin; the finished Setup is in
-    publish\ (next to DnnManager.csproj). The version comes from <Version> in DnnManager.csproj - raise it there
-    for a new release - unless -Version is given (the release workflow passes the tag's version).
+    publish\ (next to DnnManager.csproj). The version is the newest version tag in git (v1.7.1 -> 1.7.1), as for
+    every local build, unless -Version is given (the release workflow passes the tag's version).
 
 .EXAMPLE
     .\src\DnnManager.Installer\build.ps1
@@ -27,7 +27,7 @@ param(
     [string]$Iscc,
     # Reuse bin\app from an earlier run.
     [switch]$SkipPublish,
-    # The version to build (1.7.0, or 1.7.0-rc.1 for a pre-release) instead of <Version> in DnnManager.csproj.
+    # The version to build (1.7.0, or 1.7.0-rc.1 for a pre-release) instead of the newest version tag.
     [string]$Version
 )
 
@@ -46,12 +46,11 @@ $imagesDir = Join-Path $binDir 'images'
 $outputDir = Join-Path $root 'publish'
 $innoVersion = '6.7.3'
 
+# The version a local build gets: the newest version tag (the project's VersionFromGitTag target).
 function Get-AppVersion {
-    [xml]$xml = Get-Content -Raw $project
-    $version = $xml.Project.PropertyGroup | ForEach-Object { $_.SelectSingleNode('Version') } |
-        Where-Object { $_ } | Select-Object -First 1
-    if (-not $version) { throw "No <Version> in $project." }
-    return $version.InnerText.Trim()
+    $version = & dotnet msbuild $project -nologo -t:VersionFromGitTag -getProperty:Version
+    if ($LASTEXITCODE -ne 0 -or -not $version) { throw "Can't read the version of $project (exit code $LASTEXITCODE)." }
+    return "$version".Trim()
 }
 
 function Invoke-Publish {

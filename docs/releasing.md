@@ -4,19 +4,24 @@ Making a new version: the steps, the release workflow, the portable exe and the 
 
 ## Steps
 
-1. Set `<Version>` in [`DnnManager.csproj`](../DnnManager.csproj) - local builds,
-   the portable exe's name, the installer and Settings → About take it from there.
-2. In [`CHANGELOG.md`](../CHANGELOG.md), turn **Unreleased** into
+There is no version number to raise: the release's tag is its version. A release
+build gets it from the tag (`v1.7.2` → 1.7.2), and every other build from the
+newest version tag in git that the commit includes - after 1.7.1 is released, a
+local build, the portable exe's name, the installer and Settings → About say 1.7.1
+until 1.7.2 is tagged ([`DnnManager.csproj`](../DnnManager.csproj), target
+`VersionFromGitTag`; without git or a tag it is 0.0.0, with a build warning).
+
+1. In [`CHANGELOG.md`](../CHANGELOG.md), turn **Unreleased** into
    `## vX.Y.Z` (with an *Upgrading* note when settings or behaviour change).
-3. Run the fast tests and the integration tests ([testing.md](testing.md)).
-4. Write the release notes as `docs/release-notes/vX.Y.Z.md` - the file's name is
+2. Run the fast tests and the integration tests ([testing.md](testing.md)).
+3. Write the release notes as `docs/release-notes/vX.Y.Z.md` - the file's name is
    the release's tag and title. Every release uses the structure of
    [v1.6.0](release-notes/v1.6.0.md): a bold summary, *Highlights*, *Other changes*,
    *Upgrading*, *Tested*. With Claude Code, ask for "the release notes for X.Y.Z" -
    the `release-notes` skill (`.claude/skills/release-notes`) writes them from the
    changelog, the commits and the test results. By hand, start from the draft:
    `.github\scripts\release-notes.ps1 -Version X.Y.Z -OutFile docs\release-notes\vX.Y.Z.md`.
-5. Commit and push, then publish the release - either way the GitHub release gets
+4. Commit and push, then publish the release - either way the GitHub release gets
    `DnnManager-X.Y.Z-x64.exe` and `DnnManagerSetup-X.Y.Z-x64.exe`, and every running DNN Manager
    offers it with its **Update** button (see [The in-app update](#the-in-app-update)):
    - **From VS Code**: run the task **release (GitHub)** - see
@@ -73,8 +78,7 @@ pushed tag `vX.Y.Z` (or `vX.Y.Z-suffix`, which becomes a pre-release):
    test stops it before anything is published. The integration tests are skipped
    (inconclusive) where the runner lacks IIS Express, LocalDB or Linux containers.
 2. Takes the version from the tag and stamps it into the exe (`Version`,
-   `AssemblyVersion`, `FileVersion`, `app.manifest`) and the installer, whatever
-   `<Version>` says - it warns when the two differ.
+   `AssemblyVersion`, `FileVersion`, `app.manifest`) and the installer.
 3. Publishes the portable exe, builds the installer and checks that both report
    the tag's version.
 4. Writes the release notes with
@@ -108,6 +112,17 @@ draft or a pre-release - a `vX.Y.Z-rc.1` tag isn't offered) - see
 - **Silent Setup**: the update runs Setup with `/SILENT /SUPPRESSMSGBOXES /NORESTART
   /NOCANCEL /SP- /CURRENTUSER` (or `/ALLUSERS`) - `DnnManager.iss` must keep
   installing without questions that way, and keep its `AppId`.
+- **Setup's hand-over**: a Setup newer than 1.7.1 asks GitHub for the latest release as
+  it starts. A new install and **Update** install that one, **Repair** the installed
+  version (the release `v<installed version>`); for any version but its own, Setup
+  downloads that release's `DnnManagerSetup-<version>-x64.exe` (GitHub's
+  SHA-256, and a *file version* of `<version>.0`), copies it to
+  `%TEMP%\DnnManager-update\<version>\` and starts it with
+  `/SP- /HandedOver=1 /CURRENTUSER` (or `/ALLUSERS`), then closes. A newer Setup must
+  keep `/HandedOver=1` meaning: don't ask GitHub, skip the license and the
+  Repair / Uninstall page, and use a Setup mutex of its own
+  (`SetupMutex=DnnManager.NET.Setup{param:HandedOver|}`) - the older one may not have
+  exited yet. Setup's log (`/LOG=<file>`) records what GitHub answered.
 
 How it works: the running DNN Manager downloads and checks the file, notes the
 update (`Documents\DnnManager\state\update.json` - where the user is, the workspace
@@ -153,14 +168,14 @@ Publishes the app (self-contained, single file) into
 `src\DnnManager.Installer\bin\app`, then compiles
 [`src/DnnManager.Installer/DnnManager.iss`](../src/DnnManager.Installer/DnnManager.iss) with Inno Setup
 into `publish\DnnManagerSetup-<version>-x64.exe`. The version
-comes from `<Version>` in `DnnManager.csproj`. It uses an installed Inno Setup 6
+is the newest version tag in git, as for every local build (see [Steps](#steps)). It uses an installed Inno Setup 6
 when there is one, otherwise it downloads a pinned copy (the `Tools.InnoSetup`
 package from nuget.org) into `src\DnnManager.Installer\bin\tools` - no admin
 rights needed. Everything made along the way (the published app, wizard images,
 Inno Setup) is in `src\DnnManager.Installer\bin`; the finished Setup is in
 `publish\`.
 `-SkipPublish` reuses the last publish; `-Iscc <path>` picks the compiler;
-`-Version 1.7.0` builds that version instead of `<Version>` (the release workflow
+`-Version 1.7.0` builds that version instead of the tag's (the release workflow
 passes the tag's).
 
 The installer's `AppId` in `DnnManager.iss` identifies the installation for

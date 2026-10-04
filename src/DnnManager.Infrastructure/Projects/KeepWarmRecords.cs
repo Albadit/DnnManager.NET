@@ -1,45 +1,39 @@
-using System.Text.Json;
 using DnnManager.Application.Abstractions;
 using DnnManager.Infrastructure.Settings;
+using DnnManager.Infrastructure.State;
 using Microsoft.Extensions.Logging;
 
 namespace DnnManager.Infrastructure.Projects;
 
+/// <summary>Which sites are kept warm, and their own keep-warm values: <c>state\keep-warm.json</c>.</summary>
+public sealed class KeepWarmSites : IStateFile
+{
+    public static string FileName => "keep-warm.json";
+    public static int CurrentFormat => 1;
+    public int Format { get; set; }
+
+    public List<KeepWarmRecord> Sites { get; set; } = [];
+}
+
 /// <summary>
-/// <see cref="KeepWarmRecord"/>s as JSON files in <c>Documents\DnnManager\projects\keep-warm</c>, one per site. A record
-/// that can't be read counts as none: the site isn't kept warm until it is switched on again.
+/// <see cref="KeepWarmRecord"/>s in one state file (<see cref="KeepWarmSites"/>), saved the moment one changes - so the
+/// next start switches the same sites on again. A file that can't be read is set aside and counts as none: no site is
+/// kept warm until it is switched on again.
 /// </summary>
 public sealed class KeepWarmRecords(AppDataPaths paths, ILogger<KeepWarmRecords> log) : IKeepWarmRecords
 {
-    private static readonly JsonSerializerOptions Json = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-    };
-
-    private readonly AppDataPaths _paths = paths;
-    private readonly ILogger<KeepWarmRecords> _log = log;
+    private readonly StateStore _state = new(paths.StateDirectory, log);
+    // A change is read, changed and written in one go - keep warm and the UI save from different threads.
+    private readonly Lock _gate = new();
 
     public KeepWarmRecord? Find(string site)
     {
-        var file = FileOf(site);
-        // Another site whose name only differs in characters a file name can't have isn't this one.
-        return File.Exists(file) && Read(file) is { } record && record.Site.Equals(site, StringComparison.OrdinalIgnoreCase) ? record : null;
+        lock (_gate) return _state.Load<KeepWarmSites>().Sites.FirstOrDefault(r => Is(r, site));
     }
 
     public IReadOnlyList<KeepWarmRecord> List()
     {
-        try
-        {
-            if (!Directory.Exists(_paths.KeepWarmDirectory)) return [];
-            return Directory.EnumerateFiles(_paths.KeepWarmDirectory, "*.json").Select(Read).OfType<KeepWarmRecord>().ToList();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            _log.LogWarning(ex, "Could not list the keep-warm records");
-            return [];
-        }
+        lock (_gate) return _state.Load<KeepWarmSites>().Sites.ToList();
     }
 
     public void Save(KeepWarmRecord record)
@@ -49,40 +43,24 @@ public sealed class KeepWarmRecords(AppDataPaths paths, ILogger<KeepWarmRecords>
             Remove(record.Site);
             return;
         }
-        try
+        lock (_gate)
         {
-            Directory.CreateDirectory(_paths.KeepWarmDirectory);
-            File.WriteAllText(FileOf(record.Site), JsonSerializer.Serialize(record, Json));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            _log.LogWarning(ex, "Could not save the keep-warm record of {Site}", record.Site);
+            var state = _state.Load<KeepWarmSites>();
+            state.Sites.RemoveAll(r => Is(r, record.Site));
+            state.Sites.Add(record);
+            state.Sites.Sort((a, b) => string.Compare(a.Site, b.Site, StringComparison.OrdinalIgnoreCase));
+            _state.Save(state);
         }
     }
 
     public void Remove(string site)
     {
-        try { File.Delete(FileOf(site)); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { _log.LogWarning(ex, "Could not remove the keep-warm record of {Site}", site); }
-    }
-
-    private KeepWarmRecord? Read(string file)
-    {
-        try
+        lock (_gate)
         {
-            // The site's name is in the file; the file's own name may have had characters replaced.
-            return JsonSerializer.Deserialize<KeepWarmRecord>(File.ReadAllText(file), Json) is { Site.Length: > 0 } record ? record : null;
-        }
-        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException or NotSupportedException)
-        {
-            _log.LogWarning(ex, "Could not read the keep-warm record {File}", file);
-            return null;
+            var state = _state.Load<KeepWarmSites>();
+            if (state.Sites.RemoveAll(r => Is(r, site)) > 0) _state.Save(state);
         }
     }
 
-    private string FileOf(string site)
-    {
-        var name = string.Concat(site.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
-        return Path.Combine(_paths.KeepWarmDirectory, name + ".json");
-    }
+    private static bool Is(KeepWarmRecord record, string site) => record.Site.Equals(site, StringComparison.OrdinalIgnoreCase);
 }

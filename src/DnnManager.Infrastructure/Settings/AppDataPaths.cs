@@ -9,11 +9,13 @@ namespace DnnManager.Infrastructure.Settings;
 ///   backups\
 ///     &lt;project&gt;\&lt;project&gt;_&lt;yyyyMMdd_HHmmss&gt;\   a project backup: &lt;project&gt;.zip and / or &lt;project&gt;.bacpac
 ///     settings.*.json                          settings.json copies made before a migration or a reset
+///   deployments\ packages made by Export for deployment: &lt;project&gt;_&lt;yyyyMMdd_HHmmss&gt;\ with .zip, .bacpac, DEPLOY.txt
 ///   logs\        the activity log, one file per day
 ///   packages\    downloaded DNN install packages, when they are kept for reuse
 ///   projects\    what DNN Manager remembers about the projects it set up (how DNN was installed), one file each
-///     keep-warm\  the sites kept warm, and their own keep-warm values - one file each
+///   state\       the workspace between starts (StateStore) - keep-warm.json: which sites are kept warm
 /// </code>
+/// Every folder is there from the start (<see cref="EnsureCreated"/>), empty until something goes in it.
 /// </summary>
 public sealed class AppDataPaths(string root)
 {
@@ -36,12 +38,15 @@ public sealed class AppDataPaths(string root)
     /// <summary>Project backups (one folder per project) and the settings.json copies.</summary>
     public string BackupsDirectory => Path.Combine(Root, "backups");
     public string LogsDirectory => Path.Combine(Root, "logs");
+    /// <summary>Packages made by Export for deployment, one dated folder each - unless another folder was chosen.</summary>
+    public string DeploymentsDirectory => Path.Combine(Root, "deployments");
     /// <summary>Downloaded DNN install packages kept for reuse (setting <c>projects.keepDnnPackages</c>), one folder per repository.</summary>
     public string PackagesDirectory => Path.Combine(Root, "packages");
-    /// <summary>One <c>&lt;site&gt;.json</c> per project DNN Manager set up: how DNN was installed, when.</summary>
+    /// <summary>
+    /// One <c>&lt;site&gt;.json</c> per project DNN Manager set up: how DNN was installed, when. Data about the projects
+    /// only - what is switched on or remembered between starts (keep warm, the workspace) is state, in <see cref="StateDirectory"/>.
+    /// </summary>
     public string ProjectRecordsDirectory => Path.Combine(Root, "projects");
-    /// <summary>One <c>&lt;site&gt;.json</c> per site switched to "keep warm" (or with keep-warm values of its own).</summary>
-    public string KeepWarmDirectory => Path.Combine(ProjectRecordsDirectory, "keep-warm");
     /// <summary>
     /// What is kept between starts besides the settings - where the user was, the window, unsaved form values - one file
     /// per area (<c>StateStore</c>).
@@ -68,10 +73,14 @@ public sealed class AppDataPaths(string root)
         return $"Moved {OldRoot} to {Root}.";
     }
 
+    /// <summary>
+    /// Makes every folder of <see cref="Root"/> that isn't there yet - at start, so each can be opened (Settings → About)
+    /// before anything has gone in it, and nothing has to make one first.
+    /// </summary>
     public void EnsureCreated()
     {
-        Directory.CreateDirectory(Root);
-        Directory.CreateDirectory(BackupsDirectory);
-        Directory.CreateDirectory(LogsDirectory);
+        foreach (var folder in new[] { Root, BackupsDirectory, DeploymentsDirectory, LogsDirectory, PackagesDirectory,
+                                       ProjectRecordsDirectory, StateDirectory })
+            Directory.CreateDirectory(folder);
     }
 }

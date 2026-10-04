@@ -1,0 +1,35 @@
+<Window x:Class="DnnManager.Presentation.Controls.BindingsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Edit host names" Icon="pack://application:,,,/DnnManager;component/src/DnnManager.Presentation/Assets/dnn.ico" Width="460" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
+        Background="{DynamicResource WindowBg}" Foreground="{DynamicResource TextPrimary}">
+    <!-- A site's http bindings - host name and port, one row each - with the bindings this dialog doesn't change listed under them. -->
+    <StackPanel Margin="20">
+        <TextBlock x:Name="Intro" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimary}" />
+        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+            <TextBlock Style="{StaticResource FieldLabel}" Text="Host name" Width="260" />
+            <TextBlock Style="{StaticResource FieldLabel}" Text="Port" Margin="8,8,0,4" />
+        </StackPanel>
+        <!-- Filled in code: one row per binding, each with what it was. -->
+        <StackPanel x:Name="RowsPanel" />
+        <Button Style="{StaticResource LinkButton}" Content="Add host name" HorizontalAlignment="Left" Margin="0,4,0,0" Click="Add_Click" />
+        <TextBlock Style="{StaticResource Hint}" Text="An empty host name answers on any host name." />
+        <StackPanel x:Name="OtherPanel">
+            <TextBlock Style="{StaticResource FieldLabel}" Text="Kept as they are" Margin="0,12,0,4" />
+            <ItemsControl x:Name="OtherList" Focusable="False">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,2" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+        <TextBlock x:Name="Problem" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button x:Name="OkButton" Content="Save" Style="{StaticResource Primary}" MinWidth="80" IsDefault="True" IsEnabled="False" Click="Ok_Click"
+                    ToolTip="Save (Enter)" />
+            <Button Content="Cancel" MinWidth="80" Margin="8,0,0,0" IsCancel="True" ToolTip="Cancel (Esc)" />
+        </StackPanel>
+    </StackPanel>
+</Window>

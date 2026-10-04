@@ -245,14 +245,18 @@ public sealed class KeepWarmTests
 
             records.Save(new KeepWarmRecord("blog", false));
             Assert.IsNull(records.Find("blog"), "Off without values of its own: nothing to keep.");
-            Assert.IsFalse(File.Exists(Path.Combine(paths.KeepWarmDirectory, "blog.json")));
+            Assert.AreEqual(1, records.List().Count);
 
-            File.WriteAllText(Path.Combine(paths.KeepWarmDirectory, "broken.json"), "{ not json");
-            Assert.IsNull(records.Find("broken"), "A file that can't be read is no record.");
-            Assert.AreEqual(1, records.List().Count, "…and isn't listed.");
+            // Kept for the next start: another reader of the same folder finds them.
+            Assert.AreEqual(new KeepWarmRecord("shop", true), new KeepWarmRecords(paths, NullLogger<KeepWarmRecords>.Instance).Find("shop"));
 
             records.Remove("shop");
             Assert.IsNull(records.Find("shop"));
+
+            var file = Path.Combine(paths.StateDirectory, KeepWarmSites.FileName);
+            File.WriteAllText(file, "{ not json");
+            Assert.AreEqual(0, records.List().Count, "A file that can't be read: no site is kept warm.");
+            Assert.IsTrue(File.Exists(file + ".bad"), "…and it is set aside.");
 
             var cleaner = new AppDataCleaner(paths);
             records.Save(new KeepWarmRecord("shop", true));

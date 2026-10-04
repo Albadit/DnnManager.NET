@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     1. Asks GitHub for the newest release (the one the Update button installs) - or, when GitHub can't be reached,
-       takes <Version> from DnnManager.csproj.
+       takes the newest version tag in git.
     2. Takes the version just below it: 1.6.0 -> 1.5.9, 1.7.0 -> 1.6.9, 2.0.0 -> 1.9.9.
     3. Publishes the working copy as the portable exe with that version stamped in:
        publish\update-test\DnnManager-<version>-x64.exe (an older test exe there is replaced).
@@ -47,11 +47,11 @@ if (-not $Version) {
         Write-Host "Newest release on GitHub: $($release.tag_name)"
     }
     catch {
-        [xml]$xml = Get-Content -Raw $project
-        $declared = $xml.Project.PropertyGroup | ForEach-Object { $_.SelectSingleNode('Version') } | Where-Object { $_ } | Select-Object -First 1
-        if (-not $declared) { throw "GitHub can't be reached ($($_.Exception.Message)) and DnnManager.csproj has no <Version>." }
-        $latest = [version]$declared.InnerText.Trim()
-        Write-Warning "GitHub can't be reached ($($_.Exception.Message)) - going one below <Version> $latest instead. The Update button only shows once GitHub answers."
+        $reason = $_.Exception.Message
+        $tag = & git -C $root describe --tags --abbrev=0 --match 'v[0-9]*' 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $tag) { throw "GitHub can't be reached ($reason) and git has no version tag." }
+        $latest = [version]("$tag".Trim().TrimStart('v') -split '[-+]')[0]
+        Write-Warning "GitHub can't be reached ($reason) - going one below the newest tag, $tag, instead. The Update button only shows once GitHub answers."
     }
     $Version = Get-VersionBelow $latest
 }

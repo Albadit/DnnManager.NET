@@ -98,10 +98,10 @@ public sealed class OutputStage(string name, string title) : OutputItem
 
     public TimeSpan? Duration => StartedAt is { } start ? (EndedAt ?? DateTime.Now) - start : null;
 
-    /// <summary>"0.25s", "1m 02s"; "skipped", "—" for one still to come.</summary>
+    /// <summary>"0.25s", "1m 02s"; "skipped", "-" for one still to come.</summary>
     public string DurationText => _status switch
     {
-        StageStatus.Pending => "—",
+        StageStatus.Pending => "-",
         StageStatus.Skipped => "skipped",
         StageStatus.Cancelled => "cancelled",
         _ => Duration is { } d ? OutputFormat.Short(d) : ""
