@@ -608,6 +608,13 @@ public partial class TerminalPanel : UserControl
     /// <summary>The Logs tab on <paramref name="site"/>'s log of kind <paramref name="group"/> named <paramref name="title"/> - without switching to it.</summary>
     internal void ShowLog(ProjectRow site, string? group, string? title) => Logs.Show(site, group, title);
 
+    /// <summary>The Logs tab on DNN Manager's own log named <paramref name="title"/> (its newest when null); shown when <paramref name="switchTo"/>.</summary>
+    internal void ShowAppLog(string? title, bool switchTo)
+    {
+        if (switchTo) ShowPane(Pane.Logs);
+        Logs.ShowApp(title);
+    }
+
     // ─── Search (Ctrl+F) ──────────────────────────────────────────────────
 
     // Looks again a moment after the text changed (new output keeps coming), not at every line.

@@ -1,6 +1,7 @@
 using System.Diagnostics.Eventing.Reader;
 using System.Text;
 using DnnManager.Application.Abstractions;
+using DnnManager.Infrastructure.Settings;
 using Microsoft.Extensions.Logging;
 
 namespace DnnManager.Infrastructure.SiteLogs;
@@ -11,7 +12,7 @@ public sealed record EventLogFilter(string LogName, IReadOnlyList<string> Provid
 /// <summary>
 /// One log a website has - a file (DNN's log, IIS's request log…) or entries of a Windows event log.
 /// </summary>
-/// <param name="Group">What writes it: "DNN", "IIS", "Windows".</param>
+/// <param name="Group">What writes it: "DNN", "IIS", "Windows" - or "DNN Manager" for DNN Manager's own log.</param>
 /// <param name="Title">What it is, as the menu and the Logs tab name it: "DNN log - 2026.10.01".</param>
 /// <param name="Description">Where it is: the file's path with its size and time, or the event log and its filter.</param>
 public sealed record SiteLogSource(string Group, string Title, string Description, string? FilePath, EventLogFilter? Events)
@@ -22,14 +23,38 @@ public sealed record SiteLogSource(string Group, string Title, string Descriptio
 
 /// <summary>
 /// Finds a website's logs: DNN's own (Portals\_default\Logs), IIS's request logs for the site, HTTP.sys's errors,
-/// and the Windows event log entries about it (ASP.NET errors, its app pool, worker process crashes).
+/// and the Windows event log entries about it (ASP.NET errors, its app pool, worker process crashes) - and DNN
+/// Manager's own log (<see cref="ForApp"/>).
 /// </summary>
-public sealed class SiteLogCatalog(IIisManager iis, ILogger<SiteLogCatalog> log)
+public sealed class SiteLogCatalog(IIisManager iis, AppDataPaths paths, ILogger<SiteLogCatalog> log)
 {
+    /// <summary>The group of DNN Manager's own log files.</summary>
+    public const string AppGroup = "DNN Manager";
+
     private const int FilesPerKind = 8;
 
     private readonly IIisManager _iis = iis;
+    private readonly AppDataPaths _paths = paths;
     private readonly ILogger<SiteLogCatalog> _log = log;
+
+    /// <summary>DNN Manager's own log - a file a day, <c>logs\dnnmanager-yyyyMMdd.log</c> - newest first, named by its day.</summary>
+    public IReadOnlyList<SiteLogSource> ForApp()
+    {
+        try
+        {
+            return Newest(_paths.LogsDirectory, "dnnmanager-*.log")
+                .Select(file => (File: file, Day: Path.GetFileNameWithoutExtension(file)["dnnmanager-".Length..]))
+                .Where(f => DateOnly.TryParseExact(f.Day, "yyyyMMdd", out _))
+                .Take(FilesPerKind)
+                .Select(f => FileSource(AppGroup, $"DNN Manager log - {DateOnly.ParseExact(f.Day, "yyyyMMdd"):yyyy-MM-dd}", f.File))
+                .ToList();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _log.LogWarning(ex, "Could not list DNN Manager's logs");
+            return [];
+        }
+    }
 
     /// <summary>The logs of site <paramref name="siteName"/> (ID <paramref name="siteId"/>), newest files first within each kind.</summary>
     public IReadOnlyList<SiteLogSource> For(string siteName, long siteId, string directory, string appPool)

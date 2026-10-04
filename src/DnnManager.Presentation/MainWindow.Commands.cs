@@ -39,6 +39,8 @@ public partial class MainWindow
         Add("view.search", "Search in this view", "Application", "Ctrl+F", SearchHere, () => SearchTarget() is not null,
             "find filter output log terminal", inTerminal: true);
         Add("app.checkUpdates", "Check for updates", "Application", null, () => _ = CheckForUpdatesAsync(), keywords: "version release github");
+        Add("app.whatsNew", "What's new in this version", "Application", null,
+            () => WhatsNewDialog.Show(ReleaseNotes.Between(null, _updater.Current).Take(1).ToList()), keywords: "release notes changes changelog version");
         Add("app.installUpdate", "Install the update", "Application", null, () => _ = _updater.UpdateAsync(),
             () => _updater.CanInstall && !_runner.IsBusy, "upgrade new version");
         Add("app.restart", "Restart DNN Manager", "Application", null, () => AppRestart.Restart(), () => !_runner.IsBusy, "reload");
@@ -117,6 +119,11 @@ public partial class MainWindow
             TerminalPanel.ShowActivity();
         }, keywords: "activity operations", inTerminal: true);
         Add("panel.clearOutput", "Clear the output", "Panel", null, _log.Clear, () => !_runner.IsBusy, "clear logs activity");
+        Add("panel.appLog", "Show DNN Manager's log", "Panel", null, () =>
+        {
+            SetLogOpen(true);
+            TerminalPanel.ShowAppLog(null, switchTo: true);
+        }, keywords: "logs dnnmanager file warnings errors", inTerminal: true);
         Add("terminal.toggle", "Show the terminal", "Terminal", "Ctrl+`", ToggleTerminal, () => _terminal.Settings.Enabled, "shell", inTerminal: true);
         Add("terminal.new", "New terminal", "Terminal", "Ctrl+Shift+`", () =>
         {

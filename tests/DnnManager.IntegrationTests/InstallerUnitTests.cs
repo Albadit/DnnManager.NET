@@ -300,7 +300,7 @@ public sealed class InstallerUnitTests
                     "A reset keeps no copy of the settings.");
             var records = new ProjectRecords(database, NullLogger<ProjectRecords>.Instance);
             records.Save(new ProjectRecord("shop", DnnInstallMode.Automatic, DateTime.UtcNow, "10.0.1", "host"));
-            Write(@"logs\dnnmanager-2026-09-30.log", 100);
+            Write(@"logs\dnnmanager-20260930.log", 100);
             Write(@"packages\dnnsoftware.Dnn.Platform\DNN_10.zip", 1000);
             Write(@"backups\shop\shop_20261001_120000\shop.zip", 5000);
             var cleaner = new AppDataCleaner(paths);

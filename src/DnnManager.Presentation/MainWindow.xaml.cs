@@ -395,7 +395,12 @@ public partial class MainWindow : Window
     {
         var state = _workspace.Load<WorkspaceState>();
         var logs = _workspace.Load<LogsState>();
-        var update = TakeUpdate();
+        var lastRun = _workspace.Load<VersionState>().LastRun;
+        var current = _updater.Current.ToString();
+        // An update by 1.7.2 or older noted itself where this version doesn't look - its helper's plan says it.
+        var update = TakeUpdate() ?? (lastRun != current ? _updater.HandedOver() : null);
+        var whatsNewSince = WhatsNewSince(update, lastRun);
+        if (lastRun != current) _workspace.Store.Save(new VersionState { LastRun = current });
         foreach (var (key, draft) in _workspace.Load<FormsState>().Drafts) _drafts[key] = draft;
         _restoringWorkspace = state;
         _restoringLogs = logs;
@@ -428,9 +433,15 @@ public partial class MainWindow : Window
             var missing = _pages.GetValueOrDefault("Projects") is ProjectsPage projects
                 ? await projects.RestoreAsync(state.Projects, state.Project, state.ProjectTab) : null;
             // The Logs tab's log, now that the sites are read.
-            if (logs.LogSite is { } site && _store.Projects.FirstOrDefault(r => r.Name.Equals(site, StringComparison.OrdinalIgnoreCase)) is { } row)
+            if (logs.LogGroup == SiteLogCatalog.AppGroup)
+                TerminalPanel.ShowAppLog(logs.LogTitle, switchTo: false);
+            else if (logs.LogSite is { } site && _store.Projects.FirstOrDefault(r => r.Name.Equals(site, StringComparison.OrdinalIgnoreCase)) is { } row)
                 TerminalPanel.ShowLog(row, logs.LogGroup, logs.LogTitle);
             Report(update, missing, settingsBack);
+            // What changed - once the window is up and restored.
+            if (whatsNewSince is not null)
+                _ = Dispatcher.BeginInvoke(() => Controls.WhatsNewDialog.Show(ReleaseNotes.Between(whatsNewSince, _updater.Current)),
+                    System.Windows.Threading.DispatcherPriority.ApplicationIdle);
         }
         catch (Exception ex)
         {
@@ -444,6 +455,19 @@ public partial class MainWindow : Window
             _restoringLogs = null;
             _workspace.Changed();
         }
+    }
+
+    /// <summary>
+    /// The version whose newer notes What's new shows at this start: the one an update came from, or the one that ran
+    /// last when it is older (Setup run by hand, a new portable exe) - null on a first start, or when nothing is newer.
+    /// </summary>
+    private Version? WhatsNewSince(UpdateRecord? update, string? lastRun)
+    {
+        var current = _updater.Current;
+        foreach (var before in new[] { update?.FromVersion, lastRun })
+            if (before is not null && AppReleaseFeed.TryParseVersion(before, out var version) && AppReleaseFeed.IsNewer(current, version))
+                return version;
+        return null;
     }
 
     /// <summary>The update that started this process, if one did - read once, then gone.</summary>

@@ -2,6 +2,33 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## v1.7.4
+
+### Upgrading
+
+- DNN Manager's log files of the old name (`logs\dnnmanager-2026-10-04.log`)
+  are deleted at the first start; new ones are `dnnmanager-20261004.log`.
+
+### Added
+
+- **What's new after an update**: the first start of a newer version shows the
+  release notes of every version since the one before - the same text as the
+  GitHub releases, built into DNN Manager so they show offline too - whether it
+  was updated by **Update**, Setup or a new portable exe. **What's new in this
+  version** in the command palette shows them again.
+- **DNN Manager's own log on the Logs tab**: **DNN Manager** is first in its
+  list of sites, with its daily log files (the newest 8) - followed as they are
+  written, `[warning]` lines yellow and `[error]` red. **Show DNN Manager's
+  log** in the command palette opens it.
+
+### Changed
+
+- DNN Manager looks for a newer release once, a few seconds after it starts, not
+  every hour - and still when **Settings → About** is opened and on **Check for
+  updates**.
+- DNN Manager's log file is named by its day without dashes,
+  `logs\dnnmanager-20261004.log`.
+
 ## v1.7.3
 
 ### Upgrading

@@ -66,7 +66,7 @@ app relaunches itself elevated - and that process isn't the one being debugged.
 
 Where to look when something goes wrong:
 
-- **`Documents\DnnManager\logs\dnnmanager-<date>.log`** ([configuration.md](configuration.md#where-your-files-are)) - every operation
+- **`Documents\DnnManager\logs\dnnmanager-<yyyymmdd>.log`** ([configuration.md](configuration.md#where-your-files-are)) - every operation
   (Markdown: `# operation`, `## stage`, then its lines) and the app's own
   warnings and errors with their stack traces (`[warning]`, `[error]`,
   `[critical]`). Kept 30 days.

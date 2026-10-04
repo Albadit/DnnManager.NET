@@ -21,10 +21,13 @@ public sealed class LogLine
         text = text.Contains('\t') ? text.Replace("\t", "    ") : text;
         Text = text;
         Level = text.StartsWith("---", StringComparison.Ordinal) ? LogLineLevel.Note
-            // DNN (log4net) writes "[ERROR]" / "[WARN]", the event logs "  ERROR  " / "  WARNING  ".
+            // DNN (log4net) writes "[ERROR]" / "[WARN]", the event logs "  ERROR  " / "  WARNING  ", DNN Manager
+            // "[error]" / "[critical]" / "[warning]".
             : text.Contains(" ERROR", StringComparison.Ordinal) || text.Contains(" FATAL", StringComparison.Ordinal) ||
-              text.Contains("[ERROR", StringComparison.Ordinal) || text.Contains("[FATAL", StringComparison.Ordinal) ? LogLineLevel.Error
-            : text.Contains(" WARN", StringComparison.Ordinal) || text.Contains("[WARN", StringComparison.Ordinal) ? LogLineLevel.Warning
+              text.Contains("[ERROR", StringComparison.Ordinal) || text.Contains("[FATAL", StringComparison.Ordinal) ||
+              text.Contains("[error]", StringComparison.Ordinal) || text.Contains("[critical]", StringComparison.Ordinal) ? LogLineLevel.Error
+            : text.Contains(" WARN", StringComparison.Ordinal) || text.Contains("[WARN", StringComparison.Ordinal) ||
+              text.Contains("[warning]", StringComparison.Ordinal) ? LogLineLevel.Warning
             : LogLineLevel.Normal;
     }
 
@@ -32,8 +35,18 @@ public sealed class LogLine
     public LogLineLevel Level { get; }
 }
 
+/// <summary>DNN Manager itself in the Logs tab's list of websites - its own log files - above the sites.</summary>
+public sealed class AppLogChoice
+{
+    public static readonly AppLogChoice Instance = new();
+
+    private AppLogChoice() { }
+
+    public string Name => SiteLogCatalog.AppGroup;
+}
+
 /// <summary>
-/// The Logs tab: a website's logs - DNN's, IIS's, the Windows events about it - one at a time. Its newest lines are
+/// The Logs tab: a website's logs - DNN's, IIS's, the Windows events about it - or DNN Manager's own, one at a time. Its newest lines are
 /// read (never the whole of a large file), then new ones arrive as they are written; the view follows them while it
 /// is at the bottom. Its text can be selected and copied (<see cref="LogView"/>). Searchable
 /// (<see cref="ISearchTarget"/>): every match highlighted, the current one stronger. While the window is minimized
@@ -71,10 +84,10 @@ public partial class LogsView : UserControl, ISearchTarget
     internal void Attach(ServerStore store, SiteLogCatalog catalog)
     {
         _store = store; _catalog = catalog;
-        // Every IIS site, by name - kept current as sites come and go.
+        // DNN Manager's own log first, then every IIS site, by name - kept current as sites come and go.
         var sites = new ListCollectionView(store.Projects);
         sites.SortDescriptions.Add(new SortDescription(nameof(ProjectRow.Name), ListSortDirection.Ascending));
-        SiteBox.ItemsSource = sites;
+        SiteBox.ItemsSource = new CompositeCollection { AppLogChoice.Instance, new CollectionContainer { Collection = sites } };
     }
 
     public void SetFont(FontFamily font, double size) => LogText.SetFont(font, size);
@@ -92,12 +105,15 @@ public partial class LogsView : UserControl, ISearchTarget
     internal void Show(ProjectRow site, string? group, string? title) =>
         Show(site, s => s.Group == group && s.Title == title);
 
-    private async void Show(ProjectRow site, Func<SiteLogSource, bool> wanted)
+    /// <summary>DNN Manager's own log named <paramref name="title"/> - its newest when null, or when that one is gone.</summary>
+    internal void ShowApp(string? title) => Show(AppLogChoice.Instance, s => title is null || s.Title == title);
+
+    private async void Show(object choice, Func<SiteLogSource, bool> wanted)
     {
         _filling = true;
-        SiteBox.SelectedItem = site;
+        SiteBox.SelectedItem = choice;
         _filling = false;
-        if (!await FillLogsAsync(site)) return;
+        if (!await FillLogsAsync(choice)) return;
         var item = LogBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag is SiteLogSource s && wanted(s))
                    ?? LogBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag is SiteLogSource);
         LogBox.SelectedItem = item;
@@ -112,8 +128,8 @@ public partial class LogsView : UserControl, ISearchTarget
 
     private async void Site_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_filling || SiteBox.SelectedItem is not ProjectRow site) return;
-        if (!await FillLogsAsync(site)) return;
+        if (_filling || SiteBox.SelectedItem is not ({ } choice and (ProjectRow or AppLogChoice))) return;
+        if (!await FillLogsAsync(choice)) return;
         LogBox.SelectedItem = LogBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag is SiteLogSource);
     }
 
@@ -121,15 +137,23 @@ public partial class LogsView : UserControl, ISearchTarget
     private int _listing;
 
     /// <summary>
-    /// The site's logs, under a heading per kind (DNN, IIS, Windows) - found off the UI thread (IIS's configuration and
-    /// log folders of thousands of files are read). False when another site was chosen meanwhile.
+    /// The site's logs, under a heading per kind (DNN, IIS, Windows) - or DNN Manager's own - found off the UI thread
+    /// (IIS's configuration and log folders of thousands of files are read). False when another one was chosen meanwhile.
     /// </summary>
-    private async Task<bool> FillLogsAsync(ProjectRow site)
+    private async Task<bool> FillLogsAsync(object choice)
     {
         var listing = ++_listing;
-        var (name, id, path, pool) = (site.Name, site.IisSite.Id, site.Path, site.IisSite.AppPool);
         var catalog = _catalog!;
-        var sources = await Task.Run(() => catalog.For(name, id, path, pool).ToList());
+        IReadOnlyList<SiteLogSource> sources;
+        if (choice is ProjectRow site)
+        {
+            var (name, id, path, pool) = (site.Name, site.IisSite.Id, site.Path, site.IisSite.AppPool);
+            sources = await Task.Run(() => catalog.For(name, id, path, pool).ToList());
+        }
+        else
+        {
+            sources = await Task.Run(() => catalog.ForApp());
+        }
         if (listing != _listing) return false;
         LogBox.Items.Clear();
         string? group = null;
@@ -148,7 +172,7 @@ public partial class LogsView : UserControl, ISearchTarget
     private void Log_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_filling || (LogBox.SelectedItem as ComboBoxItem)?.Tag is not SiteLogSource source || _source is not null && SameLog(source, _source)) return;
-        var site = (SiteBox.SelectedItem as ProjectRow)?.Name;
+        var site = SiteBox.SelectedItem switch { ProjectRow row => row.Name, AppLogChoice app => app.Name, _ => null };
         Open(source, site);
     }
 
@@ -157,7 +181,8 @@ public partial class LogsView : UserControl, ISearchTarget
         Stop();
         _source = source;
         CurrentSite = site;
-        Current = $"{site} - {source.Title}";
+        // "DNN Manager log - 2026-10-04" names itself.
+        Current = source.Group == SiteLogCatalog.AppGroup ? source.Title : $"{site} - {source.Title}";
         Description.Text = source.Description;
         Description.ToolTip = source.Description;
         FolderButton.IsEnabled = source.FilePath is not null;

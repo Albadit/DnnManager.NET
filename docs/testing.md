@@ -30,9 +30,11 @@ They need nothing installed and take about 25 seconds:
 | `WebConfigDeploymentTests.cs` | Export for deployment's `web.config`: the HTTPS rules switched off locally back on, the live connection string, debug off |
 | `SiteDatabaseChecksTests.cs` | Whether a site's database is live, missing or offline - asked with its `web.config` connection, once per server and login |
 | `SqlServerAddressTests.cs` | Which SQL Server addresses are this PC - a project's database is only dropped when it is here |
-| `DailyLogFileTests.cs` | The day's log file survives being deleted; warnings and errors reach it once, with their stack trace |
+| `DailyLogFileTests.cs` | The day's log file (`dnnmanager-yyyymmdd.log`, the old name deleted) survives being deleted; warnings and errors reach it once, with their stack trace |
 | `ProcessSamplerTests.cs` | Worker-process memory read from the process handle |
 | `TerminalScrollbackTests.cs` | The terminal's scrollback keeps the newest lines in order |
+| `ReleaseNotesTests.cs` | What's new: the release notes built in, those since the version before, and their links to the release's tag |
+| `AppLogTests.cs` | DNN Manager's own log on the Logs tab: its daily files newest first, its `[warning]` and `[error]` lines coloured |
 | `InputAlignmentTests.cs` | In a search box the caret stands where the placeholder's text starts |
 
 ## The integration tests

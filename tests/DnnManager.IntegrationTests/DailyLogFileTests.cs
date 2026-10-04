@@ -17,7 +17,7 @@ public sealed class DailyLogFileTests
             var paths = new AppDataPaths(root);
             using var log = new DailyLogFile(paths);
             var now = DateTime.Now;
-            var file = Path.Combine(paths.LogsDirectory, $"dnnmanager-{now:yyyy-MM-dd}.log");
+            var file = Path.Combine(paths.LogsDirectory, $"dnnmanager-{now:yyyyMMdd}.log");
 
             log.Append(now, "before");
             Assert.IsTrue(File.Exists(file));
@@ -31,6 +31,33 @@ public sealed class DailyLogFileTests
             var text = ReadShared(file);
             StringAssert.Contains(text, "after");
             Assert.IsFalse(text.Contains("before"), "Only what came after the clean-up.");
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch (IOException) { /* still open */ }
+        }
+    }
+
+    [TestMethod]
+    public void TheFileIsNamedByItsDay_AndTheOldNamesGoAtStart()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "DnnManagerTests", "logs-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var paths = new AppDataPaths(root);
+            Directory.CreateDirectory(paths.LogsDirectory);
+            var old = Path.Combine(paths.LogsDirectory, "dnnmanager-2026-10-03.log");
+            var kept = Path.Combine(paths.LogsDirectory, "dnnmanager-20261003.log");
+            File.WriteAllText(old, "12:00:00 the name before 1.7.4");
+            File.WriteAllText(kept, "12:00:00 yesterday");
+
+            using var log = new DailyLogFile(paths);
+            log.Append(new DateTime(2026, 10, 4, 9, 30, 0), "today");
+
+            Assert.IsFalse(File.Exists(old), "The old name is deleted.");
+            Assert.IsTrue(File.Exists(kept), "Yesterday's file stays.");
+            Assert.AreEqual("dnnmanager-20261004.log", DailyLogFile.FileName(new DateOnly(2026, 10, 4)));
+            StringAssert.Contains(ReadShared(Path.Combine(paths.LogsDirectory, "dnnmanager-20261004.log")), "09:30:00 today");
         }
         finally
         {
@@ -53,7 +80,7 @@ public sealed class DailyLogFileTests
             for (var i = 0; i < 3; i++) log.LogWarning(new InvalidOperationException("IIS is busy"), "Could not read IIS site states");
             log.LogError("Failed to write web.config");
 
-            var text = ReadShared(Path.Combine(paths.LogsDirectory, $"dnnmanager-{DateTime.Now:yyyy-MM-dd}.log"));
+            var text = ReadShared(Path.Combine(paths.LogsDirectory, $"dnnmanager-{DateTime.Now:yyyyMMdd}.log"));
             Assert.IsFalse(text.Contains("Not interesting"), "Information isn't written.");
             StringAssert.Contains(text, "[warning] IisManager: Could not read IIS site states");
             StringAssert.Contains(text, "    System.InvalidOperationException: IIS is busy");

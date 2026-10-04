@@ -39,6 +39,9 @@
   <ItemGroup>
     <!-- The DNN mark: the exe's icon (ApplicationIcon above) and every window's title-bar icon. -->
     <Resource Include="src\DnnManager.Presentation\Assets\dnn.ico" />
+    <!-- Each release's notes, as GitHub shows them - "What's new" after an update reads them from here, offline too
+         (src/DnnManager.Presentation/Services/ReleaseNotes.cs). -->
+    <EmbeddedResource Include="docs\release-notes\v*.md" LogicalName="ReleaseNotes.%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -72,8 +75,8 @@
     <Warning Condition="'$(Version)' == '0.0.0'" Text="No version tag (v1.2.3) found with git - this build is version 0.0.0." />
   </Target>
 
-  <!-- Nothing but the program is published: settings.json is created in Documents\DnnManager on first run
-       (src/DnnManager.Infrastructure/Settings). -->
+  <!-- Nothing but the program is published: the settings are created in Documents\DnnManager\dnnmanager.db on first
+       run (src/DnnManager.Infrastructure/Settings). -->
 
   <!-- Portable publish (-p:PortableExe=true, used by the VS Code publish task): the single-file exe is renamed
        DnnManager-<version>-<arch>.exe, e.g. DnnManager-1.6.0-x64.exe. Only the file is renamed - the assembly

@@ -107,3 +107,14 @@ public sealed class UpdateRecord : IStateFile
     /// <summary>The update helper's result (<c>UpdateResult</c>) - whether the new version was installed, and why not.</summary>
     public string? ResultFile { get; set; }
 }
+
+/// <summary>
+/// The version that ran last - a newer one starting shows what changed since (What's new), however it was installed:
+/// the update, Setup run by hand, a new portable exe.
+/// </summary>
+public sealed class VersionState : IStateFile
+{
+    public static string Area => "version";
+
+    public string? LastRun { get; set; }
+}

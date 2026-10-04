@@ -1,7 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Reflection;
-using System.Windows.Threading;
 using DnnManager.Infrastructure.Updates;
 
 namespace DnnManager.Presentation.Services;
@@ -9,14 +8,14 @@ namespace DnnManager.Presentation.Services;
 public enum UpdateState { Checking, UpToDate, Available, Unreachable, Downloading, Installing, Restarting, Failed }
 
 /// <summary>
-/// DNN Manager's own updates: whether GitHub has a newer release (at start, every few hours, and when About is opened),
+/// DNN Manager's own updates: whether GitHub has a newer release (once at start, when About is opened, and on Check for updates),
 /// and the update itself - download and check the release's file, note the update (<see cref="UpdateRecord"/>), close
 /// (the window saves where the user is, <see cref="WorkspaceService"/>), and leave the rest to the update helper (<see cref="UpdateHelper"/>), which installs it and starts the new
 /// version. Until DNN Manager closes nothing is changed: a failure before that leaves this version running as it was.
 /// </summary>
 public sealed class AppUpdater : INotifyPropertyChanged
 {
-    private static readonly TimeSpan FirstCheck = TimeSpan.FromSeconds(5), CheckEvery = TimeSpan.FromHours(1), CleanupAfter = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan FirstCheck = TimeSpan.FromSeconds(5), CleanupAfter = TimeSpan.FromMinutes(2);
 
     private readonly AppReleaseFeed _feed = new(new HttpClient { Timeout = TimeSpan.FromSeconds(15) });
     private readonly UpdateDownloader _downloader = new(new HttpClient { Timeout = TimeSpan.FromMinutes(30) });
@@ -26,7 +25,7 @@ public sealed class AppUpdater : INotifyPropertyChanged
     // A single-file exe (installed or portable) has no DnnManager.dll beside it; a dotnet build's output has.
     private readonly Lazy<UpdateTarget?> _target = new(() =>
         UpdateTarget.Detect(Environment.ProcessPath, !File.Exists(Path.Combine(AppContext.BaseDirectory, "DnnManager.dll"))));
-    private DispatcherTimer? _timer;
+    private bool _started;
     private DateTime _checkedAt = DateTime.MinValue;
     private bool _checking, _updating;
 
@@ -72,18 +71,17 @@ public sealed class AppUpdater : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    /// <summary>Checks a moment after the window is up, then every few hours; cleans up the last update's files.</summary>
-    public void Start()
+    /// <summary>
+    /// Checks once, a moment after the window is up - not again while DNN Manager runs (About and Check for updates
+    /// ask then); cleans up the last update's files.
+    /// </summary>
+    public async void Start()
     {
-        if (_timer is not null) return;
-        _timer = new DispatcherTimer { Interval = FirstCheck };
-        _timer.Tick += async (_, _) =>
-        {
-            _timer.Interval = CheckEvery;
-            await CheckAsync();
-        };
-        _timer.Start();
+        if (_started) return;
+        _started = true;
         _ = CleanupLaterAsync();
+        await Task.Delay(FirstCheck);
+        await CheckAsync();
     }
 
     /// <summary>Asks GitHub again - unless it was asked in the last <paramref name="unlessWithin"/>.</summary>
@@ -199,6 +197,30 @@ public sealed class AppUpdater : INotifyPropertyChanged
             foreach (var dll in Directory.EnumerateFiles(Path.GetDirectoryName(exe)!, "*.dll"))
                 File.Copy(dll, Path.Combine(dir, Path.GetFileName(dll)), overwrite: true);
         return helper;
+    }
+
+    /// <summary>
+    /// The update that started this version when DNN Manager 1.7.2 or older made it (from 1.7.3 on, an update is noted in the database): those note it in a file this
+    /// version doesn't read (<c>state\update.json</c>), but their helper's plan for this version is still in
+    /// <see cref="WorkFolder"/> for a couple of minutes. Null when there is none, or it is older than an update takes.
+    /// </summary>
+    public UpdateRecord? HandedOver()
+    {
+        var plan = Path.Combine(WorkFolder, Current.ToString(), "plan.json");
+        try
+        {
+            if (!File.Exists(plan)) return null;
+            var saved = File.GetLastWriteTimeUtc(plan);
+            if (DateTime.UtcNow - saved is var age && (age < TimeSpan.Zero || age > UpdateRecord.MaxAge)) return null;
+            var read = UpdatePlan.Read(plan);
+            return read.ToVersion == Current.ToString()
+                ? new UpdateRecord { SavedUtc = saved, FromVersion = read.FromVersion, ToVersion = read.ToVersion, ResultFile = read.ResultFile }
+                : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidDataException)
+        {
+            return null;
+        }
     }
 
     /// <summary>The last update's downloads and helper, once it has surely finished - unless an update is under way.</summary>

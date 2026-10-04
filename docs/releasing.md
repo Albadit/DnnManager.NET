@@ -21,6 +21,8 @@ until 1.7.2 is tagged ([`DnnManager.csproj`](../DnnManager.csproj), target
    the `release-notes` skill (`.claude/skills/release-notes`) writes them from the
    changelog, the commits and the test results. By hand, start from the draft:
    `.github\scripts\release-notes.ps1 -Version X.Y.Z -OutFile docs\release-notes\vX.Y.Z.md`.
+   The notes are built into the exe (What's new after an update shows them), so
+   they must be committed before the release is built.
 4. Commit and push, then publish the release - either way the GitHub release gets
    `DnnManager-X.Y.Z-x64.exe` and `DnnManagerSetup-X.Y.Z-x64.exe`, and every running DNN Manager
    offers it with its **Update** button (see [The in-app update](#the-in-app-update)):

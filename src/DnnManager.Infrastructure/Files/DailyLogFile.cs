@@ -4,8 +4,9 @@ using DnnManager.Infrastructure.Settings;
 namespace DnnManager.Infrastructure.Files;
 
 /// <summary>
-/// Appends lines to <c>logs\dnnmanager-yyyy-MM-dd.log</c> in the user's DNN Manager folder, a new file each day,
-/// deleting files older than <see cref="DaysKept"/> days. A file deleted while it is written to (Troubleshoot → Clean
+/// Appends lines to <c>logs\dnnmanager-yyyyMMdd.log</c> in the user's DNN Manager folder, a new file each day,
+/// deleting files older than <see cref="DaysKept"/> days - and those of the name before 1.7.4 (<c>dnnmanager-yyyy-MM-dd.log</c>).
+/// A file deleted while it is written to (Troubleshoot → Clean
 /// up data, or by hand) is started again with the next line - writing on would go into the deleted file, which
 /// nobody sees. Logging is best effort: a write that fails is tried again a minute later, without disturbing the app.
 /// </summary>
@@ -62,13 +63,16 @@ public sealed class DailyLogFile : IDisposable
         if (_writer is not null && day == _day && File.Exists(_path)) return _writer;
         _writer?.Dispose();
         Directory.CreateDirectory(_directory);
-        _path = Path.Combine(_directory, $"dnnmanager-{day:yyyy-MM-dd}.log");
+        _path = Path.Combine(_directory, FileName(day));
         // Shared, so the log can be opened (or copied) - and deleted - while the app is running.
         var stream = new FileStream(_path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
         _writer = new StreamWriter(stream, new UTF8Encoding(false)) { AutoFlush = true };
         _day = day;
         return _writer;
     }
+
+    /// <summary>The day's file name: <c>dnnmanager-20261004.log</c>.</summary>
+    public static string FileName(DateOnly day) => $"dnnmanager-{day:yyyyMMdd}.log";
 
     private void DeleteOldFiles()
     {
@@ -77,8 +81,12 @@ public sealed class DailyLogFile : IDisposable
             if (!Directory.Exists(_directory)) return;
             var cutoff = DateTime.Now.AddDays(-DaysKept);
             foreach (var file in new DirectoryInfo(_directory).GetFiles("*.log"))
-                if (file.LastWriteTime < cutoff) file.Delete();
+                if (file.LastWriteTime < cutoff || IsOldName(file.Name)) file.Delete();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
+
+    // dnnmanager-2026-10-04.log - the name before 1.7.4.
+    private static bool IsOldName(string name) =>
+        System.Text.RegularExpressions.Regex.IsMatch(name, @"^dnnmanager-\d{4}-\d{2}-\d{2}\.log$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 }

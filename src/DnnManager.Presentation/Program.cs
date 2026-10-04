@@ -77,7 +77,7 @@ internal static class Program
         var options = loaded.Settings.ToAppOptions();
         builder.Configuration.GetSection(AppOptions.SectionName).Bind(options);
 
-        // No console in a WinExe: the app's warnings and errors go to the daily log file (logs\dnnmanager-*.log), with
+        // No console in a WinExe: the app's warnings and errors go to the daily log file (logs\dnnmanager-yyyyMMdd.log), with
         // their stack traces - what the user sees goes through the activity log and message boxes.
         builder.Logging.ClearProviders();
         builder.Logging.SetMinimumLevel(LogLevel.Warning);

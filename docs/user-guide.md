@@ -64,8 +64,9 @@ from 1.7.1 or earlier](configuration.md#upgrading-from-171-or-earlier)).
 
 ## Update
 
-DNN Manager asks GitHub for its newest release a few seconds after it starts,
-every hour after that, and when you open **Settings → About**. When there is a
+DNN Manager asks GitHub for its newest release once, a few seconds after it
+starts - not again while it runs - and when you open **Settings → About** or run
+**Check for updates** from the command palette. When there is a
 newer one, a blue **Update** button appears in the title bar, left of the
 layout buttons. Click it and DNN Manager:
 
@@ -83,7 +84,12 @@ layout buttons. Click it and DNN Manager:
    file name, so your shortcuts and *Start DNN Manager when you sign in* keep
    working;
 5. opens again - the new version - where you were, with a message that says it
-   updated (*Updated to v1.7.0 - you're back where you left off*).
+   updated (*Updated to v1.7.0 - you're back where you left off*), and **What's
+   new**: the release notes of every version since the one you had, as each
+   GitHub release shows them (built into DNN Manager, so they show offline too).
+   A newer version installed another way - Setup run by hand, a new portable
+   exe - shows them at its first start as well. **What's new in this version**
+   in the command palette shows them again.
 
 Until DNN Manager closes nothing is changed: a download or a check that fails
 leaves this version running and says why; **Update** tries again.
@@ -236,8 +242,9 @@ forgets it.
       at the bottom; scrolled up, it stays put. Read-only: select text across
       lines and copy it. **Clear** empties it (an operation that is running
       stays); search (**Ctrl+F**) looks through every stage.
-  - **Logs** - a website's logs, one at a time: choose the site (every IIS
-    site, by name) and the log at the top (the log's path, size and time next
+  - **Logs** - a website's logs, or DNN Manager's own, one at a time: choose
+    the site (**DNN Manager** first, then every IIS site, by name) and the log
+    at the top (the log's path, size and time next
     to them, with a button to open its folder). **View logs** on a site's right-click menu opens this tab with that
     log. Its newest 5,000 lines are read - never the whole of a large file -,
     then new lines appear as they are written (every second); the view follows
@@ -250,7 +257,10 @@ forgets it.
     *DNN* (`Portals\_default\Logs`, the newest 8), *IIS* (the site's request
     logs, the newest 8, and HTTP.sys's error log), *Windows* (ASP.NET errors and
     warnings about the site, its app pool's events, worker process crashes - from
-    the event logs, new entries as they are logged).
+    the event logs, new entries as they are logged). **DNN Manager** lists its
+    own log, a file a day (`Documents\DnnManager\logs\dnnmanager-<yyyymmdd>.log`,
+    the newest 8): what each operation did, warnings and errors - also shown
+    by **Show DNN Manager's log** in the command palette.
   - **Terminal** - only shells; the open ones are listed on the right, each
     with its shell's icon - drag the list's left edge to make it wider or
     narrower; a terminal's bin shows while the mouse is on it. A click (or the

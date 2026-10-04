@@ -5,7 +5,7 @@ places tell you most of what went wrong:
 
 - **The Output tab** (bottom panel) - every step of every operation, with the
   error and what to do next.
-- **The log file** `Documents\DnnManager\logs\dnnmanager-<date>.log` - the same
+- **The log file** `Documents\DnnManager\logs\dnnmanager-<yyyymmdd>.log` - the same
   messages, one line each after its time (the title and stages are the Output
   tab's), plus DNN Manager's own warnings and errors with their stack traces
   (`[warning]`, `[error]`, `[critical]`). See
@@ -70,8 +70,8 @@ places tell you most of what went wrong:
 
 - **Unable to reach GitHub** (gray dot): no internet, a proxy or firewall in the
   way, or GitHub's rate limit (60 requests an hour per IP address). The reason is
-  under the status; nothing is wrong with DNN Manager. It asks again when About is
-  opened and every hour.
+  under the status; nothing is wrong with DNN Manager. It asks again at the next
+  start, when About is opened, and with **Check for updates** in the command palette.
 - **The download or its check failed** (*Update failed* on About, and in the Update
   button's tooltip): nothing was changed - DNN Manager kept running. Click **Update**
   to try again; a download that isn't the file
