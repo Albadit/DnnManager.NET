@@ -29,13 +29,13 @@ public partial class ToastView : UserControl
     {
         _timer.Stop();
         Message.Text = message;
-        Glyph.Text = kind switch
+        Glyph.SetResourceReference(TextBlock.TextProperty, kind switch
         {
-            ToastKind.Success => "", // check mark
-            ToastKind.Warning => "", // warning
-            ToastKind.Error => "",   // error badge
-            _ => ""                  // info
-        };
+            ToastKind.Success => "GlyphCheck",
+            ToastKind.Warning => "GlyphWarning",
+            ToastKind.Error => "GlyphError",
+            _ => "GlyphInfo"
+        });
         Glyph.SetResourceReference(TextBlock.ForegroundProperty, kind switch
         {
             ToastKind.Success => "SuccessText",

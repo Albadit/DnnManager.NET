@@ -504,6 +504,8 @@ public sealed class LayoutSettings
     /// is on that side).
     /// </summary>
     public string PanelAlignment { get; set; } = "center";
+    /// <summary>The title bar's menu bar - for now the app's name beside its icon.</summary>
+    public bool MenuBarVisible { get; set; } = true;
     public bool StatusBarVisible { get; set; } = true;
     /// <summary>"top" (over the title bar, as VS Code's) or "center" - where the command palette opens.</summary>
     public string QuickInputPosition { get; set; } = "top";

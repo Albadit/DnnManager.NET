@@ -35,6 +35,7 @@ public sealed class InputAlignmentTests
         if (resources.MergedDictionaries.Count > 0) return resources;
         // One after the other, as App.xaml has them: each looks up what the ones before it define while it loads.
         resources.MergedDictionaries.Add(new Tokens());
+        resources.MergedDictionaries.Add(new Icons());
         resources.MergedDictionaries.Add(new LayoutStyles());
         resources.MergedDictionaries.Add(new ButtonStyles());
         resources.MergedDictionaries.Add(new InputStyles());

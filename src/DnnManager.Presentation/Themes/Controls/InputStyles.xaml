@@ -135,7 +135,7 @@
                                 <ControlTemplate TargetType="ToggleButton">
                                     <Border x:Name="Bd" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputBorder}"
                                             BorderThickness="1" CornerRadius="{StaticResource ControlRadius}" SnapsToDevicePixels="True">
-                                        <TextBlock Text="&#xE70D;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10"
+                                        <TextBlock Text="{StaticResource GlyphChevronDown}" FontFamily="{StaticResource IconFont}" FontSize="10"
                                                    HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0"
                                                    Foreground="{DynamicResource TextMuted}" />
                                     </Border>

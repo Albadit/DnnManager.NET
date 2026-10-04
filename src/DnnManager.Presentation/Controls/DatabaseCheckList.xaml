@@ -8,19 +8,19 @@
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <DockPanel Margin="0,3,0,0">
-                        <TextBlock x:Name="Mark" DockPanel.Dock="Left" Width="20" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
-                                   Margin="0,2,0,0" Text="&#xE73E;" Foreground="{DynamicResource SuccessText}" />
+                        <TextBlock x:Name="Mark" DockPanel.Dock="Left" Width="20" FontFamily="{StaticResource IconFont}" FontSize="12"
+                                   Margin="0,2,0,0" Text="{StaticResource GlyphCheck}" Foreground="{DynamicResource SuccessText}" />
                         <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextPrimary}">
                             <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=": " /><Run Text="{Binding Detail, Mode=OneWay}" />
                         </TextBlock>
                     </DockPanel>
                     <DataTemplate.Triggers>
                         <DataTrigger Binding="{Binding Outcome}" Value="Warning">
-                            <Setter TargetName="Mark" Property="Text" Value="&#xE7BA;" />
+                            <Setter TargetName="Mark" Property="Text" Value="{StaticResource GlyphWarning}" />
                             <Setter TargetName="Mark" Property="Foreground" Value="{DynamicResource LogWarn}" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding Outcome}" Value="Failed">
-                            <Setter TargetName="Mark" Property="Text" Value="&#xE711;" />
+                            <Setter TargetName="Mark" Property="Text" Value="{StaticResource GlyphCancel}" />
                             <Setter TargetName="Mark" Property="Foreground" Value="{DynamicResource ErrorText}" />
                         </DataTrigger>
                     </DataTemplate.Triggers>

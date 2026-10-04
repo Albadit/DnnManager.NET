@@ -85,17 +85,16 @@ public partial class TerminalPanel : UserControl
     /// <summary>The maximize / restore button was pressed - the window gives the panel its room, or takes it back.</summary>
     public event EventHandler? MaximizeToggled;
 
-    // The maximize button's corners: pointing out (maximize), pointing in (restore).
-    private static readonly Geometry MaximizeGlyph = Geometry.Parse("M1,4.5 V1 H4.5 M7.5,1 H11 V4.5 M11,7.5 V11 H7.5 M4.5,11 H1 V7.5");
-    private static readonly Geometry RestoreGlyph = Geometry.Parse("M4.5,1 V4.5 H1 M7.5,1 V4.5 H11 M11,7.5 H7.5 V11 M4.5,11 V7.5 H1");
+    private bool _maximized;
 
-    /// <summary>Whether the panel has the window - shown on its button.</summary>
+    /// <summary>Whether the panel has the window - shown on its button: the corners pointing out (maximize) or in (restore).</summary>
     public bool IsMaximized
     {
-        get => MaximizeIcon.Data == RestoreGlyph;
+        get => _maximized;
         set
         {
-            MaximizeIcon.Data = value ? RestoreGlyph : MaximizeGlyph;
+            _maximized = value;
+            MaximizeIcon.Data = (Geometry)FindResource(value ? "PanelRestore" : "PanelMaximize");
             MaximizeButton.ToolTip = value ? "Restore panel" : "Maximize panel";
         }
     }

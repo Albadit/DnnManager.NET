@@ -50,15 +50,18 @@ public sealed class LayoutSettingsTests
             Assert.AreEqual("left", loaded.Layout.SidebarPosition);
             Assert.AreEqual("center", loaded.Layout.PanelAlignment);
             Assert.IsTrue(loaded.Layout.StatusBarVisible);
+            Assert.IsTrue(loaded.Layout.MenuBarVisible);
 
             store.Update(s => s.Layout = new LayoutSettings
             {
-                SidebarPosition = "right", PanelAlignment = "justify", StatusBarVisible = false, QuickInputPosition = "center", Density = "compact"
+                SidebarPosition = "right", PanelAlignment = "justify", MenuBarVisible = false, StatusBarVisible = false,
+                QuickInputPosition = "center", Density = "compact"
             });
 
             var layout = JsonNode.Parse(File.ReadAllText(paths.SettingsFile))!["layout"]!.AsObject();
             Assert.AreEqual("right", (string?)layout["sidebarPosition"]);
             Assert.AreEqual("justify", (string?)layout["panelAlignment"]);
+            Assert.IsFalse((bool)layout["menuBarVisible"]!);
             Assert.IsFalse((bool)layout["statusBarVisible"]!);
             var read = store.Read().ToAppOptions().Layout;
             Assert.IsTrue(read.SidebarRight && read.PanelUnderSidebar && read.QuickInputCentered && read.Compact);

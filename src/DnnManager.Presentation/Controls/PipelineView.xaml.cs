@@ -101,9 +101,9 @@ public partial class PipelineView : UserControl
         var (pill, pillBg, pillFg, glyph) = run.Status switch
         {
             RunStatus.Running => ("Running", "OutPillRunningBg", "OutPillRunningFg", null),
-            RunStatus.Finished => ("Finished", "OutPillOkBg", "OutPillOkFg", "CheckGlyph"),
-            RunStatus.Failed => ("Failed", "OutPillFailBg", "OutPillFailFg", "CrossGlyph"),
-            _ => ("Cancelled", "OutPillNeutralBg", "OutPillNeutralFg", "CrossGlyph")
+            RunStatus.Finished => ("Finished", "OutPillOkBg", "OutPillOkFg", "StepCheck"),
+            RunStatus.Failed => ("Failed", "OutPillFailBg", "OutPillFailFg", "StepCross"),
+            _ => ("Cancelled", "OutPillNeutralBg", "OutPillNeutralFg", "StepCross")
         };
         PillText.Text = pill;
         Pill.SetResourceReference(Border.BackgroundProperty, pillBg);
@@ -119,7 +119,7 @@ public partial class PipelineView : UserControl
         var issueBrush = run.HasErrors ? "OutErrorSoft" : "OutWarn";
         IssueText.SetResourceReference(TextBlock.ForegroundProperty, issueBrush);
         IssueIcon.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, issueBrush);
-        IssueIcon.Data = (System.Windows.Media.Geometry)FindResource(run.HasErrors ? "AlertGlyph" : "TriangleGlyph");
+        IssueIcon.Data = (System.Windows.Media.Geometry)FindResource(run.HasErrors ? "StepAlert" : "StepTriangle");
 
         StagesLabel.Text = $"Stages · {run.Done}/{run.Total}";
 

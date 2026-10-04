@@ -2,6 +2,58 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## v1.7.1
+
+### Upgrading
+
+- Your settings keep their format; `layout.menuBarVisible` is added with its
+  default (`true`).
+- The title bar (30 pixels) and the status bar (24) are lower in the Default
+  density too.
+- Under a narrow or hidden sidebar the IIS cell no longer has a **⋮** menu -
+  its buttons are always there.
+
+### Changed
+
+- **The Default layout density draws the sidebar, the page and the panel as
+  cards**, as VS Code does: rounded, with a gap between them, and the title bar
+  and status bar one surface without lines between them. **Compact** keeps them
+  flush, divided by lines. The title bar (30 pixels) and the status bar (24) are
+  as low in both densities, so the cards get that room.
+- **Drag the sidebar's edge** to make it wider or narrower (kept between
+  starts). The edges between the sidebar, the page and the panel show three dots
+  where they can be dragged (Compact: just a 1 px line, the panel's replacing
+  the thicker bar) and turn blue while dragged; where the sidebar's and
+  the panel's meet, both resize at once. The sidebar and the panel follow the
+  pointer down to nothing and out again from their edge; let go below their
+  smallest size (160 pixels for the sidebar, 90 for the panel) they slide out to
+  it, below half of it they slide closed. In the Default
+  density the cards reach down to the status bar.
+- **Customize Layout → Menu Bar** shows or hides the app's name in the title
+  bar (also *Show or hide the menu bar* in the command palette).
+- **The IIS cell keeps its state and buttons** under the icons-only or hidden
+  sidebar - as wide as what it shows, instead of a dot with a **⋮** menu.
+- **The sidebar and the panel slide open and closed** from the title bar's
+  buttons, **Ctrl+B** / **Ctrl+J**, the panel's **✕** and Customize Layout.
+- **Softer layout icons.** The layout buttons in the title bar and the icons
+  in **Customize Layout** have slightly rounded corners and line ends.
+  **Default** and **Compact** density show the sidebar, editor and panel -
+  spaced apart or packed into one window - and the **Customize Layout** button
+  shows the Default icon. The **Columns** button above the Projects table has a
+  rounded icon too.
+- **The sidebar's entries and Settings' categories** have less room on the left
+  and right and more between the icon and the name; in the sidebar the first
+  entry and **Settings** are as far from its top and bottom as from its sides.
+- **The status bar's figures** - RAM, CPU and Disk - are evenly spaced, and the
+  IIS buttons are smaller, with a gap before them.
+- **DNN Manager looks for a newer release every hour** (1.7.0 checked every six
+  hours).
+
+### Fixed
+
+- The text in the status bar and the title bar sat below the middle, beside
+  icons that are centred.
+
 ## v1.7.0
 
 ### Upgrading

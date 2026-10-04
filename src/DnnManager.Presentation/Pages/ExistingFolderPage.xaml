@@ -8,7 +8,7 @@
             <StackPanel Orientation="Horizontal">
                 <TextBlock Style="{StaticResource PageTitle}" Text="Host project" />
                 <!-- Explains what setting up the website does to HTTPS redirect rules in web.config. -->
-                <TextBlock Text="&#xE946;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16"
+                <TextBlock Text="{StaticResource GlyphInfo}" FontFamily="{StaticResource IconFont}" FontSize="16"
                            Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="10,4,0,0"
                            Cursor="Help" Background="Transparent" ToolTipService.InitialShowDelay="200"
                            ToolTipService.ShowDuration="60000">
@@ -41,7 +41,7 @@
                     <DockPanel DockPanel.Dock="Top" Margin="14,8,10,4">
                         <Button DockPanel.Dock="Right" x:Name="RefreshButton" Padding="10,0" VerticalAlignment="Center"
                                 ToolTip="Refresh" Click="Refresh_Click">
-                            <TextBlock Text="&#xE72C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center" />
+                            <TextBlock Text="{StaticResource GlyphRefresh}" FontFamily="{StaticResource IconFont}" FontSize="13" VerticalAlignment="Center" />
                         </Button>
                         <TextBlock Style="{StaticResource CardTitle}" Text="Project folders" Margin="0" VerticalAlignment="Center" />
                     </DockPanel>

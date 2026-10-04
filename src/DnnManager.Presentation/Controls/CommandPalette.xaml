@@ -18,9 +18,9 @@
                 <!-- A list with a name of its own (Customize Layout): the name, Reset and close, as in VS Code. -->
                 <DockPanel x:Name="TitleRow" DockPanel.Dock="Top" Margin="0,0,0,5" Visibility="Collapsed">
                     <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Width="22" Height="22" MinHeight="0" FontSize="10"
-                            Content="&#xE8BB;" ToolTip="Close (Esc)" Click="TitleClose_Click" />
+                            Content="{StaticResource GlyphClose}" ToolTip="Close (Esc)" Click="TitleClose_Click" />
                     <Button x:Name="ResetButton" DockPanel.Dock="Right" Style="{StaticResource IconButton}" Width="22" Height="22" MinHeight="0"
-                            FontSize="12" Content="&#xE7A7;" Click="Reset_Click" />
+                            FontSize="12" Content="{StaticResource GlyphReset}" Click="Reset_Click" />
                     <!-- Room on the left as wide as the buttons, so the name is in the middle. -->
                     <Border DockPanel.Dock="Left" Width="44" />
                     <TextBlock x:Name="TitleText" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimary}" />
@@ -96,13 +96,13 @@
                                         </Style>
                                     </Grid.Style>
                                     <Path Data="{Binding IconFill}" Fill="{DynamicResource TextMuted}" />
-                                    <Path Data="{Binding Icon}" Stroke="{DynamicResource TextPrimary}" StrokeThickness="1" />
+                                    <Path Style="{StaticResource IconStroke}" Data="{Binding Icon}" Stroke="{DynamicResource TextPrimary}" />
                                 </Grid>
                                 <!-- The title - with a check mark after it while it is what is chosen. -->
                                 <DockPanel>
                                     <TextBlock DockPanel.Dock="Left" Text="{Binding Title}" Foreground="{DynamicResource TextPrimary}"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="&#xE73E;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11" Margin="6,0,0,0"
+                                    <TextBlock Text="{StaticResource GlyphCheck}" FontFamily="{StaticResource IconFont}" FontSize="11" Margin="6,0,0,0"
                                                HorizontalAlignment="Left" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimary}">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">

@@ -31,7 +31,7 @@
     <DockPanel>
         <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1" Padding="28,14,20,14">
             <DockPanel>
-                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE8BB;" FontSize="12"
+                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="{StaticResource GlyphClose}" FontSize="12"
                         Foreground="{DynamicResource Accent}" ToolTip="Close (Esc)" Click="Close_Click" />
                 <TextBlock Text="Troubleshoot" FontSize="{DynamicResource TextLarge}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" />
             </DockPanel>

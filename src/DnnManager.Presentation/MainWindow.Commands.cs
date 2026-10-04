@@ -87,10 +87,12 @@ public partial class MainWindow
         // ── Layout ──
         Add("view.toggleSidebar", "Show or hide the sidebar", "Layout", "Ctrl+B", ToggleSidebar, keywords: "primary side bar pages",
             inTerminal: true);
+        Add("view.toggleMenuBar", "Show or hide the menu bar", "Layout", null,
+            () => ChangeLayout(l => l.MenuBarVisible = !l.MenuBarVisible), keywords: "title name");
         Add("view.toggleStatusBar", "Show or hide the status bar", "Layout", null,
             () => ChangeLayout(l => l.StatusBarVisible = !l.StatusBarVisible), keywords: "bottom iis");
         Add("layout.customize", "Customize layout…", "Layout", null, ShowCustomizeLayout,
-            keywords: "sidebar panel position alignment justify center quick input density compact status bar");
+            keywords: "sidebar panel position alignment justify center quick input density compact menu bar status bar");
 
         // ── Panel and terminal ──
         Add("panel.toggle", "Show or hide the panel", "Panel", "Ctrl+J", TogglePanel, keywords: "output logs terminal bottom", inTerminal: true);
@@ -317,18 +319,16 @@ public partial class MainWindow
         }
     }
 
-    /// <summary>Ctrl+J: the panel shown (with the keyboard in it) or hidden (the keyboard back on the page).</summary>
+    /// <summary>Ctrl+J: the panel slides open (with the keyboard in it) or closed (the keyboard back on the page).</summary>
     private void TogglePanel()
     {
-        if (!LogOpen)
+        if (!PanelOpening)
         {
-            SetLogOpen(true);
+            SlidePanel(true);
             TerminalPanel.Focus();
             return;
         }
-        var hadKeyboard = TerminalPanel.IsKeyboardFocusWithin;
-        SetLogOpen(false);
-        if (hadKeyboard) FocusPage();
+        ClosePanel();
     }
 
     /// <summary>

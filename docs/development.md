@@ -101,7 +101,11 @@ Where to look when something goes wrong:
   `Themes/Controls/` - without `x:Key` to style every control of that type, or
   with one for a variant - and take sizes from `Tokens.xaml`. For a new kind of
   control, add a dictionary (a `.xaml` with `x:Class` and its partial class in
-  `ControlDictionaries.cs`) and merge it in `App.xaml` after `Tokens`.
+  `ControlDictionaries.cs`) and merge it in `App.xaml` after `Tokens` and
+  `Icons`.
+- **New icon**: add it to `Themes/Icons.xaml` - a font glyph as
+  `<sys:String x:Key="Glyph…">&#xE…;</sys:String>`, a drawing as
+  `<Geometry x:Key="…">` - and use it by its key, never inline.
 - **New page**: add a `UserControl` under `Pages/` (Presentation) that runs its
   use case (Application, registered with DI) through `OperationRunner`, then add
   a sidebar entry in `MainWindow.xaml` and its type to the `Pages` map in

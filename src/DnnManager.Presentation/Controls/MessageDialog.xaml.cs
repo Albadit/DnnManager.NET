@@ -19,7 +19,7 @@ public partial class MessageDialog : Window
         InitializeComponent();
         ThemeManager.Track(this);
         Message.Text = message;
-        Glyph.Text = kind == Kind.Question ? "" : "";
+        Glyph.SetResourceReference(TextBlock.TextProperty, kind == Kind.Question ? "GlyphQuestion" : "GlyphWarning");
         Glyph.SetResourceReference(TextBlock.ForegroundProperty, kind switch { Kind.Question => "Accent", Kind.Danger => "ErrorText", _ => "LogWarn" });
     }
 

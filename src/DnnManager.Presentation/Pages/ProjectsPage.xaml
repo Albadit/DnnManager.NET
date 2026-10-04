@@ -159,7 +159,7 @@
             <Setter Property="Width" Value="34" />
             <Setter Property="Height" Value="26" />
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
-            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
+            <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Cursor" Value="Hand" />
             <!-- Reached with Tab, pressed with Enter or Space; the focus ring shows which one has the keyboard. -->
@@ -220,16 +220,16 @@
             <Border x:Name="BulkActions" DockPanel.Dock="Right" Visibility="Collapsed" VerticalAlignment="Center" Padding="2" CornerRadius="5"
                     Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource InputBorder}" BorderThickness="1">
                 <StackPanel Orientation="Horizontal">
-                    <Button x:Name="BulkStartButton" Style="{StaticResource GroupButton}" Content="&#xE768;" Click="BulkStart_Click" />
-                    <Button x:Name="BulkStopButton" Style="{StaticResource GroupButton}" Content="&#xE71A;" Click="BulkStop_Click" />
-                    <Button x:Name="BulkRestartButton" Style="{StaticResource GroupButton}" Content="&#xE72C;" Click="BulkRestart_Click" />
+                    <Button x:Name="BulkStartButton" Style="{StaticResource GroupButton}" Content="{StaticResource GlyphPlay}" Click="BulkStart_Click" />
+                    <Button x:Name="BulkStopButton" Style="{StaticResource GroupButton}" Content="{StaticResource GlyphStop}" Click="BulkStop_Click" />
+                    <Button x:Name="BulkRestartButton" Style="{StaticResource GroupButton}" Content="{StaticResource GlyphRefresh}" Click="BulkRestart_Click" />
                     <!-- The flame, as in the rows: outlined - keep them warm; filled - they all are, stop it (UpdateSelection). -->
                     <Button x:Name="BulkKeepWarmButton" Style="{StaticResource GroupButton}" Click="BulkKeepWarm_Click">
                         <Path x:Name="BulkKeepWarmIcon" Data="{StaticResource FlameOutline}" Fill="{DynamicResource TextPrimary}"
                               Stretch="Uniform" Width="14" Height="14" />
                     </Button>
                     <Border Style="{StaticResource GroupDivider}" />
-                    <Button x:Name="BulkRemoveButton" Style="{StaticResource GroupButton}" Content="&#xE74D;"
+                    <Button x:Name="BulkRemoveButton" Style="{StaticResource GroupButton}" Content="{StaticResource GlyphDelete}"
                             Foreground="{DynamicResource ErrorText}" Click="BulkRemove_Click" />
                 </StackPanel>
             </Border>
@@ -241,7 +241,7 @@
                 <ToggleButton x:Name="ColumnsButton" Style="{StaticResource IconToggleButton}" Margin="8,0,0,0" ToolTip="Columns"
                               IsChecked="{Binding IsOpen, ElementName=ColumnsPopup, Mode=TwoWay}">
                     <!-- Three columns, like a table header. -->
-                    <Path Data="M0.75,0.75 H15.25 V13.25 H0.75 Z M5.5,0.75 V13.25 M10.5,0.75 V13.25" StrokeThickness="1.5"
+                    <Path Style="{StaticResource IconStroke}" Data="{StaticResource Columns}" StrokeThickness="1.5"
                           Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" />
                 </ToggleButton>
                 <!-- While open, the button ignores the mouse, so clicking it closes the menu instead of reopening it. -->
@@ -425,11 +425,11 @@
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <Grid Width="56">
                                             <StackPanel Orientation="Horizontal">
-                                                <Button Style="{StaticResource RowAction}" Content="&#xE768;" ToolTip="Start" s:CommandTip.Command="project.start" Click="RowStart_Click"
+                                                <Button Style="{StaticResource RowAction}" Content="{StaticResource GlyphPlay}" ToolTip="Start" s:CommandTip.Command="project.start" Click="RowStart_Click"
                                                         IsEnabled="{Binding CanStart}" Visibility="{Binding ShowStart, Converter={StaticResource BoolToVis}}" />
-                                                <Button Style="{StaticResource RowAction}" Content="&#xE71A;" ToolTip="Stop" s:CommandTip.Command="project.stop" Click="RowStop_Click"
+                                                <Button Style="{StaticResource RowAction}" Content="{StaticResource GlyphStop}" ToolTip="Stop" s:CommandTip.Command="project.stop" Click="RowStop_Click"
                                                         IsEnabled="{Binding CanStop}" Visibility="{Binding ShowStop, Converter={StaticResource BoolToVis}}" />
-                                                <Button Style="{StaticResource RowAction}" Content="&#xE72C;" ToolTip="Restart" s:CommandTip.Command="project.restart" Click="RowRestart_Click"
+                                                <Button Style="{StaticResource RowAction}" Content="{StaticResource GlyphRefresh}" ToolTip="Restart" s:CommandTip.Command="project.restart" Click="RowRestart_Click"
                                                         IsEnabled="{Binding CanRestart}" Visibility="{Binding ShowStop, Converter={StaticResource BoolToVis}}" />
                                             </StackPanel>
 
@@ -445,7 +445,7 @@
                                         </Button>
 
                                         <Border Width="1" Height="18" Margin="8,0" Background="{DynamicResource CardBorder}" />
-                                        <Button Style="{StaticResource IconButton}" Content="&#xE74D;" Foreground="{DynamicResource ErrorText}"
+                                        <Button Style="{StaticResource IconButton}" Content="{StaticResource GlyphDelete}" Foreground="{DynamicResource ErrorText}"
                                                 ToolTip="Remove (Del)" Click="RowRemove_Click" IsEnabled="{Binding CanRemove}" />
                                     </StackPanel>
                                 </DataTemplate>

@@ -33,7 +33,7 @@
             <Setter Property="Margin" Value="6,0,0,0" />
         </Style>
         <Style x:Key="Glyph" TargetType="TextBlock">
-            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
+            <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Margin" Value="0,0,6,0" />
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -117,34 +117,34 @@
     <DockPanel Margin="28,20,28,12" MaxWidth="1100">
         <!-- Back, the site's name and state; its actions on the right. -->
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,18">
-            <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}" Content="&#xE72B;" Width="32" Height="32" Margin="0,2,10,0"
+            <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}" Content="{StaticResource GlyphBack}" Width="32" Height="32" Margin="0,2,10,0"
                     VerticalAlignment="Top" ToolTip="Back (Esc)" Click="Back_Click" />
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,4,0,0">
                 <Button Style="{StaticResource HeaderButton}" Click="Start_Click" IsEnabled="{Binding CanStart}"
                         ToolTip="Start" s:CommandTip.Command="project.start"
                         Visibility="{Binding ShowStart, Converter={StaticResource Visible}}">
-                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE768;" /><TextBlock Text="Start" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphPlay}" /><TextBlock Text="Start" /></StackPanel>
                 </Button>
                 <Button Style="{StaticResource HeaderButton}" Click="Stop_Click" IsEnabled="{Binding CanStop}"
                         ToolTip="Stop" s:CommandTip.Command="project.stop"
                         Visibility="{Binding ShowStop, Converter={StaticResource Visible}}">
-                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE71A;" /><TextBlock Text="Stop" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphStop}" /><TextBlock Text="Stop" /></StackPanel>
                 </Button>
                 <Button Style="{StaticResource HeaderButton}" Click="Restart_Click" IsEnabled="{Binding CanRestart}"
                         Visibility="{Binding ShowStop, Converter={StaticResource Visible}}" ToolTip="Restart"
                         s:CommandTip.Command="project.restart">
-                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE72C;" /><TextBlock Text="Restart" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphRefresh}" /><TextBlock Text="Restart" /></StackPanel>
                 </Button>
                 <Button Style="{StaticResource HeaderButton}" Click="OpenSite_Click" IsEnabled="{Binding HasUrl}"
                         ToolTip="Open site" s:CommandTip.Command="project.openWebsite">
-                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE774;" /><TextBlock Text="Open site" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphGlobe}" /><TextBlock Text="Open site" /></StackPanel>
                 </Button>
                 <Button Style="{StaticResource HeaderButton}" Click="OpenFolder_Click" ToolTip="Open folder"
                         s:CommandTip.Command="project.openFolder">
-                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE838;" /><TextBlock Text="Open folder" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphFolderOpen}" /><TextBlock Text="Open folder" /></StackPanel>
                 </Button>
                 <Button x:Name="MoreButton" Style="{StaticResource HeaderButton}" Click="More_Click" ToolTip="More actions">
-                    <TextBlock Style="{StaticResource Glyph}" Text="&#xE712;" Margin="0" RenderTransformOrigin="0.5,0.5">
+                    <TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphMore}" Margin="0" RenderTransformOrigin="0.5,0.5">
                         <TextBlock.RenderTransform>
                             <RotateTransform Angle="90" />
                         </TextBlock.RenderTransform>

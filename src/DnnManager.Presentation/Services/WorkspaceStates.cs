@@ -22,6 +22,8 @@ public sealed class WindowLayout : IStateFile
 
     /// <summary>The sidebar hidden (Ctrl+B, Customize Layout).</summary>
     public bool SidebarHidden { get; set; }
+    /// <summary>The sidebar's width as dragged - null: its density's own.</summary>
+    public double? SidebarWidth { get; set; }
     public bool PanelOpen { get; set; }
     public double? PanelHeight { get; set; }
     public bool PanelMaximized { get; set; }

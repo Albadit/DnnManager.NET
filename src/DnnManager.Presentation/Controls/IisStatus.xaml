@@ -2,32 +2,33 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <UserControl.Resources>
+        <!-- Small: the 11 px icon with a little room around it. -->
         <Style x:Key="IisButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
-            <Setter Property="Width" Value="26" />
-            <Setter Property="Height" Value="24" />
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="20" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
         </Style>
     </UserControl.Resources>
 
-    <!-- The status bar's first cell, as wide as the sidebar above it (like the engine status in Docker Desktop):
-         the dot, "IIS running" in its colour and the buttons on the right. Compact: the dot and a ⋮ menu. -->
-    <Border x:Name="Frame" Background="{DynamicResource SidebarBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,1,0"
-            Height="{DynamicResource StatusBarHeight}" TextElement.FontSize="{DynamicResource TextCaption}">
-        <DockPanel x:Name="Layout" Margin="14,0,6,0">
-            <StackPanel x:Name="Buttons" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button x:Name="StartButton" Style="{StaticResource IisButton}" Content="&#xE768;" ToolTip="Start IIS"
+    <!-- The status bar's first cell, at least as wide as the sidebar above it while that shows its names - else as wide as
+         its content (like the engine status in Docker Desktop): the dot, "IIS running" in its colour and the buttons on
+         the right, a gap before them. No line between it and the status bar: a pixel of padding stands where the
+         sidebar's edge is, so they line up (SetSide). -->
+    <Border x:Name="Frame" Background="{DynamicResource SidebarBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="{DynamicResource StatusBarBorder}"
+            Padding="0,0,1,0" Height="{DynamicResource StatusBarHeight}" TextElement.FontSize="{DynamicResource TextCaption}">
+        <DockPanel Margin="14,0,6,0">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
+                <Button x:Name="StartButton" Style="{StaticResource IisButton}" Content="{StaticResource GlyphPlay}" ToolTip="Start IIS"
                         Click="Start_Click" Visibility="Collapsed" />
-                <Button x:Name="RestartButton" Style="{StaticResource IisButton}" Content="&#xE72C;"
+                <Button x:Name="RestartButton" Style="{StaticResource IisButton}" Content="{StaticResource GlyphRefresh}"
                         ToolTip="Restart IIS" Click="Restart_Click" Visibility="Collapsed" />
-                <Button x:Name="StopButton" Style="{StaticResource IisButton}" Content="&#xE71A;" ToolTip="Stop IIS"
+                <Button x:Name="StopButton" Style="{StaticResource IisButton}" Content="{StaticResource GlyphStop}" ToolTip="Stop IIS"
                         Click="Stop_Click" Visibility="Collapsed" />
             </StackPanel>
-            <Button x:Name="MoreButton" DockPanel.Dock="Right" Style="{StaticResource IisButton}" Width="16" FontFamily="Segoe UI" FontSize="14"
-                    Content="⋮" ToolTip="IIS actions" Click="More_Click" Visibility="Collapsed" />
             <StackPanel x:Name="State" Orientation="Horizontal" VerticalAlignment="Center" Background="Transparent">
                 <Ellipse x:Name="Dot" Width="9" Height="9" StrokeThickness="1.5" VerticalAlignment="Center" />
-                <TextBlock x:Name="StateText" Margin="9,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold"
+                <TextBlock x:Name="StateText" Margin="9,0,0,1.5" VerticalAlignment="Center" FontWeight="SemiBold"
                            TextTrimming="CharacterEllipsis" Text="IIS…" />
             </StackPanel>
         </DockPanel>

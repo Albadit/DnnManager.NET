@@ -10,27 +10,20 @@ namespace DnnManager.Presentation.Controls;
 /// <summary>
 /// The state of IIS (its web service, W3SVC) in the status bar's first cell, under the sidebar, with Restart and Stop
 /// while it runs and Start while it's stopped. It shows what the <see cref="ServerStore"/> knows - Windows reports
-/// the service's status, so a start or stop from anywhere shows up by itself. Compact - under the icon-only sidebar -
-/// it's the dot (the state in its tooltip) and a ⋮ menu with the same actions.
+/// the service's status, so a start or stop from anywhere shows up by itself.
 /// </summary>
 public partial class IisStatus : UserControl
 {
-    public static readonly DependencyProperty IsCompactProperty = DependencyProperty.Register(nameof(IsCompact), typeof(bool),
-        typeof(IisStatus), new PropertyMetadata(false, (d, _) => ((IisStatus)d).ApplyLayout()));
-
     private ServerStore _store = null!;
     private OperationRunner _runner = null!;
 
     public IisStatus() => InitializeComponent();
 
-    public bool IsCompact
-    {
-        get => (bool)GetValue(IsCompactProperty);
-        set => SetValue(IsCompactProperty, value);
-    }
-
-    /// <summary>Under a sidebar on the window's right: the line between it and the status bar on its left.</summary>
-    public void SetSide(bool right) => Frame.BorderThickness = right ? new Thickness(1, 1, 0, 0) : new Thickness(0, 1, 1, 0);
+    /// <summary>
+    /// Under a sidebar on the window's right: the pixel that lines it up with the sidebar's edge on its left side. No line
+    /// there - only the room the sidebar's edge takes.
+    /// </summary>
+    public void SetSide(bool right) => Frame.Padding = right ? new Thickness(1, 0, 0, 0) : new Thickness(0, 0, 1, 0);
 
     public void Attach(ServerStore store, OperationRunner runner)
     {
@@ -39,32 +32,6 @@ public partial class IisStatus : UserControl
         // The buttons wait for whatever operation is running.
         _runner.PropertyChanged += OnRunnerChanged;
         Show();
-    }
-
-    private void ApplyLayout()
-    {
-        var compact = IsCompact;
-        StateText.Visibility = Buttons.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        MoreButton.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
-        Layout.Margin = compact ? new Thickness(10, 0, 2, 0) : new Thickness(14, 0, 6, 0);
-    }
-
-    // Compact: the actions IIS's state allows, in a menu above the button.
-    private void More_Click(object sender, RoutedEventArgs e)
-    {
-        var menu = new ContextMenu { PlacementTarget = MoreButton, Placement = System.Windows.Controls.Primitives.PlacementMode.Top };
-        void Add(string header, Button button, RoutedEventHandler click)
-        {
-            if (button.Visibility != Visibility.Visible) return;
-            var item = new MenuItem { Header = header, IsEnabled = button.IsEnabled };
-            item.Click += click;
-            menu.Items.Add(item);
-        }
-        Add("Start IIS", StartButton, Start_Click);
-        Add("Restart IIS", RestartButton, Restart_Click);
-        Add("Stop IIS", StopButton, Stop_Click);
-        if (menu.Items.Count == 0) menu.Items.Add(new MenuItem { Header = StateText.Text, IsEnabled = false });
-        menu.IsOpen = true;
     }
 
     /// <summary>What the store knows about IIS now - or, while DNN Manager itself is changing it, what it is doing.</summary>

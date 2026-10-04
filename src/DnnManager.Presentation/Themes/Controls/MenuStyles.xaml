@@ -52,8 +52,8 @@
                         <Border x:Name="Bd" Background="Transparent" CornerRadius="{StaticResource SmallRadius}" Padding="{TemplateBinding Padding}">
                             <DockPanel>
                                 <!-- Only for an item with a submenu. -->
-                                <TextBlock x:Name="Arrow" DockPanel.Dock="Right" Text="&#xE76C;" Visibility="Collapsed"
-                                           FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10"
+                                <TextBlock x:Name="Arrow" DockPanel.Dock="Right" Text="{StaticResource GlyphChevronRight}" Visibility="Collapsed"
+                                           FontFamily="{StaticResource IconFont}" FontSize="10"
                                            Margin="16,0,0,0" VerticalAlignment="Center" />
                                 <!-- Its shortcut (InputGestureText), when it has one. -->
                                 <TextBlock x:Name="Gesture" DockPanel.Dock="Right" Text="{TemplateBinding InputGestureText}"

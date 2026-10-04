@@ -16,3 +16,8 @@ public partial class Tokens : ResourceDictionary
 {
     public Tokens() => InitializeComponent();
 }
+
+public partial class Icons : ResourceDictionary
+{
+    public Icons() => InitializeComponent();
+}

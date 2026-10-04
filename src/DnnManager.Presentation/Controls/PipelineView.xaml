@@ -9,16 +9,7 @@
          Read-only: the log's text can be selected and copied. The header and the rail are the panel's own (its font
          and colours, like the Terminal tab's list); only the log is a terminal - monospaced, the Out* brushes. -->
     <UserControl.Resources>
-        <!-- The stage icons, 14 x 14, drawn with a 2px stroke. -->
-        <Geometry x:Key="CheckGlyph">M3,7.5 L6,10.5 L11.5,4</Geometry>
-        <Geometry x:Key="CrossGlyph">M4,4 L10,10 M10,4 L4,10</Geometry>
-        <Geometry x:Key="TriangleGlyph">M7,1.8 L12.8,12 H1.2 Z M7,5.6 V8.2 M7,10 V10.1</Geometry>
-        <Geometry x:Key="DashGlyph">M4,7 H10</Geometry>
-        <Geometry x:Key="CircleGlyph">M7,2.5 A4.5,4.5 0 1 1 6.99,2.5 Z</Geometry>
-        <Geometry x:Key="SpinnerGlyph">M7,2 A5,5 0 1 1 2,7</Geometry>
-        <Geometry x:Key="SmallSpinnerGlyph">M6,1.75 A4.25,4.25 0 1 1 1.75,6</Geometry>
-        <Geometry x:Key="AlertGlyph">M7,1.5 A5.5,5.5 0 1 1 6.99,1.5 Z M7,4.2 V7.6 M7,9.6 V9.7</Geometry>
-
+        <!-- The stage icons (Step… in Themes\Icons.xaml), 14 x 14, drawn with a 2px stroke. -->
         <Style x:Key="Glyph" TargetType="Path">
             <Setter Property="Width" Value="14" />
             <Setter Property="Height" Value="14" />
@@ -32,7 +23,7 @@
 
         <!-- A turning arc while the condition holds and it can be seen (EfficiencyMode.WhileSeen). -->
         <Style x:Key="Spinner" TargetType="Path" BasedOn="{StaticResource Glyph}">
-            <Setter Property="Data" Value="{StaticResource SpinnerGlyph}" />
+            <Setter Property="Data" Value="{StaticResource StepSpinner}" />
             <Setter Property="RenderTransform">
                 <Setter.Value>
                     <RotateTransform />
@@ -77,7 +68,7 @@
                     ToolTip="{Binding Title}">
                 <DockPanel>
                     <Grid DockPanel.Dock="Left" Width="14" Height="14" Margin="0,0,10,0">
-                        <Path x:Name="Icon" Style="{StaticResource Glyph}" Data="{StaticResource CircleGlyph}"
+                        <Path x:Name="Icon" Style="{StaticResource Glyph}" Data="{StaticResource StepCircle}"
                               Stroke="{DynamicResource OutDim}" StrokeThickness="1.5" />
                         <Path x:Name="Spin" Style="{StaticResource Spinner}" Stroke="{DynamicResource OutActive}" Visibility="Collapsed" />
                     </Grid>
@@ -99,12 +90,12 @@
                     <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource LogHeaderFg}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Status}" Value="{x:Static s:StageStatus.Ok}">
-                    <Setter TargetName="Icon" Property="Data" Value="{StaticResource CheckGlyph}" />
+                    <Setter TargetName="Icon" Property="Data" Value="{StaticResource StepCheck}" />
                     <Setter TargetName="Icon" Property="Stroke" Value="{DynamicResource OutOk}" />
                     <Setter TargetName="Icon" Property="StrokeThickness" Value="2" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Status}" Value="{x:Static s:StageStatus.Warning}">
-                    <Setter TargetName="Icon" Property="Data" Value="{StaticResource TriangleGlyph}" />
+                    <Setter TargetName="Icon" Property="Data" Value="{StaticResource StepTriangle}" />
                     <Setter TargetName="Icon" Property="Stroke" Value="{DynamicResource OutWarn}" />
                     <Setter TargetName="Icon" Property="StrokeThickness" Value="1.6" />
                     <Setter TargetName="Row" Property="Background" Value="{DynamicResource OutWarnRowBg}" />
@@ -112,7 +103,7 @@
                     <Setter TargetName="Duration" Property="Foreground" Value="{DynamicResource OutWarn}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Status}" Value="{x:Static s:StageStatus.Failed}">
-                    <Setter TargetName="Icon" Property="Data" Value="{StaticResource CrossGlyph}" />
+                    <Setter TargetName="Icon" Property="Data" Value="{StaticResource StepCross}" />
                     <Setter TargetName="Icon" Property="Stroke" Value="{DynamicResource OutError}" />
                     <Setter TargetName="Icon" Property="StrokeThickness" Value="2" />
                     <Setter TargetName="Row" Property="Background" Value="{DynamicResource OutErrorBg}" />
@@ -120,14 +111,14 @@
                     <Setter TargetName="Duration" Property="Foreground" Value="{DynamicResource OutErrorSoft}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Status}" Value="{x:Static s:StageStatus.Skipped}">
-                    <Setter TargetName="Icon" Property="Data" Value="{StaticResource DashGlyph}" />
+                    <Setter TargetName="Icon" Property="Data" Value="{StaticResource StepDash}" />
                     <Setter TargetName="Icon" Property="Stroke" Value="{DynamicResource OutSkippedIcon}" />
                     <Setter TargetName="Icon" Property="StrokeThickness" Value="2" />
                     <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource OutDim}" />
                     <Setter TargetName="Duration" Property="Foreground" Value="{DynamicResource OutDim}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Status}" Value="{x:Static s:StageStatus.Cancelled}">
-                    <Setter TargetName="Icon" Property="Data" Value="{StaticResource CrossGlyph}" />
+                    <Setter TargetName="Icon" Property="Data" Value="{StaticResource StepCross}" />
                     <Setter TargetName="Icon" Property="Stroke" Value="{DynamicResource OutMuted}" />
                     <Setter TargetName="Icon" Property="StrokeThickness" Value="2" />
                     <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource OutMuted}" />
@@ -201,7 +192,7 @@
                                 </Path>
                                 <!-- Drawn at 12 px (not the 14 px one scaled down): it turns round its own centre, without wobbling. -->
                                 <Path x:Name="PillSpin" Style="{StaticResource Spinner}" Width="12" Height="12" StrokeThickness="1.8"
-                                      Data="{StaticResource SmallSpinnerGlyph}" Visibility="Collapsed" />
+                                      Data="{StaticResource StepSmallSpinner}" Visibility="Collapsed" />
                             </Grid>
                             <TextBlock x:Name="PillText" FontSize="{DynamicResource TextSmall}" FontWeight="SemiBold" VerticalAlignment="Center" />
                         </StackPanel>

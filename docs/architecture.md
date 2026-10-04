@@ -275,14 +275,14 @@ DnnManager.NET/
         ├── Shell.cs             ← opens an address, folder or file through Explorer - as the user, not as Administrator
         ├── RunningMarker.cs     ← named mutex while the app runs - the installer checks it before replacing the app
         ├── SingleInstance.cs    ← a second start hands over to the running app, which shows its window
-        ├── App.xaml             ← merges the palette, tokens and control styles; the sidebar's own styles
+        ├── App.xaml             ← merges the palette, tokens, icons and control styles; the sidebar's own styles
         ├── MainWindow.xaml      ← sidebar navigation + page host + activity log + status bar; .Layout.cs: Customize Layout, the gear's menu
         ├── Pages/               ← one page per sidebar item, plus Settings and Troubleshoot (opened over the page); AboutInfo (Settings → About)
         │   └── Projects/        ← the Projects table's row, columns and right-click menu; a site's Details (ProjectView, ProjectDiagnostics, Inspector)
         ├── Assets/              ← dnn.ico - the exe and window icon (DNN logo mark)
         ├── Controls/            ← StatusBar, IisStatus, TerminalPanel (Output / Logs / Terminal), PipelineView + PipelineLog (the Output tab), LogView, LogsView, PanelSearch, ToastView, InputDialog, MessageDialog, ExistingFolderOptions, PasswordInput, DatabaseCheckList, HostPasswordDialog; DockerCard, DatabaseServerCard, IisCard (Settings' Test and set up cards)
         ├── Terminal/            ← the terminal itself: screen buffer + VT parser, the view that draws it, the shell session
-        ├── Themes/              ← LightTheme / DarkTheme colour palettes, Tokens (radii, heights, padding)
+        ├── Themes/              ← LightTheme / DarkTheme colour palettes, Tokens (radii, heights, padding), Icons (every icon)
         │   └── Controls/        ← the reusable control styles, one dictionary per kind (see Control styles)
         └── Services/            ← ActivityLog + OutputModel (the Output tab's runs, stages and lines), OperationRunner, ServerStore, EfficiencyMode + WindowOcclusion, LiveSettings, DnnReleaseCatalog, TerminalService, ThemeManager, Toast, IdeLocator, SsmsConnectDialog, SettingsStartup, ByteSize, GUI adapters
 ```
@@ -312,7 +312,8 @@ DnnManager.NET/
 The app's controls are styled in one place, so every page looks the same and a
 new page needs no styling of its own. [`App.xaml`](../src/DnnManager.Presentation/App.xaml)
 merges, in order: the colour palette (`LightTheme` / `DarkTheme`),
-[`Tokens.xaml`](../src/DnnManager.Presentation/Themes/Tokens.xaml) and the control
+[`Tokens.xaml`](../src/DnnManager.Presentation/Themes/Tokens.xaml),
+[`Icons.xaml`](../src/DnnManager.Presentation/Themes/Icons.xaml) and the control
 dictionaries in [`Themes/Controls/`](../src/DnnManager.Presentation/Themes/Controls/).
 
 | Dictionary | Default look for | Keyed variants (`Style="{StaticResource …}"`) |
@@ -330,6 +331,21 @@ inputs, selects, menus), `SmallRadius` (3 - check boxes), `CardRadius` (6),
 `InputPadding`. Change a token and every control using it follows. Colours are
 never set in a style directly - always a palette key with `DynamicResource`, so
 the theme switch repaints them.
+
+`Icons.xaml` holds every icon the app shows, so one can be changed in one place:
+
+- `Glyph…` - a character of the icon font, `IconFont` (Segoe Fluent Icons, or
+  Segoe MDL2 Assets on Windows 10), named after what it shows: `GlyphClose`,
+  `GlyphPlay`, `GlyphCheck`…
+- the rest - drawn paths (`Geometry`): `Layout…` (the title bar's layout
+  buttons and Customize Layout, with a `…Fill` for the part shown or chosen),
+  `Step…` (the Output tab's stages), `Shell…` (the terminal's shells),
+  `Flame…` (keep warm), `PanelMaximize` / `PanelRestore`, `Columns`.
+  `IconStroke` is the style for a line icon.
+
+XAML uses them with `{StaticResource GlyphClose}`, code with
+`FindResource("GlyphClose")` or `SetResourceReference`. Glyphs and paths are not
+written inline anywhere else.
 
 ## Component map
 
@@ -365,6 +381,7 @@ the theme switch repaints them.
 | Efficiency mode while out of sight | [`Services/WindowOcclusion.cs`](../src/DnnManager.Presentation/Services/WindowOcclusion.cs), [`Services/EfficiencyMode.cs`](../src/DnnManager.Presentation/Services/EfficiencyMode.cs), [`Processes/PowerThrottling.cs`](../src/DnnManager.Infrastructure/Processes/PowerThrottling.cs) (EcoQoS) |
 | Themes | [`Themes/`](../src/DnnManager.Presentation/Themes/), [`Services/ThemeManager.cs`](../src/DnnManager.Presentation/Services/ThemeManager.cs) |
 | Control styles (buttons, inputs, selects, switches…) | [`Themes/Controls/`](../src/DnnManager.Presentation/Themes/Controls/), [`Themes/Tokens.xaml`](../src/DnnManager.Presentation/Themes/Tokens.xaml) |
+| Icons (font glyphs and drawn paths) - see [Control styles](#control-styles) | [`Themes/Icons.xaml`](../src/DnnManager.Presentation/Themes/Icons.xaml) |
 | File copy, zip extract / create | [`Files/ProjectFileCopier.cs`](../src/DnnManager.Infrastructure/Files/ProjectFileCopier.cs) |
 | GitHub release lookup (releases and pre-releases, the latest release by default) | [`Github/GitHubDnnReleaseService.cs`](../src/DnnManager.Infrastructure/Github/GitHubDnnReleaseService.cs), [`Services/DnnReleaseCatalog.cs`](../src/DnnManager.Presentation/Services/DnnReleaseCatalog.cs) |
 | IIS helpers | [`Iis/IisManager.cs`](../src/DnnManager.Infrastructure/Iis/IisManager.cs) |

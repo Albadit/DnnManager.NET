@@ -92,7 +92,7 @@ public partial class MainWindow : Window
         // progress and Cancel; the title bar's panel button (Ctrl+J) opens the panel, a click on the operation opens it
         // on Activity.
         TerminalPanel.Attach(_log, terminal, store, logs, efficiency, options.Value);
-        TerminalPanel.CloseRequested += (_, _) => SetLogOpen(false);
+        TerminalPanel.CloseRequested += (_, _) => ClosePanel();
         TerminalPanel.MaximizeToggled += (_, _) => SetPanelMaximized(!_panelMaximized);
         OperationToast.OperationClicked += (_, _) =>
         {
@@ -143,6 +143,7 @@ public partial class MainWindow : Window
         var layout = workspace.Load<WindowLayout>();
         PlaceWindow(layout);
         _sidebarVisible = !layout.SidebarHidden;
+        _sidebarWidth = layout.SidebarWidth is >= MinSidebarWidth and <= MaxSidebarWidth ? layout.SidebarWidth : null;
         ApplyLayout();
         TrackWorkspace();
         Loaded += (_, _) =>
@@ -349,7 +350,7 @@ public partial class MainWindow : Window
         {
             Left = bounds.Left, Top = bounds.Top, Width = bounds.Width, Height = bounds.Height,
             Maximized = WindowState == WindowState.Maximized || WindowState == WindowState.Minimized && _wasMaximized,
-            SidebarHidden = !_sidebarVisible,
+            SidebarHidden = !_sidebarVisible, SidebarWidth = _sidebarWidth,
             PanelOpen = LogOpen, PanelHeight = panel.IsAbsolute ? panel.Value : null, PanelMaximized = _panelMaximized,
             TerminalListWidth = TerminalPanel.TerminalListWidth
         };
@@ -403,7 +404,7 @@ public partial class MainWindow : Window
         try
         {
             if (layout.TerminalListWidth is { } listWidth) TerminalPanel.TerminalListWidth = listWidth;
-            if (layout.PanelHeight is { } height && height >= 90) _logHeight = new GridLength(height);
+            if (layout.PanelHeight is { } height && height >= MinPanelHeight) _logHeight = new GridLength(height);
             SetLogOpen(layout.PanelOpen);
             if (layout.PanelOpen && layout.PanelMaximized) SetPanelMaximized(true);
             TerminalPanel.RestoreLogs(logs);
@@ -497,11 +498,16 @@ public partial class MainWindow : Window
     private void UpdateCompact() => IsCompact = ActualWidth / ThemeManager.Scale < CompactBelow;
     // The sidebar's widths - with names, and icons only; narrower in Customize Layout's Compact density.
     private const double DefaultSidebarWidth = 230;
-    private double ExpandedSidebarWidth => _layout.Compact ? 190 : DefaultSidebarWidth;
+    private double ExpandedSidebarWidth => _sidebarWidth ?? (_layout.Compact ? 190 : DefaultSidebarWidth);
     private double CompactSidebarWidth => _layout.Compact ? 40 : 48;
 
     public static readonly DependencyProperty IsCompactProperty = DependencyProperty.Register(nameof(IsCompact), typeof(bool),
-        typeof(MainWindow), new PropertyMetadata(false, (d, e) => ((MainWindow)d).SlideSidebar((bool)e.NewValue)));
+        typeof(MainWindow), new PropertyMetadata(false, (d, e) =>
+        {
+            var window = (MainWindow)d;
+            window.SlideSidebar((bool)e.NewValue);
+            window.FitSidebarEdges();
+        }));
 
     // The sidebar's width - a number, so it can be animated (a grid column's width can't); the column follows it.
     private static readonly DependencyProperty SidebarWidthProperty = DependencyProperty.Register("SidebarWidth", typeof(double),
@@ -520,7 +526,7 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// The window is narrow: the sidebar shows only the page icons (names as tooltips) and the IIS dot with its
-    /// buttons - no title, IIS text or projects folder. Its parts follow this with triggers (ExpandedOnly, SidebarNav).
+    /// buttons - no title, IIS text or projects folder. Its parts follow this with triggers (SidebarLabel, SidebarNav).
     /// </summary>
     public bool IsCompact
     {
@@ -548,7 +554,7 @@ public partial class MainWindow : Window
     {
         var maximized = WindowState == WindowState.Maximized;
         Root.Margin = maximized ? MaximizedOverhang() : new Thickness(0);
-        MaximizeButton.Content = maximized ? "\uE923" : "\uE922";
+        MaximizeButton.SetResourceReference(ContentProperty, maximized ? "GlyphRestore" : "GlyphMaximize");
         MaximizeButton.ToolTip = maximized ? "Restore" : "Maximize";
     }
 
@@ -656,7 +662,7 @@ public partial class MainWindow : Window
     // Height the panel had when it was hidden (it may have been resized with the splitter), restored on show.
     private GridLength _logHeight = new(260);
 
-    private bool LogOpen => TerminalPanel.Visibility == Visibility.Visible;
+    private bool LogOpen => PanelCard.Visibility == Visibility.Visible;
 
 
     // The least room the page keeps beside an open panel - small, so the window shrinks as far as VS Code's.
@@ -694,21 +700,17 @@ public partial class MainWindow : Window
             _restoredLogHeight = LogRow.Height;
             PageRow.MinHeight = 0;
             PageRow.Height = new GridLength(0);
-            PageHost.Visibility = Visibility.Collapsed;
-            LogSplitter.Visibility = Visibility.Collapsed;
-            SplitterRow.Height = new GridLength(0);
+            PageCard.Visibility = Visibility.Collapsed;
             LogRow.Height = new GridLength(1, GridUnitType.Star);
         }
         else
         {
             PageRow.Height = new GridLength(1, GridUnitType.Star);
             PageRow.MinHeight = MinPageHeight;
-            PageHost.Visibility = Visibility.Visible;
-            if (!LogOpen) return;
-            LogSplitter.Visibility = Visibility.Visible;
-            SplitterRow.Height = new GridLength(5);
-            LogRow.Height = _restoredLogHeight;
+            PageCard.Visibility = Visibility.Visible;
+            if (LogOpen) LogRow.Height = _restoredLogHeight;
         }
+        FitSashes();
     }
 
     /// <summary>
@@ -721,13 +723,18 @@ public partial class MainWindow : Window
     {
         // Hiding the panel gives the page its room back.
         if (!open) SetPanelMaximized(false);
+        if (open && _panelClosing)
+        {
+            _panelSlide.Stop();
+            _panelClosing = false;
+            LogRow.MinHeight = MinPanelHeight;
+            LogRow.Height = _logHeight;
+        }
         if (open == LogOpen) return;
         if (open)
         {
-            TerminalPanel.Visibility = Visibility.Visible;
-            LogSplitter.Visibility = Visibility.Visible;
-            SplitterRow.Height = new GridLength(5);
-            LogRow.MinHeight = 90;
+            PanelCard.Visibility = Visibility.Visible;
+            LogRow.MinHeight = MinPanelHeight;
             LogRow.Height = _logHeight;
             FitPanelSoon();
             if (takeKeyboard) TerminalPanel.Opened();
@@ -737,12 +744,11 @@ public partial class MainWindow : Window
             _logHeight = LogRow.Height;
             // Its search goes with it - opened again, the panel shows without it.
             TerminalPanel.CloseSearch(focus: false);
-            TerminalPanel.Visibility = Visibility.Collapsed;
-            LogSplitter.Visibility = Visibility.Collapsed;
-            SplitterRow.Height = new GridLength(0);
+            PanelCard.Visibility = Visibility.Collapsed;
             LogRow.MinHeight = 0;
             LogRow.Height = new GridLength(0);
         }
+        FitSashes();
         UpdateLayoutButtons();
     }
 

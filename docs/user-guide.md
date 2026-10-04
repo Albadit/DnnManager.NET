@@ -136,7 +136,19 @@ Manager is closed.
   **Settings**, **Keyboard Shortcuts**, **Themes**, **Customize Layout…**,
   **Troubleshoot** and **Check for Updates…**. In a window narrower than 1100
   pixels the sidebar slides to a narrow one with only the icons (their names as
-  tooltips). **Ctrl+B** hides it, and shows it again.
+  tooltips). **Ctrl+B** (or the title bar's sidebar button) slides it closed,
+  and open again. Drag its edge to make it
+  wider or narrower - 160 to 600 pixels, kept between starts;
+  **Customize Layout**'s reset puts it back.
+- **Resizing** - the edges between the sidebar, the page and the panel can be
+  dragged: three dots show where (in the Compact density, the lines between
+  them), and the edge turns blue while you drag it.
+  Where the sidebar's edge meets the panel's, drag both at once. The sidebar and
+  the panel follow the pointer down to nothing, and out again from their edge -
+  the window's edge, or the page's bottom for the panel. Let go smaller than its
+  smallest size (160 pixels for the sidebar, 90 for the panel) and it slides out
+  to it; under half of that, it slides closed. The sidebar's edge can't be
+  dragged while it shows only its icons.
 - **Window size** - like VS Code's, the window shrinks down to 400 × 270 pixels:
   the title bar's search goes when there is no room for it, the page keeps at
   least a strip above an open panel.
@@ -152,12 +164,13 @@ Manager is closed.
     while it runs, **Start** while it's stopped (`iisreset`; stopping and
     restarting ask first - every site on the PC goes down). Restart is also what
     picks up IIS changes, e.g. a newly installed URL Rewrite module when a site
-    shows *HTTP Error 500.19*. Under the narrow
-    sidebar only its dot is left, with a **⋮** menu for the same actions;
+    shows *HTTP Error 500.19*. Under the sidebar it is as wide as the sidebar;
+    with the sidebar narrow or hidden, as wide as what it shows;
   - *next*: this PC's **RAM** in use, **CPU** use (two decimals) and the
     **Disk** space used on the projects folder's drive, with its size as the
-    *limit* - each keeps the room of its widest value, so the figures don't
-    move as the numbers change (measured every 2 seconds, the disk every 10);
+    *limit* - evenly spaced; the digits are all as wide, so a figure only
+    moves when a number gains or loses a digit (measured every 2 seconds, the
+    disk every 10);
   - *right*: the app's version.
 - **The running operation** - a toast over the bottom-right corner, as VS Code
   shows a task in progress: its name, **Cancel**, and a bar moving along its
@@ -171,7 +184,8 @@ Manager is closed.
   chose, or what **Remove…** had already deleted) is named there.
 - **Bottom panel** - opened and closed with the title bar's panel button,
   **Ctrl+J**, or **Ctrl+`** for the terminal (see [Keyboard](#keyboard); it comes
-  back at the height it had). Like VS
+  back at the height it had) - it slides open and closed. Drag the edge above it
+  to make it taller or lower. Like VS
   Code's: its tabs on the left of its header - **Output**, **Logs**,
   **Terminal** -, then new terminal (on Terminal), clear (on Output), search,
   maximize and hide on the right. Copy and paste are **Ctrl+C** / **Ctrl+V** and
@@ -286,11 +300,11 @@ narrow the list; **↺** next to its name puts the defaults back.
 
 | Group | Choices |
 |---|---|
-| **Visibility** | **Sidebar** (**Ctrl+B**), **Panel** (**Ctrl+J**) and **Status Bar**, shown or hidden. With the sidebar hidden, the IIS cell of the status bar keeps its dot and **⋮** menu. |
+| **Visibility** | **Menu Bar** (for now the app's name in the title bar), **Sidebar** (**Ctrl+B**), **Panel** (**Ctrl+J**) and **Status Bar**, shown or hidden. With the sidebar hidden, the IIS cell of the status bar keeps its state and buttons. |
 | **Sidebar Position** | **Left** (the default) or **Right**. |
 | **Panel Alignment** | How far the bottom panel reaches: **Center** (the default) - under the page only, the sidebar full height beside it; **Justify** - the window's whole width, under the sidebar too; **Left** / **Right** - to that edge of the window, so under the sidebar when it is on that side. |
 | **Quick Input Position** | Where the command palette opens: **Top** (over the title bar's search, the default) or **Center**. |
-| **Layout Density** | **Default**, or **Compact** - the frame smaller in width and height: a narrower sidebar (190 pixels, 40 with icons only) with tighter entries, a lower title bar with narrower buttons, a lower status bar. |
+| **Layout Density** | **Default** - the sidebar, the page and the panel as rounded cards with a 5-pixel gap between them and along the window's sides, right under the title bar and down to the status bar - one surface with them, without lines, as VS Code's. **Compact** - the sidebar, the page and the panel flush, divided by lines, and the frame narrower: a narrower sidebar (190 pixels, 40 with icons only) with tighter entries, narrower title bar buttons. The title bar and the status bar are as low in both. |
 
 Whether the sidebar and the panel are shown is kept with the workspace
 ([Picking up where you left off](#picking-up-where-you-left-off)); the rest is a

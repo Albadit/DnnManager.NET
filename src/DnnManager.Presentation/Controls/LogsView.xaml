@@ -8,7 +8,7 @@
         <Border DockPanel.Dock="Top" Padding="10,5,6,5" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1">
             <DockPanel>
                 <Button x:Name="FolderButton" DockPanel.Dock="Right" Style="{StaticResource IconButton}" Foreground="{DynamicResource Accent}"
-                        Content="&#xE838;" ToolTip="Open folder" Click="OpenFolder_Click" IsEnabled="False" />
+                        Content="{StaticResource GlyphFolderOpen}" ToolTip="Open folder" Click="OpenFolder_Click" IsEnabled="False" />
                 <ComboBox x:Name="SiteBox" Width="190" ToolTip="Website" DisplayMemberPath="Name" SelectionChanged="Site_SelectionChanged" />
                 <ComboBox x:Name="LogBox" Width="300" Margin="8,0,0,0" ToolTip="Log" SelectionChanged="Log_SelectionChanged" />
                 <TextBlock x:Name="Description" Margin="12,0,8,0" Foreground="{DynamicResource LogMuted}" FontSize="{DynamicResource TextCaption}"

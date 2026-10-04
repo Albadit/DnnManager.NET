@@ -1,8 +1,61 @@
 <ResourceDictionary x:Class="DnnManager.Presentation.Themes.LayoutStyles"
                     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:c="clr-namespace:DnnManager.Presentation.Controls">
     <!-- Page building blocks: the text styles (PageTitle, PageSubtitle, CardTitle, FieldLabel, Hint, ErrorLine) and the
-         boxes around content (Card, InfoBanner, WarnBanner), each used as Style="{StaticResource …}". -->
+         boxes around content (Card, InfoBanner, WarnBanner), each used as Style="{StaticResource …}". And every Sash. -->
+
+    <!-- A bar to drag between the window's parts (Controls/Sash), as VS Code's: three dots in its middle (brighter under the
+         pointer); while it is dragged - or its corner is (IsActive) - a 4 px blue line along it instead, its ends rounded.
+         The line and the dots keep within its Padding: a sash reaching across the gaps beside the cards draws only as long
+         as the cards. -->
+    <Style TargetType="c:Sash">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Cursor" Value="SizeWE" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="c:Sash">
+                    <Grid Background="{TemplateBinding Background}">
+                        <Grid Margin="{TemplateBinding Padding}">
+                            <Border x:Name="Line" Width="4" HorizontalAlignment="Center" CornerRadius="2"
+                                    Background="{DynamicResource Accent}" Visibility="Hidden" />
+                            <Path x:Name="Grip" Data="{StaticResource SashGripVertical}" Fill="{DynamicResource TextMuted}"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Grid>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Orientation" Value="Horizontal">
+                            <Setter TargetName="Line" Property="Width" Value="Auto" />
+                            <Setter TargetName="Line" Property="Height" Value="4" />
+                            <Setter TargetName="Line" Property="HorizontalAlignment" Value="Stretch" />
+                            <Setter TargetName="Line" Property="VerticalAlignment" Value="Center" />
+                            <Setter TargetName="Grip" Property="Data" Value="{StaticResource SashGripHorizontal}" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Grip" Property="Fill" Value="{DynamicResource TextPrimary}" />
+                        </Trigger>
+                        <Trigger Property="IsGripVisible" Value="False">
+                            <Setter TargetName="Grip" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="Line" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="Grip" Property="Visibility" Value="Hidden" />
+                        </Trigger>
+                        <Trigger Property="IsActive" Value="True">
+                            <Setter TargetName="Line" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="Grip" Property="Visibility" Value="Hidden" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Cursor" Value="SizeNS" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
 
     <!-- Where the keyboard is: an accent ring around the control, shown only when the keyboard moved there (Services/FocusRing
          puts it on every control that would show Windows' faint dotted rectangle). -->

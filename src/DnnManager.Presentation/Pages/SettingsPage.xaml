@@ -23,7 +23,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="Bd" Background="Transparent" Padding="22,8,12,8" Margin="0,1"
+                        <Border x:Name="Bd" Background="Transparent" Padding="8,8,10,8" Margin="0,1"
                                 CornerRadius="{StaticResource ControlRadius}">
                             <ContentPresenter VerticalAlignment="Center" />
                         </Border>
@@ -53,7 +53,7 @@
         <!-- "Settings" and the way back to the page under it. -->
         <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1" Padding="28,14,20,14">
             <DockPanel>
-                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE8BB;" FontSize="12"
+                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="{StaticResource GlyphClose}" FontSize="12"
                         Foreground="{DynamicResource Accent}" ToolTip="Close (Esc)" Click="Close_Click" />
                 <TextBlock Text="Settings" FontSize="{DynamicResource TextLarge}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" />
             </DockPanel>
@@ -89,28 +89,28 @@
                 <ListBox x:Name="Categories" Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource CategoryItem}"
                          SelectionChanged="Categories_SelectionChanged" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBoxItem Tag="General">
-                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="&#xE713;" /><TextBlock Text="General" /></StackPanel>
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="{StaticResource GlyphSettings}" /><TextBlock Style="{StaticResource NavLabel}" Text="General" /></StackPanel>
                     </ListBoxItem>
                     <ListBoxItem Tag="Projects">
-                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="&#xE8B7;" /><TextBlock Text="Projects" /></StackPanel>
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="{StaticResource GlyphFolder}" /><TextBlock Style="{StaticResource NavLabel}" Text="Projects" /></StackPanel>
                     </ListBoxItem>
                     <ListBoxItem Tag="Releases">
-                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="&#xE896;" /><TextBlock Text="DNN releases" /></StackPanel>
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="{StaticResource GlyphDownload}" /><TextBlock Style="{StaticResource NavLabel}" Text="DNN releases" /></StackPanel>
                     </ListBoxItem>
                     <ListBoxItem Tag="Sql">
-                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="&#xE8F1;" /><TextBlock Text="Database server" /></StackPanel>
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="{StaticResource GlyphDatabase}" /><TextBlock Style="{StaticResource NavLabel}" Text="Database server" /></StackPanel>
                     </ListBoxItem>
                     <ListBoxItem Tag="Docker">
-                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="&#xE7B8;" /><TextBlock Text="Docker container" /></StackPanel>
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="{StaticResource GlyphContainer}" /><TextBlock Style="{StaticResource NavLabel}" Text="Docker container" /></StackPanel>
                     </ListBoxItem>
                     <ListBoxItem Tag="Iis">
-                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="&#xE774;" /><TextBlock Text="IIS" /></StackPanel>
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="{StaticResource GlyphGlobe}" /><TextBlock Style="{StaticResource NavLabel}" Text="IIS" /></StackPanel>
                     </ListBoxItem>
                     <ListBoxItem Tag="Keyboard">
-                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="&#xE765;" /><TextBlock Text="Keyboard shortcuts" /></StackPanel>
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="{StaticResource GlyphKeyboard}" /><TextBlock Style="{StaticResource NavLabel}" Text="Keyboard shortcuts" /></StackPanel>
                     </ListBoxItem>
                     <ListBoxItem Tag="About">
-                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="&#xE946;" /><TextBlock Text="About" /></StackPanel>
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="{StaticResource GlyphInfo}" /><TextBlock Style="{StaticResource NavLabel}" Text="About" /></StackPanel>
                     </ListBoxItem>
                 </ListBox>
             </DockPanel>
@@ -484,7 +484,7 @@
                                                         Content="{Binding ShortcutText}" ToolTip="{Binding ShortcutTip}"
                                                         AutomationProperties.Name="{Binding SpokenShortcut}"
                                                         Click="Shortcut_Click" PreviewKeyDown="Shortcut_PreviewKeyDown" LostKeyboardFocus="Shortcut_LostKeyboardFocus" />
-                                                <Button Grid.Column="2" Style="{StaticResource IconButton}" Content="&#xE7A7;" HorizontalAlignment="Right"
+                                                <Button Grid.Column="2" Style="{StaticResource IconButton}" Content="{StaticResource GlyphReset}" HorizontalAlignment="Right"
                                                         VerticalAlignment="Center" IsEnabled="{Binding IsCustom}" Click="ResetShortcut_Click" Focusable="True"
                                                         ToolTip="{Binding ResetTip}" AutomationProperties.Name="{Binding ResetTip}" ToolTipService.ShowOnDisabled="True" />
                                             </Grid>

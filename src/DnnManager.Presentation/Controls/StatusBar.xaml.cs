@@ -1,8 +1,4 @@
-using System.ComponentModel;
-using System.Globalization;
-using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using DnnManager.Presentation.Services;
 
 namespace DnnManager.Presentation.Controls;
@@ -24,22 +20,7 @@ public partial class StatusBar : UserControl
         _store = store;
         VersionText.Text = version;
         _store.SystemStatsChanged += (_, _) => ShowResources();
-        Loaded += (_, _) => ReserveWidths();
     }
-
-    /// <summary>
-    /// Gives RAM and CPU the width of their widest value, so the figures after them stay put as the numbers change.
-    /// (Disk is last, and its numbers hardly move.)
-    /// </summary>
-    private void ReserveWidths()
-    {
-        RamText.MinWidth = Measure(RamText, $"RAM {888.88:N2} GB");
-        CpuText.MinWidth = Measure(CpuText, $"CPU {100:0.00}%");
-    }
-
-    private static double Measure(TextBlock block, string text) => Math.Ceiling(new FormattedText(text,
-        CultureInfo.CurrentCulture, block.FlowDirection, new Typeface(block.FontFamily, block.FontStyle, block.FontWeight, block.FontStretch),
-        block.FontSize, Brushes.Black, VisualTreeHelper.GetDpi(block).PixelsPerDip).WidthIncludingTrailingWhitespace);
 
     private void ShowResources()
     {

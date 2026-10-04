@@ -81,7 +81,7 @@
                             <DockPanel>
                                 <Button DockPanel.Dock="Right" x:Name="RefreshVersionsButton" Margin="8,0,0,0" Padding="10,0"
                                         ToolTip="Refresh" Click="RefreshVersions_Click">
-                                    <TextBlock Text="&#xE72C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center" />
+                                    <TextBlock Text="{StaticResource GlyphRefresh}" FontFamily="{StaticResource IconFont}" FontSize="13" VerticalAlignment="Center" />
                                 </Button>
                                 <ComboBox x:Name="VersionCombo" DisplayMemberPath="Label" SelectionChanged="VersionCombo_SelectionChanged" />
                             </DockPanel>

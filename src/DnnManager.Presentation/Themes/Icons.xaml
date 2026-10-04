@@ -1,0 +1,139 @@
+<ResourceDictionary x:Class="DnnManager.Presentation.Themes.Icons"
+                    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <!-- Every icon the app shows, in one place: change one here and every place that shows it follows. Two kinds:
+           Glyph…  a character of the icon font (IconFont) - <TextBlock Text="{StaticResource GlyphClose}"
+                   FontFamily="{StaticResource IconFont}" />, or a button's Content in an icon style (IconButton…);
+           the rest  a drawn path (Geometry) - <Path Data="{StaticResource LayoutPanel}" … />.
+         In code: (string)FindResource("GlyphClose"), (Geometry)FindResource("LayoutPanel"). -->
+
+    <!-- ═══ Font icons ═══════════════════════════════════════════════════════════════════════════════════════════ -->
+
+    <!-- Segoe Fluent Icons on Windows 11, Segoe MDL2 Assets (the same code points) on Windows 10. Each glyph is named
+         after what it shows - https://learn.microsoft.com/windows/apps/design/style/segoe-fluent-icons-font -->
+    <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+    <!-- The window's caption buttons. -->
+    <sys:String x:Key="GlyphMinimize">&#xE921;</sys:String>
+    <sys:String x:Key="GlyphMaximize">&#xE922;</sys:String>
+    <sys:String x:Key="GlyphRestore">&#xE923;</sys:String>
+    <sys:String x:Key="GlyphClose">&#xE8BB;</sys:String>
+
+    <!-- Navigation and settings categories. -->
+    <sys:String x:Key="GlyphSettings">&#xE713;</sys:String>
+    <sys:String x:Key="GlyphList">&#xE8FD;</sys:String>
+    <sys:String x:Key="GlyphFolder">&#xE8B7;</sys:String>
+    <sys:String x:Key="GlyphFolderOpen">&#xE838;</sys:String>
+    <sys:String x:Key="GlyphDownload">&#xE896;</sys:String>
+    <sys:String x:Key="GlyphDatabase">&#xE8F1;</sys:String>
+    <sys:String x:Key="GlyphContainer">&#xE7B8;</sys:String>
+    <sys:String x:Key="GlyphGlobe">&#xE774;</sys:String>
+    <sys:String x:Key="GlyphKeyboard">&#xE765;</sys:String>
+    <sys:String x:Key="GlyphBack">&#xE72B;</sys:String>
+
+    <!-- Actions. -->
+    <sys:String x:Key="GlyphAdd">&#xE710;</sys:String>
+    <sys:String x:Key="GlyphPlay">&#xE768;</sys:String>
+    <sys:String x:Key="GlyphStop">&#xE71A;</sys:String>
+    <sys:String x:Key="GlyphRefresh">&#xE72C;</sys:String>
+    <sys:String x:Key="GlyphDelete">&#xE74D;</sys:String>
+    <sys:String x:Key="GlyphCopy">&#xE8C8;</sys:String>
+    <sys:String x:Key="GlyphSearch">&#xE721;</sys:String>
+    <sys:String x:Key="GlyphReset">&#xE7A7;</sys:String>
+    <sys:String x:Key="GlyphMore">&#xE712;</sys:String>
+    <sys:String x:Key="GlyphShow">&#xE7B3;</sys:String>
+    <sys:String x:Key="GlyphHide">&#xED1A;</sys:String>
+
+    <!-- Arrows. -->
+    <sys:String x:Key="GlyphChevronUp">&#xE70E;</sys:String>
+    <sys:String x:Key="GlyphChevronDown">&#xE70D;</sys:String>
+    <sys:String x:Key="GlyphChevronRight">&#xE76C;</sys:String>
+
+    <!-- Marks and states. -->
+    <sys:String x:Key="GlyphCheck">&#xE73E;</sys:String>
+    <sys:String x:Key="GlyphDash">&#xE738;</sys:String>
+    <sys:String x:Key="GlyphCancel">&#xE711;</sys:String>
+    <sys:String x:Key="GlyphInfo">&#xE946;</sys:String>
+    <sys:String x:Key="GlyphQuestion">&#xE9CE;</sys:String>
+    <sys:String x:Key="GlyphWarning">&#xE7BA;</sys:String>
+    <sys:String x:Key="GlyphError">&#xEA39;</sys:String>
+
+    <!-- ═══ Drawn icons ══════════════════════════════════════════════════════════════════════════════════════════ -->
+
+    <!-- How a line icon is stroked: <Path Style="{StaticResource IconStroke}" Data="…" Stroke="…" />. -->
+    <Style x:Key="IconStroke" TargetType="Path">
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="StrokeStartLineCap" Value="Round" />
+        <Setter Property="StrokeEndLineCap" Value="Round" />
+        <Setter Property="StrokeLineJoin" Value="Round" />
+    </Style>
+
+    <!-- The layout (the title bar, Customize Layout), 16 × 16, stroked 1 px: a window - its corners rounded by 1 - with
+         its parts drawn in: the sidebar's column, the panel along the bottom, the status bar. A …Fill is filled in, under
+         the stroke, to show a part as shown or chosen. The menu bar is the strip along the top, the status bar the one along
+         the bottom. -->
+    <Geometry x:Key="LayoutFrame">M2.5,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z</Geometry>
+    <Geometry x:Key="LayoutSidebarLeft">M2.5,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z M6,2.5 V13.5</Geometry>
+    <Geometry x:Key="LayoutSidebarLeftFill">M6,2.5 V13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z</Geometry>
+    <Geometry x:Key="LayoutSidebarRight">M2.5,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z M10,2.5 V13.5</Geometry>
+    <Geometry x:Key="LayoutSidebarRightFill">M10,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H10 Z</Geometry>
+    <Geometry x:Key="LayoutPanel">M2.5,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z M1.5,9.5 H14.5</Geometry>
+    <Geometry x:Key="LayoutPanelFill">M1.5,9.5 H14.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 Z</Geometry>
+    <Geometry x:Key="LayoutMenuBar">M2.5,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z M1.5,4.5 H14.5</Geometry>
+    <Geometry x:Key="LayoutMenuBarFill">M1.5,4.5 H14.5 V3.5 A1,1 0 0 0 13.5,2.5 H2.5 A1,1 0 0 0 1.5,3.5 Z</Geometry>
+    <Geometry x:Key="LayoutStatusBar">M2.5,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z M1.5,11.5 H14.5</Geometry>
+    <Geometry x:Key="LayoutStatusBarFill">M1.5,11.5 H14.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 Z</Geometry>
+
+    <!-- The panel's alignment: under the editor only (left, right, center), or across the whole width (justify -
+         LayoutPanelFill). -->
+    <Geometry x:Key="LayoutPanelLeft">M2.5,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z M1.5,9.5 H10 M10,2.5 V13.5</Geometry>
+    <Geometry x:Key="LayoutPanelLeftFill">M1.5,9.5 H10 V13.5 H2.5 A1,1 0 0 1 1.5,12.5 Z</Geometry>
+    <Geometry x:Key="LayoutPanelRight">M2.5,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z M6,2.5 V13.5 M6,9.5 H14.5</Geometry>
+    <Geometry x:Key="LayoutPanelRightFill">M6,9.5 H14.5 V12.5 A1,1 0 0 1 13.5,13.5 H6 Z</Geometry>
+    <Geometry x:Key="LayoutPanelCenter">M2.5,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z M5,2.5 V13.5 M11,2.5 V13.5 M5,9.5 H11</Geometry>
+    <Geometry x:Key="LayoutPanelCenterFill">M5,9.5 H11 V13.5 H5 Z</Geometry>
+    <Geometry x:Key="LayoutPanelJustify">M2.5,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z M1.5,9.5 H14.5 M5,2.5 V9.5 M11,2.5 V9.5</Geometry>
+
+    <!-- Where the quick input (the command palette) opens: a bar, filled in, inside LayoutFrame. -->
+    <Geometry x:Key="LayoutQuickInputTopFill">M4.5,4 H11.5 A0.5,0.5 0 0 1 12,4.5 V5.5 A0.5,0.5 0 0 1 11.5,6 H4.5 A0.5,0.5 0 0 1 4,5.5 V4.5 A0.5,0.5 0 0 1 4.5,4 Z</Geometry>
+    <Geometry x:Key="LayoutQuickInputCenterFill">M4.5,7 H11.5 A0.5,0.5 0 0 1 12,7.5 V8.5 A0.5,0.5 0 0 1 11.5,9 H4.5 A0.5,0.5 0 0 1 4,8.5 V7.5 A0.5,0.5 0 0 1 4.5,7 Z</Geometry>
+
+    <!-- The layout's density: the sidebar, the editor and the panel spaced apart (default, and Customize Layout), or
+         packed into one window (compact). -->
+    <Geometry x:Key="LayoutDefault">M2.5,2.5 H4.5 A1,1 0 0 1 5.5,3.5 V12.5 A1,1 0 0 1 4.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z M8.5,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V7.5 A1,1 0 0 1 13.5,8.5 H8.5 A1,1 0 0 1 7.5,7.5 V3.5 A1,1 0 0 1 8.5,2.5 Z M8.5,10.5 H13.5 A1,1 0 0 1 14.5,11.5 V12.5 A1,1 0 0 1 13.5,13.5 H8.5 A1,1 0 0 1 7.5,12.5 V11.5 A1,1 0 0 1 8.5,10.5 Z</Geometry>
+    <Geometry x:Key="LayoutCompact">M2.5,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z M6,2.5 V13.5 M6,9.5 H14.5</Geometry>
+
+    <!-- The panel's maximize button, 12 × 12, stroked 1.3 px: the corners pointing out (maximize) or in (restore). -->
+    <Geometry x:Key="PanelMaximize">M1,4.5 V1 H4.5 M7.5,1 H11 V4.5 M11,7.5 V11 H7.5 M4.5,11 H1 V7.5</Geometry>
+    <Geometry x:Key="PanelRestore">M4.5,1 V4.5 H1 M7.5,1 V4.5 H11 M11,7.5 H7.5 V11 M4.5,11 V7.5 H1</Geometry>
+
+    <!-- A Sash's grip, filled: three dots along it - in a row on a horizontal bar, in a column on a vertical one. -->
+    <Geometry x:Key="SashGripHorizontal">M0,1 A1,1 0 1 0 2,1 A1,1 0 1 0 0,1 Z M4,1 A1,1 0 1 0 6,1 A1,1 0 1 0 4,1 Z M8,1 A1,1 0 1 0 10,1 A1,1 0 1 0 8,1 Z</Geometry>
+    <Geometry x:Key="SashGripVertical">M1,0 A1,1 0 1 0 1,2 A1,1 0 1 0 1,0 Z M1,4 A1,1 0 1 0 1,6 A1,1 0 1 0 1,4 Z M1,8 A1,1 0 1 0 1,10 A1,1 0 1 0 1,8 Z</Geometry>
+
+    <!-- The projects table's Columns button, 16 × 14, stroked 1.5 px (IconStroke's round ends and corners): three columns,
+         like a table header, in a frame rounded by 1.5. -->
+    <Geometry x:Key="Columns">M2.25,0.75 H13.75 A1.5,1.5 0 0 1 15.25,2.25 V11.75 A1.5,1.5 0 0 1 13.75,13.25 H2.25 A1.5,1.5 0 0 1 0.75,11.75 V2.25 A1.5,1.5 0 0 1 2.25,0.75 Z M5.5,0.75 V13.25 M10.5,0.75 V13.25</Geometry>
+
+    <!-- The Output tab's stages and run status, 14 × 14, stroked 2 px. -->
+    <Geometry x:Key="StepCheck">M3,7.5 L6,10.5 L11.5,4</Geometry>
+    <Geometry x:Key="StepCross">M4,4 L10,10 M10,4 L4,10</Geometry>
+    <Geometry x:Key="StepTriangle">M7,1.8 L12.8,12 H1.2 Z M7,5.6 V8.2 M7,10 V10.1</Geometry>
+    <Geometry x:Key="StepDash">M4,7 H10</Geometry>
+    <Geometry x:Key="StepCircle">M7,2.5 A4.5,4.5 0 1 1 6.99,2.5 Z</Geometry>
+    <Geometry x:Key="StepSpinner">M7,2 A5,5 0 1 1 2,7</Geometry>
+    <Geometry x:Key="StepSmallSpinner">M6,1.75 A4.25,4.25 0 1 1 1.75,6</Geometry>
+    <Geometry x:Key="StepAlert">M7,1.5 A5.5,5.5 0 1 1 6.99,1.5 Z M7,4.2 V7.6 M7,9.6 V9.7</Geometry>
+
+    <!-- The terminal's shells (TerminalPanel's ShellIcon), filled, stretched to fit 16 × 16. -->
+    <Geometry x:Key="ShellPowerShell">M6.82499 8.882L4.46199 10.882C4.36799 10.961 4.25299 11 4.13899 11C3.99699 11 3.85599 10.939 3.75699 10.823C3.57799 10.612 3.60499 10.297 3.81599 10.118L5.80399 8.436L4.47899 6.817C4.30399 6.603 4.33499 6.288 4.54899 6.113C4.76199 5.938 5.07799 5.969 5.25199 6.183L6.88799 8.183C7.06099 8.394 7.03299 8.705 6.82499 8.882ZM11 10H7.49999C7.22399 10 6.99999 10.224 6.99999 10.5C6.99999 10.776 7.22399 11 7.49999 11H11C11.276 11 11.5 10.776 11.5 10.5C11.5 10.224 11.276 10 11 10ZM15.784 3.973L14.053 12.973C13.827 14.148 12.795 15 11.598 15H2.67099C1.92299 15 1.21999 14.669 0.742988 14.092C0.265988 13.515 0.0739875 12.763 0.215988 12.028L1.94699 3.027C2.17299 1.852 3.20499 1 4.40199 1H13.329C14.077 1 14.78 1.331 15.257 1.908C15.734 2.485 15.926 3.237 15.784 3.972V3.973ZM14.485 2.545C14.199 2.198 13.778 2 13.329 2H4.40199C3.68399 2 3.06399 2.512 2.92899 3.217L1.19799 12.217C1.11299 12.657 1.22799 13.11 1.51399 13.455C1.79999 13.802 2.22099 14 2.66999 14H11.597C12.315 14 12.935 13.488 13.07 12.783L14.801 3.783C14.886 3.343 14.771 2.89 14.485 2.545Z</Geometry>
+    <Geometry x:Key="ShellCmd">M12.5 1H3.5C2.119 1 1 2.119 1 3.5V12.5C1 13.881 2.119 15 3.5 15H12.5C13.881 15 15 13.881 15 12.5V3.5C15 2.119 13.881 1 12.5 1ZM14 12.5C14 13.328 13.328 14 12.5 14H3.5C2.672 14 2 13.328 2 12.5V5H14V12.5ZM14 4H2V3.5C2 2.672 2.672 2 3.5 2H12.5C13.328 2 14 2.672 14 3.5V4ZM4 10.508V8.508C4 7.681 4.673 7.008 5.5 7.008C6.327 7.008 7 7.681 7 8.508C7 8.784 6.776 9.008 6.5 9.008C6.224 9.008 6 8.784 6 8.508C6 8.232 5.776 8.008 5.5 8.008C5.224 8.008 5 8.232 5 8.508V10.508C5 10.783 5.224 11.008 5.5 11.008C5.776 11.008 6 10.783 6 10.508C6 10.233 6.224 10.008 6.5 10.008C6.776 10.008 7 10.232 7 10.508C7 11.335 6.327 12.008 5.5 12.008C4.673 12.008 4 11.335 4 10.508ZM8 8.5C8 8.224 8.224 8 8.5 8C8.776 8 9 8.224 9 8.5C9 8.776 8.776 9 8.5 9C8.224 9 8 8.776 8 8.5ZM8 10.5C8 10.224 8.224 10 8.5 10C8.776 10 9 10.224 9 10.5C9 10.776 8.776 11 8.5 11C8.224 11 8 10.776 8 10.5ZM9.532 7.676C9.434 7.417 9.565 7.129 9.824 7.032C10.08 6.936 10.371 7.066 10.468 7.324L11.968 11.324C12.066 11.583 11.935 11.871 11.676 11.968C11.618 11.99 11.559 12 11.5 12C11.298 12 11.107 11.876 11.032 11.676L9.532 7.676Z</Geometry>
+    <Geometry x:Key="ShellBash">M13.6547 3.56163L8.91789 0.749977C8.64251 0.586821 8.32832 0.500732 8.00824 0.500732C7.68816 0.500732 7.37396 0.586821 7.09859 0.749977L2.36178 3.56163C2.08017 3.7296 1.84714 3.96798 1.68561 4.25334C1.52408 4.53869 1.43963 4.86118 1.44055 5.18908V10.8124C1.43877 11.1395 1.52198 11.4614 1.68201 11.7467C1.84205 12.032 2.07344 12.2708 2.35351 12.4398L7.09032 15.2515C7.36569 15.4146 7.67989 15.5007 7.99997 15.5007C8.32005 15.5007 8.63424 15.4146 8.90962 15.2515L13.6464 12.4398C13.9265 12.2708 14.1579 12.032 14.3179 11.7467C14.478 11.4614 14.5612 11.1395 14.5594 10.8124V5.18908C14.562 4.86277 14.4801 4.54134 14.3215 4.25613C14.163 3.97091 13.9332 3.73164 13.6547 3.56163ZM9.98632 12.3423V12.7458C9.986 12.7706 9.97948 12.795 9.96735 12.8167C9.95522 12.8383 9.93786 12.8566 9.91685 12.8699L9.67704 13.0071C9.639 13.027 9.60757 13.0071 9.60757 12.9542V12.5573C9.43807 12.6405 9.24411 12.6593 9.06178 12.6102C9.04762 12.6007 9.03722 12.5866 9.03239 12.5703C9.02755 12.554 9.02859 12.5365 9.03532 12.5209L9.12132 12.1554C9.12866 12.1246 9.14542 12.0968 9.16928 12.076C9.17614 12.0693 9.18394 12.0638 9.19244 12.0594C9.19844 12.0568 9.20492 12.0555 9.21146 12.0555C9.218 12.0555 9.22447 12.0568 9.23048 12.0594C9.39772 12.1042 9.57586 12.0817 9.72665 11.9966C9.83381 11.9442 9.92481 11.8638 9.99003 11.764C10.0552 11.6641 10.0923 11.5485 10.0971 11.4293C10.0971 11.2242 9.98466 11.1382 9.71342 11.1366C9.36941 11.1366 9.05186 11.0704 9.04359 10.5626C9.04754 10.3458 9.09941 10.1325 9.19548 9.93807C9.29156 9.74363 9.42946 9.57286 9.5993 9.43798V9.02947C9.59918 9.00433 9.6055 8.97957 9.61767 8.95757C9.62982 8.93557 9.64742 8.91704 9.66877 8.90377L9.90032 8.75657C9.93835 8.73672 9.96978 8.75657 9.96978 8.81115V9.21967C10.1116 9.1551 10.2699 9.13603 10.423 9.16509C10.4389 9.17416 10.4508 9.18892 10.4563 9.20639C10.4618 9.22387 10.4605 9.24279 10.4527 9.25936L10.3717 9.62157C10.3648 9.64915 10.3505 9.67432 10.3303 9.69434C10.3236 9.70156 10.3158 9.7077 10.3072 9.71253C10.2959 9.71631 10.2837 9.71631 10.2724 9.71253C10.1232 9.6798 9.967 9.70523 9.83581 9.78365C9.74024 9.825 9.6584 9.89266 9.59984 9.97876C9.54127 10.0649 9.50839 10.1658 9.50503 10.2699C9.50503 10.4551 9.60261 10.5114 9.93009 10.518C10.3684 10.518 10.5569 10.7165 10.5619 11.1564C10.5578 11.384 10.5042 11.608 10.4048 11.8127C10.3054 12.0175 10.1626 12.1982 9.98632 12.3423ZM12.4672 11.6625C12.47 11.6795 12.4682 11.697 12.4617 11.7131C12.4553 11.7291 12.4446 11.7431 12.4308 11.7535L11.2334 12.4812C11.2278 12.4859 11.2208 12.4888 11.2135 12.4894C11.2062 12.4899 11.1989 12.4881 11.1926 12.4843C11.1864 12.4804 11.1815 12.4747 11.1787 12.4679C11.1759 12.4611 11.1754 12.4536 11.1771 12.4465V12.1372C11.1779 12.1206 11.1835 12.1046 11.1932 12.0911C11.2029 12.0775 11.2162 12.0671 11.2317 12.0611L12.411 11.3549C12.4165 11.3501 12.4235 11.3472 12.4308 11.3467C12.4381 11.3461 12.4455 11.3479 12.4517 11.3518C12.458 11.3556 12.4628 11.3614 12.4656 11.3682C12.4684 11.375 12.4689 11.3825 12.4672 11.3896V11.6625ZM13.2941 4.74749L8.81204 7.51614C8.25302 7.84692 7.84119 8.20913 7.84119 8.88227V14.403C7.84119 14.8066 8.00658 15.0646 8.25467 15.144C8.17284 15.1594 8.08984 15.1677 8.00658 15.1688C7.74336 15.1682 7.48514 15.0968 7.25902 14.9621L2.52221 12.1504C2.29224 12.0111 2.10222 11.8147 1.97064 11.5802C1.83907 11.3458 1.7704 11.0812 1.77133 10.8124V5.18908C1.77012 4.91994 1.83864 4.65508 1.97024 4.4203C2.10183 4.18552 2.292 3.98884 2.52221 3.84941L7.25902 1.03776C7.48434 0.904297 7.7414 0.833879 8.00328 0.833879C8.26516 0.833879 8.52222 0.904297 8.74754 1.03776L13.4843 3.84941C13.6772 3.96611 13.8422 4.12352 13.9679 4.31063C14.0936 4.49775 14.177 4.71006 14.2121 4.93272C14.0583 4.59863 13.7043 4.50601 13.2925 4.74749H13.2941Z</Geometry>
+
+    <!-- Keep warm's flame: Codicons "flame" (Microsoft, https://github.com/microsoft/vscode-codicons, CC BY 4.0), drawn
+         from its SVG path, filled - the whole icon (an outline: its inner contour is a hole) while a site isn't kept
+         warm, its outer contour alone (a filled flame) while it is. -->
+    <Geometry x:Key="FlameOutline">M8.1694 2.38161C8.44582 2.23863 8.72367 2.14217 8.96199 2.08199C8.98644 2.62292 9.15365 3.15614 9.38208 3.66553C9.7057 4.38719 10.1817 5.12315 10.6465 5.83569C10.6644 5.86313 10.6823 5.89054 10.7002 5.91792C11.1553 6.61534 11.5997 7.2963 11.9379 7.97958C12.2887 8.68856 12.5034 9.35877 12.5034 10C12.5034 11.1529 12.1584 12.1473 11.5114 12.8484C10.8704 13.5429 9.88689 14 8.50338 14C7.10629 14 6.13556 13.5958 5.45709 12.9749C4.77045 12.3465 4.33513 11.4518 4.09927 10.3914C3.87708 9.39256 4.07301 8.49755 4.33374 7.84072C4.37616 7.73386 4.42008 7.63386 4.46386 7.54138L4.58938 7.79243C4.97001 8.55369 5.89571 8.86226 6.65697 8.48162C7.50314 8.05854 7.73725 7.02244 7.37909 6.24601C7.00688 5.43912 6.71741 4.43545 6.97653 3.65811C7.17125 3.07394 7.63415 2.65846 8.1694 2.38161ZM4.11056 6.18914L4.10959 6.19037L4.10785 6.19258L4.1029 6.19894L4.08731 6.21936C4.07451 6.23635 4.057 6.26009 4.03559 6.29026C3.99281 6.35055 3.93432 6.43679 3.86679 6.54649C3.732 6.76546 3.55959 7.08054 3.40429 7.47178C3.0944 8.25245 2.84483 9.35744 3.12312 10.6086C3.38774 11.7982 3.89791 12.9035 4.78195 13.7126C5.67415 14.5292 6.89927 15 8.50338 15C10.1211 15 11.3875 14.4571 12.2463 13.5266C13.0989 12.6027 13.5034 11.3471 13.5034 10C13.5034 9.14123 13.2179 8.31144 12.8341 7.53604C12.4688 6.7979 11.9948 6.07168 11.5492 5.38919C11.5274 5.35579 11.5057 5.32249 11.484 5.2893C11.0111 4.56435 10.5805 3.89406 10.2945 3.25635C10.0087 2.61894 9.89683 2.07627 9.99247 1.59806C10.0219 1.45117 9.98382 1.29885 9.88885 1.18301C9.79389 1.06716 9.65198 1 9.50218 1C9.08022 1 8.377 1.14838 7.70997 1.49339C7.03689 1.84154 6.33312 2.42606 6.02784 3.34189C5.63773 4.51222 6.08683 5.83198 6.47104 6.66488C6.64207 7.03564 6.49357 7.44529 6.20976 7.5872C5.94247 7.72084 5.61745 7.6125 5.48381 7.34521L4.9494 6.27639C4.87302 6.12365 4.72397 6.02044 4.55412 6.0027C4.38427 5.98497 4.21685 6.05547 4.11056 6.18914Z</Geometry>
+    <Geometry x:Key="FlameFilled">M4.11056 6.18914L4.10959 6.19037L4.10785 6.19258L4.1029 6.19894L4.08731 6.21936C4.07451 6.23635 4.057 6.26009 4.03559 6.29026C3.99281 6.35055 3.93432 6.43679 3.86679 6.54649C3.732 6.76546 3.55959 7.08054 3.40429 7.47178C3.0944 8.25245 2.84483 9.35744 3.12312 10.6086C3.38774 11.7982 3.89791 12.9035 4.78195 13.7126C5.67415 14.5292 6.89927 15 8.50338 15C10.1211 15 11.3875 14.4571 12.2463 13.5266C13.0989 12.6027 13.5034 11.3471 13.5034 10C13.5034 9.14123 13.2179 8.31144 12.8341 7.53604C12.4688 6.7979 11.9948 6.07168 11.5492 5.38919C11.5274 5.35579 11.5057 5.32249 11.484 5.2893C11.0111 4.56435 10.5805 3.89406 10.2945 3.25635C10.0087 2.61894 9.89683 2.07627 9.99247 1.59806C10.0219 1.45117 9.98382 1.29885 9.88885 1.18301C9.79389 1.06716 9.65198 1 9.50218 1C9.08022 1 8.377 1.14838 7.70997 1.49339C7.03689 1.84154 6.33312 2.42606 6.02784 3.34189C5.63773 4.51222 6.08683 5.83198 6.47104 6.66488C6.64207 7.03564 6.49357 7.44529 6.20976 7.5872C5.94247 7.72084 5.61745 7.6125 5.48381 7.34521L4.9494 6.27639C4.87302 6.12365 4.72397 6.02044 4.55412 6.0027C4.38427 5.98497 4.21685 6.05547 4.11056 6.18914Z</Geometry>
+</ResourceDictionary>

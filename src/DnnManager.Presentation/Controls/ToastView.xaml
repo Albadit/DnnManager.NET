@@ -23,12 +23,12 @@
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Button.Template>
-                <TextBlock Text="&#xE711;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11" />
+                <TextBlock Text="{StaticResource GlyphCancel}" FontFamily="{StaticResource IconFont}" FontSize="11" />
             </Button>
             <Button DockPanel.Dock="Right" x:Name="ActionButton" Style="{StaticResource Primary}" Visibility="Collapsed"
                     ToolTip="{Binding Content, RelativeSource={RelativeSource Self}}"
                     VerticalAlignment="Center" Margin="12,0,0,0" Click="Action_Click" />
-            <TextBlock x:Name="Glyph" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16"
+            <TextBlock x:Name="Glyph" FontFamily="{StaticResource IconFont}" FontSize="16"
                        VerticalAlignment="Center" Margin="0,0,10,0" />
             <TextBlock x:Name="Message" TextWrapping="Wrap" VerticalAlignment="Center" />
         </DockPanel>

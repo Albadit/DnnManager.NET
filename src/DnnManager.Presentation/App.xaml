@@ -11,6 +11,8 @@
                 <t:LightTheme />
                 <!-- Sizes and corner radii shared by the control styles below. -->
                 <t:Tokens />
+                <!-- The drawn icons (path geometries), to reuse anywhere. -->
+                <t:Icons />
                 <!-- The reusable controls, one dictionary per kind (Themes\Controls). A plain <Button />, <TextBox />,
                      <ComboBox />, <CheckBox />… is styled without a Style; the variants are keyed (Primary, SearchBox,
                      ToggleSwitch…). -->
@@ -55,12 +57,18 @@
                 </Setter>
             </Style>
 
-            <!-- Segoe Fluent Icons on Windows 11, Segoe MDL2 Assets (same code points) on Windows 10. -->
+            <!-- A navigation entry's icon: a glyph of the icon font (Themes\Icons.xaml), centred in 30 px - the icons-only
+                 sidebar's entries are as wide. -->
             <Style TargetType="TextBlock" x:Key="NavGlyph">
-                <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
+                <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
                 <Setter Property="FontSize" Value="16" />
                 <Setter Property="Width" Value="30" />
                 <Setter Property="TextAlignment" Value="Center" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+            <!-- A navigation entry's name, after its NavGlyph: the sidebar's (SidebarLabel), Settings' categories. -->
+            <Style TargetType="TextBlock" x:Key="NavLabel">
+                <Setter Property="Margin" Value="6,0,0,0" />
                 <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
 

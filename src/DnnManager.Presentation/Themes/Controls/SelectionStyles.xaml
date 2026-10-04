@@ -63,7 +63,7 @@
                         </Grid.ColumnDefinitions>
                         <Border x:Name="Box" Width="16" Height="16" CornerRadius="{StaticResource SmallRadius}" BorderThickness="1.5"
                                 VerticalAlignment="Center" BorderBrush="{DynamicResource InputBorder}" Background="{DynamicResource InputBg}">
-                            <TextBlock x:Name="Mark" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10" Foreground="White"
+                            <TextBlock x:Name="Mark" FontFamily="{StaticResource IconFont}" FontSize="10" Foreground="White"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" />
                         </Border>
                         <ContentPresenter Grid.Column="1" Margin="6,0,0,0" RecognizesAccessKey="True"
@@ -79,13 +79,13 @@
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Box" Property="Background" Value="{DynamicResource Accent}" />
                             <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}" />
-                            <Setter TargetName="Mark" Property="Text" Value="&#xE73E;" />
+                            <Setter TargetName="Mark" Property="Text" Value="{StaticResource GlyphCheck}" />
                             <Setter TargetName="Mark" Property="Visibility" Value="Visible" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="{x:Null}">
                             <Setter TargetName="Box" Property="Background" Value="{DynamicResource Accent}" />
                             <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}" />
-                            <Setter TargetName="Mark" Property="Text" Value="&#xE738;" />
+                            <Setter TargetName="Mark" Property="Text" Value="{StaticResource GlyphDash}" />
                             <Setter TargetName="Mark" Property="Visibility" Value="Visible" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
@@ -110,7 +110,7 @@
                     <Grid Background="Transparent" Width="24" Height="24">
                         <Border x:Name="Box" Width="16" Height="16" CornerRadius="{StaticResource SmallRadius}" BorderThickness="1.5"
                                 BorderBrush="{DynamicResource InputBorder}" Background="{DynamicResource InputBg}">
-                            <TextBlock x:Name="Mark" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10" Foreground="White"
+                            <TextBlock x:Name="Mark" FontFamily="{StaticResource IconFont}" FontSize="10" Foreground="White"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" />
                         </Border>
                     </Grid>
@@ -121,13 +121,13 @@
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Box" Property="Background" Value="{DynamicResource Accent}" />
                             <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}" />
-                            <Setter TargetName="Mark" Property="Text" Value="&#xE73E;" />
+                            <Setter TargetName="Mark" Property="Text" Value="{StaticResource GlyphCheck}" />
                             <Setter TargetName="Mark" Property="Visibility" Value="Visible" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="{x:Null}">
                             <Setter TargetName="Box" Property="Background" Value="{DynamicResource Accent}" />
                             <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}" />
-                            <Setter TargetName="Mark" Property="Text" Value="&#xE738;" />
+                            <Setter TargetName="Mark" Property="Text" Value="{StaticResource GlyphDash}" />
                             <Setter TargetName="Mark" Property="Visibility" Value="Visible" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">

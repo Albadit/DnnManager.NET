@@ -9,7 +9,7 @@
     <!-- The app draws its own title bar (the search in the middle, the layout buttons next to the window buttons). The
          1px glass edge keeps Windows' shadow and rounded corners. Its height follows the layout density (ApplyLayout). -->
     <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="36" ResizeBorderThickness="6" GlassFrameThickness="0,0,0,1" CornerRadius="0"
+        <WindowChrome CaptionHeight="30" ResizeBorderThickness="6" GlassFrameThickness="0,0,0,1" CornerRadius="0"
                       UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
     <Window.Resources>
@@ -18,7 +18,7 @@
             <Setter Property="Width" Value="{DynamicResource CaptionButtonWidth}" />
             <Setter Property="Height" Value="{DynamicResource TitleBarHeight}" />
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
-            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
+            <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
             <Setter Property="FontSize" Value="10" />
             <Setter Property="Focusable" Value="False" />
             <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True" />
@@ -65,7 +65,7 @@
             <Setter Property="Width" Value="40" />
             <Setter Property="Height" Value="{DynamicResource TitleBarHeight}" />
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
-            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
+            <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
             <Setter Property="FontSize" Value="14" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Focusable" Value="False" />
@@ -152,8 +152,8 @@
             </Style.Triggers>
         </Style>
 
-        <!-- Sidebar parts only shown while it's wide (see MainWindow.IsCompact). -->
-        <Style x:Key="ExpandedOnly" TargetType="FrameworkElement">
+        <!-- A sidebar entry's name - only shown while the sidebar is wide (see MainWindow.IsCompact). -->
+        <Style x:Key="SidebarLabel" TargetType="TextBlock" BasedOn="{StaticResource NavLabel}">
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                     <Setter Property="Visibility" Value="Collapsed" />
@@ -214,8 +214,9 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Title bar: drag it to move the window, double-click to maximize. -->
-        <Border Height="{DynamicResource TitleBarHeight}" Background="{DynamicResource SidebarBg}"
+        <!-- Title bar: drag it to move the window, double-click to maximize. Its line along the bottom only in the Compact
+             density (ApplyLayout). -->
+        <Border x:Name="TitleBarFrame" Height="{DynamicResource TitleBarHeight}" Background="{DynamicResource SidebarBg}"
                 BorderBrush="{DynamicResource SidebarBorder}" BorderThickness="0,0,0,1">
             <Grid x:Name="TitleBar" SizeChanged="TitleBar_SizeChanged">
             <!-- In the middle of the window, as wide as there is room for between the name and the buttons
@@ -224,9 +225,10 @@
                     ToolTip="Search projects and commands" s:CommandTip.Command="projects.quickOpen"
                     AutomationProperties.Name="Search projects and commands">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Left" Text="&#xE721;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
+                    <TextBlock DockPanel.Dock="Left" Text="{StaticResource GlyphSearch}" FontFamily="{StaticResource IconFont}" FontSize="12"
                                VerticalAlignment="Center" Margin="0,0,6,0" />
-                    <TextBlock Text="Search projects and commands" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="Search projects and commands" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               Margin="0,0,0,1.5" />
                 </DockPanel>
             </Button>
             <DockPanel>
@@ -235,45 +237,47 @@
                     <Button x:Name="UpdateButton" Style="{StaticResource TitleBarUpdate}" Content="Update" Visibility="Collapsed"
                             s:CommandTip.Command="app.installUpdate" Click="Update_Click" />
                     <!-- The layout, as VS Code's: Customize Layout, the sidebar and the panel shown or hidden - each drawn
-                         filled in while it is shown (UpdateLayoutButtons). -->
+                         filled in while it is shown (UpdateLayoutButtons). The icons are in Themes\Icons.xaml. -->
                     <Button Style="{StaticResource LayoutButton}" ToolTip="Customize Layout…" s:CommandTip.Command="layout.customize"
                             Click="CustomizeLayout_Click">
-                        <Path Data="M1.5,2.5 H14.5 V13.5 H1.5 Z M6,2.5 V13.5 M6,8.5 H14.5" StrokeThickness="1"
+                        <Path Style="{StaticResource IconStroke}" Data="{StaticResource LayoutDefault}"
                               Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                     </Button>
                     <Button x:Name="SidebarToggle" Style="{StaticResource LayoutButton}" s:CommandTip.Command="view.toggleSidebar" Click="ToggleSidebar_Click">
                         <Grid x:Name="SidebarIcon" Width="16" Height="16" RenderTransformOrigin="0.5,0.5">
-                            <Path x:Name="SidebarIconFill" Data="M1.5,2.5 H6 V13.5 H1.5 Z"
+                            <Path x:Name="SidebarIconFill" Data="{StaticResource LayoutSidebarLeftFill}"
                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                            <Path Data="M1.5,2.5 H14.5 V13.5 H1.5 Z M6,2.5 V13.5" StrokeThickness="1"
+                            <Path Style="{StaticResource IconStroke}" Data="{StaticResource LayoutSidebarLeft}"
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                         </Grid>
                     </Button>
                     <Button x:Name="PanelToggle" Style="{StaticResource LayoutButton}" s:CommandTip.Command="panel.toggle" Click="TogglePanel_Click">
                         <Grid Width="16" Height="16">
-                            <Path x:Name="PanelIconFill" Data="M1.5,9.5 H14.5 V13.5 H1.5 Z"
+                            <Path x:Name="PanelIconFill" Data="{StaticResource LayoutPanelFill}"
                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                            <Path Data="M1.5,2.5 H14.5 V13.5 H1.5 Z M1.5,9.5 H14.5" StrokeThickness="1"
+                            <Path Style="{StaticResource IconStroke}" Data="{StaticResource LayoutPanel}"
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                         </Grid>
                     </Button>
                     <Border Width="1" Height="16" Margin="6,0" Background="{DynamicResource SidebarDivider}" />
-                    <Button Style="{StaticResource CaptionButton}" Content="&#xE921;" ToolTip="Minimize" Click="Minimize_Click" />
-                    <Button x:Name="MaximizeButton" Style="{StaticResource CaptionButton}" Content="&#xE922;" ToolTip="Maximize"
+                    <Button Style="{StaticResource CaptionButton}" Content="{StaticResource GlyphMinimize}" ToolTip="Minimize" Click="Minimize_Click" />
+                    <Button x:Name="MaximizeButton" Style="{StaticResource CaptionButton}" Content="{StaticResource GlyphMaximize}" ToolTip="Maximize"
                             Click="Maximize_Click" />
-                    <Button Style="{StaticResource CloseCaptionButton}" Content="&#xE8BB;" ToolTip="Close" Click="Close_Click" />
+                    <Button Style="{StaticResource CloseCaptionButton}" Content="{StaticResource GlyphClose}" ToolTip="Close" Click="Close_Click" />
                 </StackPanel>
-                <StackPanel x:Name="TitleLeft" Orientation="Horizontal" Margin="12,0,0,0" HorizontalAlignment="Left">
+                <!-- The app's icon, and its name - the menu bar, hidden from Customize Layout. -->
+                <StackPanel x:Name="TitleLeft" Orientation="Horizontal" Margin="12,0,0,0" HorizontalAlignment="Left"
+                            SizeChanged="TitleBar_SizeChanged">
                     <Image Source="pack://application:,,,/DnnManager;component/src/DnnManager.Presentation/Assets/dnn.ico"
                            Width="16" Height="16" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
-                    <TextBlock Text="DNN Manager" Foreground="{DynamicResource TextPrimary}" FontSize="{DynamicResource TextCaption}" Margin="10,0,0,0"
+                    <TextBlock x:Name="MenuBar" Text="DNN Manager" Foreground="{DynamicResource TextPrimary}" FontSize="{DynamicResource TextCaption}" Margin="10,0,0,1.5"
                                VerticalAlignment="Center" />
                 </StackPanel>
             </DockPanel>
             </Grid>
         </Border>
 
-        <!-- Along the bottom, like Docker Desktop: IIS under the sidebar (as wide as it - ApplySidebarWidth), then this
+        <!-- Along the bottom, like Docker Desktop: IIS under the sidebar (at least as wide as it - ApplySidebarWidth), then this
              PC's resources, the running operation and the version. Hidden from Customize Layout. -->
         <DockPanel x:Name="StatusRow" Grid.Row="2">
             <c:IisStatus x:Name="IisStatus" DockPanel.Dock="Left" />
@@ -282,8 +286,10 @@
 
         <!-- The body: the page, the splitter and the bottom panel, the sidebar beside the page - and beside the panel too,
              unless the panel reaches under it (Customize Layout's Panel Alignment). The panel is never taller than the
-             body leaves room for (FitPanel). -->
-        <Grid x:Name="Body" Grid.Row="1" ClipToBounds="True">
+             body leaves room for (FitPanel). The sidebar, the page and the panel are cards: in the Default density rounded,
+             with a gap around them on the frame's colour, as VS Code's; in the Compact density flush, divided by lines
+             (ApplyCards). -->
+        <Grid x:Name="Body" Grid.Row="1" ClipToBounds="True" Background="{DynamicResource SidebarBg}">
         <Grid.RowDefinitions>
             <RowDefinition x:Name="PageRow" Height="*" MinHeight="60" />
             <RowDefinition x:Name="SplitterRow" Height="5" />
@@ -300,35 +306,59 @@
              Troubleshoot…). In a narrow window only the icons (with their names as tooltips) are left. Ctrl+B hides it. -->
         <Border x:Name="Sidebar" Grid.RowSpan="3" Background="{DynamicResource SidebarBg}" BorderBrush="{DynamicResource SidebarBorder}" BorderThickness="0,0,1,0">
         <DockPanel>
-            <StackPanel DockPanel.Dock="Bottom" Margin="0,0,0,8">
+            <!-- The gear as far from the bottom - and the first entry from the top - as the entries are from the sides
+                 (FitSidebarEdges). -->
+            <StackPanel x:Name="SidebarBottom" DockPanel.Dock="Bottom">
                 <Button x:Name="ManageButton" Style="{StaticResource SidebarAction}" ToolTip="Manage" AutomationProperties.Name="Manage - settings, keyboard shortcuts, themes, layout"
                         Click="Manage_Click">
-                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE713;" /><TextBlock Style="{StaticResource ExpandedOnly}" Text="Settings" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="{StaticResource GlyphSettings}" /><TextBlock Style="{StaticResource SidebarLabel}" Text="Settings" /></StackPanel>
                 </Button>
             </StackPanel>
-            <StackPanel Margin="0,12,0,0">
+            <StackPanel x:Name="SidebarTop">
                 <RadioButton Style="{StaticResource SidebarNav}" GroupName="Nav" Tag="Projects" Checked="Nav_Checked" x:Name="NavProjects" ToolTip="Projects" s:CommandTip.Command="pages.projects">
-                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE8FD;" /><TextBlock Style="{StaticResource ExpandedOnly}" Text="Projects" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="{StaticResource GlyphList}" /><TextBlock Style="{StaticResource SidebarLabel}" Text="Projects" /></StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource SidebarNav}" GroupName="Nav" Tag="Setup" Checked="Nav_Checked" x:Name="NavSetup" ToolTip="New project" s:CommandTip.Command="pages.newProject">
-                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE710;" /><TextBlock Style="{StaticResource ExpandedOnly}" Text="New project" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="{StaticResource GlyphAdd}" /><TextBlock Style="{StaticResource SidebarLabel}" Text="New project" /></StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource SidebarNav}" GroupName="Nav" Tag="Existing" Checked="Nav_Checked" x:Name="NavExisting" ToolTip="Host project" s:CommandTip.Command="pages.hostProject">
-                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="&#xE838;" /><TextBlock Style="{StaticResource ExpandedOnly}" Text="Host project" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="{StaticResource GlyphFolderOpen}" /><TextBlock Style="{StaticResource SidebarLabel}" Text="Host project" /></StackPanel>
                 </RadioButton>
             </StackPanel>
         </DockPanel>
         </Border>
 
         <!-- The page of the sidebar entry chosen. -->
-        <ContentControl x:Name="PageHost" Grid.Column="1" Focusable="False" />
+        <Border x:Name="PageCard" Grid.Column="1" Background="{DynamicResource WindowBg}" BorderBrush="{DynamicResource CardBorder}">
+            <ContentControl x:Name="PageHost" Focusable="False" SizeChanged="CardContent_SizeChanged" />
+        </Border>
 
-        <GridSplitter x:Name="LogSplitter" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" ResizeBehavior="PreviousAndNext"
-                      Background="{DynamicResource CardBorder}" />
+        <!-- Between the page and the panel - the gap between their cards, or (Compact) their line: dragged, the panel's height;
+             closed when dragged far enough down. While the panel is closed, along the page's bottom, to drag it open. -->
+        <c:Sash x:Name="PanelSash" Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Panel.ZIndex="1"
+                DragStarted="Sash_DragStarted" DragDelta="PanelSash_DragDelta" DragCompleted="Sash_DragCompleted" />
 
         <!-- Activity, Logs and Terminal; opened and closed with the title bar's panel button, Ctrl+J, Ctrl+` or its own ✕.
              Maximized (its button, Ctrl+Shift+M) it takes the page's room. -->
-        <c:TerminalPanel x:Name="TerminalPanel" Grid.Row="2" Grid.Column="1" />
+        <Border x:Name="PanelCard" Grid.Row="2" Grid.Column="1" Background="{DynamicResource LogBg}" BorderBrush="{DynamicResource CardBorder}">
+            <c:TerminalPanel x:Name="TerminalPanel" SizeChanged="CardContent_SizeChanged" />
+        </Border>
+
+        <!-- The sidebar's edge, on the page's side: dragged, the sidebar's width - closed when dragged far enough, opened
+             again from the window's edge. Not while it shows only its icons. Where it meets the panel's sash, the corner drags
+             both at once. Placed and shown by ApplyLayout and FitSashes. The sashes lie over the cards (ZIndex): over a line
+             they reach half into the card on its other side. -->
+        <c:Sash x:Name="SidebarSash" Grid.RowSpan="3" Grid.Column="1" HorizontalAlignment="Left" Panel.ZIndex="1"
+                DragStarted="Sash_DragStarted" DragDelta="SidebarSash_DragDelta" DragCompleted="Sash_DragCompleted" />
+        <Thumb x:Name="SashCorner" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Left" Cursor="SizeAll" Focusable="False"
+               Panel.ZIndex="2"
+               DragStarted="Sash_DragStarted" DragDelta="SashCorner_DragDelta" DragCompleted="Sash_DragCompleted">
+            <Thumb.Template>
+                <ControlTemplate TargetType="Thumb">
+                    <Border Background="Transparent" />
+                </ControlTemplate>
+            </Thumb.Template>
+        </Thumb>
         </Grid>
 
         <!-- Settings and Troubleshoot open over the page, as VS Code's modal editors: the page dimmed behind them, a click
