@@ -4,29 +4,29 @@ using System.Text.Json.Serialization;
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Domain;
+using DnnManager.Infrastructure.Data;
 using DnnManager.Infrastructure.Settings;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace DnnManager.Infrastructure.Github;
 
 /// <summary>
-/// The DNN releases of a GitHub repository. With <see cref="AppOptions.KeepDnnPackages"/> on, each list GitHub
-/// returns is saved beside the kept packages (<c>packages\&lt;owner&gt;.&lt;repo&gt;\releases.json</c>), so New project
-/// still offers the versions - and sets up the kept ones - when GitHub can't be reached.
+/// The DNN releases of a GitHub repository. Each list GitHub returns - asked at every start (DnnReleaseCatalog) - is
+/// saved in DNN Manager's database (<c>dnn_releases</c>) in place of the one before, so New project still offers the
+/// versions - and sets up the kept packages (<see cref="AppOptions.KeepDnnPackages"/>) - when GitHub can't be reached.
 /// </summary>
 public sealed class GitHubDnnReleaseService : IDnnReleaseService
 {
-    private const string SavedListName = "releases.json";
-
     private readonly HttpClient _http;
     private readonly AppOptions _opts;
-    private readonly AppDataPaths _paths;
+    private readonly AppDatabase _database;
     private readonly ILogger<GitHubDnnReleaseService> _log;
 
-    public GitHubDnnReleaseService(HttpClient http, IOptions<AppOptions> opts, AppDataPaths paths, ILogger<GitHubDnnReleaseService> log)
+    public GitHubDnnReleaseService(HttpClient http, IOptions<AppOptions> opts, AppDatabase database, ILogger<GitHubDnnReleaseService> log)
     {
-        _http = http; _opts = opts.Value; _paths = paths; _log = log;
+        _http = http; _opts = opts.Value; _database = database; _log = log;
         if (!_http.DefaultRequestHeaders.UserAgent.Any())
             _http.DefaultRequestHeaders.Add("User-Agent", "DnnManager-NET");
     }
@@ -105,7 +105,7 @@ public sealed class GitHubDnnReleaseService : IDnnReleaseService
                 .ThenBy(r => r.Index)
                 .Select(r => r.Release)
                 .ToList();
-            if (_opts.KeepDnnPackages) SaveList(apiUrl, usable);
+            SaveList(apiUrl, usable);
             return Result<DnnReleaseList>.Ok(new DnnReleaseList(usable));
         }
         // Not reached, or timed out (a timeout is an OperationCanceledException too - but not a cancel).
@@ -124,56 +124,52 @@ public sealed class GitHubDnnReleaseService : IDnnReleaseService
 
     // ── The list saved for offline use ──
 
-    private sealed record SavedReleases(DateTime SavedAt, List<DnnRelease> Releases);
-
-    /// <summary><c>packages\&lt;owner&gt;.&lt;repo&gt;\releases.json</c> - beside the repository's kept packages.</summary>
-    private string SavedListPath(string apiUrl)
-    {
-        // https://api.github.com/repos/<owner>/<repo>/releases
-        var folder = apiUrl;
-        if (Uri.TryCreate(apiUrl, UriKind.Absolute, out var uri))
-        {
-            var parts = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            folder = parts.Length >= 3 && parts[0] == "repos" ? $"{parts[1]}.{parts[2]}" : uri.Host + uri.AbsolutePath;
-        }
-        foreach (var bad in Path.GetInvalidFileNameChars()) folder = folder.Replace(bad, '_');
-        return Path.Combine(_paths.PackagesDirectory, folder, SavedListName);
-    }
-
-    /// <summary>Saves the list whole - written beside the file, then moved over it. Best effort: it's only for offline use.</summary>
+    /// <summary>Saves the list whole, in place of the one before. Best effort: it's only for offline use.</summary>
     private void SaveList(string apiUrl, List<DnnRelease> releases)
     {
-        var path = SavedListPath(apiUrl);
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            var tmp = path + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(new SavedReleases(DateTime.Now, releases), SavedJson));
-            File.Move(tmp, path, overwrite: true);
+            using var connection = _database.Open();
+            // One list or the other, never half: a connection closed before COMMIT takes it all back.
+            AppDatabase.Execute(connection, "BEGIN IMMEDIATE");
+            AppDatabase.Execute(connection, "DELETE FROM dnn_releases WHERE api = $api", ("$api", apiUrl));
+            var now = DateTime.Now.ToString("O");
+            for (var i = 0; i < releases.Count; i++)
+                AppDatabase.Execute(connection,
+                    "INSERT INTO dnn_releases (api, position, version, tag, url, prerelease, saved_utc) VALUES ($api, $i, $version, $tag, $url, $pre, $saved)",
+                    ("$api", apiUrl), ("$i", i), ("$version", releases[i].Version), ("$tag", releases[i].TagName),
+                    ("$url", releases[i].DownloadUrl), ("$pre", releases[i].Prerelease), ("$saved", now));
+            AppDatabase.Execute(connection, "COMMIT");
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException)
         {
-            _log.LogWarning("Could not save the DNN releases to {Path}: {Error}", path, ex.Message);
+            _log.LogWarning("Could not save the DNN releases of {Api}: {Error}", apiUrl, ex.Message);
         }
     }
 
     private DnnReleaseList? LoadSavedList(string apiUrl)
     {
-        var path = SavedListPath(apiUrl);
         try
         {
-            if (!File.Exists(path)) return null;
-            var saved = JsonSerializer.Deserialize<SavedReleases>(File.ReadAllText(path), SavedJson);
-            return saved is { Releases.Count: > 0 } ? new DnnReleaseList(saved.Releases, saved.SavedAt) : null;
+            using var connection = _database.Open();
+            using var command = AppDatabase.Command(connection,
+                "SELECT version, tag, url, prerelease, saved_utc FROM dnn_releases WHERE api = $api ORDER BY position", ("$api", apiUrl));
+            using var reader = command.ExecuteReader();
+            var releases = new List<DnnRelease>();
+            DateTime? savedAt = null;
+            while (reader.Read())
+            {
+                releases.Add(new DnnRelease(reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetInt64(3) != 0));
+                savedAt ??= DateTime.Parse(reader.GetString(4), null, System.Globalization.DateTimeStyles.RoundtripKind);
+            }
+            return releases.Count > 0 ? new DnnReleaseList(releases, savedAt) : null;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException or FormatException)
         {
-            _log.LogWarning("Could not read the saved DNN releases {Path}: {Error}", path, ex.Message);
+            _log.LogWarning("Could not read the saved DNN releases of {Api}: {Error}", apiUrl, ex.Message);
             return null;
         }
     }
-
-    private static readonly JsonSerializerOptions SavedJson = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
     /// <summary>The number part of a version - <c>10.1.0</c> of <c>10.1.0-rc1</c> - or null when it doesn't start with one.</summary>
     private static Version? VersionNumber(string version)

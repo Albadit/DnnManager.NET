@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
+using DnnManager.Infrastructure.Data;
 using DnnManager.Infrastructure.KeepWarm;
 using DnnManager.Infrastructure.Monitoring;
 using DnnManager.Infrastructure.Projects;
@@ -176,24 +177,19 @@ public sealed class KeepWarmTests
     }
 
     [TestMethod]
-    public void Plan_TakesTheSitesOwnValues_WhenTheyCanBeUsed()
+    public void Plan_TakesTheSettings_WithinTheIdleTimeout()
     {
-        var defaults = new KeepWarmSettings();
         var site = Site(TimeSpan.FromMinutes(20), Http("shop.dnndev.me"));
 
-        var plain = KeepWarmPlan.For(defaults, null, site);
+        var plain = KeepWarmPlan.For(new KeepWarmSettings(), site);
         Assert.AreEqual(TimeSpan.FromMinutes(5), plain.Interval);
         Assert.AreEqual("/KeepAlive.aspx", plain.PingPath);
         Assert.AreEqual("/", plain.WarmUpPath);
-        Assert.IsFalse(plain.OwnInterval || plain.OwnPingPath || plain.OwnWarmUpPath);
 
-        var own = KeepWarmPlan.For(defaults, new KeepWarmRecord("shop", true, PingMinutes: 30, WarmUpPath: "Home", PingPath: "/Install/Install.aspx"), site);
-        Assert.AreEqual(TimeSpan.FromMinutes(8), own.Interval, "Its own 30 minutes, kept within the 20-minute idle time-out.");
-        Assert.IsTrue(own.OwnInterval);
-        Assert.AreEqual("/Home", own.WarmUpPath);
-        Assert.IsTrue(own.OwnWarmUpPath);
-        Assert.AreEqual("/KeepAlive.aspx", own.PingPath, "A page of the installer is never requested - the settings' instead.");
-        Assert.IsFalse(own.OwnPingPath);
+        var changed = KeepWarmPlan.For(new KeepWarmSettings { PingMinutes = 30, WarmUpPath = "/Home", PingPath = "/Install/Install.aspx" }, site);
+        Assert.AreEqual(TimeSpan.FromMinutes(8), changed.Interval, "30 minutes, kept within the 20-minute idle time-out.");
+        Assert.AreEqual("/Home", changed.WarmUpPath);
+        Assert.AreEqual("/KeepAlive.aspx", changed.PingPath, "A page of the installer is never requested - the built-in one instead.");
     }
 
     // ─── Settings and records ─────────────────────────────────────────────
@@ -227,43 +223,42 @@ public sealed class KeepWarmTests
     }
 
     [TestMethod]
-    public void Records_AreKeptPerSite_AndGoWhenEmpty()
+    public void Records_AreTheSitesKeptWarm()
     {
         var root = Path.Combine(Path.GetTempPath(), "dnnmanager-tests", Guid.NewGuid().ToString("N"));
         var paths = new AppDataPaths(root);
-        var records = new KeepWarmRecords(paths, NullLogger<KeepWarmRecords>.Instance);
+        var database = new AppDatabase(paths);
+        var records = new KeepWarmRecords(database, NullLogger<KeepWarmRecords>.Instance);
         try
         {
             Assert.IsNull(records.Find("shop"));
-            Assert.AreEqual(0, records.List().Count, "No folder yet: none.");
+            Assert.AreEqual(0, records.List().Count, "No database yet: none.");
 
             records.Save(new KeepWarmRecord("shop", true));
-            records.Save(new KeepWarmRecord("blog", false, PingMinutes: 10, PingPath: "/"));
+            records.Save(new KeepWarmRecord("blog", true));
             Assert.AreEqual(new KeepWarmRecord("shop", true), records.Find("SHOP"), "Found whatever the case of its name.");
             Assert.AreEqual(2, records.List().Count);
-            Assert.AreEqual(10, records.Find("blog")!.PingMinutes, "Switched off, its own values are kept.");
 
             records.Save(new KeepWarmRecord("blog", false));
-            Assert.IsNull(records.Find("blog"), "Off without values of its own: nothing to keep.");
+            Assert.IsNull(records.Find("blog"), "Switched off: no row.");
             Assert.AreEqual(1, records.List().Count);
+            using (var connection = database.Open())
+                CollectionAssert.AreEqual(new[] { "site" }, AppDatabase.KeyValues(connection, "SELECT name, type FROM pragma_table_info('keep_warm')").Keys.ToArray(),
+                    "A site and nothing more: how it is kept warm is the settings'.");
 
-            // Kept for the next start: another reader of the same folder finds them.
-            Assert.AreEqual(new KeepWarmRecord("shop", true), new KeepWarmRecords(paths, NullLogger<KeepWarmRecords>.Instance).Find("shop"));
+            // Kept for the next start: another reader of the same database finds them.
+            Assert.AreEqual(new KeepWarmRecord("shop", true), new KeepWarmRecords(new AppDatabase(paths), NullLogger<KeepWarmRecords>.Instance).Find("shop"));
 
             records.Remove("shop");
             Assert.IsNull(records.Find("shop"));
 
-            var file = Path.Combine(paths.StateDirectory, KeepWarmSites.FileName);
-            File.WriteAllText(file, "{ not json");
-            Assert.AreEqual(0, records.List().Count, "A file that can't be read: no site is kept warm.");
-            Assert.IsTrue(File.Exists(file + ".bad"), "…and it is set aside.");
-
             var cleaner = new AppDataCleaner(paths);
             records.Save(new KeepWarmRecord("shop", true));
-            File.WriteAllText(paths.SettingsFile, "{}");
+            var settings = new SettingsStore(paths);
+            settings.Load();
             cleaner.Clean(AppDataKind.KeepWarmChoices);
             Assert.AreEqual(0, records.List().Count, "A factory reset forgets which sites are kept warm.");
-            Assert.IsTrue(File.Exists(paths.SettingsFile));
+            Assert.IsTrue(settings.SavedValues().Count > 0, "…and only that.");
         }
         finally
         {

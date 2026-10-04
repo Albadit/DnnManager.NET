@@ -436,7 +436,7 @@
                         <StackPanel x:Name="IisPanel" Visibility="Collapsed">
                             <TextBlock Style="{StaticResource CategoryTitle}" Text="IIS" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0"
-                                       Text="The Windows features DNN Manager needs - Test shows which are enabled, Set up IIS enables the missing ones. The list is edited in settings.json (iis.requiredFeatures)." />
+                                       Text="The Windows features DNN Manager needs - Test shows which are enabled, Set up IIS enables the missing ones, Edit… adds or removes features." />
                             <c:IisCard x:Name="IisCard" Margin="0,16,0,0" />
                         </StackPanel>
 

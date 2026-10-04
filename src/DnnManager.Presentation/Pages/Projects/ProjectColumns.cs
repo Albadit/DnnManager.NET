@@ -5,7 +5,7 @@ namespace DnnManager.Presentation.Pages.Projects;
 
 /// <summary>
 /// An optional column of the Projects table, as its Columns menu lists it. <see cref="Key"/> is what
-/// <c>appearance.projectColumns</c> in settings.json stores.
+/// <c>appearance.projectColumns</c> in the settings stores.
 /// </summary>
 public sealed class ProjectColumnOption(string key, string header) : INotifyPropertyChanged
 {

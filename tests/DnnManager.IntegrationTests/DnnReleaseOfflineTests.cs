@@ -2,7 +2,7 @@ using System.Net;
 using System.Text;
 using DnnManager.Application.Configuration;
 using DnnManager.Infrastructure.Github;
-using DnnManager.Infrastructure.Settings;
+using DnnManager.Infrastructure.Data;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -43,7 +43,13 @@ public sealed class DnnReleaseOfflineTests
 
     private GitHubDnnReleaseService Service(bool online, bool keepPackages = true) =>
         new(new HttpClient(new Stub(online)), Options.Create(new AppOptions { KeepDnnPackages = keepPackages }),
-            new AppDataPaths(_dir), NullLogger<GitHubDnnReleaseService>.Instance);
+            new AppDatabase(_dir), NullLogger<GitHubDnnReleaseService>.Instance);
+
+    private long SavedRows()
+    {
+        using var connection = new AppDatabase(_dir).Open();
+        return AppDatabase.Scalar<long>(connection, "SELECT COUNT(*) FROM dnn_releases");
+    }
 
     [TestMethod]
     public async Task Offline_TheReleasesSavedAtTheLastLookup_AreOffered()
@@ -51,7 +57,7 @@ public sealed class DnnReleaseOfflineTests
         var online = await Service(online: true).ListReleasesAsync(Api, CancellationToken.None);
         Assert.IsTrue(online.Success);
         Assert.IsNull(online.Value!.SavedAt, "From GitHub, not the saved list.");
-        Assert.IsTrue(File.Exists(Path.Combine(_dir, "packages", "dnnsoftware.Dnn.Platform", "releases.json")));
+        Assert.AreEqual(2, SavedRows(), "Saved for offline use.");
 
         var offline = await Service(online: false).ListReleasesAsync(Api, CancellationToken.None);
         Assert.IsTrue(offline.Success, offline.Error);
@@ -79,13 +85,21 @@ public sealed class DnnReleaseOfflineTests
     }
 
     [TestMethod]
-    public async Task WithoutKeptPackages_NothingIsSaved_AndOfflineFails()
+    public async Task WithoutKeptPackages_TheListIsSavedToo()
     {
         await Service(online: true, keepPackages: false).ListReleasesAsync(Api, CancellationToken.None);
-        Assert.IsFalse(Directory.Exists(Path.Combine(_dir, "packages")));
+        Assert.AreEqual(2, SavedRows(), "Every list GitHub returns is saved - the one asked at start too.");
 
         var offline = await Service(online: false, keepPackages: false).ListReleasesAsync(Api, CancellationToken.None);
-        Assert.IsFalse(offline.Success);
+        Assert.IsTrue(offline.Success, offline.Error);
+        Assert.IsNotNull(offline.Value!.SavedAt);
+    }
+
+    [TestMethod]
+    public async Task NeverReached_OfflineFails()
+    {
+        var offline = await Service(online: false).ListReleasesAsync(Api, CancellationToken.None);
+        Assert.IsFalse(offline.Success, "Nothing saved yet.");
     }
 
     /// <summary>GitHub: the releases above - or, offline, no answer at all.</summary>

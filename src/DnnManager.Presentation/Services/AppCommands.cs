@@ -12,7 +12,7 @@ namespace DnnManager.Presentation.Services;
 /// </summary>
 public sealed class AppCommand
 {
-    /// <summary>What <c>keyboard.shortcuts</c> in settings.json names it by, e.g. <c>project.start</c>. Never changed once released.</summary>
+    /// <summary>What <c>keyboard.shortcuts</c> in the settings names it by, e.g. <c>project.start</c>. Never changed once released.</summary>
     public required string Id { get; init; }
     public required string Title { get; init; }
     /// <summary>The part of DNN Manager it belongs to: Projects, Project, Pages, Panel, Terminal, Application.</summary>
@@ -41,7 +41,7 @@ public sealed class AppCommand
 
 /// <summary>
 /// Every <see cref="AppCommand"/> and its keyboard shortcut - its default, or the one chosen in Settings - Keyboard
-/// shortcuts, kept in settings.json (<c>keyboard.shortcuts</c>, only what differs from the defaults) and saved at once.
+/// shortcuts, kept in the settings (<c>keyboard.shortcuts</c>, only what differs from the defaults) and saved at once.
 /// </summary>
 public sealed class AppCommands
 {

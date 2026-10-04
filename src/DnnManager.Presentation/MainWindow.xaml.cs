@@ -34,7 +34,7 @@ public partial class MainWindow : Window
     // One entry per sidebar item. A page is created on its first visit and kept, so its lists (folders, DNN
     // versions…) load once instead of on every visit; its Refresh button, or a finished operation, reloads them.
     // Projects needs neither: it shows the ServerStore, which keeps itself current. Settings is read from
-    // settings.json on every visit. Settings and Troubleshoot open over the page (ShowModal), the others in it.
+    // the saved settings on every visit. Settings and Troubleshoot open over the page (ShowModal), the others in it.
     private static readonly Dictionary<string, Type> Pages = new()
     {
         ["Projects"]      = typeof(ProjectsPage),
@@ -77,7 +77,7 @@ public partial class MainWindow : Window
         options.Value.Changed += () =>
         {
             UpdateCompact(); // the UI scale may have changed
-            // Reset to defaults, or saved on Settings: the layout as the file has it.
+            // Reset to defaults, or saved on Settings: the layout as saved.
             _layout = options.Value.Layout.Copy();
             ApplyLayout();
             foreach (var (key, kept) in _pages.Where(p => p.Value is not ProjectsPage).ToList())
@@ -325,8 +325,6 @@ public partial class MainWindow : Window
         _workspace.Track(() => _restoringWorkspace ?? CaptureWorkspace());
         _workspace.Track(CaptureForms);
         _workspace.Track(() => _restoringLogs ?? TerminalPanel.CaptureLogs());
-        // Terminals were kept by builds before 1.7.0's release - gone: a shell doesn't outlive DNN Manager.
-        _workspace.Store.DeleteFile("terminals.json");
 
         // Anything typed, ticked or chosen anywhere in the window - pages, tabs, forms, the panel.
         AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent,

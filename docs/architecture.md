@@ -182,28 +182,30 @@ state is the first snapshot.
 
 DNN Manager opens where it was left - after a close, a restart, an update or a
 crash ([user guide](user-guide.md#picking-up-where-you-left-off)). Settings are
-`settings.json`, as before; the rest is state, kept apart in
-`Documents\DnnManager\state`, one file per area:
+the `settings` table in [DNN Manager's database](#dnn-managers-database); the
+rest is state, kept apart in the `state` table, one row per value by area:
 
-| File | Holds | Captured / restored by |
+| Area | Holds | Captured / restored by |
 |---|---|---|
-| `window.json` | The window's place and size, maximized, the sidebar shown or hidden, the panel's height, open or maximized, the terminal list's width | `MainWindow` |
-| `workspace.json` | The page (Settings or Troubleshoot when one is open over the sidebar page), the sidebar page, the Settings category, the Projects table (search, filter, sorting, expanded and selected rows, scroll) and the open Details with its tab | `MainWindow`, `ProjectsPage.CaptureTable` / `RestoreAsync` |
-| `forms.json` | New project, Host project and unsaved Settings, by field name | [`FormDraft`](../src/DnnManager.Presentation/Services/FormDraft.cs), `SettingsPage.CaptureDraft` / `RestoreDraft` |
-| `logs.json` | The panel's tab, its search, the Logs tab's site and log | `TerminalPanel.CaptureLogs` / `RestoreLogs` |
-| `update.json` | The update under way (from, to, the helper's result file) | `AppUpdater` writes it; `MainWindow` reads and deletes it |
+| `window` | The window's place and size, maximized, the sidebar shown or hidden, the panel's height, open or maximized, the terminal list's width | `MainWindow` |
+| `workspace` | The page (Settings or Troubleshoot when one is open over the sidebar page), the sidebar page, the Settings category, the Projects table (search, filter, sorting, expanded and selected rows, scroll) and the open Details with its tab | `MainWindow`, `ProjectsPage.CaptureTable` / `RestoreAsync` |
+| `forms` | New project, Host project and unsaved Settings, by field name | [`FormDraft`](../src/DnnManager.Presentation/Services/FormDraft.cs), `SettingsPage.CaptureDraft` / `RestoreDraft` |
+| `logs` | The panel's tab, its search, the Logs tab's site and log | `TerminalPanel.CaptureLogs` / `RestoreLogs` |
+| `update` | The update under way (from, to, the helper's result file) | `AppUpdater` writes it; `MainWindow` reads and deletes it |
 
 - **One place reads and writes them**:
   [`StateStore`](../src/DnnManager.Infrastructure/State/StateStore.cs). A state is a
-  class implementing `IStateFile` (its file name, its format number, an optional
-  `Upgrade` from older formats) - see
-  [`WorkspaceStates.cs`](../src/DnnManager.Presentation/Services/WorkspaceStates.cs).
-  A write goes beside the file (flushed to disk) and is moved over it, so a crash
-  leaves the old file or the new one; an unchanged state isn't written. A file
-  that can't be read is renamed `.bad` and the defaults are used; one of a newer
-  format is ignored and left alone. It never throws - DNN Manager always starts.
+  class implementing `IStateFile` (its `Area`) - see
+  [`WorkspaceStates.cs`](../src/DnnManager.Presentation/Services/WorkspaceStates.cs) -
+  made into rows and back by [`ValueRows`](../src/DnnManager.Infrastructure/Data/ValueRows.cs),
+  as the settings are ([configuration.md](configuration.md#how-the-settings-are-saved)).
+  Each area is written whole - its rows replaced in one transaction, so a crash
+  leaves the old ones or the new ones; an unchanged state isn't written. A value
+  without a row, or one that can't be read, keeps its default (the log file
+  names the latter); the rest of the area is read. It never throws - DNN
+  Manager always starts.
 - **When it is saved**: [`WorkspaceService`](../src/DnnManager.Presentation/Services/WorkspaceService.cs)
-  holds what to capture for each file (`Track`) and saves 2 s after something
+  holds what to capture for each state (`Track`) and saves 2 s after something
   changed (`Changed` - at most once per 2 s, however much changes), and at once as
   the window closes (`SaveNow`, last). `MainWindow` calls `Changed` for anything
   typed, ticked or chosen in the window (routed `TextChanged`, `Checked`,
@@ -217,12 +219,58 @@ crash ([user guide](user-guide.md#picking-up-where-you-left-off)). Settings are
   Anything that throws falls back to the Projects page.
 - **What isn't kept**, on purpose: passwords (`FormDraft` skips `PasswordBox` and
   `PasswordInput`), dialogs, running operations, messages, and terminals - their
-  shells end with the app, so a start begins without any (a `terminals.json` left
-  by an earlier build is deleted).
+  shells end with the app, so a start begins without any.
 - To add a state: a class in `WorkspaceStates.cs`, a `Track` in `MainWindow`, and
-  its restore in `RestoreWorkspace`. Changing a state's shape: raise its
-  `CurrentFormat`, and give it an `Upgrade` when an older file needs more than
-  defaults for what is new.
+  its restore in `RestoreWorkspace`. A property added to a state needs nothing
+  more - saved rows without it give it its default; a renamed one starts from
+  its default once.
+
+## DNN Manager's database
+
+DNN Manager's own data is one SQLite file, `Documents\DnnManager\dnnmanager.db`
+([`AppDatabase`](../src/DnnManager.Infrastructure/Data/AppDatabase.cs)), through
+`Microsoft.Data.Sqlite`. Its tables (what each column holds:
+[configuration.md](configuration.md#where-your-files-are)):
+
+| Table | Holds | Read and written by |
+|---|---|---|
+| `settings` | The settings, one row per value (`key`, `value`) | [`SettingsStore`](../src/DnnManager.Infrastructure/Settings/SettingsStore.cs) |
+| `state` | The workspace, one row per value by area (`area`, `key`, `value`) | [`StateStore`](../src/DnnManager.Infrastructure/State/StateStore.cs) |
+| `projects` | How DNN Manager installed each project it set up | [`ProjectRecords`](../src/DnnManager.Infrastructure/Projects/ProjectRecords.cs) |
+| `keep_warm` | The sites kept warm, a row each - how they are kept warm is the settings' | [`KeepWarmRecords`](../src/DnnManager.Infrastructure/Projects/KeepWarmRecords.cs) |
+| `dnn_releases` | Each repository's DNN versions as GitHub last listed them, for offline use | [`GitHubDnnReleaseService`](../src/DnnManager.Infrastructure/Github/GitHubDnnReleaseService.cs) |
+
+- **One file, opened for each read or write** and closed after it (no
+  connection pool), so nothing holds it open in between; a write waits up to
+  30 s for another one (keep warm and the window save from different threads).
+  `AppDatabase.Open` brings the tables up to date the first time - and again
+  for a file deleted meanwhile: `AppDatabase.Steps` are the numbered steps that
+  make each version of the tables from the one before, and `PRAGMA
+  user_version` holds how many have run. A change of the tables is a new step
+  at the end; the steps before never change.
+- **No JSON in the database**: every value is a column or a row of its own.
+  The settings and the workspace are objects made into rows by
+  [`ValueRows`](../src/DnnManager.Infrastructure/Data/ValueRows.cs) - a key is
+  the value's path in camelCase (`projects.sitePort`; a list's items
+  `projects.dnnReleaseSources[0]` under a row with their count; a dictionary's
+  entries `keyboard.shortcuts{project.start}`, the entry's key %-escaped), a
+  value invariant-culture text. A value without a row keeps its default. The
+  `sa` password row is DPAPI-encrypted by `SettingsStore`. The rows of
+  `projects`, `keep_warm` and `dnn_releases` are plain columns. The only JSON
+  left in the app is what other programs speak: GitHub's API, `vswhere`'s
+  output, and the update's hand-off files `plan.json` / `result.json` in
+  `%TEMP%\DnnManager-update\<version>\` (between the old version's helper and
+  the new version).
+- **Nothing from earlier versions is read**: the `settings.json`, `state\` and
+  `projects\` of 1.7.1 and older stay on disk untouched, and the first start
+  of this version begins with the defaults
+  ([configuration.md](configuration.md#upgrading-from-171-or-earlier)).
+- **The native SQLite**: `Microsoft.Data.Sqlite` brings
+  `SQLitePCLRaw.lib.e_sqlite3` 2.1.11, whose SQLite has a known vulnerability
+  (GHSA-2m69-gcr7-jv3q), so `DnnManager.csproj` pins 2.1.13. Drop that
+  reference once `Microsoft.Data.Sqlite` brings a fixed version itself.
+- **Tests** give `AppDataPaths` / `AppDatabase` a folder under `%TEMP%`, so
+  each test has its own `dnnmanager.db` and never touches yours.
 
 ## Project layout
 
@@ -242,18 +290,20 @@ DnnManager.NET/
     │   └── Result.cs            ← Result / Result<T> (no exceptions across layers)
     ├── DnnManager.Application/
     │   ├── Abstractions/        ← all interfaces consumed by use cases
-    │   ├── Configuration/       ← UserSettings (settings.json, defaults, validation), AppOptions
+    │   ├── Configuration/       ← UserSettings (the settings' layout, defaults, validation), AppOptions
     │   ├── UseCases/            ← one class per top-level action
     │   └── DependencyInjection.cs
     ├── DnnManager.Infrastructure/
     │   ├── Iis/                 ← IIS via Microsoft.Web.Administration
     │   ├── Docker/              ← docker-compose.yml for the shared SQL container, from the settings, and running it
-    │   ├── Sql/                 ← sqlcmd in the container, remote backup, SqlPackage, connection test; DatabaseProvisioner (Test connection, create, the site's login), LocalDB files, connection strings
+    │   ├── Sql/                 ← sqlcmd in the container, remote backup, SqlPackage, connection test, SiteDatabaseChecks (is a site's database live - the Projects table and Host project); DatabaseProvisioner (Test connection, create, the site's login), LocalDB files, connection strings
     │   ├── Dnn/                 ← DNN's unattended install (Install.aspx), its template and output, the host password's hash
     │   ├── Github/              ← GitHub API + DNN package downloader
-    │   ├── Settings/            ← AppDataPaths (Documents\DnnManager), SettingsStore, SettingsMigrations, WindowsCredentialStore
+    │   ├── Data/                ← AppDatabase (dnnmanager.db, its tables and their steps), ValueRows (an object as key / value rows)
+    │   ├── Settings/            ← AppDataPaths (Documents\DnnManager), SettingsStore, AppDataCleaner, WindowsCredentialStore
+    │   ├── State/               ← StateStore (the workspace, by area)
     │   ├── Files/               ← file copy, site .zip import / export, daily log file
-    │   ├── Projects/            ← file-system project repository; ProjectRecords (how each project was installed)
+    │   ├── Projects/            ← file-system project repository; ProjectRecords (how each project was installed), KeepWarmRecords
     │   ├── Prereq/              ← IIS feature checks
     │   ├── WebConfigs/          ← web.config SiteSqlServer read / write
     │   ├── Processes/           ← shared ProcessRunner; the app's own power throttling (EcoQoS)
@@ -280,7 +330,7 @@ DnnManager.NET/
         ├── Pages/               ← one page per sidebar item, plus Settings and Troubleshoot (opened over the page); AboutInfo (Settings → About)
         │   └── Projects/        ← the Projects table's row, columns and right-click menu; a site's Details (ProjectView, ProjectDiagnostics, Inspector)
         ├── Assets/              ← dnn.ico - the exe and window icon (DNN logo mark)
-        ├── Controls/            ← StatusBar, IisStatus, TerminalPanel (Output / Logs / Terminal), PipelineView + PipelineLog (the Output tab), LogView, LogsView, PanelSearch, ToastView, InputDialog, MessageDialog, ExistingFolderOptions, PasswordInput, DatabaseCheckList, HostPasswordDialog; DockerCard, DatabaseServerCard, IisCard (Settings' Test and set up cards)
+        ├── Controls/            ← StatusBar, IisStatus, TerminalPanel (Output / Logs / Terminal), PipelineView + PipelineLog (the Output tab), LogView, LogsView, PanelSearch, ToastView, InputDialog, MessageDialog, ExistingFolderOptions, PasswordInput, DatabaseCheckList, HostPasswordDialog, the edit dialogs (RenameProjectDialog, BindingsDialog, AppPoolDialog, DatabaseConnectionDialog, DeploymentExportDialog, IisFeaturesDialog); DockerCard, DatabaseServerCard, IisCard (Settings' Test and set up cards)
         ├── Terminal/            ← the terminal itself: screen buffer + VT parser, the view that draws it, the shell session
         ├── Themes/              ← LightTheme / DarkTheme colour palettes, Tokens (radii, heights, padding), Icons (every icon)
         │   └── Controls/        ← the reusable control styles, one dictionary per kind (see Control styles)
@@ -294,8 +344,9 @@ DnnManager.NET/
 | **Clean Architecture (single project, layered folders)** | Use cases are testable without IIS/Docker; the UI was swapped from a terminal UI to WPF without touching business logic. The layers are a convention (folders and namespaces) - nothing in the build enforces them. Keep Domain and Application free of WPF and of Infrastructure (they are today). Presentation uses Infrastructure directly where a use case would only pass things through: the live monitor (`ServerStateMonitor`), keep warm and the Details diagnostics. |
 | **All side-effects behind interfaces** | `IIisManager`, `ISqlServerService`, `IDnnReleaseService`, `IPrerequisiteChecker`, `IWebConfigService`, `ISqlConnectionTester`, `IUserPrompt`, `IProgressReporter`, … Easy to mock in tests. |
 | **`Result` / `Result<T>` instead of exceptions across layers** | Use-case outcomes are explicit; unexpected exceptions are still logged and surfaced centrally. |
-| **`Microsoft.Extensions.Hosting` + `IOptions<AppOptions>`** | Standard DI, and `ILogger` for the app's own warnings and errors: they go to the daily log file with their stack trace ([`DailyLogFileLoggerProvider`](../src/DnnManager.Infrastructure/Files/DailyLogFileLogger.cs) - Warning and up; the same message at most once in 10 minutes, so a failing background read doesn't fill the file). What the *user* reads goes through `IProgressReporter` (the Output tab and the same file) and toasts or dialogs - never a stack trace. `AppOptions` is made from `settings.json` at startup, with `DNNMANAGER_*` env vars on top. There is one instance, shared: saving on the Settings page puts the new values into it (`LiveSettings`), so they apply without a restart; what caches something made from a setting follows its `Changed` event. |
-| **Program and user data apart** | The installer owns the install folder; the app owns `Documents\DnnManager`. `settings.json` is versioned: `SettingsStore` backs it up and runs `SettingsMigrations` when its format is older, and fills in new keys from `UserSettings`' defaults. |
+| **`Microsoft.Extensions.Hosting` + `IOptions<AppOptions>`** | Standard DI, and `ILogger` for the app's own warnings and errors: they go to the daily log file with their stack trace ([`DailyLogFileLoggerProvider`](../src/DnnManager.Infrastructure/Files/DailyLogFileLogger.cs) - Warning and up; the same message at most once in 10 minutes, so a failing background read doesn't fill the file). What the *user* reads goes through `IProgressReporter` (the Output tab and the same file) and toasts or dialogs - never a stack trace. `AppOptions` is made from the settings at startup, with `DNNMANAGER_*` env vars on top. There is one instance, shared: saving on the Settings page puts the new values into it (`LiveSettings`), so they apply without a restart; what caches something made from a setting follows its `Changed` event. |
+| **Program and user data apart** | The installer owns the install folder; the app owns `Documents\DnnManager`. The settings are versioned (`UserSettings.CurrentVersion`): settings of a newer version aren't used, a value without a row gets its default from `UserSettings`. A reset to the defaults keeps no copy. |
+| **One SQLite database for the app's own data** | Settings, workspace, project records, keep warm and the saved DNN versions in one file (`dnnmanager.db`) instead of folders of JSON files: every write is whole or not at all, and there is one file to back up or delete. Every value is a column or a row of its own, so a SQLite browser shows each setting by itself. See [DNN Manager's database](#dnn-managers-database). |
 | **WPF, code-behind pages** | One `UserControl` per sidebar item, made on its first visit and kept, so its lists load once (Settings is made anew each time). |
 | **Live state instead of Refresh** | One monitor reads the system and one store holds what the window shows. Windows' own notifications say when to look; timers cover what has none. See [Live updates](#live-updates). |
 | **Use cases off the UI thread** | `OperationRunner` runs one use case at a time on the thread pool in its own DI scope, refuses a second one while it runs, and backs the status bar's **Cancel** button. A cancelled operation is undone through the scope's [`OperationUndo`](../src/DnnManager.Application/UseCases/OperationUndo.cs): each step notes how to take back what it is about to make, before it starts. |
@@ -305,7 +356,7 @@ DnnManager.NET/
 | **SQL** | The local container is checked by logging in with `Microsoft.Data.SqlClient` and driven with `sqlcmd` via `docker exec`; remote / Azure SQL uses `Microsoft.Data.SqlClient` and SqlPackage (`.bacpac`). |
 | **Centralised error handling** | `OperationRunner` catches per-action exceptions and reports them in the activity log; `App` shows anything escaping a click handler; `Program.cs` catches fatal errors. |
 | **Admin enforcement** | `AdminElevation` relaunches the app elevated (UAC prompt) when it isn't. |
-| **No hardcoded values** | Container name, SA password, port, GitHub APIs, IIS feature list, hostname suffix, base directory, theme - all in `settings.json`. |
+| **No hardcoded values** | Container name, SA password, port, GitHub APIs, IIS feature list, hostname suffix, base directory, theme - all in the settings. |
 
 ## Control styles
 
@@ -367,16 +418,17 @@ written inline anywhere else.
 | Projects right-click menu / IDE detection | [`Pages/Projects/ProjectMenu.cs`](../src/DnnManager.Presentation/Pages/Projects/ProjectMenu.cs), [`Services/IdeLocator.cs`](../src/DnnManager.Presentation/Services/IdeLocator.cs) |
 | Test and set up (Docker, database server, IIS features) | [`DockerCard`](../src/DnnManager.Presentation/Controls/DockerCard.xaml.cs), [`DatabaseServerCard`](../src/DnnManager.Presentation/Controls/DatabaseServerCard.xaml.cs), [`IisCard`](../src/DnnManager.Presentation/Controls/IisCard.xaml.cs) + [`Prereq/WindowsPrerequisiteChecker.cs`](../src/DnnManager.Infrastructure/Prereq/WindowsPrerequisiteChecker.cs) (checks and enables the IIS features - **Set up IIS**) |
 | Settings page (Save applies at once) | [`SettingsPage`](../src/DnnManager.Presentation/Pages/SettingsPage.xaml.cs), [`Services/LiveSettings.cs`](../src/DnnManager.Presentation/Services/LiveSettings.cs), [`Configuration/AppOptions.cs`](../src/DnnManager.Application/Configuration/AppOptions.cs) |
-| settings.json: format, defaults, validation | [`Configuration/UserSettings.cs`](../src/DnnManager.Application/Configuration/UserSettings.cs) |
-| settings.json: load, save, backups, migrations | [`Settings/SettingsStore.cs`](../src/DnnManager.Infrastructure/Settings/SettingsStore.cs), [`Settings/SettingsMigrations.cs`](../src/DnnManager.Infrastructure/Settings/SettingsMigrations.cs), [`Settings/AppDataPaths.cs`](../src/DnnManager.Infrastructure/Settings/AppDataPaths.cs) |
+| Settings: layout, defaults, validation | [`Configuration/UserSettings.cs`](../src/DnnManager.Application/Configuration/UserSettings.cs) |
+| Settings: load, save, the copy before a reset | [`Settings/SettingsStore.cs`](../src/DnnManager.Infrastructure/Settings/SettingsStore.cs), [`Settings/AppDataPaths.cs`](../src/DnnManager.Infrastructure/Settings/AppDataPaths.cs) |
+| DNN Manager's database (`dnnmanager.db`), its tables and how an object becomes rows | [`Data/AppDatabase.cs`](../src/DnnManager.Infrastructure/Data/AppDatabase.cs), [`Data/ValueRows.cs`](../src/DnnManager.Infrastructure/Data/ValueRows.cs) |
 | Settings error dialog at startup | [`Services/SettingsStartup.cs`](../src/DnnManager.Presentation/Services/SettingsStartup.cs) |
 | Installer | [`src/DnnManager.Installer/DnnManager.iss`](../src/DnnManager.Installer/DnnManager.iss), [`src/DnnManager.Installer/build.ps1`](../src/DnnManager.Installer/build.ps1) |
 | Bottom panel (Output, Logs, Terminal; search) | [`Controls/TerminalPanel.xaml`](../src/DnnManager.Presentation/Controls/TerminalPanel.xaml.cs), [`Terminal/`](../src/DnnManager.Presentation/Terminal/) (`TerminalBuffer`, `TerminalView`, `TerminalSession`), [`Services/TerminalService.cs`](../src/DnnManager.Presentation/Services/TerminalService.cs), [`Terminal/PseudoConsole.cs`](../src/DnnManager.Infrastructure/Terminal/PseudoConsole.cs) |
 | Keep warm (the flame) | [`KeepWarm/KeepWarmService.cs`](../src/DnnManager.Infrastructure/KeepWarm/KeepWarmService.cs), [`KeepWarm/KeepWarmRules.cs`](../src/DnnManager.Infrastructure/KeepWarm/KeepWarmRules.cs) (why sites go cold, the numbers), [`KeepWarm/KeepWarmPlan.cs`](../src/DnnManager.Infrastructure/KeepWarm/KeepWarmPlan.cs), [`KeepWarm/KeepWarmRequester.cs`](../src/DnnManager.Infrastructure/KeepWarm/KeepWarmRequester.cs), [`Projects/KeepWarmRecords.cs`](../src/DnnManager.Infrastructure/Projects/KeepWarmRecords.cs), [`Services/ServerStore.cs`](../src/DnnManager.Presentation/Services/ServerStore.cs) |
 | Site tools: clear cache, the Logs tab | [`UseCases/ClearSiteCacheUseCase.cs`](../src/DnnManager.Application/UseCases/ClearSiteCacheUseCase.cs), [`SiteLogs/SiteLogs.cs`](../src/DnnManager.Infrastructure/SiteLogs/SiteLogs.cs), [`Controls/LogsView.xaml`](../src/DnnManager.Presentation/Controls/LogsView.xaml.cs), [`Controls/PanelSearch.cs`](../src/DnnManager.Presentation/Controls/PanelSearch.cs) |
 | Start at sign-in | [`Startup/StartupTask.cs`](../src/DnnManager.Infrastructure/Startup/StartupTask.cs) |
-| The workspace kept between starts (window, page, Projects table, Details, form drafts, panel) - see [The workspace kept between starts](#the-workspace-kept-between-starts) | [`State/StateStore.cs`](../src/DnnManager.Infrastructure/State/StateStore.cs), [`Services/WorkspaceService.cs`](../src/DnnManager.Presentation/Services/WorkspaceService.cs), [`Services/WorkspaceStates.cs`](../src/DnnManager.Presentation/Services/WorkspaceStates.cs) (the files), [`Services/FormDraft.cs`](../src/DnnManager.Presentation/Services/FormDraft.cs), `MainWindow` (*The workspace, kept between starts*), `CaptureTable`/`RestoreAsync` in [`ProjectsPage`](../src/DnnManager.Presentation/Pages/ProjectsPage.xaml.cs), `CaptureLogs`/`RestoreLogs` in [`Controls/TerminalPanel.xaml`](../src/DnnManager.Presentation/Controls/TerminalPanel.xaml.cs) |
-| Keyboard: commands, shortcuts, command palette, focus ring ([user guide](user-guide.md#keyboard)) | [`Services/AppCommands.cs`](../src/DnnManager.Presentation/Services/AppCommands.cs) (every command and its shortcut, kept in `keyboard.shortcuts`), [`Services/Shortcut.cs`](../src/DnnManager.Presentation/Services/Shortcut.cs), [`MainWindow.Commands.cs`](../src/DnnManager.Presentation/MainWindow.Commands.cs) (the commands, the key dispatch, what each does), [`Controls/CommandPalette.xaml`](../src/DnnManager.Presentation/Controls/CommandPalette.xaml.cs), [`Pages/SettingsPage.Keyboard.cs`](../src/DnnManager.Presentation/Pages/SettingsPage.Keyboard.cs) (Settings → Keyboard shortcuts), [`Services/FocusRing.cs`](../src/DnnManager.Presentation/Services/FocusRing.cs) + the `FocusRing` style in `Themes/Controls/LayoutStyles.xaml`. A new command: one `Add` in `RegisterCommands` - its id is what settings.json keeps, so never rename it |
+| The workspace kept between starts (window, page, Projects table, Details, form drafts, panel) - see [The workspace kept between starts](#the-workspace-kept-between-starts) | [`State/StateStore.cs`](../src/DnnManager.Infrastructure/State/StateStore.cs), [`Services/WorkspaceService.cs`](../src/DnnManager.Presentation/Services/WorkspaceService.cs), [`Services/WorkspaceStates.cs`](../src/DnnManager.Presentation/Services/WorkspaceStates.cs) (the states), [`Services/FormDraft.cs`](../src/DnnManager.Presentation/Services/FormDraft.cs), `MainWindow` (*The workspace, kept between starts*), `CaptureTable`/`RestoreAsync` in [`ProjectsPage`](../src/DnnManager.Presentation/Pages/ProjectsPage.xaml.cs), `CaptureLogs`/`RestoreLogs` in [`Controls/TerminalPanel.xaml`](../src/DnnManager.Presentation/Controls/TerminalPanel.xaml.cs) |
+| Keyboard: commands, shortcuts, command palette, focus ring ([user guide](user-guide.md#keyboard)) | [`Services/AppCommands.cs`](../src/DnnManager.Presentation/Services/AppCommands.cs) (every command and its shortcut, kept in `keyboard.shortcuts`), [`Services/Shortcut.cs`](../src/DnnManager.Presentation/Services/Shortcut.cs), [`MainWindow.Commands.cs`](../src/DnnManager.Presentation/MainWindow.Commands.cs) (the commands, the key dispatch, what each does), [`Controls/CommandPalette.xaml`](../src/DnnManager.Presentation/Controls/CommandPalette.xaml.cs), [`Pages/SettingsPage.Keyboard.cs`](../src/DnnManager.Presentation/Pages/SettingsPage.Keyboard.cs) (Settings → Keyboard shortcuts), [`Services/FocusRing.cs`](../src/DnnManager.Presentation/Services/FocusRing.cs) + the `FocusRing` style in `Themes/Controls/LayoutStyles.xaml`. A new command: one `Add` in `RegisterCommands` - its id is what the settings keep, so never rename it |
 | DNN Manager's own update (the title bar's Update button; how it works: [releasing.md](releasing.md#the-in-app-update)) | [`Services/AppUpdater.cs`](../src/DnnManager.Presentation/Services/AppUpdater.cs), `UpdateRecord` in [`Services/WorkspaceStates.cs`](../src/DnnManager.Presentation/Services/WorkspaceStates.cs), [`Updates/`](../src/DnnManager.Infrastructure/Updates/) (`AppReleaseFeed`, `UpdateDownloader`, `UpdateTarget`, `UpdateHelper` - the helper process), [`AppRestart.cs`](../src/DnnManager.Presentation/AppRestart.cs), [`Program.cs`](../src/DnnManager.Presentation/Program.cs) (`--apply-update`) |
 | Efficiency mode while out of sight | [`Services/WindowOcclusion.cs`](../src/DnnManager.Presentation/Services/WindowOcclusion.cs), [`Services/EfficiencyMode.cs`](../src/DnnManager.Presentation/Services/EfficiencyMode.cs), [`Processes/PowerThrottling.cs`](../src/DnnManager.Infrastructure/Processes/PowerThrottling.cs) (EcoQoS) |
 | Themes | [`Themes/`](../src/DnnManager.Presentation/Themes/), [`Services/ThemeManager.cs`](../src/DnnManager.Presentation/Services/ThemeManager.cs) |

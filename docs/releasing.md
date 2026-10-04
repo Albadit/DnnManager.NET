@@ -125,8 +125,8 @@ draft or a pre-release - a `vX.Y.Z-rc.1` tag isn't offered) - see
   exited yet. Setup's log (`/LOG=<file>`) records what GitHub answered.
 
 How it works: the running DNN Manager downloads and checks the file, notes the
-update (`Documents\DnnManager\state\update.json` - where the user is, the workspace
-saves as DNN Manager closes), copies its own exe to
+update (the `update` area of the `state` table in `Documents\DnnManager\dnnmanager.db` -
+where the user is, the workspace saves as DNN Manager closes), copies its own exe to
 `%TEMP%\DnnManager-update\<version>\helper-…\` and closes, starting that copy with
 `--apply-update plan.json`. The copy ([`UpdateHelper`](../src/DnnManager.Infrastructure/Updates/UpdateHelper.cs))
 waits for it to exit, runs Setup or swaps the portable exe (with a backup it puts

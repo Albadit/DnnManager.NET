@@ -67,7 +67,7 @@
                         <StackPanel Margin="0,10,0,0">
                             <CheckBox x:Name="CleanLogs" Click="Selection_Changed" />
                             <CheckBox x:Name="CleanPackages" Margin="0,6,0,0" Click="Selection_Changed" />
-                            <CheckBox x:Name="CleanSettingsCopies" Margin="0,6,0,0" Click="Selection_Changed" />
+
                             <CheckBox x:Name="CleanProjectBackups" Margin="0,6,0,0" Click="Selection_Changed" />
                             <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
                                        Text="Each project's saved site .zip and database .bacpac - Export makes them, Import and New project restore them. They can't be brought back." />
@@ -82,7 +82,7 @@
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Style="{StaticResource ActionTitle}" Text="Reset settings to defaults" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
-                                       Text="Every setting in every category back as DNN Manager is installed - the saved passwords and start at sign-in too. They apply at once, without a restart. A copy of settings.json is kept in backups; your projects, logs and which sites are kept warm stay." />
+                                       Text="Every setting in every category back as DNN Manager is installed - the saved passwords and start at sign-in too. They apply at once, without a restart. The current settings aren't kept; your projects, logs and which sites are kept warm stay." />
                         </StackPanel>
                     </DockPanel>
                 </Border>

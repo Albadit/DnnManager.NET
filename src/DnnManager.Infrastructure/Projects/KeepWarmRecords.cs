@@ -1,66 +1,60 @@
 using DnnManager.Application.Abstractions;
-using DnnManager.Infrastructure.Settings;
-using DnnManager.Infrastructure.State;
+using DnnManager.Infrastructure.Data;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 
 namespace DnnManager.Infrastructure.Projects;
 
-/// <summary>Which sites are kept warm, and their own keep-warm values: <c>state\keep-warm.json</c>.</summary>
-public sealed class KeepWarmSites : IStateFile
-{
-    public static string FileName => "keep-warm.json";
-    public static int CurrentFormat => 1;
-    public int Format { get; set; }
-
-    public List<KeepWarmRecord> Sites { get; set; } = [];
-}
-
 /// <summary>
-/// <see cref="KeepWarmRecord"/>s in one state file (<see cref="KeepWarmSites"/>), saved the moment one changes - so the
-/// next start switches the same sites on again. A file that can't be read is set aside and counts as none: no site is
-/// kept warm until it is switched on again.
+/// The sites kept warm: a row each in the <c>keep_warm</c> table of DNN Manager's database (<see cref="AppDatabase"/>),
+/// written the moment one is switched on or off - so the next start keeps the same sites warm. How they are kept warm is
+/// the same for every site (Settings → Projects → Keep warm). When the database can't be read, no site counts as kept warm.
 /// </summary>
-public sealed class KeepWarmRecords(AppDataPaths paths, ILogger<KeepWarmRecords> log) : IKeepWarmRecords
+public sealed class KeepWarmRecords(AppDatabase database, ILogger<KeepWarmRecords> log) : IKeepWarmRecords
 {
-    private readonly StateStore _state = new(paths.StateDirectory, log);
-    // A change is read, changed and written in one go - keep warm and the UI save from different threads.
-    private readonly Lock _gate = new();
+    private readonly AppDatabase _database = database;
+    private readonly ILogger<KeepWarmRecords> _log = log;
 
-    public KeepWarmRecord? Find(string site)
-    {
-        lock (_gate) return _state.Load<KeepWarmSites>().Sites.FirstOrDefault(r => Is(r, site));
-    }
+    public KeepWarmRecord? Find(string site) => Read("SELECT site FROM keep_warm WHERE site = $site", ("$site", site)).FirstOrDefault();
 
-    public IReadOnlyList<KeepWarmRecord> List()
-    {
-        lock (_gate) return _state.Load<KeepWarmSites>().Sites.ToList();
-    }
+    public IReadOnlyList<KeepWarmRecord> List() => Read("SELECT site FROM keep_warm ORDER BY site");
 
     public void Save(KeepWarmRecord record)
     {
-        if (record.IsEmpty)
-        {
-            Remove(record.Site);
-            return;
-        }
-        lock (_gate)
-        {
-            var state = _state.Load<KeepWarmSites>();
-            state.Sites.RemoveAll(r => Is(r, record.Site));
-            state.Sites.Add(record);
-            state.Sites.Sort((a, b) => string.Compare(a.Site, b.Site, StringComparison.OrdinalIgnoreCase));
-            _state.Save(state);
-        }
+        if (record.IsEmpty) Remove(record.Site);
+        else Write("INSERT OR IGNORE INTO keep_warm (site) VALUES ($site)", record.Site);
     }
 
-    public void Remove(string site)
+    public void Remove(string site) => Write("DELETE FROM keep_warm WHERE site = $site", site);
+
+    private List<KeepWarmRecord> Read(string sql, params (string, object?)[] parameters)
     {
-        lock (_gate)
+        try
         {
-            var state = _state.Load<KeepWarmSites>();
-            if (state.Sites.RemoveAll(r => Is(r, site)) > 0) _state.Save(state);
+            using var connection = _database.Open();
+            using var command = AppDatabase.Command(connection, sql, parameters);
+            using var reader = command.ExecuteReader();
+            var records = new List<KeepWarmRecord>();
+            while (reader.Read()) records.Add(new KeepWarmRecord(reader.GetString(0), Enabled: true));
+            return records;
+        }
+        catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException)
+        {
+            _log.LogWarning(ex, "Could not read the sites kept warm");
+            return [];
         }
     }
 
-    private static bool Is(KeepWarmRecord record, string site) => record.Site.Equals(site, StringComparison.OrdinalIgnoreCase);
+    private void Write(string sql, string site)
+    {
+        try
+        {
+            using var connection = _database.Open();
+            AppDatabase.Execute(connection, sql, ("$site", site));
+        }
+        catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException)
+        {
+            _log.LogWarning(ex, "Could not save whether {Site} is kept warm", site);
+        }
+    }
 }

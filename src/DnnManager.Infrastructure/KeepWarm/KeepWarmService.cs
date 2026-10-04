@@ -116,18 +116,11 @@ public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKee
         : _records.TryGetValue(site, out var record) && record.Enabled ? new KeepWarmStatus(KeepWarmState.Waiting, "Waiting")
         : KeepWarmStatus.Off;
 
-    /// <summary>Whether <paramref name="site"/> is kept warm, with its own values; null when it has none.</summary>
+    /// <summary>Whether <paramref name="site"/> is kept warm; null when it isn't.</summary>
     public KeepWarmRecord? RecordOf(string site) => _records.GetValueOrDefault(site);
 
     /// <summary>Switches keep warm on or off for <paramref name="site"/> (and remembers it). Switched on, it is checked at once.</summary>
     public void SetEnabled(string site, bool enabled) => Post(new Enable(site, enabled));
-
-    /// <summary>
-    /// <paramref name="site"/>'s own interval and pages - null for the settings' - and checks it again with them when it
-    /// is kept warm.
-    /// </summary>
-    public void SetOwnValues(string site, int? pingMinutes, string? warmUpPath, string? pingPath) =>
-        Post(new OwnValues(site, pingMinutes, warmUpPath, pingPath));
 
     /// <summary>Requests <paramref name="site"/> now - also after it failed too often - and shows how it answers.</summary>
     public void CheckNow(string site) => Post(new CheckNowMessage(site));
@@ -166,7 +159,6 @@ public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKee
     private sealed record PauseMessage(KeepWarmPause? Pause) : Message;
     private sealed record RecheckMessage(IReadOnlyCollection<string>? Sites) : Message;
     private sealed record Enable(string Site, bool Enabled) : Message;
-    private sealed record OwnValues(string Site, int? PingMinutes, string? WarmUpPath, string? PingPath) : Message;
     private sealed record OptionsMessage : Message;
     private sealed record CheckNowMessage(string Site) : Message;
     private sealed record Completed(Request Request, KeepWarmOutcome Outcome) : Message;
@@ -252,9 +244,6 @@ public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKee
                     break;
                 case Enable enable:
                     OnEnable(enable.Site, enable.Enabled);
-                    break;
-                case OwnValues own:
-                    OnOwnValues(own);
                     break;
                 case OptionsMessage:
                     OnSettingsChanged();
@@ -520,7 +509,7 @@ public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKee
 
     private void OnEnable(string name, bool enabled)
     {
-        var record = (_records.GetValueOrDefault(name) ?? new KeepWarmRecord(name, false)) with { Enabled = enabled };
+        var record = new KeepWarmRecord(name, enabled);
         Save(record);
         var site = GetOrAdd(name);
         // Whatever is on its way was sent before.
@@ -536,20 +525,6 @@ public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKee
         {
             site.ProbeWanted = site.UserAsked = false;
         }
-    }
-
-    private void OnOwnValues(OwnValues own)
-    {
-        var record = (_records.GetValueOrDefault(own.Site) ?? new KeepWarmRecord(own.Site, false)) with
-        {
-            PingMinutes = own.PingMinutes,
-            WarmUpPath = own.WarmUpPath is { } warmUp ? KeepWarmSettings.NormalizePath(warmUp) : null,
-            PingPath = own.PingPath is { } ping ? KeepWarmSettings.NormalizePath(ping) : null
-        };
-        Save(record);
-        if (!_sites.TryGetValue(own.Site, out var site)) return;
-        if (record.Enabled) Recheck(site, rearm: true);
-        else site.PingPathMissing = false;
     }
 
     private void OnSettingsChanged()
@@ -634,7 +609,7 @@ public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKee
             return site.NotBefore;
         }
 
-        var plan = KeepWarmPlan.For(_settings, RecordOf(site.Name), project.Site);
+        var plan = KeepWarmPlan.For(_settings, project.Site);
         if (plan.Target is not { } target)
         {
             SetStatus(site, new KeepWarmStatus(KeepWarmState.Paused, "Paused - the site has no http or https binding to request"));
@@ -865,7 +840,7 @@ public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKee
             // not the site's fault, and asking again soon would only pile requests up behind the breakpoint.
             if (KeepWarmRequester.DebuggerAttached(project.Site.WorkerProcessIds))
             {
-                site.NotBefore = now + Ms(KeepWarmPlan.For(_settings, RecordOf(site.Name), project.Site).Interval);
+                site.NotBefore = now + Ms(KeepWarmPlan.For(_settings, project.Site).Interval);
                 site.WaitStatus = new KeepWarmStatus(KeepWarmState.Paused,
                     "Paused - a debugger is attached and the site didn't answer; it may be stopped at a breakpoint");
                 site.ProbeWanted = true;

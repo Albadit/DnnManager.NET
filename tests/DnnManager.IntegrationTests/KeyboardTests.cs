@@ -9,7 +9,7 @@ using Microsoft.Extensions.Options;
 
 namespace DnnManager.IntegrationTests;
 
-/// <summary>The keyboard: shortcuts as they are written and allowed, kept in settings.json, and the palette's search.</summary>
+/// <summary>The keyboard: shortcuts as they are written and allowed, kept in the settings, and the palette's search.</summary>
 [TestClass]
 public sealed class KeyboardTests
 {
@@ -52,7 +52,7 @@ public sealed class KeyboardTests
         Assert.IsFalse(Shortcut.Parse("Ctrl+Shift+C")!.Value.IsEditingKey);
     }
 
-    // ─── Kept in settings.json ────────────────────────────────────────────
+    // ─── Kept in the settings ─────────────────────────────────────────────
 
     private (AppCommands Commands, SettingsStore Store) Make()
     {
@@ -64,8 +64,14 @@ public sealed class KeyboardTests
         return (commands, store);
     }
 
-    private JsonObject? SavedShortcuts() =>
-        JsonNode.Parse(File.ReadAllText(Path.Combine(_dir, "settings.json")))?["keyboard"]?["shortcuts"] as JsonObject;
+    /// <summary>The shortcuts saved - the settings' rows keyboard.shortcuts{<command>}, by command.</summary>
+    private Dictionary<string, string> SavedShortcuts()
+    {
+        const string prefix = "keyboard.shortcuts{";
+        return new SettingsStore(new AppDataPaths(_dir)).SavedValues()
+            .Where(r => r.Key.StartsWith(prefix, StringComparison.Ordinal))
+            .ToDictionary(r => Uri.UnescapeDataString(r.Key[prefix.Length..^1]), r => r.Value);
+    }
 
     [TestMethod]
     public void A_changed_shortcut_is_saved_and_a_reset_one_leaves_the_file()
@@ -76,13 +82,13 @@ public sealed class KeyboardTests
         Assert.IsNull(commands.Set(second, Shortcut.Parse("Ctrl+Shift+9")));
         Assert.AreEqual("Ctrl+Shift+9", commands.ShortcutOf(second).ToString());
         Assert.IsTrue(commands.IsCustom(second));
-        Assert.AreEqual("Ctrl+Shift+9", (string?)SavedShortcuts()?["a.second"]);
+        Assert.AreEqual("Ctrl+Shift+9", SavedShortcuts().GetValueOrDefault("a.second"));
         Assert.AreEqual(second, commands.Match(Shortcut.Parse("Ctrl+Shift+9")!.Value));
         Assert.IsNull(commands.Match(Shortcut.Parse("Ctrl+2")!.Value), "Its old shortcut does nothing now.");
 
         Assert.IsNull(commands.Reset(second));
         Assert.AreEqual("Ctrl+2", commands.ShortcutOf(second).ToString());
-        Assert.IsFalse(SavedShortcuts()!.ContainsKey("a.second"), "Only what differs from the defaults is in the file.");
+        Assert.IsFalse(SavedShortcuts().ContainsKey("a.second"), "Only what differs from the defaults is saved.");
     }
 
     [TestMethod]
@@ -115,11 +121,11 @@ public sealed class KeyboardTests
 
         Assert.IsNull(commands.Set(first, null));
         Assert.IsNull(commands.ShortcutOf(first));
-        Assert.AreEqual("", (string?)SavedShortcuts()?["a.first"], "None is kept as an empty one.");
+        Assert.AreEqual("", SavedShortcuts().GetValueOrDefault("a.first"), "None is kept as an empty one.");
 
         Assert.IsNull(commands.Set(first, Shortcut.Parse("Ctrl+1")));
         Assert.IsFalse(commands.IsCustom(first), "Its default again - nothing to keep.");
-        Assert.IsFalse(SavedShortcuts()!.ContainsKey("a.first"));
+        Assert.IsFalse(SavedShortcuts().ContainsKey("a.first"));
     }
 
     [TestMethod]
@@ -129,7 +135,7 @@ public sealed class KeyboardTests
         var problem = commands.Set(commands.Find("a.first")!, Shortcut.Parse("P"));
         Assert.IsNotNull(problem);
         Assert.AreEqual("Ctrl+1", commands.ShortcutOf(commands.Find("a.first")!).ToString());
-        Assert.IsFalse(File.Exists(Path.Combine(_dir, "settings.json")));
+        Assert.AreEqual(0, new SettingsStore(new AppDataPaths(_dir)).SavedValues().Count, "Nothing saved.");
     }
 
     [TestMethod]
@@ -147,11 +153,11 @@ public sealed class KeyboardTests
 
         commands.ResetAll();
         Assert.AreEqual(0, commands.ConflictsOf(first).Count);
-        Assert.AreEqual(0, SavedShortcuts()!.Count);
+        Assert.AreEqual(0, SavedShortcuts().Count);
     }
 
     [TestMethod]
-    public void Shortcuts_from_settings_json_are_what_the_next_start_uses()
+    public void Shortcuts_saved_in_the_settings_are_what_the_next_start_uses()
     {
         var (commands, store) = Make();
         commands.Set(commands.Find("a.first")!, Shortcut.Parse("Alt+F1"));

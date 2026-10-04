@@ -6,16 +6,14 @@ public enum AppDataKind
     /// <summary>The activity log files (<c>logs\</c>).</summary>
     Logs,
 
-    /// <summary>Downloaded DNN install packages kept for reuse (<c>packages\</c>).</summary>
+    /// <summary>Downloaded DNN install packages kept for reuse (<c>packages\</c>), and the DNN versions saved with them (<c>dnn_releases</c>).</summary>
     DnnPackages,
 
-    /// <summary>The copies of settings.json made before an upgrade or a reset (<c>backups\settings.*.json</c>).</summary>
-    SettingsCopies,
 
     /// <summary>Project backups - each project's site .zip and database .bacpac (<c>backups\&lt;project&gt;\</c>).</summary>
     ProjectBackups,
 
-    /// <summary>Which sites are kept warm, and their own keep-warm values (<c>state\keep-warm.json</c>) - for a factory reset.</summary>
+    /// <summary>Which sites are kept warm (the database's <c>keep_warm</c>) - for a factory reset.</summary>
     KeepWarmChoices
 }
 
@@ -30,10 +28,26 @@ public sealed class AppDataCleaner(AppDataPaths paths)
 {
     private readonly AppDataPaths _paths = paths;
 
-    private string KeepWarmFile => Path.Combine(_paths.StateDirectory, Projects.KeepWarmSites.FileName);
+    private readonly Data.AppDatabase _database = new(paths);
 
-    /// <summary>How much <paramref name="kind"/> takes now, in bytes.</summary>
-    public long Measure(AppDataKind kind) => Files(kind).Sum(f => Length(f));
+    /// <summary>How much <paramref name="kind"/> takes now, in bytes - its files, and what it has in the database.</summary>
+    public long Measure(AppDataKind kind)
+    {
+        var bytes = Files(kind).Sum(f => Length(f));
+        if (Table(kind) is { } table)
+        {
+            try
+            {
+                using var connection = _database.Open();
+                bytes += Data.AppDatabase.Scalar<long?>(connection, $"SELECT SUM({table.Size}) FROM {table.Name}") ?? 0;
+            }
+            catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException)
+            {
+                // Not measured - shown as what the files take.
+            }
+        }
+        return bytes;
+    }
 
     /// <summary>Deletes <paramref name="kind"/>, then the folders it leaves empty.</summary>
     public CleanupResult Clean(AppDataKind kind)
@@ -55,6 +69,19 @@ public sealed class AppDataCleaner(AppDataPaths paths)
             }
         }
         foreach (var folder in EmptiedFolders(kind)) DeleteEmptyFolders(folder);
+        if (Table(kind) is { } table)
+        {
+            try
+            {
+                using var connection = _database.Open();
+                freed += Data.AppDatabase.Scalar<long?>(connection, $"SELECT SUM({table.Size}) FROM {table.Name}") ?? 0;
+                Data.AppDatabase.Execute(connection, $"DELETE FROM {table.Name}");
+            }
+            catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException)
+            {
+                skipped++;
+            }
+        }
         return new CleanupResult(freed, skipped);
     }
 
@@ -62,16 +89,22 @@ public sealed class AppDataCleaner(AppDataPaths paths)
     {
         AppDataKind.Logs => AllFiles(_paths.LogsDirectory),
         AppDataKind.DnnPackages => AllFiles(_paths.PackagesDirectory),
-        AppDataKind.SettingsCopies => Directory.Exists(_paths.BackupsDirectory)
-            ? Directory.EnumerateFiles(_paths.BackupsDirectory, "settings.*.json", SearchOption.TopDirectoryOnly)
-            : [],
-        // The projects' folders in backups\ - not the settings copies next to them.
         AppDataKind.ProjectBackups => Directory.Exists(_paths.BackupsDirectory)
             ? Directory.EnumerateDirectories(_paths.BackupsDirectory).Where(d => !IsLink(d)).SelectMany(AllFiles)
             : [],
-        // state\keep-warm.json, and a copy of it set aside as unreadable.
-        AppDataKind.KeepWarmChoices => new[] { KeepWarmFile, KeepWarmFile + ".bad" }.Where(File.Exists),
         _ => []
+    };
+
+    /// <summary>
+    /// The table <paramref name="kind"/> has in the database - keep warm's, the DNN versions saved with the kept packages -
+    /// and what a row of it takes (its text).
+    /// </summary>
+    private static (string Name, string Size)? Table(AppDataKind kind) => kind switch
+    {
+        AppDataKind.KeepWarmChoices => ("keep_warm", "length(site)"),
+        AppDataKind.DnnPackages => ("dnn_releases", "length(api) + length(version) + length(tag) + length(url)"),
+
+        _ => null
     };
 
     private IEnumerable<string> EmptiedFolders(AppDataKind kind) => kind switch

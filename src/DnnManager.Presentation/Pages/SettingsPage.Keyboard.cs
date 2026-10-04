@@ -47,7 +47,7 @@ public sealed class ShortcutRow(AppCommand command) : INotifyPropertyChanged
 
 // Settings - Keyboard shortcuts: every command, its shortcut (the default or the one chosen), changing and resetting
 // them, and a warning when two commands share one or one takes a text box's editing key. Unlike the other categories
-// it doesn't wait for Save: AppCommands saves each change at once (keyboard.shortcuts in settings.json).
+// it doesn't wait for Save: AppCommands saves each change at once (keyboard.shortcuts in the settings).
 public partial class SettingsPage
 {
     private List<ShortcutRow> _shortcutRows = [];

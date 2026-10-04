@@ -3,7 +3,7 @@ using DnnManager.Application.Abstractions;
 namespace DnnManager.Application.Configuration;
 
 /// <summary>
-/// The settings the running app works with, made from the user's <c>settings.json</c>
+/// The settings the running app works with, made from the user's saved settings
 /// (<see cref="UserSettings.ToAppOptions"/>) at startup, with any <c>DNNMANAGER_DnnManager__*</c>
 /// environment variables applied on top. There is one of it, shared by everything that reads settings: saving on
 /// the Settings page puts the new values into it (<see cref="Apply"/>), so they are what the next thing done uses -
@@ -56,7 +56,7 @@ public sealed class AppOptions
     public bool KeepDnnPackages { get; set; }
     /// <summary>What a new project's DNN install starts with; the host password is in the Credential Manager.</summary>
     public DnnDefaultsSettings DnnDefaults { get; set; } = new();
-    /// <summary>How sites switched to "keep warm" are kept warm, unless a site has its own values (paths start with /).</summary>
+    /// <summary>How sites switched to "keep warm" are kept warm - every one the same (paths start with /).</summary>
     public KeepWarmSettings KeepWarm { get; set; } = new();
     /// <summary>Where a new project's database goes (Settings → Database server); the password is in the Credential Manager.</summary>
     public DatabaseServerOptions DatabaseServer { get; set; } = new();

@@ -23,6 +23,7 @@ public static class InfrastructureServiceCollectionExtensions
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, AppDataPaths paths, SettingsStore settings)
     {
         services.AddSingleton(paths);
+        services.AddSingleton(new Data.AppDatabase(paths));
         services.AddSingleton(settings);
         services.AddSingleton<DailyLogFile>();
         services.AddSingleton<ProcessRunner>();

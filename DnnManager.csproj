@@ -47,6 +47,10 @@
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
     <PackageReference Include="Microsoft.Web.Administration" Version="11.1.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
+    <!-- DNN Manager's own data - settings, workspace, project records, keep warm - in Documents\DnnManager\dnnmanager.db. -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <!-- The native SQLite it brings is 2.1.11, whose SQLite has a known vulnerability (GHSA-2m69-gcr7-jv3q) - 2.1.13 hasn't. -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" />
     <!-- The state of the IIS service (W3SVC) for the status bar. -->
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
   </ItemGroup>
@@ -55,11 +59,8 @@
        GitHub release it is, or comes after - so there is no version number to raise by hand. The release workflow
        and the VS Code release task pass the tag's version instead (-p:Version), which skips this. Without git or a
        tag (e.g. a source zip) the build is 0.0.0 - with a warning. -->
-  <Target Name="VersionFromGitTag" BeforeTargets="GetAssemblyVersion;GenerateAssemblyInfo;RenamePortableExe"
-          Condition="'$(VersionFromGitTag)' == 'true'">
-    <Exec Command="git describe --tags --abbrev=0 --match &quot;v[0-9]*&quot;" WorkingDirectory="$(MSBuildProjectDirectory)"
-          ConsoleToMSBuild="true" StandardOutputImportance="low" StandardErrorImportance="low" IgnoreExitCode="true"
-          EchoOff="true">
+  <Target Name="VersionFromGitTag" BeforeTargets="GetAssemblyVersion;GenerateAssemblyInfo;RenamePortableExe" Condition="'$(VersionFromGitTag)' == 'true'">
+    <Exec Command="git describe --tags --abbrev=0 --match &quot;v[0-9]*&quot;" WorkingDirectory="$(MSBuildProjectDirectory)" ConsoleToMSBuild="true" StandardOutputImportance="low" StandardErrorImportance="low" IgnoreExitCode="true" EchoOff="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="_GitVersionTag" />
       <Output TaskParameter="ExitCode" PropertyName="_GitVersionExitCode" />
     </Exec>

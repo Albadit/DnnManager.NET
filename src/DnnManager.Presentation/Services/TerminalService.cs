@@ -6,7 +6,7 @@ using Microsoft.Extensions.Options;
 
 namespace DnnManager.Presentation.Services;
 
-/// <param name="Key">What <c>terminal.defaultShell</c> in settings.json stores: "powershell", "pwsh", "cmd" or "gitbash".</param>
+/// <param name="Key">What <c>terminal.defaultShell</c> in the settings stores: "powershell", "pwsh", "cmd" or "gitbash".</param>
 /// <param name="ExePath">The program, e.g. <c>C:\Program Files\Git\bin\bash.exe</c>.</param>
 /// <param name="Arguments">What it is started with, e.g. <c>--login -i</c>.</param>
 public sealed record TerminalShell(string Key, string Name, string ExePath, string Arguments = "")

@@ -20,7 +20,7 @@ public enum DnnInstallMode
 /// <param name="HostUserName">The host account an automatic install created; null for a manual install.</param>
 public sealed record ProjectRecord(string Site, DnnInstallMode InstallMode, DateTime CreatedUtc, string? DnnVersion, string? HostUserName);
 
-/// <summary>The <see cref="ProjectRecord"/>s, one file per project in <c>Documents\DnnManager\projects</c>.</summary>
+/// <summary>The <see cref="ProjectRecord"/>s, one row per project in DNN Manager's database (<c>projects</c>).</summary>
 public interface IProjectRecords
 {
     /// <summary>The record of site <paramref name="site"/>, or null when DNN Manager didn't set it up (or before it kept records).</summary>

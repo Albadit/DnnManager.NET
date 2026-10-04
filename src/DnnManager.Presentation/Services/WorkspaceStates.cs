@@ -2,16 +2,14 @@ using DnnManager.Infrastructure.State;
 
 namespace DnnManager.Presentation.Services;
 
-// What DNN Manager keeps between starts besides settings.json - one file per area in Documents\DnnManager\state, so the
+// What DNN Manager keeps between starts besides the settings - one area each in its database's state table, so the
 // next start (after a restart, an update, a crash or a normal close) opens where the user was. Only where they were
 // and what they typed, never a password; never a dialog, a question, a running operation or a message.
 
 /// <summary>The window: where it was and how big, and the bottom panel's size.</summary>
 public sealed class WindowLayout : IStateFile
 {
-    public static string FileName => "window.json";
-    public static int CurrentFormat => 1;
-    public int Format { get; set; }
+    public static string Area => "window";
 
     /// <summary>The window's place when it isn't maximized - null until it was first saved.</summary>
     public double? Left { get; set; }
@@ -34,9 +32,7 @@ public sealed class WindowLayout : IStateFile
 /// <summary>Where the user was: the page, the Projects table as it was set, the project whose Details were open.</summary>
 public sealed class WorkspaceState : IStateFile
 {
-    public static string FileName => "workspace.json";
-    public static int CurrentFormat => 1;
-    public int Format { get; set; }
+    public static string Area => "workspace";
 
     /// <summary>The page: Projects, Setup, Existing, Settings or Troubleshoot.</summary>
     public string? Page { get; set; }
@@ -69,9 +65,7 @@ public sealed class ProjectsTableState
 /// </summary>
 public sealed class FormsState : IStateFile
 {
-    public static string FileName => "forms.json";
-    public static int CurrentFormat => 1;
-    public int Format { get; set; }
+    public static string Area => "forms";
 
     /// <summary>Per page (Setup, Existing, Settings): field name → value.</summary>
     public Dictionary<string, Dictionary<string, string>> Drafts { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -80,9 +74,7 @@ public sealed class FormsState : IStateFile
 /// <summary>The bottom panel's tabs: which one was shown, the Logs tab's site and log, the search.</summary>
 public sealed class LogsState : IStateFile
 {
-    public static string FileName => "logs.json";
-    public static int CurrentFormat => 1;
-    public int Format { get; set; }
+    public static string Area => "logs";
 
     /// <summary>Output, Logs or Terminal.</summary>
     public string? Pane { get; set; }
@@ -104,9 +96,7 @@ public sealed class LogsState : IStateFile
 /// </summary>
 public sealed class UpdateRecord : IStateFile
 {
-    public static string FileName => "update.json";
-    public static int CurrentFormat => 1;
-    public int Format { get; set; }
+    public static string Area => "update";
 
     /// <summary>Older than this, the record isn't from the update that started this process.</summary>
     public static readonly TimeSpan MaxAge = TimeSpan.FromHours(1);

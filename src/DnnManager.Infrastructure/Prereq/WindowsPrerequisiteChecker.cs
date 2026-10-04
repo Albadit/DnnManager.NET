@@ -135,7 +135,7 @@ public sealed class WindowsPrerequisiteChecker(ProcessRunner proc, IOptions<AppO
     private async Task<Dictionary<string, string>> RunPerFeatureAsync(
         IEnumerable<IisFeatureSetting> features, string perFeature, CancellationToken ct)
     {
-        // Names come from appsettings.json - quote them as PowerShell single-quoted literals.
+        // Names come from the settings (iis.requiredFeatures), typed by the user - quote them as PowerShell single-quoted literals.
         var names = string.Join(",", features.Select(f => "'" + f.Name.Replace("'", "''") + "'"));
         var script = $"foreach ($n in @({names})) {{ $r = {perFeature}; \"$n=$r\" }}";
         var run = await _proc.RunAsync("powershell.exe", new[] { "-NoProfile", "-NonInteractive", "-Command", script }, ct);

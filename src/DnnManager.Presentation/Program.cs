@@ -60,8 +60,8 @@ internal static class Program
         app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
         ThemeManager.Initialize(null);
 
-        // The user's settings, in Documents\DnnManager - apart from the program, so updates and
-        // reinstalls keep them. A file that can't be used is reported here, before anything else starts.
+        // The user's settings, in Documents\DnnManager\dnnmanager.db - apart from the program, so updates and
+        // reinstalls keep them. Settings that can't be used are reported here, before anything else starts.
         var paths = AppDataPaths.ForCurrentUser();
         var store = new SettingsStore(paths);
         var loaded = SettingsStartup.Load(store);
@@ -70,7 +70,7 @@ internal static class Program
         ThemeManager.Initialize(loaded.Settings.Appearance.Theme);
         ThemeManager.ApplyLayout(loaded.Settings.Appearance.UiScale, loaded.Settings.Appearance.FontSize);
 
-        // No default configuration sources: the settings come from settings.json above, with only the
+        // No default configuration sources: the settings come from the store above, with only the
         // DNNMANAGER_* environment variables on top.
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { Args = args, DisableDefaults = true });
         builder.Configuration.AddEnvironmentVariables(EnvironmentPrefix);

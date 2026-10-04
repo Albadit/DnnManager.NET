@@ -1,6 +1,6 @@
 using System.Runtime.ExceptionServices;
-using System.Text.Json.Nodes;
 using System.Windows.Controls;
+using DnnManager.Infrastructure.Data;
 using DnnManager.Infrastructure.State;
 using DnnManager.Presentation;
 using DnnManager.Presentation.Services;
@@ -8,8 +8,8 @@ using DnnManager.Presentation.Services;
 namespace DnnManager.IntegrationTests;
 
 /// <summary>
-/// What DNN Manager keeps between starts: the state files (written whole, versioned, a bad one set aside), the form
-/// drafts (never a password), the window's place.
+/// What DNN Manager keeps between starts: the workspace as rows in its database (a value that can't be read keeps its
+/// default), the form drafts (never a password), the window's place.
 /// </summary>
 [TestClass]
 public sealed class WorkspaceStateTests
@@ -26,131 +26,128 @@ public sealed class WorkspaceStateTests
         catch (IOException) { /* a shell may still hold the folder for a moment */ }
     }
 
-    /// <summary>A state file at format 2, whose format 1 called its name "oldName".</summary>
+    /// <summary>An area of the workspace, with a list and a dictionary of its own.</summary>
     public sealed class TestState : IStateFile
     {
-        public static string FileName => "test.json";
-        public static int CurrentFormat => 2;
-        public int Format { get; set; }
+        public static string Area => "test";
         public string? Name { get; set; }
         public int Count { get; set; }
-
-        public static JsonObject Upgrade(JsonObject file, int from)
-        {
-            if (from < 2 && file["oldName"] is { } old) file["name"] = old.GetValue<string>();
-            return file;
-        }
+        public List<string> Items { get; set; } = ["default"];
+        public Dictionary<string, string> Values { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     }
 
-    private string FileOf(string name) => Path.Combine(_dir, name);
+    private AppDatabase Database => new(_dir);
+
+    private Dictionary<string, string> RowsOf(string area)
+    {
+        using var connection = Database.Open();
+        return AppDatabase.KeyValues(connection, "SELECT key, value FROM state WHERE area = $area", ("$area", area));
+    }
+
+    private void WriteRow(string area, string key, string value)
+    {
+        using var connection = Database.Open();
+        AppDatabase.Execute(connection, "INSERT OR REPLACE INTO state (area, key, value) VALUES ($area, $key, $value)",
+            ("$area", area), ("$key", key), ("$value", value));
+    }
 
     // ─── The store ────────────────────────────────────────────────────────
 
     [TestMethod]
-    public void A_state_is_saved_whole_and_read_back_by_the_next_start()
+    public void A_state_is_saved_as_rows_and_read_back_by_the_next_start()
     {
-        Assert.AreEqual(0, new StateStore(_dir).Load<TestState>().Count, "No file yet: the defaults.");
+        Assert.AreEqual(0, new StateStore(Database).Load<TestState>().Count, "Nothing saved yet: the defaults.");
 
-        var store = new StateStore(_dir);
-        Assert.IsTrue(store.Save(new TestState { Name = "mine", Count = 3 }));
-        var written = File.GetLastWriteTimeUtc(FileOf("test.json"));
-        Assert.IsFalse(store.Save(new TestState { Name = "mine", Count = 3 }), "Unchanged: not written again.");
-        Assert.AreEqual(written, File.GetLastWriteTimeUtc(FileOf("test.json")));
-        Assert.IsFalse(File.Exists(FileOf("test.json.tmp")), "Nothing is left beside it.");
+        var store = new StateStore(Database);
+        Assert.IsTrue(store.Save(new TestState { Name = "mine", Count = 3, Items = ["a", "b"], Values = { ["Key.With Dots"] = "x" } }));
+        Assert.IsFalse(store.Save(new TestState { Name = "mine", Count = 3, Items = ["a", "b"], Values = { ["Key.With Dots"] = "x" } }),
+            "Unchanged: not written again.");
+        var rows = RowsOf("test");
+        Assert.AreEqual("mine", rows["name"]);
+        Assert.AreEqual("3", rows["count"]);
+        Assert.AreEqual("2", rows["items"], "A list: how many, then each.");
+        Assert.AreEqual("b", rows["items[1]"]);
+        Assert.AreEqual("x", rows["values{Key.With%20Dots}"]);
+        CollectionAssert.AreEquivalent(new[] { AppDatabase.FileName }, Directory.GetFiles(_dir).Select(Path.GetFileName).ToArray(),
+            "One file, nothing left beside it.");
 
-        var next = new StateStore(_dir).Load<TestState>();
+        var next = new StateStore(Database).Load<TestState>();
         Assert.AreEqual("mine", next.Name);
         Assert.AreEqual(3, next.Count);
-        Assert.AreEqual(2, next.Format);
+        CollectionAssert.AreEqual(new[] { "a", "b" }, next.Items);
+        Assert.AreEqual("x", next.Values["key.with dots"], "The dictionary keeps its comparer.");
     }
 
     [TestMethod]
-    public void A_file_that_cant_be_read_is_set_aside_and_the_defaults_are_used()
+    public void A_value_that_cant_be_read_keeps_its_default_and_the_rest_is_read()
     {
-        foreach (var bad in new[] { "{ not json", "[1, 2]", """{ "format": 2, "count": "three" }""" })
-        {
-            File.WriteAllText(FileOf("test.json"), bad);
-            var state = new StateStore(_dir).Load<TestState>();
-            Assert.AreEqual(0, state.Count, bad);
-            Assert.IsFalse(File.Exists(FileOf("test.json")), $"{bad}: set aside");
-            Assert.AreEqual(bad, File.ReadAllText(FileOf("test.json.bad")), "Kept as it was, to look at.");
-        }
-        // The next save starts afresh.
-        Assert.IsTrue(new StateStore(_dir).Save(new TestState { Count = 1 }));
-        Assert.AreEqual(1, new StateStore(_dir).Load<TestState>().Count);
-    }
+        WriteRow("test", "name", "kept");
+        WriteRow("test", "count", "three");
 
-    [TestMethod]
-    public void A_newer_versions_file_is_ignored_and_left_alone()
-    {
-        const string newer = """{ "format": 3, "name": "from the future", "count": 9 }""";
-        File.WriteAllText(FileOf("test.json"), newer);
+        var state = new StateStore(Database).Load<TestState>();
 
-        var state = new StateStore(_dir).Load<TestState>();
-
-        Assert.IsNull(state.Name);
-        Assert.AreEqual(newer, File.ReadAllText(FileOf("test.json")), "Not set aside - it is that version's.");
-    }
-
-    [TestMethod]
-    public void An_older_versions_file_is_upgraded_as_it_is_read()
-    {
-        File.WriteAllText(FileOf("test.json"), """{ "format": 1, "oldName": "renamed since", "count": 4 }""");
-
-        var state = new StateStore(_dir).Load<TestState>();
-
-        Assert.AreEqual("renamed since", state.Name);
-        Assert.AreEqual(4, state.Count);
-        Assert.AreEqual(2, state.Format);
+        Assert.AreEqual("kept", state.Name);
+        Assert.AreEqual(0, state.Count);
+        CollectionAssert.AreEqual(new[] { "default" }, state.Items, "Without a row: its default.");
     }
 
     [TestMethod]
     public void A_state_that_cant_be_written_doesnt_stop_anything()
     {
-        // The folder is a file: nothing can be written in it.
-        var blocked = FileOf("blocked");
+        // The folder is a file: the database can't be made in it.
+        var blocked = Path.Combine(_dir, "blocked");
         File.WriteAllText(blocked, "");
-        Assert.IsFalse(new StateStore(blocked).Save(new TestState { Count = 1 }));
-        Assert.AreEqual(0, new StateStore(blocked).Load<TestState>().Count);
+        Assert.IsFalse(new StateStore(new AppDatabase(blocked)).Save(new TestState { Count = 1 }));
+        Assert.AreEqual(0, new StateStore(new AppDatabase(blocked)).Load<TestState>().Count);
     }
 
     [TestMethod]
     public void A_factory_reset_leaves_no_state_behind()
     {
-        var store = new StateStore(_dir);
+        var store = new StateStore(Database);
         store.Save(new TestState { Count = 1 });
-        File.WriteAllText(FileOf("old.json.bad"), "x");
+        WriteRow("old", "x", "1");
+        using (var connection = Database.Open())
+            AppDatabase.Execute(connection, "INSERT INTO settings (key, value) VALUES ('appearance.theme', 'dark')");
 
         store.Clear();
 
-        Assert.AreEqual(0, Directory.GetFiles(_dir).Length);
+        using (var connection = Database.Open())
+        {
+            Assert.AreEqual(0L, AppDatabase.Scalar<long>(connection, "SELECT COUNT(*) FROM state"));
+            Assert.AreEqual(1L, AppDatabase.Scalar<long>(connection, "SELECT COUNT(*) FROM settings"), "The settings aren't the workspace's.");
+        }
         Assert.IsTrue(store.Save(new TestState { Count = 1 }), "What was written before is forgotten too: the same state is written again.");
     }
 
     [TestMethod]
-    public void The_workspace_files_keep_what_they_hold()
+    public void The_workspace_areas_keep_what_they_hold()
     {
-        var store = new StateStore(_dir);
+        var store = new StateStore(Database);
         store.Save(new WorkspaceState
         {
             Page = "Settings", SidebarPage = "Projects", SettingsCategory = "Sql", Project = "MyProject", ProjectTab = "Database",
-            Projects = new ProjectsTableState { Search = "my", OnlyRunning = true, SortBy = "CpuSort", SortDescending = true, Expanded = ["MyProject"], Selected = "Other", ScrollOffset = 12 }
+            Projects = new ProjectsTableState { Search = "my", OnlyRunning = true, SortBy = "CpuSort", SortDescending = true, Expanded = ["MyProject"], Selected = "Other", ScrollOffset = 12.5 }
         });
         store.Save(new FormsState { Drafts = { ["Setup"] = new() { ["NameBox"] = "shop" } } });
-        // Left by an earlier build (terminals aren't kept any more): removed, the rest untouched.
-        File.WriteAllText(FileOf("terminals.json"), "{}");
-        store.DeleteFile("terminals.json");
+        store.Save(new WindowLayout { Left = 10.5, Width = 1200, Maximized = true });
 
-        var next = new StateStore(_dir);
+        var next = new StateStore(Database);
         var workspace = next.Load<WorkspaceState>();
         Assert.AreEqual("Sql", workspace.SettingsCategory);
         Assert.AreEqual("Database", workspace.ProjectTab);
         Assert.AreEqual("CpuSort", workspace.Projects.SortBy);
         Assert.IsTrue(workspace.Projects.SortDescending && workspace.Projects.OnlyRunning);
-        Assert.AreEqual(12, workspace.Projects.ScrollOffset);
-        Assert.AreEqual("shop", next.Load<FormsState>().Drafts["Setup"]["NameBox"]);
-        CollectionAssert.AreEquivalent(new[] { "workspace.json", "forms.json" },
-            Directory.GetFiles(_dir).Select(Path.GetFileName).ToArray(), "One file per area.");
+        Assert.AreEqual(12.5, workspace.Projects.ScrollOffset);
+        CollectionAssert.AreEqual(new[] { "MyProject" }, workspace.Projects.Expanded);
+        Assert.AreEqual("shop", next.Load<FormsState>().Drafts["setup"]["NameBox"], "The pages' drafts are found ignoring case.");
+        var window = next.Load<WindowLayout>();
+        Assert.AreEqual(10.5, window.Left);
+        Assert.IsNull(window.Top, "Not saved: still none.");
+        Assert.IsTrue(window.Maximized);
+        using var connection = Database.Open();
+        CollectionAssert.AreEquivalent(new[] { "forms", "window", "workspace" },
+            AppDatabase.KeyValues(connection, "SELECT DISTINCT area, area FROM state").Keys.ToArray(), "One area each.");
     }
 
     // ─── Forms ────────────────────────────────────────────────────────────

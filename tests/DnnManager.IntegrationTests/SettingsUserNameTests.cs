@@ -1,34 +1,34 @@
-using System.Text.Json.Nodes;
 using DnnManager.Infrastructure.Settings;
 
 namespace DnnManager.IntegrationTests;
 
-/// <summary>The local SQL container's login is sqlServer.userName - also in a file that has the unreleased sqlServer.user.</summary>
+/// <summary>The local SQL container's login is sqlServer.userName - sa when empty; its password is saved encrypted.</summary>
 [TestClass]
 public sealed class SettingsUserNameTests
 {
     [TestMethod]
-    public void TheContainersUser_IsTheUserName_AndSaWhenEmpty()
+    public void TheContainersUser_IsTheUserName_AndSaWhenEmpty_ItsPasswordSavedEncrypted()
     {
         var root = Path.Combine(Path.GetTempPath(), "DnnManagerTests", "settings-" + Guid.NewGuid().ToString("N"));
         try
         {
-            var paths = new AppDataPaths(root);
-            Directory.CreateDirectory(root);
-            File.WriteAllText(paths.SettingsFile, """
-                { "version": 3, "sqlServer": { "type": "container", "host": "localhost", "port": 1433, "saPassword": "Admin@123",
-                                               "userName": "", "user": "dnnadmin" } }
-                """);
+            var store = new SettingsStore(new AppDataPaths(root));
+            store.Load();
+            store.Update(s =>
+            {
+                s.SqlServer.UserName = "dnnadmin";
+                s.SqlServer.SaPassword = "Pa$$word1";
+            });
 
-            var loaded = new SettingsStore(paths).Load();
-            Assert.AreEqual("dnnadmin", loaded.Settings.SqlServer.UserName, "user is taken over into the empty userName.");
-            Assert.AreEqual("dnnadmin", loaded.Settings.ToAppOptions().Docker.SqlUser);
-            var sql = JsonNode.Parse(File.ReadAllText(paths.SettingsFile))!["sqlServer"]!.AsObject();
-            Assert.IsFalse(sql.ContainsKey("user"), "The separate key is gone from the file.");
-            Assert.AreEqual("dnnadmin", (string?)sql["userName"]);
+            var read = new SettingsStore(new AppDataPaths(root)).Read();
+            Assert.AreEqual("dnnadmin", read.ToAppOptions().Docker.SqlUser);
+            Assert.AreEqual("Pa$$word1", read.SqlServer.SaPassword, "Decrypted as it is read.");
+            var saved = store.SavedValues()["sqlServer.saPassword"];
+            Assert.AreNotEqual("Pa$$word1", saved, "Never saved as plain text.");
+            Assert.IsTrue(SecretProtector.IsProtected(saved));
 
-            loaded.Settings.SqlServer.UserName = "";
-            Assert.AreEqual("sa", loaded.Settings.ToAppOptions().Docker.SqlUser, "Empty is sa.");
+            read.SqlServer.UserName = "";
+            Assert.AreEqual("sa", read.ToAppOptions().Docker.SqlUser, "Empty is sa.");
         }
         finally
         {

@@ -4,7 +4,7 @@ using System.Text;
 namespace DnnManager.Infrastructure.Settings;
 
 /// <summary>
-/// Encrypts a secret kept in settings.json - the SQL Server sa password - with Windows DPAPI for the current user:
+/// Encrypts a secret kept in the settings - the SQL Server sa password - with Windows DPAPI for the current user:
 /// only this Windows account on this PC can read it back. Not a hash: DNN Manager needs the password itself to sign
 /// in to SQL Server. An encrypted value is written as <c>dpapi:&lt;base64&gt;</c>.
 /// </summary>
@@ -20,7 +20,7 @@ public static class SecretProtector
     public static string Protect(string plain) =>
         Prefix + Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(plain), Entropy, DataProtectionScope.CurrentUser));
 
-    /// <summary>The plain value of <paramref name="value"/> - as it is when it isn't encrypted (typed into the file by hand).</summary>
+    /// <summary>The plain value of <paramref name="value"/> - as it is when it isn't encrypted.</summary>
     /// <exception cref="CryptographicException">Encrypted by another Windows user or on another PC, or damaged.</exception>
     public static string Unprotect(string value)
     {

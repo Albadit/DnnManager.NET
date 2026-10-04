@@ -52,40 +52,27 @@ public sealed record LocalSiteTarget(string Scheme, string ConnectHost, int Port
 }
 
 /// <summary>
-/// How a site is kept warm: Settings → Projects → Keep warm, with what the site has of its own, and its IIS app pool's
-/// idle time-out - what the service requests, and what the site's overview shows.
+/// How a site is kept warm: Settings → Projects → Keep warm, and its IIS app pool's idle time-out - what the service
+/// requests, and what the site's overview shows.
 /// </summary>
 /// <param name="Interval">The time between two requests at most.</param>
 /// <param name="IdleTimeout">The app pool's idle time-out; null when it isn't known.</param>
 /// <param name="Target">Where requests go; null when the site has no binding to request.</param>
 public sealed record KeepWarmPlan(
     int PingMinutes,
-    bool OwnInterval,
     TimeSpan Interval,
     TimeSpan? IdleTimeout,
     string WarmUpPath,
-    bool OwnWarmUpPath,
     string PingPath,
-    bool OwnPingPath,
     LocalSiteTarget? Target)
 {
-    public static KeepWarmPlan For(KeepWarmSettings defaults, KeepWarmRecord? record, IisSiteRuntime site)
-    {
-        var minutes = record?.PingMinutes is { } own && KeepWarmSettings.MinutesProblem(own) is null ? own : defaults.PingMinutes;
-        var warmUp = Path(record?.WarmUpPath);
-        var ping = Path(record?.PingPath);
-        return new KeepWarmPlan(
-            minutes, record?.PingMinutes is not null && minutes == record.PingMinutes,
-            KeepWarmRules.Interval(minutes, site.IdleTimeout), site.IdleTimeout,
-            warmUp ?? Fallback(defaults.WarmUpPath, KeepWarmSettings.DefaultWarmUpPath), warmUp is not null,
-            ping ?? Fallback(defaults.PingPath, KeepWarmSettings.DefaultPingPath), ping is not null,
+    public static KeepWarmPlan For(KeepWarmSettings settings, IisSiteRuntime site) =>
+        new(settings.PingMinutes, KeepWarmRules.Interval(settings.PingMinutes, site.IdleTimeout), site.IdleTimeout,
+            Fallback(settings.WarmUpPath, KeepWarmSettings.DefaultWarmUpPath),
+            Fallback(settings.PingPath, KeepWarmSettings.DefaultPingPath),
             LocalSiteTarget.For(site));
-    }
 
-    // A site's own page only when it can be requested - a bad value in the file falls back to the settings'.
-    private static string? Path(string? own) =>
-        own is not null && KeepWarmSettings.PathProblem(own) is null ? KeepWarmSettings.NormalizePath(own) : null;
-
+    // A page that can't be requested (never one of the installer's) - the built-in one instead.
     private static string Fallback(string path, string builtIn) =>
         KeepWarmSettings.PathProblem(path) is null ? KeepWarmSettings.NormalizePath(path) : builtIn;
 }

@@ -10,7 +10,7 @@ conventions to follow. New here? Start with the [README](../README.md), then
 | [testing.md](testing.md) | The fast and the integration tests, adding a test |
 | [releasing.md](releasing.md) | Version, changelog, portable exe, installer, GitHub release |
 | [release-notes/](release-notes/) | The notes of every GitHub release, one file per version |
-| [configuration.md](configuration.md) | `Documents\DnnManager`, `settings.json`, environment variables |
+| [configuration.md](configuration.md) | `Documents\DnnManager`, `dnnmanager.db`, every settings key, environment variables |
 | [troubleshooting.md](troubleshooting.md) | Known problems and how to fix them |
 | [security.md](security.md) | Administrator rights, secrets, what DNN Manager deletes, network exposure |
 
@@ -73,6 +73,12 @@ Where to look when something goes wrong:
 - **The Output tab** - the same operations, live; **Logs** - a site's DNN, IIS
   and Windows event logs.
 - **Settings → About** - version, commit, .NET, Windows, IIS and Docker.
+- **`Documents\DnnManager\dnnmanager.db`** - the settings, the workspace, the
+  project records, keep warm and the saved DNN versions, in one SQLite file
+  ([architecture.md](architecture.md#dnn-managers-database)). Close DNN Manager
+  and open it with any SQLite browser to look at what it has saved - each
+  setting is a row of `settings`, each value of the workspace a row of `state`
+  ([configuration.md](configuration.md#looking-at-the-database)).
 - An exception that escapes a click handler shows a message and is logged; one
   on a background thread ends the app - its stack trace is the last `[critical]`
   line in the log.
@@ -91,9 +97,20 @@ Where to look when something goes wrong:
   checked first, like DNN's object qualifier (`Sql/DnnTables`).
 - **Processes**: through `ProcessRunner`, with `ArgumentList` - never a command
   line built from strings, never a shell.
-- **Secrets**: in the Windows Credential Manager or DPAPI-encrypted in
-  `settings.json`; never in a log line, a message, a command line written to
-  disk, or the UI.
+- **Secrets**: in the Windows Credential Manager or DPAPI-encrypted in the
+  settings; never in a log line, a message, a command line written to disk, or
+  the UI.
+- **DNN Manager's own data**: through
+  [`AppDatabase`](../src/DnnManager.Infrastructure/Data/AppDatabase.cs)
+  (`Microsoft.Data.Sqlite`) - a new kind of record gets a table of its own,
+  made by a new step at the end of `AppDatabase.Steps`; a new piece of workspace
+  is a state area ([architecture.md](architecture.md#the-workspace-kept-between-starts)).
+  Every value in a column or a row of its own - never JSON in the database, and
+  never a file of its own in `Documents\DnnManager`. `DnnManager.csproj` pins
+  `SQLitePCLRaw.lib.e_sqlite3` 2.1.13 over the 2.1.11 that `Microsoft.Data.Sqlite`
+  brings, which has a known vulnerability (GHSA-2m69-gcr7-jv3q).
+- **Tests** that save anything give `AppDataPaths` / `AppDatabase` a folder
+  under `%TEMP%` - their own `dnnmanager.db`, never yours.
 
 ## Extending
 
@@ -116,13 +133,21 @@ Where to look when something goes wrong:
 - **New setting**: add the property, with its default, to a section of
   [`UserSettings`](../src/DnnManager.Application/Configuration/UserSettings.cs)
   (and a check to `Validate` if it needs one), then carry it into `AppOptions` in
-  `ToAppOptions`. Existing files get it with its default on the next start - no
-  migration needed. Add its row to [configuration.md](configuration.md#settingsjson).
-- **Changing the settings format** (renaming, moving or re-meaning a key): raise
-  `UserSettings.CurrentVersion` and add an `ISettingsMigration` from the
-  previous version to
-  [`SettingsMigrations`](../src/DnnManager.Infrastructure/Settings/SettingsMigrations.cs).
-  The store backs the file up and runs the chain on the next start.
+  `ToAppOptions`, and give it a field on the Settings page - the settings aren't
+  edited by hand. Nothing more: it is saved as a row of its own (its key the
+  property's path in camelCase), and saved settings without that row get it with
+  its default on the next start. Add its row to [configuration.md](configuration.md#the-settings).
+- **Renaming a setting, moving it or changing what it means**: raise
+  `UserSettings.CurrentVersion` and add code to
+  [`SettingsStore`](../src/DnnManager.Infrastructure/Settings/SettingsStore.cs)
+  that converts the rows of an older `version` before they are read - there is
+  none yet. Without it the old row is no longer read and the setting starts
+  from its default. Settings with a higher `version` than the build's
+  aren't used (the start-up dialog).
+- **Changing the tables** of `dnnmanager.db`: add a step at the end of
+  `AppDatabase.Steps` - SQL that makes the new tables from the previous ones;
+  it runs once in each database (`PRAGMA user_version` counts the steps run).
+  Never change a step that has shipped.
 - **Installer**: files, shortcuts and Setup options are in
   [`src/DnnManager.Installer/DnnManager.iss`](../src/DnnManager.Installer/DnnManager.iss). Code signing can be
   added there (`SignTool`) and in `build.ps1`.

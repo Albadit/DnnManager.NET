@@ -155,7 +155,7 @@ public sealed record DnnHostAccount(int UserId, string UserName, string Email);
 
 /// <summary>
 /// Secrets DNN Manager keeps between runs (the default host password, the database server login's password) - in the Windows
-/// Credential Manager of the signed-in user, never in settings.json.
+/// Credential Manager of the signed-in user, never in the settings.
 /// </summary>
 public interface ISecretStore
 {
@@ -176,8 +176,6 @@ public static class SecretNames
     /// <summary>The password of the SQL Server login new projects use (Settings → Database server, SQL Server authentication).</summary>
     public const string DatabaseServerPassword = "database-server/password";
 
-    /// <summary>Where DNN Manager 1.4.0 kept a database profile's password - moved or removed when the settings are upgraded.</summary>
-    public static string LegacyDatabaseProfilePassword(string profileId) => $"database-profile/{profileId}";
 }
 
 /// <summary>

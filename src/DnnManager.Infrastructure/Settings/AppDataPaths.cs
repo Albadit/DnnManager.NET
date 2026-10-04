@@ -1,19 +1,15 @@
 namespace DnnManager.Infrastructure.Settings;
 
 /// <summary>
-/// Where DNN Manager keeps the user's own files - settings, backups, logs and kept DNN packages - apart from the
+/// Where DNN Manager keeps the user's own data - its database, backups, logs, kept DNN packages - apart from the
 /// installed program, so updating, reinstalling or uninstalling the app never touches them:
 /// <code>
 /// Documents\DnnManager\
-///   settings.json
-///   backups\
-///     &lt;project&gt;\&lt;project&gt;_&lt;yyyyMMdd_HHmmss&gt;\   a project backup: &lt;project&gt;.zip and / or &lt;project&gt;.bacpac
-///     settings.*.json                          settings.json copies made before a migration or a reset
+///   dnnmanager.db   the settings (and their copies), the workspace, the project records, keep warm, saved DNN versions (AppDatabase)
+///   backups\     project backups: &lt;project&gt;\&lt;project&gt;_&lt;yyyyMMdd_HHmmss&gt;\ with &lt;project&gt;.zip and / or &lt;project&gt;.bacpac
 ///   deployments\ packages made by Export for deployment: &lt;project&gt;_&lt;yyyyMMdd_HHmmss&gt;\ with .zip, .bacpac, DEPLOY.txt
 ///   logs\        the activity log, one file per day
 ///   packages\    downloaded DNN install packages, when they are kept for reuse
-///   projects\    what DNN Manager remembers about the projects it set up (how DNN was installed), one file each
-///   state\       the workspace between starts (StateStore) - keep-warm.json: which sites are kept warm
 /// </code>
 /// Every folder is there from the start (<see cref="EnsureCreated"/>), empty until something goes in it.
 /// </summary>
@@ -34,33 +30,16 @@ public sealed class AppDataPaths(string root)
     }
 
     public string Root { get; } = root;
-    public string SettingsFile => Path.Combine(Root, "settings.json");
-    /// <summary>Project backups (one folder per project) and the settings.json copies.</summary>
+    /// <summary>Project backups, one folder per project.</summary>
     public string BackupsDirectory => Path.Combine(Root, "backups");
     public string LogsDirectory => Path.Combine(Root, "logs");
     /// <summary>Packages made by Export for deployment, one dated folder each - unless another folder was chosen.</summary>
     public string DeploymentsDirectory => Path.Combine(Root, "deployments");
     /// <summary>Downloaded DNN install packages kept for reuse (setting <c>projects.keepDnnPackages</c>), one folder per repository.</summary>
     public string PackagesDirectory => Path.Combine(Root, "packages");
-    /// <summary>
-    /// One <c>&lt;site&gt;.json</c> per project DNN Manager set up: how DNN was installed, when. Data about the projects
-    /// only - what is switched on or remembered between starts (keep warm, the workspace) is state, in <see cref="StateDirectory"/>.
-    /// </summary>
-    public string ProjectRecordsDirectory => Path.Combine(Root, "projects");
-    /// <summary>
-    /// What is kept between starts besides the settings - where the user was, the window, unsaved form values - one file
-    /// per area (<c>StateStore</c>).
-    /// </summary>
-    public string StateDirectory => Path.Combine(Root, "state");
 
     /// <summary>The same folder under its old name (<c>Documents\DNN Manager</c>).</summary>
     public string OldRoot => Path.Combine(Path.GetDirectoryName(Root)!, OldFolderName);
-
-    /// <summary>
-    /// Where versions before 1.2 kept <c>appsettings.json</c>: next to the exe.
-    /// Read once, to carry them over when the Documents folder doesn't have its own yet.
-    /// </summary>
-    public static string LegacyDirectory => AppContext.BaseDirectory;
 
     /// <summary>
     /// Renames <see cref="OldRoot"/> to <see cref="Root"/> when only the old one exists. Returns what was done,
@@ -79,8 +58,7 @@ public sealed class AppDataPaths(string root)
     /// </summary>
     public void EnsureCreated()
     {
-        foreach (var folder in new[] { Root, BackupsDirectory, DeploymentsDirectory, LogsDirectory, PackagesDirectory,
-                                       ProjectRecordsDirectory, StateDirectory })
+        foreach (var folder in new[] { Root, BackupsDirectory, DeploymentsDirectory, LogsDirectory, PackagesDirectory })
             Directory.CreateDirectory(folder);
     }
 }

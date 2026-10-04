@@ -8,7 +8,10 @@ using DnnManager.Application.UseCases;
 using DnnManager.Domain;
 using DnnManager.Infrastructure.Dnn;
 using DnnManager.Presentation.Controls;
+using DnnManager.Infrastructure.Data;
+using DnnManager.Infrastructure.Projects;
 using DnnManager.Infrastructure.Settings;
+using Microsoft.Extensions.Logging.Abstractions;
 using DnnManager.Infrastructure.Sql;
 using Microsoft.Data.SqlClient;
 
@@ -276,50 +279,6 @@ public sealed class InstallerUnitTests
     }
 
     [TestMethod]
-    public void SettingsMigration_V2ProfileBecomesTheDatabaseServer()
-    {
-        var root = (JsonObject)JsonNode.Parse("""
-            {
-              "version": 2,
-              "projects": {
-                "baseDirectory": "C:\\DNN",
-                "databaseProfiles": [
-                  { "id": "a1", "name": "Express", "type": "sqlServer", "server": ".\\SQLEXPRESS", "authentication": "sql", "userName": "dnn" },
-                  { "id": "b2", "name": "File", "type": "localDbFile", "server": "(LocalDB)\\MSSQLLocalDB", "authentication": "windows", "userName": "" }
-                ],
-                "defaultDatabaseProfile": "a1"
-              },
-              "sqlServer": { "host": "localhost", "port": 1433, "saPassword": "x" },
-              "appearance": { "projectColumns": [ "dnn", "cpu" ] }
-            }
-            """)!;
-        var secrets = new MemorySecrets();
-        secrets.Write(SecretNames.LegacyDatabaseProfilePassword("a1"), "Pa$$word");
-        secrets.Write(SecretNames.LegacyDatabaseProfilePassword("b2"), "unused");
-
-        SettingsMigrations.Apply(root, 2, secrets);
-
-        Assert.AreEqual(3, (int)root["version"]!);
-        var sql = root["sqlServer"]!;
-        Assert.AreEqual("sqlServer", (string)sql["type"]!);
-        Assert.AreEqual(@".\SQLEXPRESS", (string)sql["server"]!);
-        Assert.AreEqual("sql", (string)sql["authentication"]!);
-        Assert.AreEqual("dnn", (string)sql["userName"]!);
-        Assert.IsNull(root["projects"]!["databaseProfiles"]);
-        Assert.IsNull(root["projects"]!["defaultDatabaseProfile"]);
-        CollectionAssert.AreEqual(new[] { "url", "dnn", "cpu" },
-            root["appearance"]!["projectColumns"]!.AsArray().Select(c => (string)c!).ToArray(), "The Site column comes first.");
-        Assert.AreEqual("Pa$$word", secrets.Read(SecretNames.DatabaseServerPassword));
-        Assert.IsNull(secrets.Read(SecretNames.LegacyDatabaseProfilePassword("a1")));
-        Assert.IsNull(secrets.Read(SecretNames.LegacyDatabaseProfilePassword("b2")));
-
-        // Without a chosen profile the server stays the local container.
-        var plain = (JsonObject)JsonNode.Parse("""{ "version": 2, "projects": { "defaultDatabaseProfile": "container" } }""")!;
-        SettingsMigrations.Apply(plain, 2, secrets: null);
-        Assert.AreEqual(SqlServerSettings.ContainerType, (string)plain["sqlServer"]!["type"]!);
-    }
-
-    [TestMethod]
     public void AppDataCleaner_DeletesOnlyWhatIsChosen()
     {
         var root = Path.Combine(Path.GetTempPath(), "dnnmanager-tests", Guid.NewGuid().ToString("N"));
@@ -332,27 +291,33 @@ public sealed class InstallerUnitTests
         }
         try
         {
-            Write("settings.json", 10);
+            var settings = new SettingsStore(paths);
+            settings.Load();
+            settings.ResetToDefaults();
+            var database = new AppDatabase(paths);
+            using (var connection = database.Open())
+                Assert.AreEqual(0L, AppDatabase.Scalar<long>(connection, "SELECT COUNT(*) FROM sqlite_master WHERE name = 'settings_copies'"),
+                    "A reset keeps no copy of the settings.");
+            var records = new ProjectRecords(database, NullLogger<ProjectRecords>.Instance);
+            records.Save(new ProjectRecord("shop", DnnInstallMode.Automatic, DateTime.UtcNow, "10.0.1", "host"));
             Write(@"logs\dnnmanager-2026-09-30.log", 100);
             Write(@"packages\dnnsoftware.Dnn.Platform\DNN_10.zip", 1000);
-            Write(@"backups\settings.v2.json", 20);
             Write(@"backups\shop\shop_20261001_120000\shop.zip", 5000);
-            Write(@"projects\shop.json", 30);
             var cleaner = new AppDataCleaner(paths);
 
             Assert.AreEqual(1000, cleaner.Measure(AppDataKind.DnnPackages));
-            Assert.AreEqual(20, cleaner.Measure(AppDataKind.SettingsCopies), "Only the settings copies, not the project backups next to them.");
-            Assert.AreEqual(5000, cleaner.Measure(AppDataKind.ProjectBackups), "Only the projects' folders, not the settings copies.");
+
+            Assert.AreEqual(5000, cleaner.Measure(AppDataKind.ProjectBackups), "Only the projects' folders.");
 
             Assert.AreEqual(new CleanupResult(1000, 0), cleaner.Clean(AppDataKind.DnnPackages));
             Assert.IsFalse(Directory.Exists(paths.PackagesDirectory), "The emptied folder goes too.");
-            Assert.AreEqual(new CleanupResult(20, 0), cleaner.Clean(AppDataKind.SettingsCopies));
+
             Assert.IsTrue(File.Exists(Path.Combine(root, @"backups\shop\shop_20261001_120000\shop.zip")));
             Assert.AreEqual(new CleanupResult(5000, 0), cleaner.Clean(AppDataKind.ProjectBackups));
             Assert.AreEqual(0, Directory.GetFileSystemEntries(paths.BackupsDirectory).Length);
 
-            Assert.IsTrue(File.Exists(paths.SettingsFile), "settings.json is never cleaned up.");
-            Assert.IsTrue(File.Exists(Path.Combine(root, @"projects\shop.json")), "Nor what is known about the projects.");
+            Assert.IsTrue(settings.SavedValues().Count > 0, "The settings are never cleaned up.");
+            Assert.IsNotNull(records.Find("shop"), "Nor what is known about the projects.");
             Assert.AreEqual(100, cleaner.Measure(AppDataKind.Logs), "Logs only when chosen.");
         }
         finally

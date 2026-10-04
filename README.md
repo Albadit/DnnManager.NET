@@ -108,7 +108,7 @@ code are in [docs/architecture.md](docs/architecture.md).
 | For | Document | What's in it |
 |---|---|---|
 | Users | [User guide](docs/user-guide.md) | The window, every page and menu, automatic DNN setup, import / host / clone, keep warm, backups, limitations |
-| | [Configuration](docs/configuration.md) | `Documents\DnnManager`, every `settings.json` key, environment variables |
+| | [Configuration](docs/configuration.md) | `Documents\DnnManager` and its database, every settings key, environment variables |
 | | [Troubleshooting](docs/troubleshooting.md) | Known problems, their causes and fixes |
 | Developers | [Development](docs/development.md) | Prerequisites, build, run, debugging, conventions, extending |
 | | [Architecture](docs/architecture.md) | Layers, how an operation runs, live updates, project layout, design decisions, component map |

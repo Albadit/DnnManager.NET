@@ -1,14 +1,14 @@
 using System.Windows.Threading;
-using DnnManager.Infrastructure.Settings;
+using DnnManager.Infrastructure.Data;
 using DnnManager.Infrastructure.State;
 using Microsoft.Extensions.Logging;
 
 namespace DnnManager.Presentation.Services;
 
 /// <summary>
-/// Keeps the workspace (the state files in WorkspaceStates.cs) between starts. The window tells it what to save for each file
+/// Keeps the workspace (the states in WorkspaceStates.cs) between starts. The window tells it what to save for each one
 /// (<see cref="Track{T}"/>) and when something changed (<see cref="Changed"/>); it saves a moment later - at most every
-/// couple of seconds, and only the files whose content changed - so a crash loses little, and saves at once
+/// couple of seconds, and only the states whose content changed - so a crash loses little, and saves at once
 /// (<see cref="SaveNow"/>) when DNN Manager closes, restarts or updates. Reading is <see cref="Load{T}"/>.
 /// </summary>
 public sealed class WorkspaceService
@@ -20,10 +20,10 @@ public sealed class WorkspaceService
     private readonly DispatcherTimer _timer;
     private bool _stopped;
 
-    public WorkspaceService(AppDataPaths paths, ILogger<WorkspaceService> log)
+    public WorkspaceService(AppDatabase database, ILogger<WorkspaceService> log)
     {
         _log = log;
-        Store = new StateStore(paths.StateDirectory, log);
+        Store = new StateStore(database, log);
         _timer = new DispatcherTimer(Delay, DispatcherPriority.Background, (_, _) => Tick(), Dispatcher.CurrentDispatcher);
         _timer.Stop();
     }
@@ -34,7 +34,7 @@ public sealed class WorkspaceService
 
     /// <summary>Saves <typeparamref name="T"/> with what <paramref name="capture"/> returns now - each time the workspace is saved.</summary>
     public void Track<T>(Func<T> capture) where T : class, IStateFile =>
-        _parts.Add((T.FileName, () => Store.Save(capture())));
+        _parts.Add((T.Area, () => Store.Save(capture())));
 
     /// <summary>Something the workspace holds changed: it is saved in a moment (once for a burst of changes).</summary>
     public void Changed()

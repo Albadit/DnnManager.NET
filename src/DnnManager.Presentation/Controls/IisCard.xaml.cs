@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
+using DnnManager.Infrastructure.Settings;
 using DnnManager.Presentation.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -10,7 +11,7 @@ namespace DnnManager.Presentation.Controls;
 
 /// <summary>
 /// The IIS Windows features DNN Manager needs (iis.requiredFeatures) as a table with their state - tested with Test -
-/// and Set up IIS to enable the missing ones. In Settings → IIS.
+/// and Set up IIS to enable the missing ones; Edit… adds or removes features, saved at once. In Settings → IIS.
 /// </summary>
 public partial class IisCard : UserControl
 {
@@ -19,6 +20,7 @@ public partial class IisCard : UserControl
     private OperationRunner _runner = null!;
     private AppOptions _options = null!;
     private IPrerequisiteChecker _prereq = null!;
+    private SettingsStore _store = null!;
     // Which Test the shown result belongs to - an answer for an older one is dropped.
     private int _version;
 
@@ -29,7 +31,35 @@ public partial class IisCard : UserControl
         _runner = services.GetRequiredService<OperationRunner>();
         _options = services.GetRequiredService<IOptions<AppOptions>>().Value;
         _prereq = services.GetRequiredService<IPrerequisiteChecker>();
+        _store = services.GetRequiredService<SettingsStore>();
+        ShowUntested();
+    }
+
+    private void ShowUntested()
+    {
         FeatureList.ItemsSource = _options.RequiredIisFeatures.Select(f => new FeatureRow(f.Label, f.Name, "Not tested")).ToList();
+        Summary.Text = "Windows features: not tested yet - press Test.";
+    }
+
+    /// <summary>Adds or removes features (<see cref="IisFeaturesDialog"/>) - saved and used at once, like the keyboard shortcuts.</summary>
+    private void Edit_Click(object sender, RoutedEventArgs e)
+    {
+        if (IisFeaturesDialog.Show(_options.RequiredIisFeatures) is not { } features) return;
+        try
+        {
+            _store.Update(s => s.Iis.RequiredFeatures = features);
+        }
+        catch (Exception ex) when (ex is SettingsException or IOException or UnauthorizedAccessException)
+        {
+            Dialogs.Error($"The Windows features could not be saved: {ex.Message}");
+            return;
+        }
+        _options.RequiredIisFeatures = features;
+        ++_version; // a Test still running was about the old list
+        TestButton.IsEnabled = true;
+        TestButton.Content = "Test";
+        ShowUntested();
+        Toast.Show($"{features.Count} Windows features saved.", ToastKind.Success);
     }
 
     private void Test_Click(object sender, RoutedEventArgs e) => Test();

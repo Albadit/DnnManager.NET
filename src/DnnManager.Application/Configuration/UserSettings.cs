@@ -1,17 +1,15 @@
-using System.Text.Json.Serialization;
 using DnnManager.Application.Abstractions;
 
 namespace DnnManager.Application.Configuration;
 
 /// <summary>
-/// The user's <c>settings.json</c> (in <c>Documents\DnnManager</c>), as the file is laid out. Every value has
-/// a default here, so a key missing from the file is filled in with it. The running app reads the
-/// flattened <see cref="AppOptions"/> made by <see cref="ToAppOptions"/>.
+/// The user's settings - the <c>settings</c> table in <c>Documents\DnnManager\dnnmanager.db</c>, one row per value, keyed
+/// by its path (<c>projects.sitePort</c>). Every value has a default here, so one without a row has it. The running app
+/// reads the flattened <see cref="AppOptions"/> made by <see cref="ToAppOptions"/>.
 /// </summary>
 /// <remarks>
-/// Changing the layout (renaming or moving a key, changing what a value means) needs a higher
-/// <see cref="CurrentVersion"/> and a migration from the previous version, so older files keep loading.
-/// Adding a key with a default doesn't - it is filled in on the next start.
+/// Adding a value with a default needs nothing more - it is saved on the next start. Renaming one, or changing what it
+/// means, needs a higher <see cref="CurrentVersion"/> and code that converts the saved rows.
 /// </remarks>
 public sealed class UserSettings
 {
@@ -200,14 +198,14 @@ public sealed class ProjectSettings
     /// <summary>What a new project's automatic DNN install uses unless changed for it (Settings → Projects → DNN defaults).</summary>
     public DnnDefaultsSettings DnnDefaults { get; set; } = new();
 
-    /// <summary>How a site switched to "keep warm" is kept warm, unless it has its own values (Settings → Projects → Keep warm).</summary>
+    /// <summary>How a site switched to "keep warm" is kept warm - every site the same (Settings → Projects → Keep warm).</summary>
     public KeepWarmSettings KeepWarm { get; set; } = new();
 }
 
 /// <summary>
 /// Keep warm: while DNN Manager runs, a site switched on with the flame in its row is requested now and then, so IIS
 /// doesn't shut its worker process down for being idle (after 20 minutes, by default) and the next page opens at once
-/// instead of after DNN starting up again. A site can have its own values (its overview, IIS tab).
+/// instead of after DNN starting up again. Every site is kept warm the same way.
 /// </summary>
 public sealed class KeepWarmSettings
 {
@@ -359,10 +357,10 @@ public sealed class SqlServerSettings
     public string UserName { get; set; } = "";
 
     /// <summary>The login on the container: <see cref="UserName"/>, or sa.</summary>
-    [JsonIgnore] public string ContainerUserName => UserName.Trim() is { Length: > 0 } name ? name : "sa";
+    public string ContainerUserName => UserName.Trim() is { Length: > 0 } name ? name : "sa";
 
-    [JsonIgnore] public bool IsContainer => Type.Equals(ContainerType, StringComparison.OrdinalIgnoreCase);
-    [JsonIgnore] public bool UsesSqlAuthentication => Authentication.Equals("sql", StringComparison.OrdinalIgnoreCase);
+    public bool IsContainer => Type.Equals(ContainerType, StringComparison.OrdinalIgnoreCase);
+    public bool UsesSqlAuthentication => Authentication.Equals("sql", StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>The Docker container Settings → Docker container sets up for the shared SQL Server.</summary>
@@ -487,7 +485,7 @@ public sealed class KeyboardSettings
 /// How the window is laid out, as VS Code's Customize Layout sets it: where the sidebar is, how far the bottom panel
 /// reaches, the status bar, where the command palette opens, how roomy the title bar and sidebar are. Changed from the
 /// title bar's Customize Layout (or the gear's menu) - applied and saved at once. Whether the sidebar and the panel are
-/// shown is the workspace's (state\window.json), as in VS Code.
+/// shown is the workspace's (the window area of the state), as in VS Code.
 /// </summary>
 public sealed class LayoutSettings
 {
@@ -512,12 +510,11 @@ public sealed class LayoutSettings
     /// <summary>"default" or "compact" - the frame smaller in width and height: sidebar, title bar, status bar.</summary>
     public string Density { get; set; } = "default";
 
-    [JsonIgnore] public bool SidebarRight => SidebarPosition.Equals("right", StringComparison.OrdinalIgnoreCase);
-    [JsonIgnore] public bool Compact => Density.Equals("compact", StringComparison.OrdinalIgnoreCase);
-    [JsonIgnore] public bool QuickInputCentered => QuickInputPosition.Equals("center", StringComparison.OrdinalIgnoreCase);
+    public bool SidebarRight => SidebarPosition.Equals("right", StringComparison.OrdinalIgnoreCase);
+    public bool Compact => Density.Equals("compact", StringComparison.OrdinalIgnoreCase);
+    public bool QuickInputCentered => QuickInputPosition.Equals("center", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Whether the panel reaches under the sidebar - with its alignment towards the sidebar's side, or justified.</summary>
-    [JsonIgnore]
     public bool PanelUnderSidebar => PanelAlignment.ToLowerInvariant() switch
     {
         "justify" => true,
@@ -529,7 +526,7 @@ public sealed class LayoutSettings
     public LayoutSettings Copy() => (LayoutSettings)MemberwiseClone();
 }
 
-/// <summary>A value in <c>settings.json</c> that isn't allowed: <paramref name="Key"/> is its path, e.g. <c>projects.sitePort</c>.</summary>
+/// <summary>A value in the settings that isn't allowed: <paramref name="Key"/> is its path, e.g. <c>projects.sitePort</c>.</summary>
 public sealed record SettingsProblem(string Key, string Message)
 {
     public override string ToString() => $"{Key} {Message}";

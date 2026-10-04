@@ -5,8 +5,8 @@ using Microsoft.Extensions.Options;
 namespace DnnManager.Presentation.Services;
 
 /// <summary>
-/// Puts saved settings to work in the running app: the Settings page saves <c>settings.json</c> and hands the
-/// settings here, and everything that reads <see cref="AppOptions"/> has the new values - without a restart.
+/// Puts saved settings to work in the running app: the Settings page saves the settings and hands them
+/// here, and everything that reads <see cref="AppOptions"/> has the new values - without a restart.
 /// </summary>
 public sealed class LiveSettings(IOptions<AppOptions> options, IConfiguration configuration)
 {

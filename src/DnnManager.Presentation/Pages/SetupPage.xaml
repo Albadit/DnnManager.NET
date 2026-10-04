@@ -78,13 +78,7 @@
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Version" Margin="0,0,0,4" />
-                            <DockPanel>
-                                <Button DockPanel.Dock="Right" x:Name="RefreshVersionsButton" Margin="8,0,0,0" Padding="10,0"
-                                        ToolTip="Refresh" Click="RefreshVersions_Click">
-                                    <TextBlock Text="{StaticResource GlyphRefresh}" FontFamily="{StaticResource IconFont}" FontSize="13" VerticalAlignment="Center" />
-                                </Button>
-                                <ComboBox x:Name="VersionCombo" DisplayMemberPath="Label" SelectionChanged="VersionCombo_SelectionChanged" />
-                            </DockPanel>
+                            <ComboBox x:Name="VersionCombo" DisplayMemberPath="Label" SelectionChanged="VersionCombo_SelectionChanged" />
                         </StackPanel>
                     </Grid>
                     <TextBlock x:Name="VersionHint" Style="{StaticResource Hint}"

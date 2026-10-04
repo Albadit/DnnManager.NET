@@ -2,6 +2,50 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## v1.7.3
+
+### Upgrading
+
+- **The settings start from their defaults.** DNN Manager's data is now one
+  SQLite database, `Documents\DnnManager\dnnmanager.db`, and what earlier
+  versions saved isn't read: set your settings again in the app (Settings,
+  Customize Layout, Keyboard shortcuts, the Projects table's columns), and
+  switch keep warm on again for your sites. The old `settings.json`, `state\`
+  and `projects\` stay where they are - delete them once you no longer need
+  them. Your projects, backups, logs and kept packages aren't touched.
+- Keep warm is the same for every site: an interval or pages of a site's own
+  (only set by hand in `state\keep-warm.json`) are gone - every site follows
+  **Settings → Projects → Keep warm**.
+
+### Added
+
+- **Host project shows whether each folder's database is live** next to its
+  IIS site: `DB: Live` (green), `DB: Offline` (red), `DB: not created`, `DB:
+  LocalDB file` or `no database` - asked with the folder's `web.config`
+  connection, as the Projects table's SQL column asks, after the list is shown.
+  The IIS and database texts line up in every row.
+- **Settings → IIS → Edit…** adds or removes the IIS Windows features DNN
+  Manager checks and enables - a row each, with **Add feature** and **Use the
+  defaults**, saved at once (was only in `settings.json`,
+  `iis.requiredFeatures`).
+
+### Changed
+
+- **One database instead of JSON files.** The settings, the workspace (window,
+  page, forms, Logs tab), how each project was installed, which sites are kept
+  warm and the saved DNN versions are in `Documents\DnnManager\dnnmanager.db`
+  (SQLite) - one row per value, each write whole or not at all, nothing to edit
+  by hand. `Documents\DnnManager` keeps `backups`, `deployments`, `logs` and
+  `packages` besides it.
+- **New project's DNN versions are asked of GitHub at every start** and saved
+  in `dnnmanager.db`, whether or not packages are kept, so they are offered
+  without internet; the **Refresh** button next to **Version** is gone (a
+  failed lookup is tried again when New project is next shown).
+- A reset to the defaults keeps no copy of the settings, and **Clean up data**
+  has no *settings copies* any more.
+- When the settings can't be used at start, the choices are **Try again**,
+  **Reset to defaults** and **Exit** (no file to open any more).
+
 ## v1.7.2
 
 ### Upgrading

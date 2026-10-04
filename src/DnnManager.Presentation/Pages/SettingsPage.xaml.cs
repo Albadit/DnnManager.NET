@@ -14,9 +14,9 @@ using Microsoft.Win32;
 namespace DnnManager.Presentation.Pages;
 
 /// <summary>
-/// The settings in <c>settings.json</c>, opened over the page (MainWindow.ShowModal): categories (with a search box) on the left, the chosen
-/// one on the right. Every change - in any category - makes <b>Save</b> ready; Save checks the values, writes the
-/// file and puts them to work at once (<see cref="LiveSettings"/>, the UI scale, the terminal, the start at sign-in) -
+/// The settings, opened over the page (MainWindow.ShowModal): categories (with a search box) on the left, the chosen
+/// one on the right. Every change - in any category - makes <b>Save</b> ready; Save checks the values, saves
+/// them and puts them to work at once (<see cref="LiveSettings"/>, the UI scale, the terminal, the start at sign-in) -
 /// no restart. <b>Discard changes</b> puts the saved values back; <b>Close</b> goes back to the page under
 /// Settings.
 /// </summary>
@@ -259,7 +259,7 @@ public partial class SettingsPage : UserControl
     private void ShowAppearance(AppearanceSettings appearance)
     {
         _loading = true;
-        // A value typed into settings.json that isn't in the list is added, so it stays chosen.
+        // A saved value that isn't in the list is added, so it stays chosen.
         if (!Select(UiScale, appearance.UiScale))
         {
             UiScale.Items.Add(new ComboBoxItem { Content = $"{appearance.UiScale} %", Tag = appearance.UiScale });
@@ -284,7 +284,7 @@ public partial class SettingsPage : UserControl
         TerminalOptions.IsEnabled = settings.Enabled;
         // A shell that isn't installed (any more): the first one that is, as the terminal itself does.
         if (!Select(DefaultShell, settings.DefaultShell)) Select(DefaultShell, _terminal.Shells[0].Key);
-        // A font or size typed into settings.json that isn't in the list is added, so it stays chosen.
+        // A saved font or size that isn't in the list is added, so it stays chosen.
         if (!Select(TerminalFont, settings.FontFamily))
         {
             TerminalFont.Items.Add(new ComboBoxItem { Content = settings.FontFamily, Tag = settings.FontFamily });
@@ -561,7 +561,7 @@ public partial class SettingsPage : UserControl
         }
         catch (Exception ex) when (ex is SettingsException or IOException or UnauthorizedAccessException)
         {
-            ShowError($"Could not save {_store.FilePath}: {ex.Message}");
+            ShowError($"Could not save the settings to {_store.Location}: {ex.Message}");
             Toast.Show($"Could not save the settings: {ex.Message}", ToastKind.Error);
             return;
         }
@@ -830,7 +830,7 @@ public partial class SettingsPage : UserControl
             ? @"The instance, e.g. .\SQLEXPRESS, localhost or localhost,1433."
             : $"{DatabaseConnection.LocalDbServer} is the instance every Windows user has. Each site runs its database in the LocalDB of its app pool identity.";
         AuthHint.Text = SqlAuth.IsChecked == true
-            ? "The login must be able to create a database, or own it when it exists. Its password is kept in the Windows Credential Manager of your account, not in settings.json."
+            ? "The login must be able to create a database, or own it when it exists. Its password is kept in the Windows Credential Manager of your account, not with the other settings."
             : @"Each site signs in as its app pool's identity (IIS APPPOOL\<project>) - DNN Manager creates that login with your Windows account and makes it the database's owner.";
     }
 
@@ -848,7 +848,7 @@ public partial class SettingsPage : UserControl
 
     private void ShowKeepWarm(KeepWarmSettings keepWarm)
     {
-        // A value typed into settings.json that the list doesn't have is offered too.
+        // A saved value the list doesn't have is offered too.
         if (KeepWarmInterval.Items.OfType<ComboBoxItem>().All(i => i.Tag as int? != keepWarm.PingMinutes))
         {
             var index = KeepWarmInterval.Items.OfType<ComboBoxItem>().TakeWhile(i => (int)i.Tag! < keepWarm.PingMinutes).Count();
@@ -871,7 +871,7 @@ public partial class SettingsPage : UserControl
         var suffix = HostnameSuffix.Text.Trim().Trim('.');
         var language = (DnnLanguage.SelectedItem as ComboBoxItem)?.Tag as string ?? "en-US";
         DnnDefaultsHint.Text = $"An empty e-mail is host@{suffix}; an empty website name is the project's name. The password is kept in the " +
-                               $"Windows Credential Manager of your account, not in settings.json (empty: {DnnDefaultsSettings.DefaultHostPassword})." +
+                               $"Windows Credential Manager of your account, not with the other settings (empty: {DnnDefaultsSettings.DefaultHostPassword})." +
                                (language == "en-US" ? "" : $" {Languages.Name(language)}: DNN downloads its language pack while installing (needs internet).");
     }
 

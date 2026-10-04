@@ -373,14 +373,14 @@ public partial class ProjectsPage : UserControl
         foreach (var option in _columnOptions) option.IsVisible = visible(option.Key);
     }
 
-    /// <summary>Remembers the shown columns in settings.json; failing only means the next start shows the old ones.</summary>
+    /// <summary>Remembers the shown columns in the settings; failing only means the next start shows the old ones.</summary>
     private void SaveColumns()
     {
         var keys = _columnOptions.Where(o => o.IsVisible).Select(o => o.Key).ToList();
         try { _settings.Update(s => s.Appearance.ProjectColumns = keys); }
         catch (Exception ex) when (ex is SettingsException or IOException or UnauthorizedAccessException)
         {
-            _log.Fail($"Could not save the columns to {_settings.FilePath}: {ex.Message}");
+            _log.Fail($"Could not save the columns to {_settings.Location}: {ex.Message}");
         }
     }
 

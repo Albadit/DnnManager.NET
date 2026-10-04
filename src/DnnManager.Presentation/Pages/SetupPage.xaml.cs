@@ -97,35 +97,29 @@ public partial class SetupPage : UserControl, IRefreshable
         return parts.Length >= 3 && parts[0] == "repos" ? $"{parts[1]}/{parts[2]}" : api;
     }
 
-    private void SourceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => LoadVersions(refresh: false);
-
-    private void RefreshVersions_Click(object sender, RoutedEventArgs e) => LoadVersions(refresh: true);
+    private void SourceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => LoadVersions();
 
     /// <summary>
-    /// Fills the version list for the chosen repository - from the list loaded when the app started, or asked of
-    /// GitHub again with <paramref name="refresh"/>.
+    /// Fills the version list for the chosen repository - from the list loaded when the app started; asked of GitHub
+    /// again when that couldn't reach it.
     /// </summary>
-    private async void LoadVersions(bool refresh)
+    private async void LoadVersions()
     {
         if (SourceCombo.SelectedItem is not SourceOption source) return;
         _versionsFor = source.Api;
 
-        var lookup = _catalog.GetAsync(source.Api, refresh);
+        var lookup = _catalog.GetAsync(source.Api);
         if (!lookup.IsCompleted)
-        {
             ShowVersions([new VersionOption(null, "Loading versions…", Ready: false)],
                 $"Asking GitHub for the releases of {source.Label}…");
-            RefreshVersionsButton.IsEnabled = false;
-        }
         var result = await lookup;
         if (_versionsFor != source.Api) return; // another repository was picked meanwhile
-        RefreshVersionsButton.IsEnabled = true;
 
         if (!result.Success)
         {
             // Still usable: the latest release is looked up when the project is set up.
             ShowVersions([new VersionOption(null, "Latest release")],
-                $"Could not load the versions ({result.Error}) - the latest release is used. Refresh to try again." +
+                $"Could not load the versions ({result.Error}) - the latest release is used. GitHub is asked again when you come back to this page." +
                 (_options.KeepDnnPackages ? "" : " To set up projects without internet, turn on Settings → DNN releases → Keep downloaded DNN install packages while online."));
             return;
         }
@@ -141,7 +135,7 @@ public partial class SetupPage : UserControl, IRefreshable
                 r.Version + (r == latest ? "  (latest)" : "") + (r.Prerelease ? "  (pre-release)" : "")
                 + (_packages.IsKept(r) ? "  - kept, no download" : ""))).ToList(),
             result.Value.SavedAt is { } savedAt
-                ? $"GitHub can't be reached - the releases of {source.Label} as of {savedAt:g}. Without internet only a version marked \"kept, no download\" can be set up. Refresh to try again."
+                ? $"GitHub can't be reached - the releases of {source.Label} as of {savedAt:g}. Without internet only a version marked \"kept, no download\" can be set up. GitHub is asked again when you come back to this page."
                 : $"{releases.Count} releases of {source.Label}, highest version first - the latest release is selected.",
             selected: releases.ToList().IndexOf(latest));
     }
@@ -214,7 +208,7 @@ public partial class SetupPage : UserControl, IRefreshable
     {
         LoadBackupProjects();
         UpdateState();
-        LoadVersions(refresh: false); // from the kept list - only the "kept, no download" marks may have changed
+        LoadVersions(); // from the kept list - only the "kept, no download" marks may have changed; GitHub again if it failed
     }
 
     private void NameBox_TextChanged(object sender, TextChangedEventArgs e)

@@ -106,10 +106,13 @@ public sealed class LocalSqlContainer(IOptions<AppOptions> opts, ISqlServerServi
     /// database and login, or Windows authentication (as you) when it signs in as its app pool. Null when web.config
     /// names no database; never DNN Manager's settings in its place.
     /// </summary>
-    public SiteSqlConnection? SiteConnectionOf(DnnProject project) =>
-        DatabaseOf(project) is { } c
-            ? c.UsesWindowsAuthentication ? new SiteSqlConnection(c.Server, c.Database, "", "") : new SiteSqlConnection(c.Server, c.Database, c.User, c.Password)
-            : null;
+    public SiteSqlConnection? SiteConnectionOf(DnnProject project) => DatabaseOf(project) is { } c ? SiteConnection(c) : null;
+
+    /// <summary>How to reach <paramref name="database"/> - as its login, or Windows authentication (as you).</summary>
+    public static SiteSqlConnection SiteConnection(DatabaseConnection database) =>
+        database.UsesWindowsAuthentication
+            ? new SiteSqlConnection(database.Server, database.Database, "", "")
+            : new SiteSqlConnection(database.Server, database.Database, database.User, database.Password);
 
     /// <summary>Database <paramref name="database"/> on the local SQL Server container, as its user (sa by default).</summary>
     public DatabaseConnection Connection(string database) =>

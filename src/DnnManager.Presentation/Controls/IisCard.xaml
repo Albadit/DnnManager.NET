@@ -7,6 +7,9 @@
                 <Button DockPanel.Dock="Right" x:Name="TestButton" Content="Test" MinWidth="80" Margin="8,0,0,0"
                         ToolTip="Test"
                         VerticalAlignment="Center" Click="Test_Click" />
+                <Button DockPanel.Dock="Right" x:Name="EditButton" Content="Edit…" MinWidth="80" Margin="8,0,0,0"
+                        ToolTip="Add or remove Windows features"
+                        VerticalAlignment="Center" Click="Edit_Click" />
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Style="{StaticResource CardTitle}" Text="IIS" Margin="0" />
                     <TextBlock x:Name="Summary" Style="{StaticResource Hint}" Margin="0,2,0,0" Text="Windows features: not tested yet - press Test." />

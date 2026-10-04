@@ -38,8 +38,8 @@ public partial class TroubleshootPage : UserControl
         Focusable = true;
         FocusVisualStyle = null;
         Loaded += (_, _) => Focus();
-        // Logs, packages and settings copies are DNN Manager's own; project backups are the user's - never ticked for them.
-        CleanLogs.IsChecked = CleanPackages.IsChecked = CleanSettingsCopies.IsChecked = true;
+        // Logs and packages are DNN Manager's own; project backups are the user's - never ticked for them.
+        CleanLogs.IsChecked = CleanPackages.IsChecked = true;
         // Sizes change while the app runs (a new log line, a kept package) - measured again each time the page is shown.
         IsVisibleChanged += (_, e) =>
         {
@@ -88,7 +88,7 @@ public partial class TroubleshootPage : UserControl
     [
         (CleanLogs, AppDataKind.Logs, "Logs"),
         (CleanPackages, AppDataKind.DnnPackages, "Kept DNN packages"),
-        (CleanSettingsCopies, AppDataKind.SettingsCopies, "Settings copies"),
+
         (CleanProjectBackups, AppDataKind.ProjectBackups, "Project backups")
     ];
 
@@ -103,7 +103,7 @@ public partial class TroubleshootPage : UserControl
         {
             "the activity log, one file per day",
             "downloaded DNN install packages, kept to install the same version again without downloading",
-            "settings.json as it was before an upgrade or a reset",
+
             "every project's backups"
         };
         for (var i = 0; i < sizes.Length; i++)
@@ -146,7 +146,7 @@ public partial class TroubleshootPage : UserControl
         var nl = Environment.NewLine;
         if (!Dialogs.ConfirmDanger(
                 $"Put every setting back to its default, as DNN Manager is installed?{nl}{nl}" +
-                $"The current settings.json is copied to {_paths.BackupsDirectory}. The saved DNN host password and database " +
+                $"The current settings aren't kept. The saved DNN host password and database " +
                 $"server login go too, and DNN Manager stops starting at sign-in. The defaults apply at once - no restart.{nl}{nl}" +
                 "Kept: your projects, the logs, the kept DNN packages and which sites are kept warm.",
                 "Reset settings", "Cancel"))
@@ -198,7 +198,7 @@ public partial class TroubleshootPage : UserControl
         var nl = Environment.NewLine;
         if (!Dialogs.ConfirmDanger(
                 $"Reset DNN Manager to factory defaults?{nl}{nl}" +
-                $"Removed: the settings (a copy is kept in {_paths.BackupsDirectory}), the saved passwords (the DNN host " +
+                $"Removed: the settings, the saved passwords (the DNN host " +
                 $"password and the database server login's), starting at sign-in, which sites are kept warm, the logs, the " +
                 $"kept DNN packages, and the remembered workspace (the window, the open page, unsaved form values).{nl}{nl}" +
                 $"Kept: your projects - their IIS sites, folders and databases - and their backups.{nl}{nl}" +

@@ -63,7 +63,7 @@ internal sealed class KeepWarmRequester : IDisposable
         {
             for (var hop = 0; ; hop++)
             {
-                // The last safeguard: whatever the settings, a site's own values or a redirect say - checked as asked for
+                // The last safeguard: whatever the settings or a redirect say - checked as asked for
                 // and as it would be sent.
                 var uri = target.UriFor(current);
                 if (KeepWarmSettings.IsInstallerPath(current) || KeepWarmSettings.IsInstallerPath(uri.AbsolutePath))

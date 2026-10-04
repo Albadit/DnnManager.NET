@@ -26,7 +26,7 @@ coding rules that keep it that way are in
 
 | Secret | Where it is kept |
 |---|---|
-| The SQL container's `sa` password | `settings.json` → `sqlServer.saPassword`, encrypted for your Windows account (DPAPI, `dpapi:…`) |
+| The SQL container's `sa` password | The settings (the `settings` table in `Documents\DnnManager\dnnmanager.db`) → the row `sqlServer.saPassword`, encrypted for your Windows account (DPAPI, `dpapi:…`) |
 | The default DNN host password for new projects | Windows Credential Manager, `DnnManager/dnn-defaults/host-password` |
 | The database server login's password (**Settings → Database server**, SQL authentication) | Windows Credential Manager, `DnnManager/database-server/password` |
 | A site's database login | The site's own `web.config` (`SiteSqlServer`), as DNN needs it |
@@ -44,7 +44,7 @@ instead.
 | **Remove…** | The IIS site; its app pool (and the pool's Windows profile) | A pool other sites still use is kept |
 | | The site's folder | Only a folder in the projects folder - which can't be a drive or a system folder |
 | | The site's database | Only a database on this PC (the container, LocalDB, a local SQL Server); one on another server is kept and named in the confirmation |
-| **Troubleshoot → Clean up data** | What you tick in `Documents\DnnManager` (logs, packages, settings copies, backups) | Never through a junction or link |
+| **Troubleshoot → Clean up data** | What you tick in `Documents\DnnManager` (logs, packages - with the DNN versions saved in `dnnmanager.db` -, backups) | Never through a junction or link |
 | **Clear website cache** | DNN's cache folders in the site | Never through a junction or link |
 | **Cancel** of an operation | What the operation itself made so far | Undo only removes what it noted making |
 

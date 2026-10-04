@@ -50,10 +50,27 @@
                             <DataTemplate>
                                 <StackPanel Margin="6,4">
                                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="IisText" Text="{Binding Iis}" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextCaption}" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <!-- As wide as its widest text, hidden underneath: the DB line starts at the same place in every row. -->
+                                        <Grid>
+                                            <TextBlock Text="IIS: Offline" FontWeight="SemiBold" FontSize="{DynamicResource TextCaption}" Visibility="Hidden" />
+                                            <TextBlock Text="no IIS site" FontSize="{DynamicResource TextCaption}" Visibility="Hidden" />
+                                            <TextBlock x:Name="IisText" Text="{Binding Iis}" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextCaption}" />
+                                        </Grid>
+                                        <TextBlock x:Name="DbText" Text="{Binding Database}" ToolTip="{Binding DatabaseTip}" Margin="12,0,0,0"
+                                                   Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextCaption}" />
+                                    </StackPanel>
                                 </StackPanel>
-                                <!-- Same colours as the Projects table: Live green, Offline red, no site muted. -->
+                                <!-- Same colours as the Projects table: Live green, Offline red, no site or database muted. -->
                                 <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding DatabaseState}" Value="Live">
+                                        <Setter TargetName="DbText" Property="Foreground" Value="{DynamicResource SuccessText}" />
+                                        <Setter TargetName="DbText" Property="FontWeight" Value="SemiBold" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding DatabaseState}" Value="Offline">
+                                        <Setter TargetName="DbText" Property="Foreground" Value="{DynamicResource ErrorText}" />
+                                        <Setter TargetName="DbText" Property="FontWeight" Value="SemiBold" />
+                                    </DataTrigger>
                                     <DataTrigger Binding="{Binding State}" Value="Live">
                                         <Setter TargetName="IisText" Property="Foreground" Value="{DynamicResource SuccessText}" />
                                         <Setter TargetName="IisText" Property="FontWeight" Value="SemiBold" />

@@ -508,7 +508,7 @@ public sealed class ServerStore
 
         _keepWarm.SetEnabled(name, true);
         row.KeepWarm = new KeepWarmStatus(KeepWarmState.Waiting, "Waiting");
-        var minutes = _keepWarm.RecordOf(name)?.PingMinutes ?? _options.KeepWarm.PingMinutes;
+        var minutes = _options.KeepWarm.PingMinutes;
         _log.Background($"Keeping '{name}' warm - while DNN Manager runs it requests the site at least every " +
                   $"{KeepWarmRules.Span(TimeSpan.FromMinutes(minutes))} (sooner when its app pool needs it) and warms it up again after a recycle.", false);
     }

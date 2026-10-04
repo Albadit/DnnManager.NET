@@ -3,6 +3,7 @@ using System.IO.Enumeration;
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Application.UseCases;
+using DnnManager.Infrastructure.Sql;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -134,7 +135,7 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
     // Each site's database as its web.config connects to it, and what the last look at it found - per site, as
     // sites can be on different servers with different logins.
     private readonly Dictionary<string, SiteSqlConnection> _sqlConnections = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, SqlCheck> _sqlChecks = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, SiteDatabaseCheck> _sqlChecks = new(StringComparer.OrdinalIgnoreCase);
     private IisServerState? _runtime;
     private MonitorConnection _connection = MonitorConnection.Connecting;
     private string? _connectionDetail;
@@ -714,15 +715,12 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
         return false;
     }
 
-    /// <summary>What the last look at a site's database found.</summary>
-    private sealed record SqlCheck(bool Reachable, bool Exists, string? Problem);
-
     /// <summary>
     /// Follows <paramref name="name"/>'s database at <paramref name="connection"/> (its web.config's) - none to follow
     /// when null. A connection that changed is looked at again soon; until then nothing is known of it. Returns what
     /// is known now.
     /// </summary>
-    private SqlCheck? TrackConnection(string name, SiteSqlConnection? connection)
+    private SiteDatabaseCheck? TrackConnection(string name, SiteSqlConnection? connection)
     {
         if (connection is null)
         {
@@ -737,7 +735,7 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
         return null;
     }
 
-    private static ProjectState WithSql(ProjectState project, SqlCheck? check) => project with
+    private static ProjectState WithSql(ProjectState project, SiteDatabaseCheck? check) => project with
     {
         SqlReachable = check?.Reachable, DatabaseExists = check?.Exists == true, SqlProblem = check?.Problem
     };
@@ -876,43 +874,15 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
     }
     // ─── The SQL Server ───────────────────────────────────────────────────
 
-    /// <summary>
-    /// Asks each site's SQL Server about its database - with the site's own web.config connection, never DNN Manager's
-    /// settings: once per server and login for the list of its databases, and the site's own database directly when
-    /// that list can't be read or doesn't have it (a login may not see the others).
-    /// </summary>
+    /// <summary>Asks each site's SQL Server about its database (<see cref="SiteDatabaseChecks"/>).</summary>
     private async Task ReadSqlAsync(CancellationToken ct)
     {
         Dictionary<string, SiteSqlConnection> sites;
         lock (_gate) sites = new Dictionary<string, SiteSqlConnection>(_sqlConnections, StringComparer.OrdinalIgnoreCase);
 
-        var found = new System.Collections.Concurrent.ConcurrentDictionary<string, SqlCheck>(StringComparer.OrdinalIgnoreCase);
+        IReadOnlyDictionary<string, SiteDatabaseCheck> found;
         using (var scope = _scopes.CreateScope())
-        {
-            var tester = scope.ServiceProvider.GetRequiredService<ISqlConnectionTester>();
-            async Task<SqlCheck> AskDirectly(SiteSqlConnection site)
-            {
-                var test = await tester.TestAsync(site, ct, SqlTimeoutSeconds);
-                return test.Success ? new SqlCheck(true, true, null) : new SqlCheck(false, false, FirstLine(test.Error));
-            }
-
-            await Task.WhenAll(sites.GroupBy(s => (s.Value.Server, s.Value.User, s.Value.Password)).Select(async server =>
-            {
-                var list = await tester.ListDatabasesAsync(new SiteSqlConnection(server.Key.Server, "master", server.Key.User, server.Key.Password),
-                    ct, SqlTimeoutSeconds);
-                var databases = list.Success ? new HashSet<string>(list.Value!, StringComparer.OrdinalIgnoreCase) : null;
-                await Task.WhenAll(server.Select(async site =>
-                {
-                    if (databases is not null && databases.Contains(site.Value.Database))
-                        found[site.Key] = new SqlCheck(true, true, null);
-                    else if (databases is not null)
-                        found[site.Key] = await AskDirectly(site.Value) is { Reachable: true } direct ? direct
-                            : new SqlCheck(true, false, $"[{site.Value.Database}] isn't on {site.Value.Server}");
-                    else
-                        found[site.Key] = await AskDirectly(site.Value);
-                }));
-            }));
-        }
+            found = await SiteDatabaseChecks.AskAsync(scope.ServiceProvider.GetRequiredService<ISqlConnectionTester>(), sites, ct);
 
         lock (_gate)
         {
@@ -930,11 +900,6 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
         }
         Done(ref _sqlAt);
     }
-
-    // A server that doesn't answer is given this long - the sites are asked every 10 s, and in parallel.
-    private const int SqlTimeoutSeconds = 5;
-
-    private static string FirstLine(string? text) => (text ?? "it doesn't answer").Split('\n', 2)[0].Trim();
 
     // ─── Folder sizes ─────────────────────────────────────────────────────
 

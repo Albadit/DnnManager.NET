@@ -18,9 +18,9 @@ namespace DnnManager.Presentation;
 // palette opens, the density. And the gear at the bottom of the sidebar, with its menu.
 public partial class MainWindow
 {
-    // As saved in settings.json (layout) - changed by Customize Layout, applied and saved at once.
+    // As saved in the settings (layout) - changed by Customize Layout, applied and saved at once.
     private LayoutSettings _layout;
-    // Whether the sidebar is shown - the workspace's, like the panel's (state\window.json).
+    // Whether the sidebar is shown - the workspace's, like the panel's (the window area of the state).
     private bool _sidebarVisible = true;
 
     // The sidebar's column: the left one, or the right one with the sidebar on the right.
@@ -189,7 +189,7 @@ public partial class MainWindow
 
     // ─── Resizing ───────────────────────────────────────────────────────────
 
-    // The sidebar's width as dragged (null: its density's own, ExpandedSidebarWidth) - kept in state\window.json.
+    // The sidebar's width as dragged (null: its density's own, ExpandedSidebarWidth) - kept in the window area of the state.
     private double? _sidebarWidth;
     // The sidebar's least and greatest width as it is left; the page keeps at least MinPageWidth beside it.
     private const double MinSidebarWidth = 160, MaxSidebarWidth = 600, MinPageWidth = 320;
@@ -491,7 +491,7 @@ public partial class MainWindow
         if (hadKeyboard) FocusPage();
     }
 
-    /// <summary>Changes the layout: applied at once and saved in settings.json - applied even when it can't be saved.</summary>
+    /// <summary>Changes the layout: applied at once and saved in the settings - applied even when it can't be saved.</summary>
     private void ChangeLayout(Action<LayoutSettings> change)
     {
         var next = _layout.Copy();

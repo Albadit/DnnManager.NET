@@ -8,7 +8,7 @@ namespace DnnManager.Infrastructure.Settings;
 /// <summary>
 /// Keeps DNN Manager's secrets in the Windows Credential Manager of the signed-in user, as generic credentials named
 /// <c>DnnManager/&lt;name&gt;</c> (Control Panel → Credential Manager → Windows Credentials shows and removes them). Windows
-/// encrypts them for this user; nothing is written to settings.json.
+/// encrypts them for this user; nothing is written to the settings.
 /// </summary>
 public sealed class WindowsCredentialStore : ISecretStore
 {

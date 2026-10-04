@@ -187,14 +187,13 @@ public partial class ProjectView : UserControl
 
     /// <summary>How the site is kept warm - its IIS idle time-out, how often it is requested, and where.</summary>
     private void ShowKeepWarm() =>
-        KeepWarmFacts.ItemsSource = KeepWarmFactsOf(_row.Name, KeepWarmPlan.For(KeepWarmDefaults, KeepWarm.RecordOf(_row.Name), _row.IisSite));
+        KeepWarmFacts.ItemsSource = KeepWarmFactsOf(_row.Name, KeepWarmPlan.For(KeepWarmDefaults, _row.IisSite));
 
     private static List<ProjectFact> KeepWarmFactsOf(string site, KeepWarmPlan plan)
     {
         var setting = TimeSpan.FromMinutes(plan.PingMinutes);
         // Not skipped while in use when the idle time-out is too short for two intervals (about a minute).
         var inUse = KeepWarmRules.MaySkipWhenInUse(site, plan.Interval, plan.IdleTimeout) ? ", none while the site is in use" : "";
-        var whose = plan.OwnInterval ? "this site's" : "the settings'";
         var list = new List<ProjectFact>
         {
             new("IIS idle time-out", plan.IdleTimeout switch
@@ -204,14 +203,13 @@ public partial class ProjectView : UserControl
                 { } idle => $"{KeepWarmRules.Span(idle)} - IIS shuts the site's worker process down after that long without a request"
             }),
             new("Requests", plan.Interval < setting
-                ? $"every {KeepWarmRules.Span(plan.Interval)} at most{inUse} - {KeepWarmRules.Span(setting)} ({whose}) would come too close to the idle time-out"
-                : $"every {KeepWarmRules.Span(plan.Interval)} at most ({whose}){inUse}")
+                ? $"every {KeepWarmRules.Span(plan.Interval)} at most{inUse} - the settings' {KeepWarmRules.Span(setting)} would come too close to the idle time-out"
+                : $"every {KeepWarmRules.Span(plan.Interval)} at most{inUse}")
         };
         if (plan.Target is { } target)
         {
-            list.Add(new("Keep-alive page", target.DisplayUrl(plan.PingPath) + (plan.OwnPingPath ? "" : "  (the settings')")));
-            list.Add(new("Warm-up page", target.DisplayUrl(plan.WarmUpPath) + (plan.OwnWarmUpPath ? "" : "  (the settings')") +
-                                         " - when the site has no worker process"));
+            list.Add(new("Keep-alive page", target.DisplayUrl(plan.PingPath)));
+            list.Add(new("Warm-up page", target.DisplayUrl(plan.WarmUpPath) + " - when the site has no worker process"));
             list.Add(new("Sent to", $"{target.ConnectHost}:{target.Port} as {target.HostHeader} - this PC, whatever DNS says"));
         }
         else

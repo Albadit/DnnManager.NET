@@ -21,17 +21,29 @@ places tell you most of what went wrong:
   that can run programs as Administrator. **Settings → General → Start DNN
   Manager when you sign in** starts it elevated without a prompt at sign-in.
 
-### A dialog about settings.json at start
+### "DNN Manager can't use its settings" at start
 
-- **Cause:** the file isn't valid JSON, has a value of the wrong type or one
-  that isn't allowed (a port above 65535, a drive as the projects folder…), or
-  comes from a newer DNN Manager.
-- **Fix:** the dialog names the problem: fix the file and press **Try again**,
-  or **Reset to defaults** (the old file is kept in `backups\`). See
-  [configuration.md](configuration.md#when-the-file-is-wrong).
+- **Cause:** `Documents\DnnManager\dnnmanager.db` can't be opened or read
+  (another program has it open - a SQLite browser, say -, or Windows Security's
+  *Controlled folder access* blocks DNN Manager), the settings were saved by a
+  newer DNN Manager, the `sa` password was encrypted by another Windows account
+  or on another PC, or a setting has a value that can't be read or isn't
+  allowed (one changed by hand in the database, say).
+- **Fix:** the dialog names the problem. Fix what it names (close the other
+  program, allow `DnnManager.exe` through Controlled folder access, update DNN
+  Manager) and press **Try again** - or **Reset to defaults**, which starts
+  with the defaults (the current settings aren't kept). **Exit** changes
+  nothing. See
+  [configuration.md](configuration.md#when-the-settings-cant-be-used).
 
 ### My settings are gone
 
+- **Cause:** DNN Manager was updated from 1.7.1 or earlier. This version keeps
+  its data in `dnnmanager.db` and doesn't read the earlier `settings.json`,
+  `state\` and `projects\`.
+- **Fix:** set the settings again in the app and switch keep warm on again for
+  your sites. The old files are still there to look at, and can be deleted. See
+  [configuration.md](configuration.md#upgrading-from-171-or-earlier).
 - **Cause:** the settings are in the **Documents** folder of the Windows account
   DNN Manager runs as. Signing in to the UAC prompt with a *different*
   administrator account uses that account's Documents.
@@ -76,11 +88,32 @@ places tell you most of what went wrong:
   Logs tab's log, unsaved form values ([Picking up where you left
   off](user-guide.md#picking-up-where-you-left-off)).
 - **Fix:** close what you don't want and it is gone next time (the Details,
-  **Discard changes** on Settings). To start completely fresh, close
-  DNN Manager and delete `Documents\DnnManager\state` - only the remembered
-  workspace goes; settings, passwords and projects stay. A state file that can't be
-  read is set aside as `state\<name>.json.bad` by itself (the log file says so) and
-  DNN Manager starts from the defaults.
+  **Discard changes** on Settings). To start completely fresh: **Troubleshoot →
+  Reset to factory defaults** forgets the workspace - and resets the settings
+  and more too (see below). A value of the workspace that can't be read keeps
+  its default by itself (the log file names it); the rest is used as saved.
+
+### Looking at DNN Manager's data, or starting from the defaults
+
+DNN Manager's own data - settings, workspace, which sites are kept warm, how
+each project was installed, the saved DNN versions - is one SQLite database,
+`Documents\DnnManager\dnnmanager.db` ([configuration.md](configuration.md#where-your-files-are)).
+
+- **To look at it:** close DNN Manager and open the file with any SQLite
+  browser (DB Browser for SQLite, for one) - the settings are the rows of
+  `settings`, one per value ([configuration.md](configuration.md#looking-at-the-database)
+  has examples). Change nothing there - everything in it is changed in the
+  app - and close the browser before starting DNN Manager again.
+- **To start from the defaults:** close DNN Manager and delete
+  `dnnmanager.db`. The next start makes it again, with the defaults: the
+  settings, the workspace, which sites are kept warm, the project records (how
+  each project was installed) and the saved DNN versions are lost. Your
+  projects themselves - their IIS sites, folders and databases - stay, and so do
+  the backups, logs, kept packages and the passwords in the Windows Credential
+  Manager. Keep a copy of the file first if you may want it back.
+  **Troubleshoot → Reset to factory defaults** does much the same from within
+  the app - it also removes the saved passwords, logs and kept packages, and
+  keeps the project records.
 
 ## Sites
 

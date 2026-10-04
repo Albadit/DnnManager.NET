@@ -6,9 +6,9 @@ namespace DnnManager.Presentation.Services;
 
 /// <summary>
 /// The DNN releases of each repository in the settings, asked of GitHub once - in the background when the app
-/// starts - and kept for the rest of the run, so New project shows its versions at once. <see cref="GetAsync"/>
-/// with <c>refresh</c> asks again. A failed lookup isn't kept, nor one answered from the releases saved for offline
-/// use, so the next request tries again.
+/// starts, which also saves them in the database for offline use - and kept for the rest of the run, so New project
+/// shows its versions at once. A failed lookup isn't kept, nor one answered from the releases saved for offline use,
+/// so the next request (New project shown again, another repository picked) tries GitHub again.
 /// </summary>
 public sealed class DnnReleaseCatalog(IServiceProvider services)
 {
@@ -22,12 +22,12 @@ public sealed class DnnReleaseCatalog(IServiceProvider services)
             _ = GetAsync(api);
     }
 
-    /// <summary>The releases of <paramref name="api"/>, highest version first - from the earlier lookup unless <paramref name="refresh"/>.</summary>
-    public Task<Result<DnnReleaseList>> GetAsync(string api, bool refresh = false)
+    /// <summary>The releases of <paramref name="api"/>, highest version first - from the earlier lookup when it reached GitHub.</summary>
+    public Task<Result<DnnReleaseList>> GetAsync(string api)
     {
         lock (_lists)
         {
-            if (!refresh && _lists.TryGetValue(api, out var known)) return known;
+            if (_lists.TryGetValue(api, out var known)) return known;
             var lookup = LoadAsync(api);
             _lists[api] = lookup;
             // Forget a failed lookup, or one answered from the saved releases (offline) - unless a newer one has replaced
