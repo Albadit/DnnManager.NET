@@ -2,6 +2,16 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## Unreleased
+
+### Changed
+
+- The workflow on GitHub is now `.github/workflows/ci.yml` ("CI", was
+  `release.yml`): it only builds in Release and runs the tests when a version
+  tag is pushed; it publishes nothing. Releases are published from VS Code with
+  **release (GitHub)** (or **release: redo (GitHub)**), whose tag it then
+  builds and tests.
+
 ## v1.7.6
 
 ### Upgrading

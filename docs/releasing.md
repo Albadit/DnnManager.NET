@@ -1,6 +1,6 @@
 # Releasing
 
-Making a new version: the steps, the release workflow, the portable exe and the installer.
+Making a new version: the steps, releasing from VS Code, the build workflow, the portable exe and the installer.
 
 ## Steps
 
@@ -23,18 +23,12 @@ until 1.7.2 is tagged ([`DnnManager.csproj`](../DnnManager.csproj), target
    `.github\scripts\release-notes.ps1 -Version X.Y.Z -OutFile docs\release-notes\vX.Y.Z.md`.
    The notes are built into the exe (What's new after an update shows them), so
    they must be committed before the release is built.
-4. Commit and push, then publish the release - either way the GitHub release gets
+4. Commit and push, then run the task **release (GitHub)** (see
+   [Release from VS Code](#release-from-vs-code)). The GitHub release gets
    `DnnManager-X.Y.Z-x64.exe` and `DnnManagerSetup-X.Y.Z-x64.exe`, and every running DNN Manager
-   offers it with its **Update** button (see [The in-app update](#the-in-app-update)):
-   - **From VS Code**: run the task **release (GitHub)** - see
-     [Release from VS Code](#release-from-vs-code).
-   - **From GitHub Actions**: tag the commit and push the tag; the
-     [release workflow](#the-release-workflow) does the rest.
-
-     ```bash
-     git tag v1.7.0
-     git push origin v1.7.0
-     ```
+   offers it with its **Update** button (see [The in-app update](#the-in-app-update)).
+   The tag it pushes is built and tested on GitHub too ([the build workflow](#the-build-workflow)),
+   which publishes nothing.
 
 ## Release from VS Code
 
@@ -57,7 +51,7 @@ and from GitHub - by the extension
    that release.
 4. In a temporary worktree of that commit - your working copy isn't touched - it
    runs the fast tests, then builds the portable exe and the installer with the
-   version stamped in, the same build as the release workflow.
+   version stamped in.
 5. It checks both files report the version; they land in `publish\vX.Y.Z\`.
 6. **After you confirm**, it tags the commit, pushes the tag, creates the release as
    a draft with the notes, uploads the two files, checks their sizes and
@@ -68,8 +62,16 @@ It signs in to GitHub with the credential Git uses for this repository. Outside 
 Code, `.github\scripts\publish-release.ps1` asks the same two questions in the
 terminal; `-NotesFile docs\release-notes\v1.7.0.md -Commit <hash>` answers them and
 `-SkipTests` skips the fast tests. A commit that isn't on GitHub yet is released
-only after you confirm. If the release workflow runs for the pushed tag too, it
-leaves the published release as it is.
+only after you confirm.
+
+The release's notes are `docs/release-notes/vX.Y.Z.md` as
+[`.github/scripts/release-notes.ps1`](../.github/scripts/release-notes.ps1) gives
+them to GitHub: its relative links pointed at the tag's files. Without that file it
+writes a draft in the same structure, from the version's `CHANGELOG.md` entry
+(*Added* → *Highlights*, *Fixed* → `Fixed:` lines in *Other changes*, *Upgrading*,
+*Tested*) or, without an entry, from the commit subjects since the previous tag
+(`new:` → *Highlights*, `fix:` and `update:` → *Other changes*). Preview them with
+`.github\scripts\release-notes.ps1 -Version 1.7.0 -OutFile notes.md`.
 
 ## Redo a release
 
@@ -87,9 +89,8 @@ its tag is made, **Ctrl+Shift+B → release: redo (GitHub)** runs
    the old commit is on GitHub - refused when GitHub's branch has commits yours
    hasn't), delete the tag's GitHub release (a published one only after you type
    the tag) and delete the tag here and on GitHub.
-4. Then it releases the version again: build and publish from this PC (as
-   **release (GitHub)**), push the tag for the [release workflow](#the-release-workflow),
-   or neither yet.
+4. Then, if you want, it releases the version again from this PC, as
+   **release (GitHub)** does - that makes the tag again.
 
 `-DryRun` shows the plan and changes nothing; `-Version 1.7.6 -Message "release: …"`
 answers the questions and `-SkipTests` is passed on to the build.
@@ -99,33 +100,14 @@ newer version: whoever installed the first build of that version is never offere
 the redone one. GitHub's release page shows the files' download counts; once others
 may have it, release the change as the next version instead.
 
-## The release workflow
+## The build workflow
 
-[`.github/workflows/release.yml`](../.github/workflows/release.yml) runs on every
-pushed tag `vX.Y.Z` (or `vX.Y.Z-suffix`, which becomes a pre-release):
-
-1. Restores, builds in Release and runs the whole test suite - a failing build or
-   test stops it before anything is published. The integration tests are skipped
-   (inconclusive) where the runner lacks IIS Express, LocalDB or Linux containers.
-2. Takes the version from the tag and stamps it into the exe (`Version`,
-   `AssemblyVersion`, `FileVersion`, `app.manifest`) and the installer.
-3. Publishes the portable exe, builds the installer and checks that both report
-   the tag's version.
-4. Writes the release notes with
-   [`.github/scripts/release-notes.ps1`](../.github/scripts/release-notes.ps1):
-   [`docs/release-notes/vX.Y.Z.md`](release-notes/) when it exists, with its relative
-   links pointed at the tag's files;
-   otherwise a draft in the same structure, from the tag's `CHANGELOG.md` entry
-   (*Added* → *Highlights*, *Fixed* → `Fixed:` lines in *Other changes*, *Upgrading*,
-   *Tested*) or, without an entry, from the commit subjects since the previous tag
-   (`new:` → *Highlights*, `fix:` and `update:` → *Other changes*).
-5. Creates the GitHub release for the tag and uploads the files - unless the tag
-   already has a release (published from VS Code, or by an earlier run), which it
-   leaves as it is. The files are also kept as a workflow artifact for 30 days.
-
-**Actions → Release → Run workflow** with a version is a dry run: everything
-except publishing the release. Preview the notes locally with
-`.github\scripts\release-notes.ps1 -Version 1.7.0 -OutFile notes.md`.
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) ("CI") runs on every
+pushed tag `vX.Y.Z` (or `vX.Y.Z-suffix`) - the one **release (GitHub)** pushes -
+and by hand (**Actions → CI → Run workflow**). It restores, builds in Release (the version from the newest tag, as
+every local build) and runs the whole test suite. It publishes nothing. The
+integration tests are skipped (inconclusive) where the runner lacks IIS Express,
+LocalDB or Linux containers.
 
 ## The in-app update
 
@@ -137,7 +119,7 @@ draft or a pre-release - a `vX.Y.Z-rc.1` tag isn't offered) - see
   Manager, `DnnManager-<version>-x64.exe` a portable one
   ([`AppRelease.AssetFor`](../src/DnnManager.Infrastructure/Updates/AppRelease.cs)).
 - **The version inside both files**: their *ProductVersion* must be the tag's version
-  (the workflow's check in step 3) - a download whose version differs is refused.
+  (`publish-release.ps1` checks it before publishing) - a download whose version differs is refused.
 - **GitHub's SHA-256** of each file (the asset's `digest`): checked when GitHub lists it.
 - **Silent Setup**: the update runs Setup with `/SILENT /SUPPRESSMSGBOXES /NORESTART
   /NOCANCEL /SP- /CURRENTUSER` (or `/ALLUSERS`) - `DnnManager.iss` must keep
@@ -221,8 +203,8 @@ rights needed. Everything made along the way (the published app, wizard images,
 Inno Setup) is in `src\DnnManager.Installer\bin`; the finished Setup is in
 `publish\`.
 `-SkipPublish` reuses the last publish; `-Iscc <path>` picks the compiler;
-`-Version 1.7.0` builds that version instead of the tag's (the release workflow
-passes the tag's).
+`-Version 1.7.0` builds that version instead of the tag's (`publish-release.ps1`
+passes the release's).
 
 The installer's `AppId` in `DnnManager.iss` identifies the installation for
 upgrades and uninstall - never change it.

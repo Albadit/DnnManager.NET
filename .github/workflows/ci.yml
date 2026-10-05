@@ -1,0 +1,62 @@
+# CI: when a version tag is pushed (or by hand: Actions -> CI -> Run workflow), DNN Manager is
+# built in Release and the whole test suite runs. Nothing is published - releases are made from VS Code with the task
+# "release (GitHub)" (.github/scripts/publish-release.ps1, see docs/releasing.md).
+name: CI
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+        with:
+          # The tags too: the build takes its version from the newest version tag (DnnManager.csproj, VersionFromGitTag).
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj
+
+      - name: Build (Release)
+        run: >-
+          dotnet build tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj
+          -c Release --no-restore
+          -p:ContinuousIntegrationBuild=true
+
+      - name: Test
+        # The whole suite. The integration tests need IIS Express, LocalDB and Docker (Linux containers); where the
+        # runner lacks one, those tests are reported as skipped (inconclusive), not passed.
+        run: >-
+          dotnet test tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj
+          -c Release --no-build
+          --logger "console;verbosity=normal"

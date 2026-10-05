@@ -4,8 +4,8 @@ description: >-
   Writes the release notes for the next DNN Manager release as docs/release-notes/vX.Y.Z.md, in the structure every
   release uses (bold summary, Highlights, Other changes, Upgrading, Tested, link to the changelog), from the
   CHANGELOG.md entry, the commits since the previous tag and real test results - every claim checked against the
-  code - and the release commit's message, ready to paste. The release workflow publishes that file as the GitHub
-  release's notes. Use when asked to write, draft,
+  code - and the release commit's message, ready to paste. The VS Code task "release (GitHub)" publishes that file as
+  the GitHub release's notes. Use when asked to write, draft,
   update or review release notes, prepare a release or "the next release", or turn the Unreleased changelog entry
   into notes - and to redo a release whose tag is already made (a failed release workflow, one more change before
   anyone has it): the notes and changelog updated in place, then the task "release: redo (GitHub)".
@@ -13,9 +13,10 @@ description: >-
 
 # Release notes
 
-The notes for a release are **`docs/release-notes/vX.Y.Z.md`**. When the tag `vX.Y.Z` is pushed, the release
-workflow publishes that file unchanged as the GitHub release's notes (`.github/scripts/release-notes.ps1`), so it is
-written before the tag. [`docs/release-notes/v1.6.0.md`](../../../docs/release-notes/v1.6.0.md) is the model: match
+The notes for a release are **`docs/release-notes/vX.Y.Z.md`**. The VS Code task **release (GitHub)**
+(`.github/scripts/publish-release.ps1`) publishes that file unchanged as the GitHub release's notes
+(`.github/scripts/release-notes.ps1`), and builds it into the exe - so it is written and committed before the release.
+The workflow on GitHub (`.github/workflows/ci.yml`) only builds and tests the pushed tag. [`docs/release-notes/v1.6.0.md`](../../../docs/release-notes/v1.6.0.md) is the model: match
 its structure, length and tone.
 
 Readers are **people who use DNN Manager**, deciding whether to update and what changes for them - not developers.

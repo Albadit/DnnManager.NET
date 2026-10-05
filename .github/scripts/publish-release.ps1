@@ -7,8 +7,8 @@
     1. Lists docs\release-notes\vX.Y.Z.md - the file's name is the version, the tag and the release title.
     2. Lists the recent commits of the current branch; the newest is the default.
     3. Checks out that commit into a temporary worktree (your working copy is not touched), runs the fast tests,
-       and builds the portable exe and the installer with the version stamped in - the same build as the release
-       workflow (.github\workflows\release.yml).
+       and builds the portable exe and the installer with the version stamped in. (GitHub Actions only builds and
+       tests the pushed tag - .github\workflows\ci.yml.)
     4. Checks both files report the version. They land in publish\vX.Y.Z.
     5. After you confirm: tags the commit, pushes the tag, creates the GitHub release with the notes as a draft,
        uploads the files, checks them and publishes it.
@@ -256,7 +256,7 @@ try {
     $inno = Join-Path $root 'src\DnnManager.Installer\bin\tools'
     if (Test-Path $inno) { Copy-Item $inno (Join-Path $work 'src\DnnManager.Installer\bin\tools') -Recurse -Force }
 
-    # The version goes into the manifest too, as in the release workflow.
+    # The version goes into the manifest too (the exe's file properties).
     $manifest = Join-Path $work 'app.manifest'
     [IO.File]::WriteAllText($manifest, ([IO.File]::ReadAllText($manifest) -replace '(<assemblyIdentity version=")[0-9.]+(")', "`${1}$fileVersion`${2}"), [Text.UTF8Encoding]::new($false))
 

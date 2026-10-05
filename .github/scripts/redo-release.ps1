@@ -15,8 +15,8 @@
        - deletes the GitHub release of that tag, if there is one - a published one only after you type its tag,
          since DNN Manager may have offered it as an update already;
        - deletes the tag here and on GitHub.
-    4. Then releases it again, as you choose: build and publish from this PC (publish-release.ps1, the task
-       "release (GitHub)"), push the tag so the release workflow builds and publishes it, or nothing yet.
+    4. Then releases it again, if you want: builds and publishes it from this PC (publish-release.ps1, the task
+       "release (GitHub)"), which makes the tag again.
 
     It signs in to GitHub with the credential Git already uses for this repository. -DryRun shows the plan and
     changes nothing.
@@ -223,7 +223,7 @@ if ($release) {
 if (-not $releaseChecked) { Write-Host "  Delete   the GitHub release $tag, if there is one (not checked in this dry run)" }
 if ($remoteTagSha) { Write-Host "  Delete   the tag $tag on GitHub" }
 if ($localTagSha) { Write-Host "  Delete   the tag $tag here" }
-Write-Host '  Then     release it again - you choose how at the end'
+Write-Host '  Then     release it again from this PC - asked at the end'
 
 if ($DryRun) {
     Write-Host ''
@@ -268,24 +268,12 @@ if ($remoteTagSha -or $localTagSha) {
 
 $short = $head.Substring(0, 7)
 Write-Step "Release $tag from $short"
-Write-Host '  1. Build and publish it from this PC (publish-release.ps1 - the fast tests, both exes, the release)'
-Write-Host '  2. Push the tag - the release workflow on GitHub builds, tests and publishes it'
-Write-Host '  3. Not now'
-$choice = Read-Host 'Choose 1-3 (Enter = 1)'
-switch ($choice.Trim()) {
-    { $_ -in '', '1' } {
-        $publishArgs = @{ NotesFile = "docs\release-notes\$tag.md"; Commit = $head }
-        if ($SkipTests) { $publishArgs.SkipTests = $true }
-        & (Join-Path $PSScriptRoot 'publish-release.ps1') @publishArgs
-    }
-    '2' {
-        Invoke-Tool git @('-C', $root, 'tag', $tag, $head)
-        Invoke-Tool git @('-C', $root, 'push', 'origin', "refs/tags/$tag")
-        Write-Host ''
-        Write-Host "Tag $tag pushed - follow the release workflow on https://github.com/$script:repo/actions" -ForegroundColor Green
-    }
-    default {
-        Write-Host ''
-        Write-Host "Not released. $short is pushed without a tag - release it with the task ""release (GitHub)"", or run this again." -ForegroundColor Yellow
-    }
+if (Confirm-Step "Build and publish $tag from this PC now (publish-release.ps1 - the fast tests, both exes, the tag, the release)?") {
+    $publishArgs = @{ NotesFile = "docs\release-notes\$tag.md"; Commit = $head }
+    if ($SkipTests) { $publishArgs.SkipTests = $true }
+    & (Join-Path $PSScriptRoot 'publish-release.ps1') @publishArgs
+}
+else {
+    Write-Host ''
+    Write-Host "Not released. $short is pushed without a tag - release it with the task ""release (GitHub)"", or run this again." -ForegroundColor Yellow
 }
