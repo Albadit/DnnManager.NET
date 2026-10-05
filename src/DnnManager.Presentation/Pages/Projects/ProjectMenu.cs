@@ -63,7 +63,9 @@ internal sealed class ProjectMenu(IServiceProvider services, OperationRunner run
         menu.Items.Add(new Separator());
         menu.Items.Add(Item("Rename…", (_, _) => ProjectEdits.Rename(_services, row), ProjectEdits.CanEdit(_services, row)));
         menu.Items.Add(Item("Clone…", (_, _) => Clone(row), Directory.Exists(row.Path) && !_runner.IsBusy));
+        if (row.IsDnn) menu.Items.Add(UpgradeItem(_services, row));
         menu.Items.Add(ExportMenu(_services, row));
+        menu.Items.Add(RestoreMenu(_services, row));
         menu.Items.Add(Item("Remove…", (_, _) => _remove(row), row.CanRemove));
     }
 
@@ -178,8 +180,40 @@ internal sealed class ProjectMenu(IServiceProvider services, OperationRunner run
         var menu = new ContextMenu { PlacementTarget = button, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
         AddSiteTools(menu.Items, services, row);
         menu.Items.Add(new Separator());
+        if (row.IsDnn) menu.Items.Add(UpgradeItem(services, row));
         menu.Items.Add(ExportMenu(services, row));
+        menu.Items.Add(RestoreMenu(services, row));
         menu.IsOpen = true;
+    }
+
+    /// <summary>"Upgrade DNN…": a newer DNN release, after a backup it can go back to.</summary>
+    private static MenuItem UpgradeItem(IServiceProvider services, ProjectRow row)
+    {
+        var upgrade = Item("Upgrade DNN…", (_, _) => ProjectEdits.UpgradeDnn(services, row), ProjectEdits.CanEdit(services, row));
+        upgrade.ToolTip = $"From DNN {row.Dnn}, with a backup before each step.";
+        return upgrade;
+    }
+
+    /// <summary>"Restore backup": the project's complete backups (site and database), newest first - read when it opens.</summary>
+    private static MenuItem RestoreMenu(IServiceProvider services, ProjectRow row)
+    {
+        var restore = Lazy("Restore backup", menu =>
+        {
+            var backups = ProjectEdits.Backups(services, row);
+            var canEdit = ProjectEdits.CanEdit(services, row);
+            foreach (var backup in backups)
+            {
+                var item = Item($"{backup.Created:yyyy-MM-dd HH:mm:ss}" + (backup.Note is { } note ? $"  -  {note}" : ""),
+                    (_, _) => ProjectEdits.RestoreBackup(services, row, backup), canEdit);
+                item.ToolTip = backup.Folder;
+                menu.Items.Add(item);
+            }
+            if (backups.Count == 0)
+                menu.Items.Add(new MenuItem { Header = "No backup with the site and its database yet", IsEnabled = false });
+        });
+        restore.ToolTip = "Puts the site and its database back from a backup.";
+        restore.IsEnabled = Directory.Exists(row.Path);
+        return restore;
     }
 
     /// <summary>"Clear website cache…" and "View logs", with the site's logs grouped by where they come from.</summary>

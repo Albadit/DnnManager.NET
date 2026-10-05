@@ -22,10 +22,27 @@ public sealed partial class DnnInstallOutput
     private readonly StringBuilder _pending = new();
     private readonly List<DnnInstallStep> _failedSteps = [];
     // The page header (styles, logo) comes before DNN's first <h1>; a comment around it hides part of it.
-    private bool _started, _inComment;
+    private bool _started, _inComment, _serverError;
+    private DnnInstallStep? _last;
 
     /// <summary>Everything DNN sent so far.</summary>
     public string Body => _body.ToString();
+
+    /// <summary>
+    /// The exception of ASP.NET's error page when DNN's page broke off into one ("System.IO.IOException: The process
+    /// cannot access the file '…installBlocker.lock'…") - null when it didn't.
+    /// </summary>
+    public string? ServerError
+    {
+        get
+        {
+            var match = ExceptionDetails().Match(Body);
+            return match.Success ? WebUtility.HtmlDecode(Tag().Replace(match.Groups[1].Value, " ")).Trim() is { Length: > 0 } text ? Whitespace().Replace(text, " ") : null : null;
+        }
+    }
+
+    /// <summary>The last step DNN reported before its page ended - where it stopped when it didn't finish.</summary>
+    public string? LastStep => _last?.Text;
 
     /// <summary>Takes the next chunk of the page and returns the steps it completed.</summary>
     public IReadOnlyList<DnnInstallStep> Add(string chunk)
@@ -81,6 +98,36 @@ public sealed partial class DnnInstallOutput
         return Result.Fail($"DNN's installation didn't complete: {why}.");
     }
 
+    /// <summary>
+    /// For <c>Install.aspx?mode=upgrade</c>: Ok when DNN wrote "Upgrade Complete" and nothing it marks as an error - or
+    /// that there was nothing to upgrade (the version check after it tells); otherwise what went wrong, as DNN put it.
+    /// </summary>
+    public Result UpgradeOutcome()
+    {
+        var html = Body;
+        // DNN broke off into ASP.NET's error page before it finished: where it stopped, and what the page says.
+        if (ServerError is { } crashed && !html.Contains("Upgrade Complete", StringComparison.OrdinalIgnoreCase))
+            return Result.Fail($"DNN's upgrade stopped{(LastStep is { } last ? $" at \"{last}\"" : "")} and broke off with: {crashed}" +
+                               (crashed.Contains("installBlocker", StringComparison.OrdinalIgnoreCase)
+                                   ? " - an error DNN hits cleaning up after a failed upgrade, which hides the real one: DNN's logs and the database scripts' logs say what failed."
+                                   : ""));
+        var markers = FailureMarkers.Where(m => html.Contains(m, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (markers.Contains("currently in progress"))
+            return Result.Fail("Another installation or upgrade of this site is running (DNN's installBlocker.lock).");
+        if (html.Contains("Could not connect to database", StringComparison.OrdinalIgnoreCase))
+            return Result.Fail("DNN couldn't connect to its database - check the site's connection string and that the site's identity may sign in.");
+        if (markers.Count == 0 && (html.Contains("Upgrade Complete", StringComparison.OrdinalIgnoreCase) ||
+                                   html.Contains("current Database Version are identical", StringComparison.OrdinalIgnoreCase) ||
+                                   html.Contains("Nothing To Upgrade", StringComparison.OrdinalIgnoreCase)))
+            return Result.Ok();
+
+        var failed = _failedSteps.Select(s => s.Text).Take(3).ToList();
+        var why = failed.Count > 0 ? string.Join("; ", failed)
+            : markers.Count > 0 ? $"it reported {string.Join(", ", markers)}"
+            : "it stopped before \"Upgrade Complete\"";
+        return Result.Fail($"DNN's upgrade didn't complete: {why}.");
+    }
+
     private DnnInstallStep? Parse(string segment)
     {
         var s = segment;
@@ -110,6 +157,14 @@ public sealed partial class DnnInstallOutput
             if (s.IndexOf("<h1>", StringComparison.OrdinalIgnoreCase) < 0) return null;
             _started = true;
         }
+        // ASP.NET's error page after DNN's own output: not a step - its exception is read as a whole (ServerError).
+        if (_serverError) return null;
+        if (s.Contains("Server Error in", StringComparison.OrdinalIgnoreCase) || s.Contains("<!DOCTYPE", StringComparison.OrdinalIgnoreCase) ||
+            s.Contains("<title>", StringComparison.OrdinalIgnoreCase))
+        {
+            _serverError = true;
+            return null;
+        }
 
         bool? succeeded = null;
         var status = StatusFont().Match(s);
@@ -132,6 +187,7 @@ public sealed partial class DnnInstallOutput
             succeeded = false;
         var step = new DnnInstallStep(text, succeeded);
         if (succeeded == false) _failedSteps.Add(step);
+        _last = step;
         return step;
     }
 
@@ -150,4 +206,8 @@ public sealed partial class DnnInstallOutput
 
     [GeneratedRegex(@"<font color='(green|red)'>\s*(Success|Error!)\s*</font>", RegexOptions.IgnoreCase)]
     private static partial Regex StatusFont();
+
+    // ASP.NET's error page: "<b> Exception Details: </b>System.IO.IOException: …<br><br>".
+    [GeneratedRegex(@"Exception Details:\s*</b>(.*?)<br", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex ExceptionDetails();
 }

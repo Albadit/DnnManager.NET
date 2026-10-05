@@ -267,18 +267,21 @@ public partial class CommandPalette : UserControl
 public static class PaletteFilter
 {
     /// <summary>
-    /// The entries with every typed word in their title, detail or keywords - those whose title starts with the text
-    /// first, then those with a word starting with it, then the rest, each in their own order.
+    /// The entries with every typed word in their title, detail or keywords - group by group, as listed ("recently
+    /// used" before "other commands"); in a group those whose title starts with the text first, then those with a word
+    /// starting with it, then the rest, each in their own order.
     /// </summary>
     public static IReadOnlyList<PaletteItem> Rank(IReadOnlyList<PaletteItem> items, string query)
     {
         var words = query.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (words.Length == 0) return items;
         var text = query.Trim();
+        var groups = items.Select(i => i.Group).Distinct().ToList();
         return items
             .Select((item, index) => (item, index, all: $"{item.Title} {item.Detail} {item.Keywords}"))
             .Where(x => words.All(w => x.all.Contains(w, StringComparison.OrdinalIgnoreCase)))
-            .OrderBy(x => x.item.Title.StartsWith(text, StringComparison.OrdinalIgnoreCase) ? 0
+            .OrderBy(x => groups.IndexOf(x.item.Group))
+            .ThenBy(x => x.item.Title.StartsWith(text, StringComparison.OrdinalIgnoreCase) ? 0
                 : x.item.Title.Split(' ', ':', '-', '.').Any(w => w.StartsWith(words[0], StringComparison.OrdinalIgnoreCase)) ? 1 : 2)
             .ThenBy(x => x.index)
             .Select(x => x.item)

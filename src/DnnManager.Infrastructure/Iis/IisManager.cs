@@ -264,6 +264,42 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
         catch (Exception ex) { return Result.Fail(ex.Message); }
     }
 
+    public Result StopSiteAndWait(string siteName, TimeSpan timeout)
+    {
+        var stopped = StopSite(siteName);
+        if (!stopped.Success) return stopped;
+        string? poolName;
+        try
+        {
+            using var sm = new ServerManager();
+            if (sm.Sites[siteName] is not { } site) return Result.Fail($"Site '{siteName}' not found");
+            poolName = PoolOf(sm, site)?.Name;
+            // A pool another site shares keeps running (StopSite leaves it): its worker process isn't this site's to end.
+            if (poolName is null || sm.Sites.Any(s => s.Name != site.Name &&
+                    string.Equals(s.Applications["/"]?.ApplicationPoolName, poolName, StringComparison.OrdinalIgnoreCase))) return Result.Ok();
+        }
+        catch (Exception ex) { return Result.Fail(ex.Message); }
+
+        // Stopping, IIS gives the worker process its shutdown time limit (90 seconds by default) to finish - and the
+        // pool reads Stopped only once it has gone. Ended by force when it takes longer.
+        WaitForPoolToStop(poolName, timeout);
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (true)
+        {
+            var left = -1;
+            try
+            {
+                using var sm = new ServerManager();
+                left = sm.ApplicationPools[poolName]?.WorkerProcesses.Count ?? 0;
+            }
+            catch { /* re-read */ }
+            if (left == 0) return Result.Ok();
+            if (DateTime.UtcNow >= deadline)
+                return Result.Fail($"The worker process of app pool '{poolName}' still runs - it couldn't be ended (DNN Manager may need to run as administrator).");
+            Thread.Sleep(250);
+        }
+    }
+
     public Result RestartSite(string siteName)
     {
         try

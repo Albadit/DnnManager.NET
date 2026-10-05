@@ -148,6 +148,7 @@ public partial class ProjectView : UserControl
     private void EditBindings_Click(object sender, RoutedEventArgs e) => ProjectEdits.EditBindings(_services, _row);
     private void EditAppPool_Click(object sender, RoutedEventArgs e) => ProjectEdits.EditAppPool(_services, _row);
     private void ChangeDatabase_Click(object sender, RoutedEventArgs e) => ProjectEdits.ChangeDatabase(_services, _row);
+    private void UpgradeDnn_Click(object sender, RoutedEventArgs e) => ProjectEdits.UpgradeDnn(_services, _row);
     private void OpenSite_Click(object sender, RoutedEventArgs e) => Shell.Open(_row.Url);
 
     private void OpenFolder_Click(object sender, RoutedEventArgs e)

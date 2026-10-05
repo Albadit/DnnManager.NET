@@ -118,3 +118,15 @@ public sealed class VersionState : IStateFile
 
     public string? LastRun { get; set; }
 }
+
+/// <summary>The commands last run from the command palette, the newest first - listed first as "recently used", as VS Code does.</summary>
+public sealed class PaletteState : IStateFile
+{
+    public static string Area => "palette";
+
+    /// <summary>How many are kept.</summary>
+    public const int Kept = 8;
+
+    /// <summary>The commands' ids (<c>project.rename</c>), the newest first.</summary>
+    public List<string> Recent { get; set; } = [];
+}

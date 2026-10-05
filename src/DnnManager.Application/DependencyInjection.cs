@@ -14,6 +14,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<HostExistingProjectUseCase>();
         services.AddScoped<ImportProjectUseCase>();
         services.AddScoped<ExportProjectUseCase>();
+        services.AddScoped<RestoreBackupUseCase>();
+        services.AddScoped<UpgradeDnnUseCase>();
         services.AddScoped<RemoveProjectUseCase>();
         services.AddScoped<IisServerUseCase>();
         services.AddScoped<ControlSitesUseCase>();

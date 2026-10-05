@@ -19,7 +19,10 @@ namespace DnnManager.Presentation.Services;
 /// </remarks>
 public sealed partial class ActivityLog(DailyLogFile file) : INotifyPropertyChanged
 {
-    private readonly Dispatcher _dispatcher = System.Windows.Application.Current.Dispatcher;
+    // The app's UI thread - a test gives its own.
+    private readonly Dispatcher _dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+
+    internal ActivityLog(DailyLogFile file, Dispatcher dispatcher) : this(file) => _dispatcher = dispatcher;
     private readonly DailyLogFile _file = file;
 
     // The run going on now; null between runs.
@@ -197,6 +200,9 @@ public sealed partial class ActivityLog(DailyLogFile file) : INotifyPropertyChan
             run.Changed();
             return;
         }
+        // A "… complete" step that wasn't the end (a backup inside an upgrade): its lines become a stage where they
+        // happened, so everything stays in the order it was done.
+        if (run.Closing) ReopenClosing(run, now);
         run.Closing = false;
         var stage = run.Stages.FirstOrDefault(s => s.Status == StageStatus.Pending && s.Name == name);
         var firstPending = run.Stages.FirstOrDefault(s => s.Status == StageStatus.Pending);
@@ -217,6 +223,27 @@ public sealed partial class ActivityLog(DailyLogFile file) : INotifyPropertyChan
         stage.Start(now);
         run.Changed();
     });
+
+    /// <summary>
+    /// The run went on after a closing step: what was noted after it is a stage of its own, done, before the stages
+    /// still to come - not notes shown after them all.
+    /// </summary>
+    private static void ReopenClosing(OutputRun run, DateTime now)
+    {
+        var title = run.ClosingTitle ?? "Done";
+        run.ClosingTitle = null;
+        if (run.Notes.Count == 0) return;
+        var stage = new OutputStage(title, title);
+        stage.Start(run.Notes.FirstOrDefault()?.Time ?? now);
+        foreach (var line in run.Notes) stage.Lines.Add(line);
+        stage.End(now, null);
+        var firstPending = run.Stages.FirstOrDefault(s => s.Status == StageStatus.Pending);
+        if (firstPending is null) run.Stages.Add(stage);
+        else run.Stages.Insert(run.Stages.IndexOf(firstPending), stage);
+        // One by one: the log view takes each away (a clear tells it nothing about which lines went).
+        for (var i = run.Notes.Count - 1; i >= 0; i--) run.Notes.RemoveAt(i);
+        run.ClosingTitle = null;
+    }
 
     private void EndCurrent(OutputRun run, DateTime now)
     {

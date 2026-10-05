@@ -22,6 +22,8 @@ public sealed class AppCommand
     public string Keywords { get; init; } = "";
     /// <summary>Its shortcut works while a terminal has the keyboard too - otherwise the key goes to the shell.</summary>
     public bool InTerminal { get; init; }
+    /// <summary>Listed in the command palette - not one that only opens the palette itself (Show all commands).</summary>
+    public bool InPalette { get; init; } = true;
 
     /// <summary>Whether it makes sense now (a command for one thing).</summary>
     public Func<bool> IsAvailable { get; init; } = () => true;

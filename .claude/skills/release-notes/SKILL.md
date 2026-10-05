@@ -32,7 +32,9 @@ Readers are **people who use DNN Manager**, deciding whether to update and what 
 4. **Get the test results** - run the fast tests and read the counts:
    `dotnet test tests\DnnManager.IntegrationTests --filter "TestCategory!=Integration" --artifacts-path <temp folder>`.
    Compare with the previous notes' *Tested* section ("up from N"). Add the integration tests or manual checks only
-   if they were really run - ask the owner what was tested by hand.
+   if they were really run - ask the owner what was tested by hand. The integration tests that run real sites (e.g.
+   `DnnUpgradeTests`, DNN upgrades on IIS Express and a SQL Server container) go in as what they did and found, in
+   the user's words: the versions, the content on the site, the result.
 5. **Write `docs/release-notes/vX.Y.Z.md`** in the structure below. The file name is the tag and the release title,
    so it must be exactly `v` + the version (`v1.7.0.md`, or `v1.7.0-rc.1.md` for a pre-release). If the changelog
    entry is still `## Unreleased`, offer to rename it `## vX.Y.Z`.

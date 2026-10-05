@@ -15,7 +15,14 @@ namespace DnnManager.IntegrationTests.Support;
 /// </summary>
 public sealed class IisExpressSites : IIisManager, IDisposable
 {
-    public const string InstallDirectory = @"C:\Program Files\IIS Express";
+    /// <summary>
+    /// IIS Express: <c>DNNMANAGER_TEST_IISEXPRESS</c> when set, else the installed one, else one unpacked without
+    /// administrator rights into the tests' folder (<c>msiexec /a iisexpress_amd64_en-US.msi TARGETDIR=…\tools\iisexpress-msi</c>).
+    /// </summary>
+    public static string InstallDirectory { get; } =
+        Environment.GetEnvironmentVariable("DNNMANAGER_TEST_IISEXPRESS") is { Length: > 0 } given ? given
+        : File.Exists(@"C:\Program Files\IIS Express\iisexpress.exe") ? @"C:\Program Files\IIS Express"
+        : Path.Combine(TestEnvironment.Root, "tools", "iisexpress-msi", "IIS Express");
 
     private readonly string _workDirectory;
     private readonly Dictionary<string, Site> _sites = new(StringComparer.OrdinalIgnoreCase);
@@ -36,6 +43,8 @@ public sealed class IisExpressSites : IIisManager, IDisposable
         public string Config { get; } = config;
         public string Log { get; } = log;
         public Process? Process { get; set; }
+        // Told to stop (StopsLikeIis), not gone yet.
+        public Process? Stopping { get; set; }
         public bool ProfileEnabled { get; set; }
     }
 
@@ -70,10 +79,18 @@ public sealed class IisExpressSites : IIisManager, IDisposable
         return Result.Ok();
     }
 
+    /// <summary>
+    /// Stops as IIS does: <see cref="StopSite"/> returns at once while the worker process ends in its own time (IIS gives it
+    /// 90 seconds) and holds what it held meanwhile; <see cref="StopSiteAndWait"/> waits for it; a start waits for it too
+    /// (IIS can't start a pool that is still stopping). Off: every stop waits.
+    /// </summary>
+    public bool StopsLikeIis { get; set; }
+
     public Result StartSite(string siteName)
     {
         if (!_sites.TryGetValue(siteName, out var site)) return Result.Fail($"No site '{siteName}'.");
         if (site.Process is { HasExited: false }) return Result.Ok();
+        EndStopping(site);
         try
         {
             Start(site);
@@ -86,6 +103,14 @@ public sealed class IisExpressSites : IIisManager, IDisposable
     }
 
     public Result StopSite(string siteName)
+    {
+        if (!_sites.TryGetValue(siteName, out var site)) return Result.Ok();
+        if (StopsLikeIis) BeginStop(site);
+        else Stop(site);
+        return Result.Ok();
+    }
+
+    public Result StopSiteAndWait(string siteName, TimeSpan timeout)
     {
         if (_sites.TryGetValue(siteName, out var site)) Stop(site);
         return Result.Ok();
@@ -119,6 +144,17 @@ public sealed class IisExpressSites : IIisManager, IDisposable
     public IisServerState GetServerState() => IisServerState.Running;
 
     public Task<Result> ControlServerAsync(IisServerAction action, CancellationToken ct) => Task.FromResult(Result.Ok());
+
+    /// <summary>The site as IIS would describe it: its one http binding, and IIS Express's CLR 4 integrated app pool.</summary>
+    public IisSiteDetails? GetSiteDetails(string siteName) =>
+        _sites.TryGetValue(siteName, out var site)
+            ? new IisSiteDetails(1, site.Name, site.Process is { HasExited: false } ? "Started" : "Stopped", site.Path, $"MACHINE/WEBROOT/APPHOST/{site.Name}",
+                true, null,
+                [new IisBindingDetails("http", "*", site.Port, site.Host, $"*:{site.Port}:{site.Host}", false, null, null, null)],
+                new IisPoolDetails("Clr4IntegratedAppPool", "Started", "v4.0", "Integrated", "SpecificUser", CurrentUser, "OnDemand",
+                    TimeSpan.FromMinutes(20), null, TimeSpan.Zero, [], 0, 0, 1000, false, true, 5, TimeSpan.FromMinutes(5), 1, true,
+                    site.Process is { HasExited: false } p ? [p.Id] : []))
+            : null;
 
     public IReadOnlyDictionary<string, string> GetSiteStates() =>
         _sites.Values.ToDictionary(s => s.Name, s => s.Process is { HasExited: false } ? "Started" : "Stopped", StringComparer.OrdinalIgnoreCase);
@@ -187,6 +223,7 @@ public sealed class IisExpressSites : IIisManager, IDisposable
     /// </summary>
     private static void Stop(Site site)
     {
+        EndStopping(site);
         var process = site.Process;
         if (process is null) return;
         if (!process.HasExited)
@@ -205,6 +242,40 @@ public sealed class IisExpressSites : IIisManager, IDisposable
         }
         process.Dispose();
         site.Process = null;
+        var waited = Stopwatch.StartNew();
+        while (PortOpen(site.Port) && waited.Elapsed < TimeSpan.FromSeconds(10)) Thread.Sleep(200);
+    }
+
+    /// <summary>Asks the site's iisexpress.exe to end (WM_QUIT), without waiting: the site reads stopped, its process lives on a while.</summary>
+    private static void BeginStop(Site site)
+    {
+        if (site.Process is not { } process) return;
+        site.Process = null;
+        if (process.HasExited)
+        {
+            process.Dispose();
+            return;
+        }
+        try
+        {
+            process.Refresh();
+            foreach (ProcessThread thread in process.Threads) PostThreadMessage((uint)thread.Id, WmQuit, IntPtr.Zero, IntPtr.Zero);
+        }
+        catch (InvalidOperationException) { }
+        site.Stopping = process;
+    }
+
+    /// <summary>A process told to stop has gone - waited for, killed when it takes longer than IIS would give it.</summary>
+    private static void EndStopping(Site site)
+    {
+        if (site.Stopping is not { } process) return;
+        if (!process.WaitForExit(TimeSpan.FromSeconds(90)))
+        {
+            try { process.Kill(); } catch (InvalidOperationException) { }
+            process.WaitForExit();
+        }
+        process.Dispose();
+        site.Stopping = null;
         var waited = Stopwatch.StartNew();
         while (PortOpen(site.Port) && waited.Elapsed < TimeSpan.FromSeconds(10)) Thread.Sleep(200);
     }

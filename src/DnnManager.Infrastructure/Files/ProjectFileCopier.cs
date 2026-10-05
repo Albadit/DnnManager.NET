@@ -110,6 +110,53 @@ public sealed class ProjectFileCopier : IProjectFileCopier
         }
     }
 
+    public Task<Result<int>> RemoveFilesNotInZipAsync(string zipPath, string directory, IReadOnlyCollection<string> excludedPaths,
+        IProgressReporter reporter, CancellationToken ct)
+        => Task.Run(() => RemoveFilesNotInZip(zipPath, directory, excludedPaths, reporter, ct), ct);
+
+    private static Result<int> RemoveFilesNotInZip(string zipPath, string directory, IReadOnlyCollection<string> excludedPaths,
+        IProgressReporter reporter, CancellationToken ct)
+    {
+        HashSet<string> inZip;
+        try
+        {
+            using var zip = ZipFile.OpenRead(zipPath);
+            static string Normalized(ZipArchiveEntry e) => e.FullName.Replace('\\', '/');
+            var files = zip.Entries.Where(e => !Normalized(e).EndsWith('/')).ToList();
+            // The site root in the zip, as ExtractZip finds it.
+            var webConfig = files.Where(e => e.Name.Equals("web.config", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(e => Normalized(e).Count(c => c == '/')).FirstOrDefault();
+            var root = webConfig is null ? "" : Normalized(webConfig)[..^webConfig.Name.Length];
+            inZip = files.Select(Normalized).Where(n => n.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                .Select(n => n[root.Length..].Replace('/', '\\')).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+        catch (InvalidDataException) { return Result<int>.Fail($"Not a valid .zip file: {zipPath}"); }
+
+        // Only what came after the zip: a file the backup skipped (in use while it was made) is older, and stays.
+        var madeAt = File.GetLastWriteTimeUtc(zipPath);
+        var excluded = new HashSet<string>(excludedPaths.Select(p => p.Replace('/', '\\').Trim('\\')), StringComparer.OrdinalIgnoreCase);
+        var removed = 0;
+        var failed = new List<string>();
+        foreach (var (file, rel) in FilesToZip(directory, excluded, ct).ToList())
+        {
+            ct.ThrowIfCancellationRequested();
+            if (inZip.Contains(rel) || file.CreationTimeUtc <= madeAt) continue;
+            try
+            {
+                file.Attributes = FileAttributes.Normal;
+                file.Delete();
+                removed++;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                failed.Add(rel);
+            }
+        }
+        if (failed.Count > 0)
+            reporter.Warn($"Could not delete {failed.Count} file(s) added since the backup: {string.Join(", ", failed.Take(5))}{(failed.Count > 5 ? ", …" : "")}");
+        return Result<int>.Ok(removed);
+    }
+
     public Task<Result> CreateZipAsync(string sourceDirectory, string zipPath, IReadOnlyCollection<string> excludedPaths,
         IProgressReporter reporter, CancellationToken ct)
         => Task.Run(() => CreateZip(sourceDirectory, zipPath, excludedPaths, reporter, ct), ct);

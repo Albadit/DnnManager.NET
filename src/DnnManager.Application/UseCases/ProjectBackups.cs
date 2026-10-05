@@ -7,7 +7,8 @@ namespace DnnManager.Application.UseCases;
 /// One dated backup of a project: a folder <c>&lt;backups&gt;\&lt;project&gt;\&lt;project&gt;_&lt;yyyyMMdd_HHmmss&gt;\</c> holding the
 /// site's <c>.zip</c> and / or the database's <c>.bacpac</c> (or <c>.bak</c>).
 /// </summary>
-public sealed record ProjectBackup(string Project, string Folder, DateTime Created, string? SiteZip, string? Database)
+/// <param name="Note">What it was made for - the first line of its <see cref="ProjectBackups.NoteFile"/>, e.g. "Before upgrading DNN 09.13.09 → 10.02.05".</param>
+public sealed record ProjectBackup(string Project, string Folder, DateTime Created, string? SiteZip, string? Database, string? Note = null)
 {
     /// <summary>Both halves are there, so it can be imported as a new project.</summary>
     public bool IsComplete => SiteZip is not null && Database is not null;
@@ -21,6 +22,9 @@ public sealed record ProjectBackup(string Project, string Folder, DateTime Creat
 public static class ProjectBackups
 {
     private const string StampFormat = "yyyyMMdd_HHmmss";
+
+    /// <summary>A backup's notes, when something says why it was made (an upgrade's stages do): its first line names it.</summary>
+    public const string NoteFile = "backup.txt";
 
     /// <summary>A new backup folder for a backup taken at <paramref name="when"/> (not created yet).</summary>
     public static string NewFolder(DnnProject project, DateTime when) =>
@@ -54,8 +58,21 @@ public static class ProjectBackups
                               DateTimeStyles.None, out var stamp)
                 ? stamp
                 : Directory.GetCreationTime(folder);
-            backups.Add(new ProjectBackup(project.Name, folder, created, zip, database));
+            backups.Add(new ProjectBackup(project.Name, folder, created, zip, database, Note(folder)));
         }
         return backups.OrderByDescending(b => b.Created).ToList();
+    }
+
+    private static string? Note(string folder)
+    {
+        try
+        {
+            var file = Path.Combine(folder, NoteFile);
+            return File.Exists(file) ? File.ReadLines(file).FirstOrDefault(l => l.Trim().Length > 0)?.Trim() : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 }

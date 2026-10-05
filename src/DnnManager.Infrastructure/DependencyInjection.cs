@@ -68,6 +68,8 @@ public static class InfrastructureServiceCollectionExtensions
         // Keeps the sites switched to "keep warm" warm while DNN Manager runs - it follows the monitor.
         services.AddSingleton<KeepWarm.KeepWarmService>();
         services.AddSingleton<SiteLogs.SiteLogCatalog>();
+        services.AddSingleton<Application.Upgrades.IDnnSiteInspector, Dnn.DnnSiteInspector>();
+        services.AddSingleton<Application.Upgrades.IDnnUpgradeChecks, Dnn.DnnUpgradeChecks>();
 
         // A lookup that doesn't answer within 30 seconds counts as offline (the saved releases are used) - not 100.
         services.AddHttpClient<IDnnReleaseService, GitHubDnnReleaseService>(http => http.Timeout = TimeSpan.FromSeconds(30));

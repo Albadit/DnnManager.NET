@@ -23,4 +23,11 @@ public static class DnnInstall
             return null;
         }
     }
+
+    /// <summary>The number of a DNN version - <c>10.1.0</c> of <c>10.1.0-rc1</c> or <c>v10.1.0</c> - or null when it has none.</summary>
+    public static Version? Number(string version)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(version.TrimStart('v', 'V'), @"^\d+(\.\d+){1,3}");
+        return match.Success && System.Version.TryParse(match.Value, out var number) ? number : null;
+    }
 }

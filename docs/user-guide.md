@@ -359,8 +359,12 @@ DNN Manager works without a mouse, the way VS Code does.
   narrow it down, the arrows choose, **Enter** runs, **Esc** closes and the
   keyboard goes back where it was. **Ctrl+P** lists the projects instead - Enter
   opens one's Details; typing **>** switches to the commands, deleting it back.
-  A project command acts on the selected project (the table's selected row, or
-  the open Details); without one the palette asks which project.
+  The commands you ran from the palette come first, marked *recently used* (the
+  last 8, kept for the next start), then the *other commands* - also while you
+  type. A project command chosen in the palette always asks which project next - the
+  selected one (the table's selected row, or the open Details) first, so
+  **Enter** takes it. Its shortcut acts on the selected project; without one
+  the palette asks.
 - **Tooltips** - resting the pointer on a button or a field shows its name, as
   in VS Code, with its shortcut when it has one - as set now, so a changed
   shortcut shows there at once.
@@ -656,7 +660,9 @@ Menu key):
 | **Clear website cache…**, **View logs** ▸ | The [site tools](#site-tools). |
 | **Rename…** | A new name for the project - its folder, IIS site and app pool, and if you like its host name and database. See [Edit a project](#edit-a-project). |
 | **Clone…** | A copy of the project - its files, its database and an IIS website of its own - under a new name. See [Clone a project](#clone-a-project). |
+| **Upgrade DNN…** | The project's DNN to a newer release, one version of DNN's upgrade path at a time, with a backup before each step - put back when a step fails. See [Upgrade DNN](#upgrade-dnn). |
 | **Export** ▸ | *For deployment…* - a package for the live server (see [Export for deployment](#export-for-deployment)); then a backup into the project's folder in `Documents\DnnManager\backups` (see [Backups](#backups)): *Site and database* (`<project>.zip` + `<project>.bacpac`, the pair **New project** imports), *Site files* or *Database*. **Open backups folder** opens it in Explorer. |
+| **Restore backup** ▸ | The project's backups with its site and database, newest first: puts its files and its database back as the chosen one has them, after a confirmation. See [Restore a backup](#restore-a-backup). |
 | **Remove…** | After a confirmation, removes the IIS site and - for a site in the projects folder - deletes its folder, and drops its database - always, with one confirmation that names it. Only a database on this PC is dropped (the local SQL container, LocalDB, a SQL Server here); one on another server - a shared or staging SQL Server the site's `web.config` points at - is kept, and the confirmation says so. A site whose folder is elsewhere (IIS's *Default Web Site*…) keeps its files; the database its web.config names is dropped. If files in the folder are still in use, it finds the programs holding them (open files, or a terminal / editor whose working folder is inside), lists them and - after you confirm - closes them and deletes the folder. Windows itself, services and Explorer are never closed; anything still locked is deleted at the next Windows restart. |
 
 ## Edit a project
@@ -695,6 +701,94 @@ operation on the **Output** tab: **Cancel** takes back what it did.
   first. Nothing is moved or copied between databases: point it at one that
   holds this site, or restore a backup there first. With Windows
   authentication the app pool's identity gets a login on the database.
+
+## Upgrade DNN
+
+**Upgrade DNN…** - on the overview's **DNN** tab, the project's right-click menu,
+the overview's **⋮** and the command palette - upgrades the project's DNN the
+way DNN's
+[suggested upgrade path](https://docs.dnncommunity.org/content/getting-started/setup/upgrades/suggested-upgrade-path/index.html)
+says: through every version it lists on the way, one at a time, never straight
+to the newest. How it works and what was tested: [Upgrading DNN](dnn-upgrades.md).
+
+1. **Pick the version** to end at. Only releases newer than the site's DNN are
+   offered, the latest chosen.
+2. **Read the plan.** DNN Manager analyses the site, its database, IIS and this
+   PC. The dialog shows:
+   - the required path, e.g. 09.03.02 → 09.13.09 → 10.02.05 → 10.03.03;
+   - what was found about the site;
+   - each step's checks: its requirements (DNN 10 needs .NET Framework 4.8 and
+     SQL Server 2017), extensions built for an older DNN or still using Telerik,
+     breaking changes and known issues.
+
+   Each is *Compatible*, *Warning*, *Blocking* or *Unknown*. **While anything is
+   blocking, the upgrade can't start.**
+3. **Start upgrade.** On the **Output** tab, for each step:
+   1. **Backup** of the site's files and database in
+      `Documents\DnnManager\backups\<project>\<project>_<date>\`, with
+      web.config, the site's inventory and the plan beside it. When the backup
+      fails, nothing is changed.
+   2. **Files:** up to DNN 10.2, the release's upgrade package; from 10.2 on,
+      its install package, put in as DNN's own upgrade does. The site is
+      stopped meanwhile - DNN Manager waits until its worker process has ended
+      - and `web.config` is never overwritten.
+   3. **Upgrade:** DNN's unattended upgrade (`Install/Install.aspx?mode=upgrade`)
+      runs its database scripts and upgrades its extensions. Its progress shows
+      as it goes, and its whole answer is kept beside the backup.
+   4. **Restart** and **checks**. The restart waits for the worker process to
+      end and deletes the `installBlocker.lock` DNN leaves behind - while it is
+      there, DNN takes every visit for an upgrade in progress. The checks are:
+      - the files and database are at the new version;
+      - no portals, users, roles, pages, modules or permissions were lost.
+        Pages and modules are compared one by one. What DNN's upgrade removes
+        of its own is named as a warning instead: DNN 8 and 9 replace their
+        Admin and Host pages (DNN 9 with the Persona Bar), DNN 10 removes the
+        Digital Assets Manager and Telerik;
+      - every portal's home page and a sample of pages still answer without
+        errors.
+
+      New errors in DNN's log and Windows' event logs are shown as warnings.
+
+**If a step fails, or you press Cancel, the chain stops and the site is put back
+from that step's backup**, to the last version that worked:
+- the Output tab says which step failed, the likely cause and what to do;
+- DNN's logs, its output and the Windows events are kept in the step's backup
+  folder (`failed-upgrade\`);
+- the steps before stay done.
+
+If putting the backup back fails as well, the Output tab says so instead of
+claiming the site is back, and names the step's backup to restore with
+**Restore backup**.
+
+Every step's backup stays. **Restore backup** lists them as "Before upgrading DNN
+09.13.09 → 10.02.05"… and puts the site back to any of them, up to the site as
+it was.
+
+A site whose database is a LocalDB file can't be backed up as `.bacpac`: change
+its connection to a SQL Server first. Versions before 7.4.2 have no packages on
+GitHub, so those steps have to be done by hand. Upgrades from 7.4.2, 8.0.4,
+9.1.1, 9.3.2, 9.13.9 and 10.2.5 to 10.3.3 were tested on real sites.
+
+## Restore a backup
+
+**Restore backup** ▸ on the project's right-click menu (and the overview's **⋮**,
+or *Restore backup…* in the command palette) lists the project's backups that
+have both the site and the database, newest first. After a confirmation, the
+chosen one is put back over the project:
+
+- its **files**: the backup's are written back, and the files added since the
+  backup are deleted (those older than it stay - the backup may have skipped them
+  because they were in use); what backups leave out (`.git`, `_backup.filter`)
+  isn't touched;
+- its **database**: on the server and with the login the backup's `web.config`
+  names (the local SQL container as its own user). The backup's database is
+  imported under a name of its own first; only once it is in does it replace
+  the project's database, which is then dropped. When the import fails, the
+  project's database hasn't been touched.
+
+The site is stopped meanwhile - DNN Manager waits until its worker process has
+ended, so nothing holds its files - and started again if it ran. Once started, a
+restore runs to the end - a half-restored site would be worse than either.
 
 ## Export for deployment
 
@@ -742,6 +836,10 @@ includes them, and **removing a project keeps its backups**.
 - **Projects → right-click → Export** writes a new dated folder (site, database
   or both); **Open backups folder** opens the project's folder. The site `.zip`
   leaves out `.git` and everything the site's `_backup.filter` lists (below).
+- **Upgrade DNN** makes one before it changes anything, and puts it back when
+  the upgrade fails.
+- **Restore backup** puts a backup with the site and the database back over the
+  project (see [Restore a backup](#restore-a-backup)).
 - **Clone** keeps the source database backup it restored in a dated folder too.
 - **New project → An existing site** lists every project with a complete backup
   (site + database) - including removed projects - and its backups by date. Pick

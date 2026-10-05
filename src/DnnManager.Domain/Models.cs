@@ -5,7 +5,15 @@ public sealed record DnnProject(
     string ProjectDirectory,
     string BackupDirectory);
 
-public sealed record DnnRelease(string Version, string TagName, string DownloadUrl, bool Prerelease = false);
+public sealed record DnnRelease(string Version, string TagName, string DownloadUrl, bool Prerelease = false)
+{
+    /// <summary>
+    /// The release's upgrade package - DNN publishes <c>DNN_Platform_X_Upgrade.zip</c> beside the install package
+    /// (<see cref="DownloadUrl"/>, <c>…_Install.zip</c>); null when the install package isn't named that way.
+    /// </summary>
+    public string? UpgradeUrl =>
+        DownloadUrl.EndsWith("_Install.zip", StringComparison.OrdinalIgnoreCase) ? DownloadUrl[..^"_Install.zip".Length] + "_Upgrade.zip" : null;
+}
 
 /// <summary>
 /// A repository's DNN releases. <paramref name="SavedAt"/>: GitHub couldn't be reached, so these are the releases

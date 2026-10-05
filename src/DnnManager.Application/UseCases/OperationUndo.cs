@@ -31,6 +31,16 @@ public sealed class OperationUndo
     public void CannotUndo(string what) => _lost.Add(what);
 
     /// <summary>
+    /// What was done so far stays, even when the operation is cancelled later: the steps added until now are forgotten -
+    /// e.g. a backup made before a change, which the change's own undo needs.
+    /// </summary>
+    public void Keep()
+    {
+        _steps.Clear();
+        _lost.Clear();
+    }
+
+    /// <summary>
     /// On undo: <paramref name="folder"/> is deleted, with everything in it - for a folder this operation makes, called
     /// before it is made. A folder that is already there isn't the operation's to delete: nothing happens then.
     /// </summary>

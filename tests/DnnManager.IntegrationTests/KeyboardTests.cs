@@ -187,4 +187,21 @@ public sealed class KeyboardTests
         Assert.AreEqual(items[1], PaletteFilter.Rank(items, "start").First(), "A word that starts with it before one that only contains it (Restart).");
         Assert.AreEqual(0, PaletteFilter.Rank(items, "nothing like this").Count);
     }
+
+    [TestMethod]
+    public void The_recently_used_commands_stay_first_when_searched_and_are_kept_for_the_next_start()
+    {
+        static PaletteItem Item(string title, string group) => new(title, "", "", () => { }) { Group = group };
+        var recent = Item("Project: Rename project…", "recently used");
+        var other = Item("Restart DNN Manager", "other commands");
+        var items = new[] { recent, other };
+
+        // "re" starts the other one's title, only a word of the recently used one - which still comes first.
+        CollectionAssert.AreEqual(items, PaletteFilter.Rank(items, "re").ToList());
+
+        var store = new DnnManager.Infrastructure.State.StateStore(new DnnManager.Infrastructure.Data.AppDatabase(_dir));
+        store.Save(new PaletteState { Recent = ["project.rename", "settings.open"] });
+        CollectionAssert.AreEqual(new[] { "project.rename", "settings.open" },
+            new DnnManager.Infrastructure.State.StateStore(new DnnManager.Infrastructure.Data.AppDatabase(_dir)).Load<PaletteState>().Recent);
+    }
 }

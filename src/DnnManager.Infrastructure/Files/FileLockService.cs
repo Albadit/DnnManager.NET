@@ -113,6 +113,52 @@ public sealed class FileLockService(ILogger<FileLockService> log) : IFileLockSer
         }
     }
 
+    public async Task<IReadOnlyList<string>> StopProgramsRunningFromAsync(string directory)
+    {
+        var root = Path.GetFullPath(directory).TrimEnd('\\') + "\\";
+        var stopped = new List<string>();
+        foreach (var process in Process.GetProcesses())
+        {
+            using (process)
+            {
+                try
+                {
+                    if (process.Id == Environment.ProcessId || ExePath(process) is not { } exe ||
+                        !exe.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    process.Kill(entireProcessTree: true);
+                    await ExitedAsync(process, TimeSpan.FromSeconds(5), CancellationToken.None);
+                    stopped.Add(Path.GetFileName(exe));
+                }
+                catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or NotSupportedException)
+                {
+                    _log.LogWarning(ex, "Could not stop {Process} running from {Directory}", process.ProcessName, directory);
+                }
+            }
+        }
+        // Windows releases an ended process's handles a moment after it exits.
+        if (stopped.Count > 0) await Task.Delay(500);
+        return stopped;
+    }
+
+    /// <summary>The program a process runs - read with the least access, so other users' and services' processes too.</summary>
+    private static string? ExePath(Process process)
+    {
+        var handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process.Id);
+        if (handle == IntPtr.Zero) return null;
+        try
+        {
+            var buffer = new StringBuilder(1024);
+            var size = buffer.Capacity;
+            return QueryFullProcessImageName(handle, 0, buffer, ref size) ? buffer.ToString(0, size) : null;
+        }
+        finally
+        {
+            CloseHandle(handle);
+        }
+    }
+
+
     public Result ScheduleDeleteOnRestart(string directory)
     {
         if (!Directory.Exists(directory)) return Result.Ok();
@@ -377,6 +423,9 @@ public sealed class FileLockService(ILogger<FileLockService> log) : IFileLockSer
 
     [DllImport("kernel32.dll")]
     private static extern bool CloseHandle(IntPtr hObject);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool QueryFullProcessImageName(IntPtr hProcess, int dwFlags, StringBuilder lpExeName, ref int lpdwSize);
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool MoveFileEx(string lpExistingFileName, string? lpNewFileName, int dwFlags);

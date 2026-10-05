@@ -24,6 +24,13 @@ public sealed class TestDnnPackages(string zip, string version) : IDnnReleaseSer
         return Task.FromResult(Result.Ok());
     }
 
+    // The integration tests install - they don't upgrade.
+    public Task<Result> ExtractUpgradeAsync(DnnRelease release, string projectDirectory, IProgressReporter reporter, CancellationToken ct) =>
+        Task.FromResult(Result.Fail("The test packages have no upgrade package."));
+
+    public Task<Result> ExtractLocalUpgradeAsync(DnnRelease release, string projectDirectory, IProgressReporter reporter, CancellationToken ct) =>
+        Task.FromResult(Result.Fail("The test packages don't upgrade."));
+
     public bool IsKept(DnnRelease release) => true;
 }
 

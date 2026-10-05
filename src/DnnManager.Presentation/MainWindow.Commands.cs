@@ -19,11 +19,11 @@ public partial class MainWindow
     private void RegisterCommands()
     {
         void Add(string id, string title, string area, string? shortcut, Action run, Func<bool>? available = null,
-            string keywords = "", bool inTerminal = false) =>
+            string keywords = "", bool inTerminal = false, bool inPalette = true) =>
             _commands.Add(new AppCommand
             {
                 Id = id, Title = title, Area = area, DefaultShortcut = shortcut, Run = run, IsAvailable = available ?? (() => true),
-                Keywords = keywords, InTerminal = inTerminal
+                Keywords = keywords, InTerminal = inTerminal, InPalette = inPalette
             });
 
         void AddForProject(string id, string title, string? shortcut, Func<ProjectRow, bool> fits, Action<ProjectRow> run, string keywords = "") =>
@@ -34,8 +34,9 @@ public partial class MainWindow
             });
 
         // ── Application ──
+        // Only its shortcut: in the palette it would open what is already open.
         Add("workbench.commandPalette", "Show all commands", "Application", "Ctrl+Shift+P", () => ShowPalette(commands: true),
-            keywords: "command palette actions", inTerminal: true);
+            keywords: "command palette actions", inTerminal: true, inPalette: false);
         Add("view.search", "Search in this view", "Application", "Ctrl+F", SearchHere, () => SearchTarget() is not null,
             "find filter output log terminal", inTerminal: true);
         Add("app.checkUpdates", "Check for updates", "Application", null, () => _ = CheckForUpdatesAsync(), keywords: "version release github");
@@ -81,6 +82,10 @@ public partial class MainWindow
             r => ProjectEdits.ChangeDatabase(_services, r), "sql server connection string web.config");
         AddForProject("project.exportForDeployment", "Export for deployment…", null, r => ProjectEdits.CanEdit(_services, r),
             r => ProjectEdits.ExportForDeployment(_services, r), "deploy publish live server production package zip bacpac");
+        AddForProject("project.upgradeDnn", "Upgrade DNN…", null, r => ProjectEdits.CanEdit(_services, r), r => ProjectEdits.UpgradeDnn(_services, r),
+            "update version release newer platform backup");
+        AddForProject("project.restoreBackup", "Restore backup…", null, r => ProjectEdits.CanEdit(_services, r), PickBackup,
+            "revert undo go back put back backup zip bacpac");
 
         // ── Pages ──
         Add("pages.projects", "Go to Projects", "Pages", "Ctrl+1", () => Go(NavProjects), keywords: "table sites");
@@ -154,8 +159,8 @@ public partial class MainWindow
     public const string ShortcutRecording = "RecordingShortcut";
 
     /// <summary>
-    /// Runs <paramref name="command"/>. A project command acts on the selected project; with none - or from the palette
-    /// on one it doesn't fit - the palette asks which project.
+    /// Runs <paramref name="command"/>. From the palette a project command always asks which project - the selected one
+    /// first, so Enter takes it. Its shortcut acts on the selected project; with none, the palette asks.
     /// </summary>
     private void Execute(AppCommand command, bool fromPalette)
     {
@@ -165,23 +170,35 @@ public partial class MainWindow
             return;
         }
         var selected = CurrentProject;
-        if (selected is not null && command.ForProject!(selected))
+        if (!fromPalette && selected is not null)
         {
-            command.RunOn!(selected);
+            if (command.ForProject!(selected)) command.RunOn!(selected);
+            else Toast.Show($"{command.Title}: not for {selected.Name} as it is now ({selected.StateText}).", ToastKind.Warning);
             return;
         }
-        if (selected is not null && !fromPalette)
-        {
-            Toast.Show($"{command.Title}: not for {selected.Name} as it is now ({selected.StateText}).", ToastKind.Warning);
-            return;
-        }
-        var fitting = _store.Projects.Where(command.ForProject!).OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        var fitting = _store.Projects.Where(command.ForProject!)
+            .OrderBy(r => r != selected).ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase).ToList();
         if (fitting.Count == 0)
         {
             Toast.Show($"{command.Title}: no project it applies to now.", ToastKind.Warning);
             return;
         }
         Palette.ShowPick($"{command.Title} - which project?", fitting.Select(r => ProjectItem(r, () => command.RunOn!(r))).ToList());
+    }
+
+    /// <summary>Restore backup… from the palette: which of the project's backups, newest first.</summary>
+    private void PickBackup(ProjectRow row)
+    {
+        var backups = ProjectEdits.Backups(_services, row);
+        if (backups.Count == 0)
+        {
+            Toast.Show($"'{row.Name}' has no backup with its site and database yet - Export → Site and database makes one.", ToastKind.Warning);
+            return;
+        }
+        Palette.ShowPick($"Restore which backup of '{row.Name}'?", backups
+            .Select(b => new PaletteItem($"{b.Created:yyyy-MM-dd HH:mm:ss}" + (b.Note is { } note ? $"  -  {note}" : ""), b.Folder, "",
+                () => ProjectEdits.RestoreBackup(_services, row, b)))
+            .ToList());
     }
 
     /// <summary>The project the commands act on: the open Details', else the table's selected row - on the Projects page.</summary>
@@ -219,27 +236,52 @@ public partial class MainWindow
     private static PaletteItem ProjectItem(ProjectRow row, Action run) =>
         new(row.Name, row.HasUrl ? $"{row.StateText} · {row.Url}" : row.StateText, "", run, row.Path);
 
-    /// <summary>The commands that make sense now - a project command when the selected project, or any, fits it.</summary>
+    /// <summary>
+    /// The commands that make sense now - a project command when any project fits it (which one is asked next). Those
+    /// last run from the palette first, "recently used", then the "other commands" - as VS Code lists them.
+    /// </summary>
     private List<PaletteItem> CommandItems()
     {
-        var selected = CurrentProject;
+        var recent = RecentCommands;
+        var commands = _commands.All
+            .Where(c => c.InPalette)
+            .OrderBy(c => recent.IndexOf(c.Id) is var at and >= 0 ? at : int.MaxValue)
+            .ToList();
         var items = new List<PaletteItem>();
-        foreach (var command in _commands.All)
+        foreach (var command in commands)
         {
             string detail;
             if (command.IsProjectCommand)
             {
-                if (selected is not null && command.ForProject!(selected)) detail = selected.Name;
-                else if (_store.Projects.Any(command.ForProject!)) detail = "choose a project";
-                else continue;
+                if (!_store.Projects.Any(command.ForProject!)) continue;
+                detail = "choose a project";
             }
             else if (!command.IsAvailable()) continue;
             else detail = "";
             var run = command;
-            items.Add(new PaletteItem(command.Label, detail, _commands.ShortcutOf(command)?.ToString() ?? "", () => Execute(run, fromPalette: true),
-                command.Keywords));
+            var group = recent.Count == 0 ? "" : recent.Contains(command.Id) ? "recently used" : "other commands";
+            items.Add(new PaletteItem(command.Label, detail, _commands.ShortcutOf(command)?.ToString() ?? "", () =>
+            {
+                Remember(run);
+                Execute(run, fromPalette: true);
+            }, command.Keywords) { Group = group });
         }
-        return items;
+        // None of the recent ones can run now (or is listed): no "other commands" without "recently used" above.
+        return items.Any(i => i.Group == "recently used") ? items : [.. items.Select(i => i with { Group = "" })];
+    }
+
+    private List<string>? _recentCommands;
+
+    /// <summary>The commands last run from the palette, the newest first (<see cref="PaletteState"/>) - read once, kept for the next start.</summary>
+    private List<string> RecentCommands => _recentCommands ??= _workspace.Load<PaletteState>().Recent.Distinct().Take(PaletteState.Kept).ToList();
+
+    private void Remember(AppCommand command)
+    {
+        var recent = RecentCommands;
+        recent.Remove(command.Id);
+        recent.Insert(0, command.Id);
+        if (recent.Count > PaletteState.Kept) recent.RemoveRange(PaletteState.Kept, recent.Count - PaletteState.Kept);
+        _workspace.Store.Save(new PaletteState { Recent = [.. recent] });
     }
 
     // ─── What the commands do ───────────────────────────────────────────────

@@ -94,6 +94,22 @@ public interface IDnnPackageInstaller
 
     /// <summary>The release's install package is kept from an earlier download, so installing it needs no download.</summary>
     bool IsKept(DnnRelease release);
+
+    /// <summary>
+    /// Puts the release's upgrade package (<see cref="DnnRelease.UpgradeUrl"/>) over the site in
+    /// <paramref name="projectDirectory"/> - every file of it but <c>web.config</c>, which keeps the site's own settings.
+    /// Kept like an install package (Keep downloaded DNN install packages), otherwise downloaded and deleted again.
+    /// </summary>
+    Task<Result> ExtractUpgradeAsync(DnnRelease release, string projectDirectory, IProgressReporter reporter, CancellationToken ct);
+
+    /// <summary>
+    /// For a site on DNN 10.2 or newer: puts the release's <b>install</b> package over the site as DNN's own local upgrade
+    /// does (DNN's <c>LocalUpgradeService.StartLocalUpgrade</c>) - each assembly in bin with a binding redirect to its
+    /// version in web.config, everything else but what the package's <c>App_Data/Upgrade/upgrade.json</c> excludes
+    /// (web.config among it). Unzipping the upgrade package over a 10.2+ site instead leaves web.config's binding redirects
+    /// behind its new assemblies, and the site doesn't start.
+    /// </summary>
+    Task<Result> ExtractLocalUpgradeAsync(DnnRelease release, string projectDirectory, IProgressReporter reporter, CancellationToken ct);
 }
 
 public interface IIisManager
@@ -106,6 +122,13 @@ public interface IIisManager
 
     /// <summary>Stops the site, and its app pool when no other site uses it.</summary>
     Result StopSite(string siteName);
+
+    /// <summary>
+    /// Stops the site as <see cref="StopSite"/> does, and returns only once its worker process has ended - ended by force
+    /// when it doesn't within <paramref name="timeout"/>. What the site held open is free then: DNN keeps its
+    /// installBlocker.lock open until its process ends. Fails when the worker process still runs.
+    /// </summary>
+    Result StopSiteAndWait(string siteName, TimeSpan timeout) => StopSite(siteName);
 
     /// <summary>Recycles the site's app pool (a new worker process) and starts the site if it's stopped.</summary>
     Result RestartSite(string siteName);
@@ -358,6 +381,14 @@ public interface IProjectFileCopier
     /// </summary>
     Task<Result> CreateZipAsync(string sourceDirectory, string zipPath, IReadOnlyCollection<string> excludedPaths,
         IProgressReporter reporter, CancellationToken ct);
+
+    /// <summary>
+    /// Deletes the files in <paramref name="directory"/> that the site zip <paramref name="zipPath"/> doesn't hold - what
+    /// was added since it was made - apart from <paramref name="excludedPaths"/> (as for <see cref="CreateZipAsync"/>: what
+    /// the zip never held). After <see cref="ExtractZipAsync"/>, the folder is as the zip has it. The number deleted.
+    /// </summary>
+    Task<Result<int>> RemoveFilesNotInZipAsync(string zipPath, string directory, IReadOnlyCollection<string> excludedPaths,
+        IProgressReporter reporter, CancellationToken ct);
 }
 
 /// <param name="Name">A readable name, e.g. "Visual Studio Code".</param>
@@ -385,6 +416,12 @@ public interface IFileLockService
 
     /// <summary>Has Windows delete whatever is left of <paramref name="directory"/> at the next restart.</summary>
     Result ScheduleDeleteOnRestart(string directory);
+
+    /// <summary>
+    /// Ends the programs that run from an exe inside <paramref name="directory"/> - e.g. the C# compiler ASP.NET starts
+    /// from a site's bin\roslyn, which keeps running after the site stopped and holds its files. The names of those ended.
+    /// </summary>
+    Task<IReadOnlyList<string>> StopProgramsRunningFromAsync(string directory);
 }
 
 /// <summary>Lays down supporting source-control files in a managed DNN project directory.</summary>

@@ -2,6 +2,47 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## v1.7.5
+
+### Added
+
+- **Upgrade DNN…** (the overview's **DNN** tab, the right-click menu, the
+  Details **⋮**, the command palette) upgrades a project's DNN along DNN's
+  suggested upgrade path - every listed version on the way, one step at a time
+  (see `docs/dnn-upgrades.md`):
+  - **an analyser and a plan before anything changes**: .NET Framework, SQL
+    Server, the app pool, files and database versions, extensions (built for
+    which DNN, using Telerik), custom settings, content, free space - each
+    Compatible, Warning, Blocking or Unknown; nothing starts while anything
+    blocks;
+  - **per step**: a backup (files, database, web.config, the site's inventory
+    and the plan), the step's files (the upgrade package; from DNN 10.2 on the
+    install package as DNN's own local upgrade puts it in, binding redirects
+    included), DNN's unattended upgrade (`Install.aspx?mode=upgrade`, its whole
+    answer kept), a restart (waiting for the site's worker process to end and
+    deleting the lock DNN leaves), and checks - version, no content lost, every
+    portal's pages, DNN's and Windows' logs;
+  - **a step that fails, or Cancel**: the chain stops, the diagnostics are kept
+    with the step's backup, the likely cause and fixes are said, and the site
+    is put back to the last version that worked.
+- **Restore backup** ▸ (right-click menu, Details **⋮**, command palette): puts
+  a backup with the site and database back over the project - files added since
+  are deleted; the backup's database is imported under a name of its own and
+  only then swapped in for the project's, so a failed import leaves it
+  untouched. The site's worker process has ended before anything is replaced.
+- **Recently used commands** in the command palette: the last 8 commands run
+  from it come first, marked *recently used*, then the *other commands* - also
+  while searching - and are kept for the next start.
+
+### Changed
+
+- A project command chosen in the command palette (**Rename project…**,
+  **Edit host names…**…) always asks which project - the selected one first -
+  instead of acting on the selected one straight away. Shortcuts (**F5**…)
+  still act on the selected project.
+- The command palette no longer lists **Show all commands** - it is already open;
+  **Ctrl+Shift+P** still opens it.
+
 ## v1.7.4
 
 ### Upgrading

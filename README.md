@@ -112,6 +112,7 @@ code are in [docs/architecture.md](docs/architecture.md).
 | | [Troubleshooting](docs/troubleshooting.md) | Known problems, their causes and fixes |
 | Developers | [Development](docs/development.md) | Prerequisites, build, run, debugging, conventions, extending |
 | | [Architecture](docs/architecture.md) | Layers, how an operation runs, live updates, project layout, design decisions, component map |
+| | [Upgrading DNN](docs/dnn-upgrades.md) | DNN's upgrade path, the analyser, backups, each step, the checks, rollback, the knowledge base, what was tested |
 | | [Testing](docs/testing.md) | The fast and the integration tests, adding a test |
 | | [Releasing](docs/releasing.md) | Version, changelog, portable exe, installer, GitHub release |
 | | [Security](docs/security.md) | Administrator rights, secrets, what DNN Manager deletes, network exposure, open risks |

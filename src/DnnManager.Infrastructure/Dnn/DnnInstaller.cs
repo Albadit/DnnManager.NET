@@ -89,7 +89,8 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
         {
             // Written right before the request: while DNN isn't installed its installer asks nobody for a password.
             DnnInstallTemplate.Write(site.Directory, account, site.Alias);
-            return await RunAsync(site, CountPackages(site.Directory), secrets, reporter, ct);
+            return await RunAsync(site, "/Install/Install.aspx?mode=install", "installation", output => output.Outcome(),
+                CountPackages(site.Directory), secrets, reporter, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -103,7 +104,72 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
         }
     }
 
-    private async Task<Result> RunAsync(DnnSiteAddress site, int packages, Secrets secrets, IProgressReporter reporter, CancellationToken ct)
+    public async Task<Result> UpgradeAsync(DnnSiteAddress site, string databasePassword, IProgressReporter reporter, CancellationToken ct,
+        string? rawOutputFile = null)
+    {
+        var secrets = new Secrets(databasePassword);
+        try
+        {
+            // An installation or upgrade cut off earlier leaves its lock - DNN would refuse to start.
+            TryDelete(Path.Combine(site.Directory, "installBlocker.lock"));
+            return await RunAsync(site, "/Install/Install.aspx?mode=upgrade", "upgrade", output => output.UpgradeOutcome(),
+                CountPackages(site.Directory), secrets, reporter, ct, rawOutputFile);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _log.LogWarning("DNN upgrade failed: {Message}", secrets.Hide(ex.Message));
+            return Result.Fail(secrets.Hide(FirstLine(ex.Message)));
+        }
+    }
+
+    public async Task<Result<string>> CheckVersionAsync(string siteDirectory, DatabaseConnection database, CancellationToken ct)
+    {
+        var secrets = new Secrets(database.Password);
+        try
+        {
+            var files = DnnVersionOf(siteDirectory);
+            string? installed = null;
+            var checkedOut = await WithSiteDatabaseAsync(siteDirectory, database, async conn =>
+            {
+                var q = await DnnTables.QualifierAsync(conn, "Version", ct);
+                if (q is null) return Result.Fail("The database has no DNN tables.");
+                using var version = new SqlCommand($"SELECT TOP 1 CONCAT(Major, '.', Minor, '.', Build) FROM dbo.[{q}Version] ORDER BY Major DESC, Minor DESC, Build DESC", conn);
+                installed = await version.ExecuteScalarAsync(ct) as string;
+                return files is not null && installed != files
+                    ? Result.Fail($"The database is at DNN {installed ?? "(nothing)"}, the site's files at {files}.")
+                    : Result.Ok();
+            }, ct);
+            return checkedOut.Success ? Result<string>.Ok(installed ?? files ?? "") : Result<string>.Fail(checkedOut.Error!);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return Result<string>.Fail($"Could not read the site's DNN version from its database: {secrets.Hide(FirstLine(ex.Message))}");
+        }
+    }
+
+    /// <summary>
+    /// Runs DNN's installer page <paramref name="path"/> (<c>mode=install</c> or <c>mode=upgrade</c>) and follows what it
+    /// streams; <paramref name="outcome"/> decides from it how it went. <paramref name="what"/>: "installation", "upgrade".
+    /// </summary>
+    private async Task<Result> RunAsync(DnnSiteAddress site, string path, string what, Func<DnnInstallOutput, Result> outcome, int packages,
+        Secrets secrets, IProgressReporter reporter, CancellationToken ct, string? rawOutputFile = null)
+    {
+        var raw = new StringBuilder();
+        try
+        {
+            return await RunAsync(site, path, what, outcome, packages, secrets, reporter, raw, ct);
+        }
+        finally
+        {
+            // Everything DNN answered, as it answered it (passwords left out) - for whoever needs to see where it stopped.
+            if (rawOutputFile is not null)
+                try { await File.WriteAllTextAsync(rawOutputFile, secrets.Hide(raw.ToString()), CancellationToken.None); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { _log.LogWarning("Could not keep DNN's output: {Error}", ex.Message); }
+        }
+    }
+
+    private async Task<Result> RunAsync(DnnSiteAddress site, string path, string what, Func<DnnInstallOutput, Result> outcome, int packages,
+        Secrets secrets, IProgressReporter reporter, StringBuilder raw, CancellationToken ct)
     {
         using var http = CreateClient();
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -126,11 +192,10 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
             else if (quiet > QuietWarning && !warned)
             {
                 warned = true;
-                reporter.Warn("DNN hasn't reported progress for 2 minutes - still waiting for its installation.");
+                reporter.Warn($"DNN hasn't reported progress for 2 minutes - still waiting for its {what}.");
             }
         }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
 
-        var path = "/Install/Install.aspx?mode=install";
         try
         {
             for (var request = 1; ; request++)
@@ -140,21 +205,29 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
                 using var response = await http.SendAsync(Get(site, path), HttpCompletionOption.ResponseHeadersRead, limit.Token);
                 lastHeard = DateTime.UtcNow;
                 var status = (int)response.StatusCode;
+                raw.AppendLine($"<!-- GET {path} → HTTP {status} {response.ReasonPhrase} {response.Headers.Location} -->");
                 if (status is >= 300 and < 400)
                 {
                     var target = Target(site, response);
                     if (target?.AbsolutePath.Equals("/Install/Install.aspx", StringComparison.OrdinalIgnoreCase) == true)
                     {
                         // DNN wrote new machine keys, restarts, and asks to be called again.
-                        reporter.Progress("Running DNN installation: DNN prepares its configuration…");
+                        reporter.Progress($"Running DNN {what}: DNN prepares its configuration…");
                         path = target.PathAndQuery;
                         continue;
                     }
+                    if (target?.AbsolutePath.Equals("/Install/UpgradeWizard.aspx", StringComparison.OrdinalIgnoreCase) == true)
+                        return Result.Fail("DNN wants its upgrade wizard instead (a host account signs in to it) - it doesn't upgrade unattended here.");
                     return Result.Fail($"DNN's installer sent the request to {target?.PathAndQuery ?? "nowhere"} - often a sign that the " +
                                        "site may not write its own web.config.");
                 }
                 if (status != 200)
-                    return Result.Fail($"DNN's installer answered HTTP {status} {response.ReasonPhrase} - see the site's logs in Portals\\_default\\Logs.");
+                {
+                    var body = await BodyAsync(response, limit.Token);
+                    raw.Append(body);
+                    return Result.Fail($"DNN's installer answered HTTP {status} {response.ReasonPhrase}" +
+                                       (ErrorOf(body) is { } error ? $": {error}" : " - see the site's logs in Portals\\_default\\Logs."));
+                }
 
                 await using var stream = await response.Content.ReadAsStreamAsync(limit.Token);
                 var decoder = Encoding.UTF8.GetDecoder();
@@ -168,14 +241,15 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
                     foreach (var step in output.Add(new string(chars, 0, count))) Report(step);
                 }
                 foreach (var step in output.Finish()) Report(step);
+                raw.Append(output.Body);
                 break;
             }
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
             return Result.Fail(stuck
-                ? "DNN stopped reporting progress for 10 minutes - its installation is stuck."
-                : "DNN's installation took longer than 30 minutes.");
+                ? $"DNN stopped reporting progress for 10 minutes - its {what} is stuck."
+                : $"DNN's {what} took longer than 30 minutes.");
         }
         catch (HttpRequestException ex)
         {
@@ -183,11 +257,11 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
         }
         catch (IOException ex)
         {
-            return Result.Fail($"The connection to the site broke off during the installation: {FirstLine(ex.Message)}");
+            return Result.Fail($"The connection to the site broke off during the {what}: {FirstLine(ex.Message)}");
         }
 
-        var outcome = output.Outcome();
-        return outcome.Success ? outcome : Result.Fail(secrets.Hide(outcome.Error!));
+        var result = outcome(output);
+        return result.Success ? result : Result.Fail(secrets.Hide(result.Error!));
 
         void Report(DnnInstallStep step)
         {
@@ -200,14 +274,15 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
             if (StartsWith(text, "Installing Package File"))
             {
                 installed++;
-                reporter.Progress($"Running DNN installation: installing {After(text, "Installing Package File")} " +
+                reporter.Progress($"Running DNN {what}: installing {After(text, "Installing Package File")} " +
                                   (packages > 0 ? $"({Math.Min(installed, packages)} of {packages})…" : "…"));
             }
             else if (StartsWith(text, "Creating Site Alias")) reporter.Info($"Creating portal alias {After(text, "Creating Site Alias")}…");
             else if (StartsWith(text, "Creating Site")) reporter.Info($"Creating portal '{After(text, "Creating Site")}'…");
             else if (StartsWith(text, "Successfully Installed Site")) reporter.Success("Portal created.");
             else if (StartsWith(text, "Installing DNN")) reporter.Info("Running DNN installation…");
-            else if (!StartsWith(text, "Installation Complete")) reporter.Progress($"Running DNN installation: {text}…");
+            else if (StartsWith(text, "Upgrade Complete")) reporter.Success("DNN finished its upgrade.");
+            else if (!StartsWith(text, "Installation Complete")) reporter.Progress($"Running DNN {what}: {text}…");
         }
     }
 
@@ -272,7 +347,7 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
 
     public async Task<Result> WarmUpAsync(DnnSiteAddress site, DateTime installStartedUtc, IProgressReporter reporter, CancellationToken ct)
     {
-        reporter.Progress("Opening the new site for the first time (DNN finishes its modules then)…");
+        reporter.Progress("Opening the site - DNN finishes its modules on this first visit…");
         var openedAt = DateTime.Now;
         using var http = CreateClient();
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -297,8 +372,17 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
                     path = target.PathAndQuery;
                     continue;
                 }
+                // 503: DNN is still installing or upgrading something (its installBlocker.lock), or the app restarts
+                // after it changed web.config - it answers once it is done.
+                if (status == 503)
+                {
+                    reporter.Progress("Opening the site - DNN is still finishing (HTTP 503), waiting…");
+                    await Task.Delay(TimeSpan.FromSeconds(5), limit.Token);
+                    hop--;
+                    continue;
+                }
                 if (status != 200)
-                    return Result.Fail($@"The site answered HTTP {status} after the installation - see its logs in Portals\_default\Logs.");
+                    return Result.Fail($@"The site answered HTTP {status} - see its logs in Portals\_default\Logs.");
                 var html = await response.Content.ReadAsStringAsync(limit.Token);
                 if (html.Contains("InstallWizard", StringComparison.OrdinalIgnoreCase))
                     return Result.Fail("The site still shows DNN's installation wizard.");
@@ -307,11 +391,11 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            return Result.Fail("The new site didn't answer within 3 minutes.");
+            return Result.Fail("The site didn't answer within 3 minutes.");
         }
         catch (HttpRequestException ex)
         {
-            return Result.Fail($"Could not reach the new site at {site.Url}: {FirstLine(ex.Message)}");
+            return Result.Fail($"Could not reach the site at {site.Url}: {FirstLine(ex.Message)}");
         }
 
         foreach (var problem in LogProblems(site.Directory, installStartedUtc, openedAt))
@@ -527,6 +611,24 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
         return request;
     }
 
+    /// <summary>
+    /// What ASP.NET's error page says went wrong - its title, e.g. "Could not load file or assembly 'AngleSharp…'": the
+    /// request comes from this machine, so it shows the details. Null when there is none to read.
+    /// </summary>
+    private static async Task<string> BodyAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try { return await response.Content.ReadAsStringAsync(ct); }
+        catch (Exception ex) when (ex is HttpRequestException or IOException) { return ""; }
+    }
+
+    /// <summary>ASP.NET's error page's title - "Could not load file or assembly 'AngleSharp'…" - or null when it says nothing.</summary>
+    internal static string? ErrorOf(string html)
+    {
+        var title = Regex.Match(html, @"<title>\s*(.*?)\s*</title>", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        var text = title.Success ? WebUtility.HtmlDecode(Regex.Replace(title.Groups[1].Value, @"\s+", " ")).Trim() : "";
+        return text.Length == 0 || text.Equals("Runtime Error", StringComparison.OrdinalIgnoreCase) ? null : Short(text);
+    }
+
     private static Uri? Target(DnnSiteAddress site, HttpResponseMessage response) =>
         response.Headers.Location is not { } location ? null
         : location.IsAbsoluteUri ? location
@@ -548,9 +650,12 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
         }
     }
 
-    // DNN's log lines start with the local time: "2026-10-01 14:39:20,123 [MACHINE][Thread:12][ERROR] …".
-    private static DateTime? LogTime(string line) =>
-        line.Length >= 23 && DateTime.TryParseExact(line[..23], "yyyy-MM-dd HH:mm:ss,fff", CultureInfo.InvariantCulture,
+    /// <summary>
+    /// The local time a DNN log line starts with: DNN 9 writes "2026-10-01 14:39:20,123 [MACHINE][Thread:12][ERROR] …",
+    /// DNN 10 "2026-10-01 14:39:20.123+02:00 [MACHINE][D:2][T:28][ERROR] …" - the first 19 characters are the same.
+    /// </summary>
+    internal static DateTime? LogTime(string line) =>
+        line.Length >= 19 && DateTime.TryParseExact(line[..19], "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture,
             DateTimeStyles.AssumeLocal, out var at) ? at : null;
 
     private static void TryDelete(string file)

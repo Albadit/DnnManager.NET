@@ -365,6 +365,14 @@ public sealed class ServerStore
     }
 
     /// <summary>
+    /// Runs <paramref name="work"/> on <paramref name="row"/>'s site as one of the store's operations: keep warm leaves
+    /// that site alone meanwhile - no request of its own while DNN upgrades or the site is put back - and what changed
+    /// is read back after it.
+    /// </summary>
+    public Task<bool> RunOnSiteAsync(ProjectRow row, string title, Func<IServiceProvider, IProgressReporter, CancellationToken, Task<Result>> work) =>
+        RunAsync(new Operation([row], began: true), title, work, _monitor.SyncAsync);
+
+    /// <summary>
     /// Starts, stops or restarts the sites of <paramref name="rows"/> as one operation. The rows say so at once;
     /// when it has run, the sites are read again and the rows show what IIS says.
     /// </summary>

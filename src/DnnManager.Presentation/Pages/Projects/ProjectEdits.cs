@@ -100,6 +100,47 @@ internal static class ProjectEdits
             Toast.Show($"The deployment package of '{row.Name}' is ready.", ToastKind.Success, "Open folder", () => Shell.Open(request.OutputFolder));
     }
 
+    /// <summary>
+    /// Upgrades the project's DNN to a newer release - after a backup of its files and database, which is put back when
+    /// the upgrade fails or is cancelled (<see cref="UpgradeDnnUseCase"/>).
+    /// </summary>
+    public static async void UpgradeDnn(IServiceProvider services, ProjectRow row)
+    {
+        if (!CanEdit(services, row) || !row.IsDnn) return;
+        var (name, path, current) = (row.Name, row.Path, row.Dnn);
+        if (UpgradeDnnDialog.Show(services, name, path, current) is not { } choice) return;
+        var request = new UpgradeDnnRequest
+        {
+            SiteName = name, Directory = path, ReleaseApiUrl = choice.ReleaseApiUrl, Version = choice.Tag
+        };
+        if (await Run(services, $"Upgrade DNN of '{name}' to {choice.Version}",
+                (sp, reporter, ct) => sp.GetRequiredService<UpgradeDnnUseCase>().ExecuteAsync(request, reporter, ct)))
+            Toast.Show($"'{name}' runs DNN {choice.Version} - the backup of every step stays in its backups folder.", ToastKind.Success);
+    }
+
+    /// <summary>The project's complete backups (site files and database), newest first - what Restore backup offers.</summary>
+    public static IReadOnlyList<ProjectBackup> Backups(IServiceProvider services, ProjectRow row) =>
+        ProjectBackups.List(services.GetRequiredService<IProjectRepository>().Build(row.Name, row.Path)).Where(b => b.IsComplete).ToList();
+
+    /// <summary>Puts the project back as <paramref name="backup"/> has it - its files and its database - after asking.</summary>
+    public static async void RestoreBackup(IServiceProvider services, ProjectRow row, ProjectBackup backup)
+    {
+        if (!CanEdit(services, row) || backup.SiteZip is null || backup.Database is null) return;
+        var name = row.Name;
+        var nl = Environment.NewLine;
+        if (!Dialogs.ConfirmDanger(
+                $"Put '{name}' back as it was on {backup.Created:yyyy-MM-dd HH:mm:ss}?{nl}{nl}" +
+                $"Its files and its database are replaced by the backup's - what changed since is lost. Files added since are deleted; " +
+                $"what the backup leaves out (.git, {BackupFilter.FileName}) isn't touched. The database it replaces is dropped once the " +
+                $"backup's is in. The site is stopped meanwhile.{nl}{nl}Backup: {backup.Folder}",
+                "Restore backup", "Cancel"))
+            return;
+        var request = new RestoreBackupRequest { SiteName = name, Directory = row.Path, SiteZip = backup.SiteZip, Database = backup.Database };
+        if (await Run(services, $"Restore '{name}' from {backup.Created:yyyy-MM-dd HH:mm}",
+                (sp, reporter, ct) => sp.GetRequiredService<RestoreBackupUseCase>().ExecuteAsync(request, reporter, ct)))
+            Toast.Show($"'{name}' is back as it was on {backup.Created:yyyy-MM-dd HH:mm}.", ToastKind.Success);
+    }
+
     /// <summary>The site's database as its web.config names it; null when it names none of its own.</summary>
     private static DatabaseConnection? DatabaseOf(IServiceProvider services, ProjectRow row)
     {

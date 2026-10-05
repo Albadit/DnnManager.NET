@@ -207,14 +207,255 @@ public sealed class DnnPackageInstaller(HttpClient http, IOptions<AppOptions> op
     private readonly AppDataPaths _paths = paths;
     private readonly ILogger<DnnPackageInstaller> _log = log;
 
-    public bool IsKept(DnnRelease release) => _opts.KeepDnnPackages && File.Exists(KeptPath(release));
+    public bool IsKept(DnnRelease release) => _opts.KeepDnnPackages && File.Exists(KeptPath(release.DownloadUrl, $"DNN_Platform_{release.Version}_Install.zip"));
+
+    public async Task<Result> ExtractUpgradeAsync(DnnRelease release, string projectDirectory, IProgressReporter reporter, CancellationToken ct)
+    {
+        if (release.UpgradeUrl is not { } url) return Result.Fail($"DNN {release.Version}'s release has no upgrade package beside its install package.");
+        var keep = _opts.KeepDnnPackages;
+        var zipPath = keep
+            ? KeptPath(url, $"DNN_Platform_{release.Version}_Upgrade.zip")
+            : Path.Combine(Path.GetTempPath(), $"DnnManager-DNN_Platform_{release.Version}_Upgrade-{Guid.NewGuid():N}.zip");
+        try
+        {
+            if (keep && File.Exists(zipPath)) reporter.Info($"Using the kept upgrade package {zipPath} - no download needed.");
+            else
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(zipPath)!);
+                await DownloadAsync(url, $"DNN {release.Version}'s upgrade package", zipPath, reporter, ct);
+                reporter.Success(keep ? $"Downloaded and kept: {zipPath}" : "Downloaded.");
+            }
+
+            reporter.Info("Putting the new files in…");
+            int count;
+            try
+            {
+                count = await Task.Run(() => ExtractOver(zipPath, projectDirectory, reporter, ct), ct);
+            }
+            catch (InvalidDataException) when (keep)
+            {
+                File.Delete(zipPath);
+                return Result.Fail($"The kept upgrade package {zipPath} is damaged and has been deleted - try again to download it.");
+            }
+            reporter.Success($"{count:N0} files of DNN {release.Version} are in.");
+            return Result.Ok();
+        }
+        catch (HttpRequestException ex)
+        {
+            _log.LogError(ex, "DNN upgrade package download failed");
+            return Result.Fail(ex.StatusCode == System.Net.HttpStatusCode.NotFound
+                ? $"DNN {release.Version}'s release has no upgrade package ({url})."
+                : $"DNN {release.Version}'s upgrade package could not be downloaded ({ex.Message}).");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _log.LogError(ex, "Putting in DNN {Version}'s upgrade package failed", release.Version);
+            return Result.Fail(ex.Message);
+        }
+        finally
+        {
+            if (!keep) try { File.Delete(zipPath); } catch { /* best effort */ }
+        }
+    }
+
+    /// <summary>
+    /// Every file of the package over <paramref name="directory"/>, overwriting - but never web.config (the site's own
+    /// settings, connection string and machine keys) and never outside the folder. The number of files written.
+    /// </summary>
+    private static int ExtractOver(string zipPath, string directory, IProgressReporter reporter, CancellationToken ct)
+    {
+        var root = Path.GetFullPath(directory).TrimEnd('\\') + "\\";
+        using var zip = System.IO.Compression.ZipFile.OpenRead(zipPath);
+        var count = 0;
+        var next = 0L;
+        foreach (var entry in zip.Entries)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (entry.FullName.EndsWith('/') || entry.FullName.EndsWith('\\')) continue;
+            var target = Path.GetFullPath(Path.Combine(root, entry.FullName));
+            if (!target.StartsWith(root, StringComparison.OrdinalIgnoreCase)) continue;
+            if (string.Equals(target, root + "web.config", StringComparison.OrdinalIgnoreCase)) continue;
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            if (File.Exists(target)) File.SetAttributes(target, FileAttributes.Normal);
+            System.IO.Compression.ZipFileExtensions.ExtractToFile(entry, target, overwrite: true);
+            count++;
+            if (Environment.TickCount64 < next) continue;
+            next = Environment.TickCount64 + 200;
+            reporter.Progress($"Putting the new files in: {count:N0} of {zip.Entries.Count:N0}");
+        }
+        return count;
+    }
+
+    // ─── DNN 10.2+'s local upgrade ───────────────────────────────────────
+
+    /// <summary>What DNN's LocalUpgradeService leaves out when the package has no upgrade.json of its own.</summary>
+    private static readonly string[] DefaultUpgradeExclude =
+        ["App_Data/Database.mdf", "Config/DotNetNuke.config", "Install/InstallWizard", "favicon.ico", "robots.txt", "web.config"];
+
+    /// <summary>The version range DNN's AssemblyInstaller redirects from: everything.</summary>
+    private const string RedirectFrom = "0.0.0.0-32767.32767.32767.32767";
+
+    public async Task<Result> ExtractLocalUpgradeAsync(DnnRelease release, string projectDirectory, IProgressReporter reporter, CancellationToken ct)
+    {
+        var keep = _opts.KeepDnnPackages;
+        var zipPath = keep
+            ? KeptPath(release.DownloadUrl, $"DNN_Platform_{release.Version}_Install.zip")
+            : Path.Combine(Path.GetTempPath(), $"DnnManager-DNN_Platform_{release.Version}_Install-{Guid.NewGuid():N}.zip");
+        try
+        {
+            if (keep && File.Exists(zipPath)) reporter.Info($"Using the kept package {zipPath} - no download needed.");
+            else
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(zipPath)!);
+                await DownloadAsync(release.DownloadUrl, $"DNN {release.Version}'s install package", zipPath, reporter, ct);
+                reporter.Success(keep ? $"Downloaded and kept: {zipPath}" : "Downloaded.");
+            }
+            reporter.Info("Putting the new files in as DNN's own upgrade does: each assembly with its binding redirect, then the rest…");
+            var (assemblies, files) = await Task.Run(() => LocalUpgradeOver(zipPath, projectDirectory, reporter, ct), ct);
+            reporter.Success($"{assemblies:N0} assemblies (with their binding redirects) and {files:N0} other files of DNN {release.Version} are in.");
+            return Result.Ok();
+        }
+        catch (HttpRequestException ex)
+        {
+            _log.LogError(ex, "DNN install package download failed");
+            return Result.Fail($"DNN {release.Version}'s install package could not be downloaded ({ex.Message}).");
+        }
+        catch (InvalidDataException ex)
+        {
+            if (keep) File.Delete(zipPath);
+            return Result.Fail($"DNN {release.Version}'s install package is damaged ({ex.Message}){(keep ? " and has been deleted - try again to download it" : "")}.");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _log.LogError(ex, "Putting in DNN {Version}'s files failed", release.Version);
+            return Result.Fail(ex.Message);
+        }
+        finally
+        {
+            if (!keep) try { File.Delete(zipPath); } catch { /* best effort */ }
+        }
+    }
+
+    /// <summary>
+    /// DNN's <c>LocalUpgradeService.StartLocalUpgrade</c>, done from outside the site: bin's assemblies first - each copied
+    /// in and, when it is strong-named, web.config's binding redirect for it pointed at its version (DNN's
+    /// <c>BindingRedirect.config</c> merge) - then every other file but the excluded ones. The numbers written.
+    /// </summary>
+    internal static (int Assemblies, int Files) LocalUpgradeOver(string zipPath, string directory, IProgressReporter reporter, CancellationToken ct)
+    {
+        var root = Path.GetFullPath(directory).TrimEnd('\\') + "\\";
+        using var zip = System.IO.Compression.ZipFile.OpenRead(zipPath);
+        var exclude = DefaultUpgradeExclude;
+        var minimum = (string?)null;
+        if (zip.Entries.FirstOrDefault(e => e.FullName.Replace('\\', '/').Equals("App_Data/Upgrade/upgrade.json", StringComparison.OrdinalIgnoreCase)) is { } info)
+        {
+            using var stream = info.Open();
+            using var json = JsonDocument.Parse(stream);
+            if (json.RootElement.TryGetProperty("upgradeExclude", out var list))
+                exclude = list.EnumerateArray().Select(e => e.GetString() ?? "").Where(s => s.Length > 0).ToArray();
+            if (json.RootElement.TryGetProperty("minimumDnnVersion", out var min)) minimum = min.GetString();
+        }
+        if (minimum is not null && Version.TryParse(minimum, out var needs) && Application.UseCases.DnnInstall.Version(directory) is { } current &&
+            Version.TryParse(current, out var have) && have < new Version(needs.Major, needs.Minor, Math.Max(needs.Build, 0)))
+            throw new InvalidOperationException($"This package upgrades DNN {minimum} or newer only - the site runs {current}.");
+
+        string Name(System.IO.Compression.ZipArchiveEntry e) => e.FullName.Replace('\\', '/');
+        var files = zip.Entries.Where(e => !Name(e).EndsWith('/')).ToList();
+        var dlls = files.Where(e => Path.GetDirectoryName(Name(e))!.Equals("bin", StringComparison.OrdinalIgnoreCase) &&
+                                    Name(e).EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToHashSet();
+
+        // The assemblies, and the binding redirects that make the site use them.
+        var webConfig = Path.Combine(root, "web.config");
+        var config = System.Xml.Linq.XDocument.Load(webConfig, System.Xml.Linq.LoadOptions.PreserveWhitespace);
+        var redirects = 0;
+        foreach (var entry in dlls)
+        {
+            ct.ThrowIfCancellationRequested();
+            var target = Path.Combine(root, "bin", entry.Name);
+            if (File.Exists(target)) File.SetAttributes(target, FileAttributes.Normal);
+            System.IO.Compression.ZipFileExtensions.ExtractToFile(entry, target, overwrite: true);
+            if (StrongName(target) is { } assembly && SetBindingRedirect(config, assembly.Name, assembly.Token, assembly.Version)) redirects++;
+        }
+        if (redirects > 0)
+        {
+            using var writer = System.Xml.XmlWriter.Create(webConfig, new System.Xml.XmlWriterSettings { OmitXmlDeclaration = config.Declaration is null, Indent = false });
+            config.Save(writer);
+        }
+        reporter.Info($"{dlls.Count:N0} assemblies in bin, {redirects:N0} binding redirects in web.config set to them.");
+
+        // Everything else, as DNN unzips it.
+        var count = 0;
+        var next = 0L;
+        foreach (var entry in files.Where(e => !dlls.Contains(e) && !exclude.Any(x => Name(e).StartsWith(x, StringComparison.OrdinalIgnoreCase))))
+        {
+            ct.ThrowIfCancellationRequested();
+            var target = Path.GetFullPath(Path.Combine(root, Name(entry)));
+            if (!target.StartsWith(root, StringComparison.OrdinalIgnoreCase)) continue;
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            if (File.Exists(target)) File.SetAttributes(target, FileAttributes.Normal);
+            System.IO.Compression.ZipFileExtensions.ExtractToFile(entry, target, overwrite: true);
+            count++;
+            if (Environment.TickCount64 < next) continue;
+            next = Environment.TickCount64 + 200;
+            reporter.Progress($"Putting the new files in: {count:N0} of {files.Count - dlls.Count:N0}");
+        }
+        return (dlls.Count, count);
+    }
+
+    /// <summary>A strong-named assembly's name, public key token and version - null when it isn't .NET or not strong-named.</summary>
+    private static (string Name, string Token, Version Version)? StrongName(string file)
+    {
+        try
+        {
+            var name = System.Reflection.AssemblyName.GetAssemblyName(file);
+            var token = name.GetPublicKeyToken();
+            return token is { Length: > 0 } && name.Name is { } n && name.Version is { } v ? (n, Convert.ToHexStringLower(token), v) : null;
+        }
+        catch (Exception ex) when (ex is BadImageFormatException or IOException or System.Security.SecurityException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// web.config's binding redirect for an assembly, as DNN's BindingRedirect.config merge sets it: the
+    /// <c>dependentAssembly</c> with its name and token (case doesn't matter) and a binding redirect replaced - or added
+    /// when there is none - redirecting every version to <paramref name="version"/>. True when it changed.
+    /// </summary>
+    internal static bool SetBindingRedirect(System.Xml.Linq.XDocument config, string name, string token, Version version)
+    {
+        System.Xml.Linq.XNamespace ab = "urn:schemas-microsoft-com:asm.v1";
+        var configuration = config.Root!;
+        var runtime = configuration.Element("runtime") ?? new System.Xml.Linq.XElement("runtime");
+        if (runtime.Parent is null) configuration.Add(runtime);
+        var binding = runtime.Element(ab + "assemblyBinding");
+        if (binding is null)
+        {
+            binding = new System.Xml.Linq.XElement(ab + "assemblyBinding");
+            runtime.Add(binding);
+        }
+        var existing = binding.Elements(ab + "dependentAssembly").FirstOrDefault(d =>
+            d.Element(ab + "bindingRedirect") is not null &&
+            string.Equals((string?)d.Element(ab + "assemblyIdentity")?.Attribute("name"), name, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals((string?)d.Element(ab + "assemblyIdentity")?.Attribute("publicKeyToken"), token, StringComparison.OrdinalIgnoreCase));
+        var newVersion = version.ToString();
+        if (existing?.Element(ab + "bindingRedirect") is { } redirect &&
+            (string?)redirect.Attribute("newVersion") == newVersion && (string?)redirect.Attribute("oldVersion") == RedirectFrom)
+            return false;
+        var element = new System.Xml.Linq.XElement(ab + "dependentAssembly",
+            new System.Xml.Linq.XElement(ab + "assemblyIdentity", new System.Xml.Linq.XAttribute("name", name), new System.Xml.Linq.XAttribute("publicKeyToken", token)),
+            new System.Xml.Linq.XElement(ab + "bindingRedirect", new System.Xml.Linq.XAttribute("oldVersion", RedirectFrom), new System.Xml.Linq.XAttribute("newVersion", newVersion)));
+        if (existing is not null) existing.ReplaceWith(element);
+        else binding.Add(element);
+        return true;
+    }
 
     public async Task<Result> DownloadAndExtractAsync(DnnRelease release, string projectDirectory,
         IProgressReporter reporter, CancellationToken ct)
     {
         var keep = _opts.KeepDnnPackages;
         var zipPath = keep
-            ? KeptPath(release)
+            ? KeptPath(release.DownloadUrl, $"DNN_Platform_{release.Version}_Install.zip")
             : Path.Combine(projectDirectory, $"DNN_Platform_{release.Version}_Install.zip");
         try
         {
@@ -225,7 +466,7 @@ public sealed class DnnPackageInstaller(HttpClient http, IOptions<AppOptions> op
             else
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(zipPath)!);
-                await DownloadAsync(release, zipPath, reporter, ct);
+                await DownloadAsync(release.DownloadUrl, $"DNN {release.Version}", zipPath, reporter, ct);
                 reporter.Success(keep ? $"Downloaded and kept: {zipPath}" : $"Downloaded: {zipPath}");
             }
 
@@ -259,14 +500,14 @@ public sealed class DnnPackageInstaller(HttpClient http, IOptions<AppOptions> op
         }
     }
 
-    /// <summary>Downloads the package through a temporary file, so a failed or cancelled download never looks complete.</summary>
-    private async Task DownloadAsync(DnnRelease release, string zipPath, IProgressReporter reporter, CancellationToken ct)
+    /// <summary>Downloads a package (<paramref name="what"/>: "DNN 10.3.3") through a temporary file, so a failed or cancelled download never looks complete.</summary>
+    private async Task DownloadAsync(string url, string what, string zipPath, IProgressReporter reporter, CancellationToken ct)
     {
-        reporter.Info($"Downloading DNN {release.Version}…");
+        reporter.Info($"Downloading {what}…");
         var tmp = zipPath + ".download";
         try
         {
-            using var response = await _http.GetAsync(release.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+            using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
             response.EnsureSuccessStatusCode();
             var total = response.Content.Headers.ContentLength;
             await using (var input = await response.Content.ReadAsStreamAsync(ct))
@@ -283,8 +524,8 @@ public sealed class DnnPackageInstaller(HttpClient http, IOptions<AppOptions> op
                     if (Environment.TickCount64 < next) continue;
                     next = Environment.TickCount64 + 200;
                     reporter.Progress(total is > 0
-                        ? $"Downloading DNN {release.Version}: {done * 100 / total.Value}% ({done / 1048576d:N1} of {total.Value / 1048576d:N1} MB)"
-                        : $"Downloading DNN {release.Version}: {done / 1048576d:N1} MB");
+                        ? $"Downloading {what}: {done * 100 / total.Value}% ({done / 1048576d:N1} of {total.Value / 1048576d:N1} MB)"
+                        : $"Downloading {what}: {done / 1048576d:N1} MB");
                 }
             }
             File.Move(tmp, zipPath, overwrite: true);
@@ -296,12 +537,15 @@ public sealed class DnnPackageInstaller(HttpClient http, IOptions<AppOptions> op
         }
     }
 
-    /// <summary><c>packages\&lt;owner&gt;.&lt;repo&gt;\&lt;asset&gt;</c> - per repository, since forks may ship different packages under one name.</summary>
-    private string KeptPath(DnnRelease release)
+    /// <summary>
+    /// <c>packages\&lt;owner&gt;.&lt;repo&gt;\&lt;asset&gt;</c> for the package at <paramref name="url"/> - per repository,
+    /// since forks may ship different packages under one name; <paramref name="fallbackName"/> when the URL names no zip.
+    /// </summary>
+    private string KeptPath(string url, string fallbackName)
     {
         var folder = "other";
-        var fileName = $"DNN_Platform_{release.Version}_Install.zip";
-        if (Uri.TryCreate(release.DownloadUrl, UriKind.Absolute, out var uri))
+        var fileName = fallbackName;
+        if (Uri.TryCreate(url, UriKind.Absolute, out var uri))
         {
             // https://github.com/<owner>/<repo>/releases/download/<tag>/<asset>
             var parts = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);

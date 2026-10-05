@@ -137,8 +137,8 @@ public static class DnnAccountRules
 }
 
 /// <summary>
-/// DNN's own unattended install (<c>Install/Install.aspx?mode=install</c>) and what belongs with it - the things DNN's
-/// installation wizard would otherwise have the user do in the browser.
+/// DNN's own unattended install (<c>Install/Install.aspx?mode=install</c>) and upgrade (<c>mode=upgrade</c>), and what
+/// belongs with them - the things DNN's installation wizard would otherwise have the user do in the browser.
 /// </summary>
 public interface IDnnInstaller
 {
@@ -180,6 +180,21 @@ public interface IDnnInstaller
     /// web.config DNN made while installing (they have the connection string).
     /// </summary>
     void CleanUp(string siteDirectory, bool installed);
+
+    /// <summary>
+    /// DNN's own unattended upgrade (<c>Install/Install.aspx?mode=upgrade</c>) after a newer DNN's files were put in:
+    /// runs its database scripts and extension upgrades, following DNN's progress into <paramref name="reporter"/>. Ok
+    /// only when DNN reports a complete upgrade without errors. <paramref name="databasePassword"/> is kept out of every
+    /// message.
+    /// </summary>
+    /// <param name="rawOutputFile">Where to keep everything DNN answered, as it answered it - null for nowhere.</param>
+    Task<Result> UpgradeAsync(DnnSiteAddress site, string databasePassword, IProgressReporter reporter, CancellationToken ct, string? rawOutputFile = null);
+
+    /// <summary>
+    /// The DNN version the site's database is at - failed when it isn't the version of the site's files (an upgrade
+    /// that didn't run or didn't finish).
+    /// </summary>
+    Task<Result<string>> CheckVersionAsync(string siteDirectory, DatabaseConnection database, CancellationToken ct);
 
     /// <summary>
     /// Sets the password of host account <paramref name="userName"/> the way DNN's membership provider stores it (only for

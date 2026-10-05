@@ -232,6 +232,11 @@
                 </StackPanel>
 
                 <StackPanel x:Name="DnnSection" Visibility="Collapsed">
+                    <WrapPanel Margin="0,0,0,12" Visibility="{Binding IsDnn, Converter={StaticResource Visible}}">
+                        <Button Style="{StaticResource EditButton}" Content="Upgrade DNN…" Click="UpgradeDnn_Click"
+                                ToolTip="To a newer DNN, with a backup before each step"
+                                s:CommandTip.Command="project.upgradeDnn" />
+                    </WrapPanel>
                     <p:InspectorPanel x:Name="DnnPanel" />
                     <!-- The host accounts in the database - and changing their password, which only happens here. -->
                     <Border Style="{StaticResource Card}" Visibility="{Binding IsDnn, Converter={StaticResource Visible}}">
