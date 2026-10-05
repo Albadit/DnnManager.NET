@@ -1,0 +1,401 @@
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:09:34.740-07:00 [DNNWIND-VFON4PB][D:2][T:65][ERROR] DotNetNuke.Services.Exceptions.Exceptions - DotNetNuke.Services.Exceptions.PageLoadException: Object reference not set to an instance of an object. ---> System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+   --- End of inner exception stack trace ---
+2026-10-05 12:09:49.756-07:00 [DNNWIND-VFON4PB][D:2][T:77][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:09:49.756-07:00 [DNNWIND-VFON4PB][D:2][T:77][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=An+unexpected+error+has+occurred&content=0
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:09:49.756-07:00 [DNNWIND-VFON4PB][D:2][T:63][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:09:49.756-07:00 [DNNWIND-VFON4PB][D:2][T:63][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=terminate
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:09:49.772-07:00 [DNNWIND-VFON4PB][D:2][T:63][ERROR] DotNetNuke.Services.Exceptions.Exceptions - DotNetNuke.Services.Exceptions.PageLoadException: Object reference not set to an instance of an object. ---> System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+   --- End of inner exception stack trace ---
+2026-10-05 12:10:04.772-07:00 [DNNWIND-VFON4PB][D:2][T:63][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:10:04.772-07:00 [DNNWIND-VFON4PB][D:2][T:63][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=An+unexpected+error+has+occurred&content=0
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:10:04.787-07:00 [DNNWIND-VFON4PB][D:2][T:62][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:10:04.787-07:00 [DNNWIND-VFON4PB][D:2][T:62][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=terminate
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:10:04.787-07:00 [DNNWIND-VFON4PB][D:2][T:62][ERROR] DotNetNuke.Services.Exceptions.Exceptions - DotNetNuke.Services.Exceptions.PageLoadException: Object reference not set to an instance of an object. ---> System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+   --- End of inner exception stack trace ---
+2026-10-05 12:10:19.803-07:00 [DNNWIND-VFON4PB][D:2][T:62][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:10:19.803-07:00 [DNNWIND-VFON4PB][D:2][T:62][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=An+unexpected+error+has+occurred&content=0
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:10:19.803-07:00 [DNNWIND-VFON4PB][D:2][T:63][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:10:19.803-07:00 [DNNWIND-VFON4PB][D:2][T:63][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=terminate
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:10:19.803-07:00 [DNNWIND-VFON4PB][D:2][T:63][ERROR] DotNetNuke.Services.Exceptions.Exceptions - DotNetNuke.Services.Exceptions.PageLoadException: Object reference not set to an instance of an object. ---> System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+   --- End of inner exception stack trace ---
+2026-10-05 12:10:34.818-07:00 [DNNWIND-VFON4PB][D:2][T:77][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:10:34.818-07:00 [DNNWIND-VFON4PB][D:2][T:77][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=An+unexpected+error+has+occurred&content=0
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:10:34.834-07:00 [DNNWIND-VFON4PB][D:2][T:36][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:10:34.834-07:00 [DNNWIND-VFON4PB][D:2][T:36][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=terminate
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:10:34.834-07:00 [DNNWIND-VFON4PB][D:2][T:36][ERROR] DotNetNuke.Services.Exceptions.Exceptions - DotNetNuke.Services.Exceptions.PageLoadException: Object reference not set to an instance of an object. ---> System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+   --- End of inner exception stack trace ---
+2026-10-05 12:10:49.850-07:00 [DNNWIND-VFON4PB][D:2][T:36][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:10:49.850-07:00 [DNNWIND-VFON4PB][D:2][T:36][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=An+unexpected+error+has+occurred&content=0
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:10:49.865-07:00 [DNNWIND-VFON4PB][D:2][T:56][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:10:49.865-07:00 [DNNWIND-VFON4PB][D:2][T:56][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=terminate
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:10:49.865-07:00 [DNNWIND-VFON4PB][D:2][T:56][ERROR] DotNetNuke.Services.Exceptions.Exceptions - DotNetNuke.Services.Exceptions.PageLoadException: Object reference not set to an instance of an object. ---> System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+   --- End of inner exception stack trace ---
+2026-10-05 12:11:04.881-07:00 [DNNWIND-VFON4PB][D:2][T:59][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:11:04.881-07:00 [DNNWIND-VFON4PB][D:2][T:59][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=An+unexpected+error+has+occurred&content=0
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:11:04.881-07:00 [DNNWIND-VFON4PB][D:2][T:57][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:11:04.881-07:00 [DNNWIND-VFON4PB][D:2][T:57][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=terminate
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:11:04.881-07:00 [DNNWIND-VFON4PB][D:2][T:57][ERROR] DotNetNuke.Services.Exceptions.Exceptions - DotNetNuke.Services.Exceptions.PageLoadException: Object reference not set to an instance of an object. ---> System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+   --- End of inner exception stack trace ---
+2026-10-05 12:11:19.897-07:00 [DNNWIND-VFON4PB][D:2][T:77][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:11:19.897-07:00 [DNNWIND-VFON4PB][D:2][T:77][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=An+unexpected+error+has+occurred&content=0
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:11:19.912-07:00 [DNNWIND-VFON4PB][D:2][T:62][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:11:19.912-07:00 [DNNWIND-VFON4PB][D:2][T:62][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=terminate
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+2026-10-05 12:11:19.912-07:00 [DNNWIND-VFON4PB][D:2][T:62][ERROR] DotNetNuke.Services.Exceptions.Exceptions - DotNetNuke.Services.Exceptions.PageLoadException: Object reference not set to an instance of an object. ---> System.NullReferenceException: Object reference not set to an instance of an object.
+   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
+   at DotNetNuke.Framework.DefaultPage.InitializePage()
+   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
+   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
+   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
+   --- End of inner exception stack trace ---
+
