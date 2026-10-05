@@ -1,10 +1,14 @@
     0 s  Installing IIS with ASP.NET 4.8
-   45 s  IIS is up
-   45 s  Installing SQL Server 2022 Express
-  251 s  SQL Server Express is up
-  251 s  Downloading DNN 10.3.3
-  262 s  Running DNN's unattended install
-  303 s  DNN 10.3.3 installed
-  322 s  First visit from inside the VM: HTTP 500 (/Default.aspx?error=An+unexpected+error+has+occurred&content=0)
-  324 s  READY
+   53 s  IIS is up
+   53 s  Installing SQL Server 2022 Express
+  277 s  SQL Server Express is up
+  277 s  Downloading DNN 10.3.3
+  292 s  Running DNN's unattended install
+  344 s  DNN 10.3.3 installed
+  366 s  First visit from inside the VM: HTTP 500 (/Default.aspx?error=An+unexpected+error+has+occurred&content=0)
+  366 s  Database: tabs = 14
+  366 s  Database: home tab = 21
+  366 s  Database: languages = 1
+  366 s  Database: skin = [G]Skins/Aperture/default.ascx
+  369 s  READY
 
