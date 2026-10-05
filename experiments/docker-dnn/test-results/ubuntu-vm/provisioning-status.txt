@@ -1,0 +1,7 @@
+    0 s  Installing IIS with ASP.NET 4.8
+   59 s  IIS is up
+   59 s  Installing SQL Server 2022 Express
+  327 s  SQL Server Express is up
+  328 s  Downloading DNN 10.3.3
+  345 s  FAILED: Method invocation failed because [System.String] does not contain a method named 'AppendChild'.
+
