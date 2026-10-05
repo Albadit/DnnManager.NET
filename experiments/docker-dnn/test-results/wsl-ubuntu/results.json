@@ -1,0 +1,56 @@
+{
+  "Facts": {
+    "Run": "2026-10-05 21:06 UTC",
+    "Host": "Ubuntu 24.04 LTS, 24 CPUs, 30.1 GB RAM",
+    "Kvm": "present",
+    "Guest": "Windows Server 2022 (evaluation) via dockurr/windows, 4 vCPU, 8 GB RAM",
+    "WindowsReadyAfter": "5.3 min (first answer from the status site)",
+    "Stats": "dnn-vm-windows-1 cpu 1.75% mem 8.074GiB / 30.05GiB",
+    "Disk": "11G\t/var/lib/dnn-vm-test",
+    "Summary": "6 of 7 steps passed"
+  },
+  "Steps": [
+    {
+      "Step": "Start the VM container (downloads and installs Windows Server 2022)",
+      "Result": "pass",
+      "Minutes": 0.0,
+      "Detail": "started"
+    },
+    {
+      "Step": "Windows installed and provisioned (IIS, SQL Server Express, DNN unattended install)",
+      "Result": "pass",
+      "Minutes": 10.3,
+      "Detail": "    0 s  Installing IIS with ASP.NET 4.8\r /    52 s  IIS is up\r /    52 s  Installing SQL Server 2022 Express\r /   242 s  SQL Server Express is up\r /   243 s  Downloading DNN 10.3.3\r /   253 s  Running DNN's unattended install\r /   321 s  DNN 10.3.3 installed\r /   340 s  First visit from inside the VM: HTTP 200 (/)\r /   340 s  Database: tabs = 14\r /   340 s  Database: home tab = 21\r /   340 s  Database: languages = 1\r /   340 s  Database: skin = [G]Skins/Aperture/default.ascx\r /   342 s  READY\r"
+    },
+    {
+      "Step": "Load the home page from the Linux host (http://localhost:8080)",
+      "Result": "pass",
+      "Minutes": 0.2,
+      "Detail": "HTTP 200 in 12.4 s"
+    },
+    {
+      "Step": "Sign in as the host",
+      "Result": "pass",
+      "Minutes": 0.1,
+      "Detail": "signed in, Persona Bar shown"
+    },
+    {
+      "Step": "Install an extension (Google sign-in provider, Persona Bar API)",
+      "Result": "pass",
+      "Minutes": 0.0,
+      "Detail": "HTTP 200: {\"newPackageId\":149,\"success\":true,\"message\":\"\",\"logs\":[{\"Type\":\"StartJob\",\"Description\":\"Starting Installation\"},{\"Type\":\"Info\",\"Description\":\"Starting Installation - DNN_GoogleAuthentication\"},{\"Typ"
+    },
+    {
+      "Step": "Restart the VM container (Windows reboots) - the site comes back",
+      "Result": "FAIL",
+      "Minutes": 20.4,
+      "Detail": "The site didn't come back within 20 minutes."
+    },
+    {
+      "Step": "Resource use (docker stats) and the VM disk",
+      "Result": "pass",
+      "Minutes": 0.0,
+      "Detail": "dnn-vm-windows-1 cpu 1.75% mem 8.074GiB / 30.05GiB | storage 11G\t/var/lib/dnn-vm-test"
+    }
+  ]
+}
