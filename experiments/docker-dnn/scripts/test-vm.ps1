@@ -71,7 +71,14 @@ if ($ready) {
         $session = New-DnnSession 'http://localhost:8080/'
         $watch = [Diagnostics.Stopwatch]::StartNew()
         $page = Invoke-DnnRequest $session ''
-        if ($page.Status -ne 200 -or $page.Html -match 'InstallWizard') { throw "HTTP $($page.Status) ($($page.Hops -join '; '))" }
+        if ($page.Status -ne 200 -or $page.Html -match 'InstallWizard') {
+            # DNN's log reaches the status site within a minute (provision.ps1).
+            Start-Sleep -Seconds 70
+            $log = try { (Invoke-WebRequest 'http://localhost:8081/dnn-log.txt' -TimeoutSec 10).Content } catch { '' }
+            $errors = (($log -split "`n") | Where-Object { $_ -match '\[(ERROR|FATAL)\]|Exception' } | Select-Object -Last 4) -join ' / '
+            if ($errors.Length -gt 900) { $errors = $errors.Substring(0, 900) + '…' }
+            throw "HTTP $($page.Status) ($($page.Hops -join '; ')). DNN's log: $errors"
+        }
         "HTTP 200 in $([math]::Round($watch.Elapsed.TotalSeconds, 1)) s"
     } | Out-Null
 
@@ -117,6 +124,7 @@ if ($ready) {
 
 try { Set-Content "$out/provisioning-status.txt" (Hide (Status)) } catch { }
 try { Set-Content "$out/install-output.html" (Hide (Invoke-WebRequest 'http://localhost:8081/install-output.html' -TimeoutSec 10).Content) } catch { }
+try { Set-Content "$out/dnn-log.txt" (Hide (Invoke-WebRequest 'http://localhost:8081/dnn-log.txt' -TimeoutSec 10).Content) } catch { }
 try { Compose @('down') | Out-Null } catch { }
 Remove-Item (Join-Path $vm 'oem/settings.json') -ErrorAction SilentlyContinue
 

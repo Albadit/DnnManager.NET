@@ -98,10 +98,35 @@ try {
     if ($code -ne 200 -or $body -notmatch 'Successfully Installed Site|Installation Complete') { throw "DNN's install didn't complete (HTTP $code) - see install-output.html" }
     # DNN deletes the template itself once it has installed.
     Remove-Item "$site\Install\DotNetNuke.install.config", "$site\Install\DotNetNuke.install.config.resources" -Force -ErrorAction SilentlyContinue
-    Sql $db "UPDATE dbo.Users SET UpdatePassword = 0 WHERE IsSuperUser = 1" | Out-Null
+    # As DnnManager.NET's DnnInstaller.CompleteAsync: no forced password change, and no pages Install.aspx marked secure.
+    Sql $db "UPDATE dbo.Users SET UpdatePassword = 0 WHERE IsSuperUser = 1; UPDATE dbo.Tabs SET IsSecure = 0 WHERE PortalID = 0 AND IsSecure = 1" | Out-Null
     $version = Sql $db "SELECT TOP 1 CONCAT(Major, '.', Minor, '.', Build) FROM dbo.Version ORDER BY VersionId DESC"
     Status "DNN $version installed"
     Remove-Item C:\ssei.exe, C:\setup, C:\dnn.zip -Recurse -Force -ErrorAction SilentlyContinue
+
+    # DNN's log on the status site, every minute, so the host can read it (IIS won't serve DNN's .log.resources files).
+    Set-Content C:\status-log.ps1 ("Get-ChildItem '$site\Portals\_default\Logs' -File | Sort-Object LastWriteTime | " +
+        "Select-Object -Last 1 | ForEach-Object { Get-Content `$_.FullName -Tail 400 } | Set-Content '$statusDir\dnn-log.txt'")
+    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 1)
+    Register-ScheduledTask 'DNN log to the status site' -User SYSTEM -Trigger $trigger `
+        -Action (New-ScheduledTaskAction powershell.exe '-NoProfile -ExecutionPolicy Bypass -File C:\status-log.ps1') | Out-Null
+
+    # The first visit from inside the VM, as DnnInstaller.WarmUpAsync does: DNN finishes its modules on it.
+    $path = '/'
+    for ($i = 0; $i -lt 10; $i++) {
+        $request = [Net.HttpWebRequest]::Create("http://127.0.0.1$path")
+        $request.Host = $settings.Alias
+        $request.AllowAutoRedirect = $false
+        $request.Timeout = 600000
+        try { $response = $request.GetResponse() } catch [Net.WebException] { $response = $_.Exception.Response; if (-not $response) { throw } }
+        $code = [int]$response.StatusCode
+        $location = $response.Headers['Location']
+        $response.Close()
+        if ($code -ge 300 -and $code -lt 400 -and $location) { $path = ([Uri]::new([Uri]'http://x/', $location)).PathAndQuery; continue }
+        break
+    }
+    Status "First visit from inside the VM: HTTP $code ($path)"
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\status-log.ps1
     Status 'READY'
 }
 catch {
