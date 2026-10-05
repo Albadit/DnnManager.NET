@@ -1,6 +1,6 @@
 {
   "Facts": {
-    "Run": "2026-10-05 18:02 UTC",
+    "Run": "2026-10-05 18:30 UTC",
     "Host": "Ubuntu 24.04.5 LTS",
     "Kernel": "Linux 6.17.0-1022-azure",
     "Docker": "server 28.0.4 (linux/amd64)",
@@ -12,8 +12,8 @@
       "Step": "Pull the Windows image DNN needs (aspnet 4.8.1, Server Core ltsc2022)",
       "Expected": "fails: no linux/amd64 variant",
       "Result": "done",
-      "Seconds": 0.0,
-      "Detail": "exit 1: 32af615b68eb: Waiting image operating system \"windows\" cannot be used on this platform: operating system is not supported"
+      "Seconds": 1.0,
+      "Detail": "exit 1: 8169df1380c9: Waiting image operating system \"windows\" cannot be used on this platform: operating system is not supported"
     },
     {
       "Step": "Ask for the Windows platform explicitly (--platform windows/amd64)",
@@ -26,7 +26,7 @@
       "Step": "SQL Server 2022 in a Linux container (what DNN's database could use on Linux/macOS)",
       "Expected": "works",
       "Result": "done",
-      "Seconds": 18.0,
+      "Seconds": 27.0,
       "Detail": "Microsoft SQL Server 2022 (RTM-CU27) (KB5104824) - 16.0.4295.3 (X64)"
     },
     {
