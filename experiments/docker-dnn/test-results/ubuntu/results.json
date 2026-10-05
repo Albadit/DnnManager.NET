@@ -1,6 +1,6 @@
 {
   "Facts": {
-    "Run": "2026-10-05 14:59 UTC",
+    "Run": "2026-10-05 17:46 UTC",
     "Host": "Ubuntu 24.04.5 LTS",
     "Kernel": "Linux 6.17.0-1022-azure",
     "Docker": "server 28.0.4 (linux/amd64)",
@@ -13,7 +13,7 @@
       "Expected": "fails: no linux/amd64 variant",
       "Result": "done",
       "Seconds": 0.0,
-      "Detail": "exit 1: 32af615b68eb: Waiting image operating system \"windows\" cannot be used on this platform: operating system is not supported"
+      "Detail": "exit 1: 56b1585eebf3: Waiting image operating system \"windows\" cannot be used on this platform: operating system is not supported"
     },
     {
       "Step": "Ask for the Windows platform explicitly (--platform windows/amd64)",
