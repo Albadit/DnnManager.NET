@@ -1,8 +1,8 @@
 {
   "Facts": {
-    "Run": "2026-10-05 14:43 UTC",
+    "Run": "2026-10-05 14:59 UTC",
     "Host": "Microsoft Windows NT 10.0.20348.0, Microsoft Windows Server 2022 Datacenter",
-    "Cpu": "AMD EPYC 9V74 80-Core Processor                , 4 logical",
+    "Cpu": "INTEL(R) XEON(R) PLATINUM 8573C, 4 logical",
     "Memory": "16 GB",
     "Docker": "client 29.7.2, server 29.7.2 (windows/amd64)",
     "Isolation": "process",
@@ -15,13 +15,13 @@
     {
       "Step": "Build the images (SQL Server Express, DNN)",
       "Result": "pass",
-      "Seconds": 379.0,
+      "Seconds": 413.0,
       "Detail": "dnn-docker/dnn:10.3.3 6.73GB; dnn-docker/sqlexpress:2022 6.29GB"
     },
     {
       "Step": "Start SQL Server and DNN (first start: DNN copied into the site volume, database created)",
       "Result": "pass",
-      "Seconds": 12.0,
+      "Seconds": 14.0,
       "Detail": "answering on http://localhost:8080/"
     },
     {
@@ -34,7 +34,7 @@
       "Step": "File change notifications on a bind-mounted host folder (web.config edited from the host)",
       "Result": "pass",
       "Seconds": 17.0,
-      "Detail": "web.config changed on the host -> ASP.NET restarted the app ('one|2026-10-05T14:50:40.1011485+00:00' -> 'two|2026-10-05T14:50:40.1011485+00:00')"
+      "Detail": "web.config changed on the host -> ASP.NET restarted the app ('one|2026-10-05T15:07:10.0335121+00:00' -> 'two|2026-10-05T15:07:10.0335121+00:00')"
     }
   ]
 }
