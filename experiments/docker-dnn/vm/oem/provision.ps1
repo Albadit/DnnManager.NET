@@ -6,6 +6,9 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $settings = Get-Content C:\OEM\settings.json -Raw | ConvertFrom-Json
+# IIS listens on the alias's own port: DNN matches the alias against the port the request reached IIS on, not the Host
+# header's - a host port forwarded to another guest port (8080 -> 80) leaves no portal, and every page fails.
+$port = ([Uri]"http://$($settings.Alias)/").Port
 $statusDir = 'C:\status'
 New-Item -ItemType Directory -Force $statusDir | Out-Null
 $watch = [Diagnostics.Stopwatch]::StartNew()
@@ -21,7 +24,7 @@ try {
     $appcmd = 'C:\Windows\System32\inetsrv\appcmd.exe'
     # The status site, so the host sees how far this got.
     & $appcmd add site /name:status /bindings:http/*:8081: /physicalPath:$statusDir | Out-Null
-    New-NetFirewallRule -DisplayName 'DNN dev (80, 8081)' -Direction Inbound -Protocol TCP -LocalPort 80, 8081 -Action Allow | Out-Null
+    New-NetFirewallRule -DisplayName "DNN dev ($port, 8081)" -Direction Inbound -Protocol TCP -LocalPort $port, 8081 -Action Allow | Out-Null
     Status 'IIS is up'
 
     Status 'Installing SQL Server 2022 Express'
@@ -54,6 +57,7 @@ try {
     foreach ($add in $config.configuration.connectionStrings.add) { if ($add.name -eq 'SiteSqlServer') { $add.connectionString = $db } }
     $config.Save("$site\web.config")
     & $appcmd set vdir 'Default Web Site/' /physicalPath:$site | Out-Null
+    & $appcmd set site 'Default Web Site' "/bindings:http/*:${port}:" | Out-Null
     & $appcmd set apppool DefaultAppPool /processModel.idleTimeout:00:00:00 | Out-Null
 
     # DNN's install template - the host account and the alias the Linux host's browser uses. Nodes through
@@ -81,7 +85,7 @@ try {
     Status 'Running DNN''s unattended install'
     $path = '/Install/Install.aspx?mode=install'
     for ($i = 0; $i -lt 6; $i++) {
-        $request = [Net.HttpWebRequest]::Create("http://127.0.0.1$path")
+        $request = [Net.HttpWebRequest]::Create("http://127.0.0.1:${port}$path")
         $request.Host = $settings.Alias
         $request.AllowAutoRedirect = $false
         $request.Timeout = 1800000
@@ -118,7 +122,7 @@ try {
     # The first visit from inside the VM, as DnnInstaller.WarmUpAsync does: DNN finishes its modules on it.
     $path = '/'
     for ($i = 0; $i -lt 10; $i++) {
-        $request = [Net.HttpWebRequest]::Create("http://127.0.0.1$path")
+        $request = [Net.HttpWebRequest]::Create("http://127.0.0.1:${port}$path")
         $request.Host = $settings.Alias
         $request.AllowAutoRedirect = $false
         $request.Timeout = 600000

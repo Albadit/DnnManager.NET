@@ -26,7 +26,7 @@ services:
       - NET_ADMIN
     ports:
       - "8006:8006"   # the VM's screen in a browser
-      - "8080:80"     # DNN
+      - "8080:8080"   # DNN - the same port inside: DNN matches its alias (localhost:8080) to the port IIS got the request on
       - "8081:8081"   # provisioning status
       - "3389:3389/tcp"
     volumes:
