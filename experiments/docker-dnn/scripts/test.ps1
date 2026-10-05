@@ -93,10 +93,16 @@ function Install-Dnn([string]$service, [int]$port) {
     if ($page.Status -ne 200) { throw "Install.aspx answered HTTP $($page.Status) ($($page.Hops -join '; ')): $said" }
     if ($page.Html -notmatch 'Successfully Installed Site|Installation Complete') {
         # The cause is in DNN's own log (logs\ isn't committed with the results, so it goes in the message).
+        # A fresh site also logs assemblies its install packages bring (System.Web.Http, CKEditor) - skip to SQL's lines.
         $log = Invoke-Docker @('compose', 'exec', '-T', $service, 'powershell', '-NoProfile', '-File', 'C:\scripts\dnn-logs.ps1') -Quiet
-        $cause = ($log | Where-Object { $_ -match 'Exception|error' } | Select-Object -First 3) -join ' | '
+        $cause = ($log | Where-Object { $_ -match 'Sql|connect|login|network' } | Select-Object -First 3) -join ' | '
         if ($cause.Length -gt 600) { $cause = $cause.Substring(0, 600) + '…' }
-        throw "DNN's install output doesn't say it completed: $said DNN's log: $(Hide $cause)"
+        # The connection string DNN has now (password masked), opened from the container as DNN would.
+        $check = @'
+. C:\scripts\sql.ps1; [xml]$c = Get-Content C:\site\web.config -Raw; $s = @($c.configuration.connectionStrings.add | Where-Object name -eq SiteSqlServer)[0].connectionString; 'web.config: ' + ($s -replace '(?i)(password|pwd)=[^;]*', '$1=***'); try { [void](Invoke-Sql $s 'SELECT 1'); 'opens from the container: yes' } catch { 'opens from the container: no - ' + $_.Exception.GetBaseException().Message }
+'@
+        $probe = Invoke-Docker @('compose', 'exec', '-T', $service, 'powershell', '-NoProfile', '-Command', $check) -Quiet
+        throw "DNN's install output doesn't say it completed: $said | $(Hide ($probe -join ' | ')) | DNN's log: $(Hide $cause)"
     }
     $after = Invoke-Docker @('compose', 'exec', '-T', $service, 'powershell', '-NoProfile', '-File', 'C:\scripts\after-install.ps1', '-HostUser', $hostUser) -Quiet
     $version = ($after | Where-Object { $_ -like 'version=*' }) -replace 'version='
