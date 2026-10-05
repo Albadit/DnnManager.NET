@@ -1,7 +1,8 @@
     0 s  Installing IIS with ASP.NET 4.8
-   59 s  IIS is up
-   59 s  Installing SQL Server 2022 Express
-  327 s  SQL Server Express is up
-  328 s  Downloading DNN 10.3.3
-  345 s  FAILED: Method invocation failed because [System.String] does not contain a method named 'AppendChild'.
+   58 s  IIS is up
+   58 s  Installing SQL Server 2022 Express
+  370 s  SQL Server Express is up
+  370 s  Downloading DNN 10.3.3
+  388 s  Running DNN's unattended install
+  449 s  FAILED: Cannot find path 'C:\inetpub\dnn\Install\DotNetNuke.install.config' because it does not exist.
 
