@@ -3,6 +3,8 @@
 # host count the database reports.
 param([Parameter(Mandatory)][string]$HostUser)
 $ErrorActionPreference = 'Stop'
+# The message on one line, last: the test keeps only the last lines of the output.
+trap { Write-Output "error=$($_.Exception.Message)"; exit 1 }
 . C:\scripts\sql.ps1
 
 foreach ($file in 'DotNetNuke.install.config', 'DotNetNuke.install.config.resources') {

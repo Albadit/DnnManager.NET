@@ -56,18 +56,26 @@ try {
     & $appcmd set vdir 'Default Web Site/' /physicalPath:$site | Out-Null
     & $appcmd set apppool DefaultAppPool /processModel.idleTimeout:00:00:00 | Out-Null
 
-    # DNN's install template - the host account and the alias the Linux host's browser uses.
+    # DNN's install template - the host account and the alias the Linux host's browser uses. Nodes through
+    # SelectSingleNode, not PowerShell's XML properties: an empty or missing element comes back as a string or $null.
     [xml]$doc = Get-Content "$site\Install\DotNetNuke.install.config.resources" -Raw
-    $root = $doc.dotnetnuke
-    $root.superuser.username = $settings.HostUser
-    $root.superuser.password = $settings.HostPassword
-    $root.superuser.updatepassword = 'false'
+    function Get-Child($parent, [string]$name) {
+        $node = $parent.SelectSingleNode($name)
+        if (-not $node) { $node = $parent.AppendChild($doc.CreateElement($name)) }
+        return $node
+    }
+    function Set-Child($parent, [string]$name, [string]$value) { (Get-Child $parent $name).InnerText = $value }
+    $root = $doc.DocumentElement
+    $superuser = Get-Child $root 'superuser'
+    Set-Child $superuser 'username' $settings.HostUser
+    Set-Child $superuser 'password' $settings.HostPassword
+    Set-Child $superuser 'updatepassword' 'false'
     foreach ($connection in @($root.SelectNodes('connection'))) { [void]$root.RemoveChild($connection) }
-    $portal = $root.portals.portal
-    $portal.administrator.password = [Guid]::NewGuid().ToString('N') + 'Aa1!'
-    $portal.portalaliases.RemoveAll()
-    $alias = $portal.portalaliases.AppendChild($doc.CreateElement('portalalias'))
-    $alias.InnerText = $settings.Alias
+    $portal = (Get-Child $root 'portals').SelectSingleNode('portal')
+    Set-Child (Get-Child $portal 'administrator') 'password' ([Guid]::NewGuid().ToString('N') + 'Aa1!')
+    $aliases = Get-Child $portal 'portalaliases'
+    $aliases.RemoveAll()
+    Set-Child $aliases 'portalalias' $settings.Alias
     $doc.Save("$site\Install\DotNetNuke.install.config")
 
     Status 'Running DNN''s unattended install'

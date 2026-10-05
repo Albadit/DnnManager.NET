@@ -87,11 +87,14 @@ function Install-Dnn([string]$service, [int]$port) {
     # DNN writes new machine keys, restarts and redirects to itself: Invoke-DnnRequest follows that.
     $page = Invoke-DnnRequest $session 'Install/Install.aspx?mode=install'
     Set-Content "$out\logs\install-$service.html" (Hide $page.Html)
+    # What the page said first - the database checks below fail anyway when the install didn't run.
+    $said = Hide ((($page.Html -replace '(?s)<(script|style)[^>]*>.*?</\1>', ' ' -replace '<[^>]+>', ' ' -replace '\s+', ' ').Trim()))
+    if ($said.Length -gt 400) { $said = $said.Substring(0, 400) + '…' }
+    if ($page.Status -ne 200) { throw "Install.aspx answered HTTP $($page.Status) ($($page.Hops -join '; ')): $said" }
+    if ($page.Html -notmatch 'Successfully Installed Site|Installation Complete') { throw "DNN's install output doesn't say it completed: $said" }
     $after = Invoke-Docker @('compose', 'exec', '-T', $service, 'powershell', '-NoProfile', '-File', 'C:\scripts\after-install.ps1', '-HostUser', $hostUser) -Quiet
     $version = ($after | Where-Object { $_ -like 'version=*' }) -replace 'version='
     $hosts = ($after | Where-Object { $_ -like 'hosts=*' }) -replace 'hosts='
-    if ($page.Status -ne 200) { throw "Install.aspx answered HTTP $($page.Status) ($($page.Hops -join '; '))." }
-    if ($page.Html -notmatch 'Successfully Installed Site|Installation Complete') { throw "DNN's install output doesn't say it completed - see logs\install-$service.html." }
     if ($version -ne $DnnVersion) { throw "The database says DNN '$version', expected $DnnVersion." }
     if ($hosts -ne '1') { throw "The host account '$hostUser' isn't in the database." }
     "DNN $version installed for $alias"
