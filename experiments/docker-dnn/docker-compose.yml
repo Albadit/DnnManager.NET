@@ -1,0 +1,70 @@
+# DNN on IIS + SQL Server Express, both in Windows containers - the experiment (see README.md).
+#
+# Needs a Docker engine that runs Windows containers (Windows Server 2022 host, or Docker Desktop on Windows 10/11
+# Pro/Enterprise switched to Windows containers). It can't run on macOS or Linux - see README.md.
+#
+#   $env:SA_PASSWORD = '<a strong password>'
+#   docker compose up -d --build              # one project: http://localhost:8080
+#   docker compose --profile second up -d     # and a second one: http://localhost:8081
+#   docker compose down                       # stops and removes the containers - the volumes keep the sites
+#   docker compose down -v                    # ...and the volumes too: everything is gone
+name: dnn-docker
+
+services:
+  sql:
+    build:
+      context: .
+      dockerfile: sql/Dockerfile
+    image: dnn-docker/sqlexpress:2022
+    environment:
+      SA_PASSWORD: ${SA_PASSWORD:?Set SA_PASSWORD}
+    volumes:
+      - type: volume
+        source: sql-data
+        target: 'C:\data'
+    ports:
+      # For SSMS / sqlpackage on the host; the sites reach it as "sql" on the compose network.
+      - "14330:1433"
+
+  web:
+    build:
+      context: .
+      args:
+        DNN_VERSION: ${DNN_VERSION:-10.3.3}
+    image: dnn-docker/dnn:${DNN_VERSION:-10.3.3}
+    environment:
+      DNN_DB_SERVER: sql
+      DNN_DB_NAME: dnn1
+      DNN_DB_USER: sa
+      DNN_DB_PASSWORD: ${SA_PASSWORD}
+    volumes:
+      - type: volume
+        source: site1
+        target: 'C:\site'
+    ports:
+      - "8080:80"
+    depends_on:
+      - sql
+
+  # A second DNN project - its own site volume and database, on the same SQL Server.
+  web2:
+    profiles: [second]
+    image: dnn-docker/dnn:${DNN_VERSION:-10.3.3}
+    environment:
+      DNN_DB_SERVER: sql
+      DNN_DB_NAME: dnn2
+      DNN_DB_USER: sa
+      DNN_DB_PASSWORD: ${SA_PASSWORD}
+    volumes:
+      - type: volume
+        source: site2
+        target: 'C:\site'
+    ports:
+      - "8081:80"
+    depends_on:
+      - sql
+
+volumes:
+  sql-data:
+  site1:
+  site2:

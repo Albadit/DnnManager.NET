@@ -1,0 +1,83 @@
+# The Docker DNN experiment (experiments/docker-dnn): runs it where it can run and records where it can't, then commits
+# the results to experiments/docker-dnn/test-results on this branch. Only on the experiment branch, or by hand.
+name: Docker DNN experiment
+
+on:
+  push:
+    branches: [experiments/docker-dnn]
+    paths:
+      - 'experiments/docker-dnn/**'
+      - '!experiments/docker-dnn/test-results/**'
+      - '!experiments/docker-dnn/README.md'
+      - '.github/workflows/docker-dnn-experiment.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: docker-dnn-experiment
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    # Windows Server 2022: Docker runs Windows containers, process-isolated ltsc2022 images.
+    name: Windows Server 2022 - IIS + DNN + SQL Server in Windows containers
+    runs-on: windows-2022
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v5
+      - name: Run the experiment
+        shell: pwsh
+        working-directory: experiments/docker-dnn
+        run: ./scripts/test.ps1 -Name windows-2022
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results-windows-2022
+          path: experiments/docker-dnn/test-results/windows-2022
+
+  linux:
+    # Linux: what a Linux developer's Docker does with the Windows images - and the SQL Server half, which does run.
+    name: Ubuntu - Windows containers on Linux Docker, SQL Server container, KVM for a Windows VM
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Run the checks
+        shell: pwsh
+        working-directory: experiments/docker-dnn
+        run: ./scripts/test-linux.ps1 -Name ubuntu
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results-ubuntu
+          path: experiments/docker-dnn/test-results/ubuntu
+
+  commit:
+    name: Commit the results to the branch
+    needs: [windows, linux]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          path: downloaded
+      - name: Commit
+        run: |
+          for name in windows-2022 ubuntu; do
+            if [ -d "downloaded/results-$name" ]; then
+              rm -rf "experiments/docker-dnn/test-results/$name"
+              mkdir -p experiments/docker-dnn/test-results
+              cp -r "downloaded/results-$name" "experiments/docker-dnn/test-results/$name"
+            fi
+          done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add experiments/docker-dnn/test-results
+          git diff --cached --quiet && exit 0
+          git commit -m "experiment: docker-dnn test results (run ${{ github.run_number }})"
+          git push
