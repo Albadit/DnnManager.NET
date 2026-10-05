@@ -1,257 +1,257 @@
 === InstallerLog20261005.resources
-10/05/2026 19:26:40 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallDNN:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\
-10/05/2026 19:26:40 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallDatabase:10.00.00
-10/05/2026 19:26:40 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\DotNetNuke.Schema.SqlDataProvider
-10/05/2026 19:26:42 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\DotNetNuke.Schema.SqlDataProvider
-10/05/2026 19:26:42 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\DotNetNuke.Data.SqlDataProvider
-10/05/2026 19:26:51 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\DotNetNuke.Data.SqlDataProvider
-10/05/2026 19:26:51 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallMemberRoleProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade End InstallMemberRoleProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeDNN:10.03.03
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.02.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.02.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.02.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.02.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.03.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.03.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.03.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.03.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.00.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.00.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.00.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.00.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.02.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.02.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.02.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.02.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.00.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.00.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.00.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.00.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.02.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.02.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.02.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.02.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.03.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.03.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.03.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.03.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.04.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.04.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.04.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.04.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.00.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.00.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.00.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.00.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.01.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.02.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.02.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.02.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.02.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.03.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.03.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.03.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.03.SqlDataProvider
-10/05/2026 19:26:52 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.0.0
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start AddHostPage:Superuser Accounts
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start AddPage:Superuser Accounts
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start AddModuleToPage:15
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End AddModuleToPage:15
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.0.0
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.0.0
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.0.1
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.1.0
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.1.1
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.1.2
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.2.0
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.2.1
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.2.2
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.2.3
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.2.4
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.3.0
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.3.1
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.3.2
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.3.3
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.00.00.01
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.00.00.02
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.00.00.03
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.00.01
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.01.00
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.01.01
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.01.02
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.02.00
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.02.01
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.02.02
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.02.03
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.02.04
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.03.00
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.03.01
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.03.02
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.03.03
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.00.00.01
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.0.0
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.0.0
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.00.00.01
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.00.00.02
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.0.0
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.0.0
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.00.00.02
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.00.00.03
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.0.0
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.0.0
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.00.00.03
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.00.01
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.0.1
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.0.1
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.00.01
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.01.00
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.1.0
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.1.0
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.01.00
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.01.01
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.1.1
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.1.1
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.01.01
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.01.02
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.1.2
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.1.2
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.01.02
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.02.00
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.2.0
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.2.0
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.02.00
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.02.01
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.2.1
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.2.1
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.02.01
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.02.02
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.2.2
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.2.2
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.02.02
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.02.03
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.2.3
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.2.3
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.02.03
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.02.04
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.2.4
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=key
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateAttribute:attributeName=requestLengthDiskThreshold
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.2.4
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.02.04
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.03.00
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.3.0
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.3.0
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.03.00
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.03.01
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.3.1
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.3.1
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.03.01
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.03.02
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.3.2
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.3.2
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.03.02
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.03.03
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.3.3
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.3.3
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.03.03
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Performing General Upgrades
-10/05/2026 19:26:53 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InitialiseHostSettings
-10/05/2026 19:26:54 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start GetSuperUser
-10/05/2026 19:26:54 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallFiles
-10/05/2026 19:26:55 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScripts:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\
-10/05/2026 19:26:55 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\AspNetMvc_5.3.61130.707_Install.zip
-10/05/2026 19:26:55 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
-10/05/2026 19:26:55 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\AspNetWebApi_5.3.61130.707_Install.zip
-10/05/2026 19:26:56 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\AspNetWebPages_3.0.61130.707_Install.zip
-10/05/2026 19:26:56 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\HtmlSanitizer_9.1.878_Install.zip
-10/05/2026 19:26:57 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\MailKit_4.16.0.0_Install.zip
-10/05/2026 19:26:58 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\Microsoft.CodeDom.Providers.DotNetCompilerPlatform_4.1.20305.0_Install.zip
-10/05/2026 19:26:59 [INFO] DotNetNuke.Services.Installer.XmlMerge Start AddNode:
-10/05/2026 19:26:59 [INFO] DotNetNuke.Services.Installer.XmlMerge Start AddNode:
-10/05/2026 19:26:59 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\Microsoft.Extensions.DependencyInjection_8.0.23.53103_Install.zip
-10/05/2026 19:26:59 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\Microsoft.Extensions.FileSystemGlobbing_5.0.20.51904_Install.zip
-10/05/2026 19:26:59 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\Microsoft.Web.Infrastructure_2.0.34876.0_Install.zip
-10/05/2026 19:26:59 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\Newtonsoft.Json_13.0.3.27908_Install.zip
-10/05/2026 19:26:59 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\SharpZipLib_1.4.2.13_Install.zip
-10/05/2026 19:27:00 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\WebFormsMvp_1.4.5.0_Install.zip
-10/05/2026 19:27:00 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DDRMenu_10.03.03_Install.zip
-10/05/2026 19:27:00 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
-10/05/2026 19:27:00 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\Dnn.EditBar.UI_10.03.03_Install.zip
-10/05/2026 19:27:00 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
-10/05/2026 19:27:00 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\Dnn.PersonaBar.UI_10.03.03_Install.zip
-10/05/2026 19:27:02 [INFO] DotNetNuke.Services.Installer.XmlMerge Start AddNode:
-10/05/2026 19:27:02 [INFO] DotNetNuke.Services.Installer.XmlMerge Start AddNode:
-10/05/2026 19:27:02 [INFO] DotNetNuke.Services.Installer.XmlMerge Start AddNode:
-10/05/2026 19:27:02 [INFO] DotNetNuke.Services.Installer.XmlMerge Start AddNode:
-10/05/2026 19:27:02 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
-10/05/2026 19:27:02 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_AzureConnector_10.03.03_Install.zip
-10/05/2026 19:27:02 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_Console_10.03.03_Install.zip
-10/05/2026 19:27:02 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_CoreMessaging_10.03.03_Install.zip
-10/05/2026 19:27:03 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_HTML_10.03.03_Install.zip
-10/05/2026 19:27:03 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_HtmlEditorManager_10.03.03_Install.zip
-10/05/2026 19:27:03 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_Journal_10.03.03_Install.zip
-10/05/2026 19:27:04 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_MemberDirectory_10.03.03_Install.zip
-10/05/2026 19:27:04 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_RazorHost_10.03.03_Install.zip
-10/05/2026 19:27:04 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_ResourceManager_10.03.03_Install.zip
-10/05/2026 19:27:05 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_SiteExportImport_10.03.03_Install.zip
-10/05/2026 19:27:06 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_SocialGroups_10.03.03_Install.zip
-10/05/2026 19:27:06 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\GoogleAnalytics4Connector_10.03.03_Install.zip
-10/05/2026 19:27:06 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\GoogleAnalyticsConnector_10.03.03_Install.zip
-10/05/2026 19:27:06 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\GoogleTagManagerConnector_10.03.03_Install.zip
-10/05/2026 19:27:07 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Skin\Aperture_10.3.3_install.zip
-10/05/2026 19:27:07 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=fileExtension
-10/05/2026 19:27:07 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\jQuery.iframe-transport_10.07.00_Install.zip
-10/05/2026 19:27:07 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\jQuery_03.07.01_Install.zip
-10/05/2026 19:27:07 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\Knockout_03.05.01_Install.zip
-10/05/2026 19:27:07 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\Selectize_00.12.06_Install.zip
-10/05/2026 19:27:07 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Provider\AspNetClientCapabilityProvider_10.03.03_Install.zip
-10/05/2026 19:27:07 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
-10/05/2026 19:27:07 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
-10/05/2026 19:27:07 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Provider\DNN_SimpleWebFarmCachingProvider_10.03.03_Install.zip
-10/05/2026 19:27:07 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
-10/05/2026 19:27:07 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
-10/05/2026 19:27:07 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Provider\DNNCE_ExchangeOnlineAuthProvider_10.03.03_Install.zip
-10/05/2026 19:27:07 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Provider\DNNCE_FolderProviders_10.03.03_Install.zip
-10/05/2026 19:27:08 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
-10/05/2026 19:27:08 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Provider\DNNCE_GoogleMailAuthProvider_10.03.03_Install.zip
-10/05/2026 19:27:08 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Provider\DNNConnect.CKEditorProvider_10.03.03_Install.zip
-10/05/2026 19:27:12 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
-10/05/2026 19:27:12 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=path
-10/05/2026 19:27:12 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Provider\DnnJwtAuth_10.03.03_Install.zip
-10/05/2026 19:27:13 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
-10/05/2026 19:27:13 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=key
-10/05/2026 19:27:13 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=key
-10/05/2026 19:27:13 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\Dnn.PersonaBar.Extensions_10.03.03_Install.zip
-10/05/2026 19:27:17 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\HoverIntent_01.10.01_Install.zip
-10/05/2026 19:27:17 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\jQueryMigrate_03.04.01_Install.zip
-10/05/2026 19:27:17 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\jQueryUI_01.14.01_Install.zip
-10/05/2026 19:27:17 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\KnockoutMapping_02.04.01_Install.zip
-10/05/2026 19:27:17 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\DnnPlugins_10.03.03_Install.zip
-10/05/2026 19:27:17 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\jQuery.Fileupload_10.07.00_Install.zip
-10/05/2026 19:27:17 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start AddPortal:localhost
+10/05/2026 21:26:02 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallDNN:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\
+10/05/2026 21:26:02 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallDatabase:10.00.00
+10/05/2026 21:26:02 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\DotNetNuke.Schema.SqlDataProvider
+10/05/2026 21:26:04 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\DotNetNuke.Schema.SqlDataProvider
+10/05/2026 21:26:04 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\DotNetNuke.Data.SqlDataProvider
+10/05/2026 21:26:08 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\DotNetNuke.Data.SqlDataProvider
+10/05/2026 21:26:08 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallMemberRoleProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade End InstallMemberRoleProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeDNN:10.03.03
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.02.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.02.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.02.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.02.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.03.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.03.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.03.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.00.03.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.00.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.00.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.00.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.00.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.00.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.02.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.02.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.02.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.01.02.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.00.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.00.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.00.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.00.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.02.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.02.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.02.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.02.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.03.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.03.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.03.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.03.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.04.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.04.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.04.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.02.04.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.00.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.00.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.00.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.00.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.01.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.02.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.02.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.02.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.02.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.03.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.03.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade End ExecuteScript:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.03.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpgradeVersion:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\10.03.03.SqlDataProvider
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.0.0
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start AddHostPage:Superuser Accounts
+10/05/2026 21:26:09 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start AddPage:Superuser Accounts
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start AddModuleToPage:15
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End AddModuleToPage:15
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.0.0
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.0.0
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.0.1
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.1.0
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.1.1
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.1.2
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.2.0
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.2.1
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.2.2
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.2.3
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.2.4
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.3.0
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.3.1
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.3.2
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start Application Upgrades: 10.3.3
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.00.00.01
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.00.00.02
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.00.00.03
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.00.01
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.01.00
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.01.01
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.01.02
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.02.00
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.02.01
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.02.02
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.02.03
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.02.04
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.03.00
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.03.01
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.03.02
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start DeleteFiles:10.03.03
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.00.00.01
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.0.0
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.0.0
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.00.00.01
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.00.00.02
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.0.0
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.0.0
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.00.00.02
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.00.00.03
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.0.0
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.0.0
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.00.00.03
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.00.01
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.0.1
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.0.1
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.00.01
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.01.00
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.1.0
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.1.0
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.01.00
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.01.01
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.1.1
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.1.1
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.01.01
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.01.02
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.1.2
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.1.2
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.01.02
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.02.00
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.2.0
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.2.0
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.02.00
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.02.01
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.2.1
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.2.1
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.02.01
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.02.02
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.2.2
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.2.2
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.02.02
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.02.03
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.2.3
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.2.3
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.02.03
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.02.04
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.2.4
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=key
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateAttribute:attributeName=requestLengthDiskThreshold
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.2.4
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.02.04
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.03.00
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.3.0
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.3.0
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.03.00
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.03.01
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.3.1
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.3.1
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.03.01
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.03.02
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.3.2
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.3.2
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.03.02
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.03.03
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start UpdateConfig:10.3.3
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.3.3
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade End UpdateConfig:10.03.03
+10/05/2026 21:26:10 [INFO] DotNetNuke.Services.Upgrade.Upgrade Performing General Upgrades
+10/05/2026 21:26:11 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InitialiseHostSettings
+10/05/2026 21:26:11 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start GetSuperUser
+10/05/2026 21:26:11 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallFiles
+10/05/2026 21:26:12 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start ExecuteScripts:C:\inetpub\dnn\Providers\DataProviders\SqlDataProvider\
+10/05/2026 21:26:12 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\AspNetMvc_5.3.61130.707_Install.zip
+10/05/2026 21:26:12 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
+10/05/2026 21:26:12 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\AspNetWebApi_5.3.61130.707_Install.zip
+10/05/2026 21:26:13 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\AspNetWebPages_3.0.61130.707_Install.zip
+10/05/2026 21:26:13 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\HtmlSanitizer_9.1.878_Install.zip
+10/05/2026 21:26:14 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\MailKit_4.16.0.0_Install.zip
+10/05/2026 21:26:15 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\Microsoft.CodeDom.Providers.DotNetCompilerPlatform_4.1.20305.0_Install.zip
+10/05/2026 21:26:16 [INFO] DotNetNuke.Services.Installer.XmlMerge Start AddNode:
+10/05/2026 21:26:16 [INFO] DotNetNuke.Services.Installer.XmlMerge Start AddNode:
+10/05/2026 21:26:16 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\Microsoft.Extensions.DependencyInjection_8.0.23.53103_Install.zip
+10/05/2026 21:26:17 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\Microsoft.Extensions.FileSystemGlobbing_5.0.20.51904_Install.zip
+10/05/2026 21:26:17 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\Microsoft.Web.Infrastructure_2.0.34876.0_Install.zip
+10/05/2026 21:26:17 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\Newtonsoft.Json_13.0.3.27908_Install.zip
+10/05/2026 21:26:17 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\SharpZipLib_1.4.2.13_Install.zip
+10/05/2026 21:26:18 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Library\WebFormsMvp_1.4.5.0_Install.zip
+10/05/2026 21:26:18 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DDRMenu_10.03.03_Install.zip
+10/05/2026 21:26:18 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
+10/05/2026 21:26:18 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\Dnn.EditBar.UI_10.03.03_Install.zip
+10/05/2026 21:26:18 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
+10/05/2026 21:26:19 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\Dnn.PersonaBar.UI_10.03.03_Install.zip
+10/05/2026 21:26:20 [INFO] DotNetNuke.Services.Installer.XmlMerge Start AddNode:
+10/05/2026 21:26:20 [INFO] DotNetNuke.Services.Installer.XmlMerge Start AddNode:
+10/05/2026 21:26:20 [INFO] DotNetNuke.Services.Installer.XmlMerge Start AddNode:
+10/05/2026 21:26:20 [INFO] DotNetNuke.Services.Installer.XmlMerge Start AddNode:
+10/05/2026 21:26:20 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
+10/05/2026 21:26:21 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_AzureConnector_10.03.03_Install.zip
+10/05/2026 21:26:21 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_Console_10.03.03_Install.zip
+10/05/2026 21:26:21 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_CoreMessaging_10.03.03_Install.zip
+10/05/2026 21:26:21 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_HTML_10.03.03_Install.zip
+10/05/2026 21:26:22 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_HtmlEditorManager_10.03.03_Install.zip
+10/05/2026 21:26:22 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_Journal_10.03.03_Install.zip
+10/05/2026 21:26:23 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_MemberDirectory_10.03.03_Install.zip
+10/05/2026 21:26:23 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_RazorHost_10.03.03_Install.zip
+10/05/2026 21:26:24 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_ResourceManager_10.03.03_Install.zip
+10/05/2026 21:26:25 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_SiteExportImport_10.03.03_Install.zip
+10/05/2026 21:26:26 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\DNNCE_SocialGroups_10.03.03_Install.zip
+10/05/2026 21:26:26 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\GoogleAnalytics4Connector_10.03.03_Install.zip
+10/05/2026 21:26:26 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\GoogleAnalyticsConnector_10.03.03_Install.zip
+10/05/2026 21:26:26 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\GoogleTagManagerConnector_10.03.03_Install.zip
+10/05/2026 21:26:26 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Skin\Aperture_10.3.3_install.zip
+10/05/2026 21:26:27 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=fileExtension
+10/05/2026 21:26:27 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\jQuery.iframe-transport_10.07.00_Install.zip
+10/05/2026 21:26:27 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\jQuery_03.07.01_Install.zip
+10/05/2026 21:26:27 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\Knockout_03.05.01_Install.zip
+10/05/2026 21:26:27 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\Selectize_00.12.06_Install.zip
+10/05/2026 21:26:27 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Provider\AspNetClientCapabilityProvider_10.03.03_Install.zip
+10/05/2026 21:26:27 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
+10/05/2026 21:26:27 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
+10/05/2026 21:26:27 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Provider\DNN_SimpleWebFarmCachingProvider_10.03.03_Install.zip
+10/05/2026 21:26:27 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
+10/05/2026 21:26:27 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
+10/05/2026 21:26:27 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Provider\DNNCE_ExchangeOnlineAuthProvider_10.03.03_Install.zip
+10/05/2026 21:26:28 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Provider\DNNCE_FolderProviders_10.03.03_Install.zip
+10/05/2026 21:26:28 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
+10/05/2026 21:26:28 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Provider\DNNCE_GoogleMailAuthProvider_10.03.03_Install.zip
+10/05/2026 21:26:28 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Provider\DNNConnect.CKEditorProvider_10.03.03_Install.zip
+10/05/2026 21:26:33 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
+10/05/2026 21:26:33 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=path
+10/05/2026 21:26:33 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Provider\DnnJwtAuth_10.03.03_Install.zip
+10/05/2026 21:26:34 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=name
+10/05/2026 21:26:34 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=key
+10/05/2026 21:26:34 [INFO] DotNetNuke.Services.Installer.XmlMerge Start UpdateNode: keyAttribute=key
+10/05/2026 21:26:34 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\Module\Dnn.PersonaBar.Extensions_10.03.03_Install.zip
+10/05/2026 21:26:39 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\HoverIntent_01.10.01_Install.zip
+10/05/2026 21:26:39 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\jQueryMigrate_03.04.01_Install.zip
+10/05/2026 21:26:40 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\jQueryUI_01.14.01_Install.zip
+10/05/2026 21:26:40 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\KnockoutMapping_02.04.01_Install.zip
+10/05/2026 21:26:40 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\DnnPlugins_10.03.03_Install.zip
+10/05/2026 21:26:40 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start InstallPackage:C:\inetpub\dnn\Install\JavaScriptLibrary\jQuery.Fileupload_10.07.00_Install.zip
+10/05/2026 21:26:40 [INFO] DotNetNuke.Services.Upgrade.Upgrade Start AddPortal:localhost:8080
 === 2026.10.05.log.resources
-2026-10-05 12:26:33.117-07:00 [DNNWIND-V4KVR1T][D:2][T:1][ERROR] DotNetNuke.ComponentModel.ProviderInstaller - System.Configuration.ConfigurationErrorsException: Could not load provider DNNConnect.CKEditorProvider.CKHtmlEditorProvider, DNNConnect.CKEditorProvider
-2026-10-05 12:26:34.242-07:00 [DNNWIND-V4KVR1T][D:2][T:1][ERROR] DotNetNuke.Web.DependencyInjectionInitialize - Unable to configure services for DotNetNuke.Web.Startup, see exception for details
+2026-10-05 14:25:53.502-07:00 [DNNWIND-RFTCC4M][D:2][T:1][ERROR] DotNetNuke.ComponentModel.ProviderInstaller - System.Configuration.ConfigurationErrorsException: Could not load provider DNNConnect.CKEditorProvider.CKHtmlEditorProvider, DNNConnect.CKEditorProvider
+2026-10-05 14:25:54.877-07:00 [DNNWIND-RFTCC4M][D:2][T:1][ERROR] DotNetNuke.Web.DependencyInjectionInitialize - Unable to configure services for DotNetNuke.Web.Startup, see exception for details
 System.IO.FileNotFoundException: Could not load file or assembly 'System.Web.Http, Version=5.3.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35' or one of its dependencies. The system cannot find the file specified.
 File name: 'System.Web.Http, Version=5.3.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35'
    at DotNetNuke.Web.Startup.ConfigureServices(IServiceCollection services)
@@ -262,16 +262,16 @@ To enable assembly bind failure logging, set the registry value [HKLM\Software\M
 Note: There is some performance penalty associated with assembly bind failure logging.
 To turn this feature off, remove the registry value [HKLM\Software\Microsoft\Fusion!EnableLog].
 
-2026-10-05 12:26:34.711-07:00 [DNNWIND-V4KVR1T][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+2026-10-05 14:25:55.455-07:00 [DNNWIND-RFTCC4M][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
 Could not find stored procedure 'dbo.GetDatabaseVersion'.
-2026-10-05 12:26:34.945-07:00 [DNNWIND-V4KVR1T][D:2][T:11][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+2026-10-05 14:25:55.737-07:00 [DNNWIND-RFTCC4M][D:2][T:11][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
 Could not find stored procedure 'dbo.GetDatabaseVersion'.
-2026-10-05 12:26:36.945-07:00 [DNNWIND-V4KVR1T][D:2][T:8][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+2026-10-05 14:25:58.080-07:00 [DNNWIND-RFTCC4M][D:2][T:8][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
 Could not find stored procedure 'dbo.GetDatabaseVersion'.
-2026-10-05 12:26:36.945-07:00 [DNNWIND-V4KVR1T][D:2][T:8][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+2026-10-05 14:25:58.080-07:00 [DNNWIND-RFTCC4M][D:2][T:8][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
 Could not find stored procedure 'dbo.GetDatabaseVersion'.
-2026-10-05 12:26:37.508-07:00 [DNNWIND-V4KVR1T][D:3][T:1][ERROR] DotNetNuke.ComponentModel.ProviderInstaller - System.Configuration.ConfigurationErrorsException: Could not load provider DNNConnect.CKEditorProvider.CKHtmlEditorProvider, DNNConnect.CKEditorProvider
-2026-10-05 12:26:37.883-07:00 [DNNWIND-V4KVR1T][D:3][T:1][ERROR] DotNetNuke.Web.DependencyInjectionInitialize - Unable to configure services for DotNetNuke.Web.Startup, see exception for details
+2026-10-05 14:25:58.940-07:00 [DNNWIND-RFTCC4M][D:3][T:1][ERROR] DotNetNuke.ComponentModel.ProviderInstaller - System.Configuration.ConfigurationErrorsException: Could not load provider DNNConnect.CKEditorProvider.CKHtmlEditorProvider, DNNConnect.CKEditorProvider
+2026-10-05 14:25:59.471-07:00 [DNNWIND-RFTCC4M][D:3][T:1][ERROR] DotNetNuke.Web.DependencyInjectionInitialize - Unable to configure services for DotNetNuke.Web.Startup, see exception for details
 System.IO.FileNotFoundException: Could not load file or assembly 'System.Web.Http, Version=5.3.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35' or one of its dependencies. The system cannot find the file specified.
 File name: 'System.Web.Http, Version=5.3.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35'
    at DotNetNuke.Web.Startup.ConfigureServices(IServiceCollection services)
@@ -282,17 +282,17 @@ To enable assembly bind failure logging, set the registry value [HKLM\Software\M
 Note: There is some performance penalty associated with assembly bind failure logging.
 To turn this feature off, remove the registry value [HKLM\Software\Microsoft\Fusion!EnableLog].
 
-2026-10-05 12:26:39.070-07:00 [DNNWIND-V4KVR1T][D:3][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+2026-10-05 14:26:00.237-07:00 [DNNWIND-RFTCC4M][D:3][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
 Could not find stored procedure 'dbo.GetDatabaseVersion'.
-2026-10-05 12:26:39.117-07:00 [DNNWIND-V4KVR1T][D:3][T:11][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+2026-10-05 14:26:00.299-07:00 [DNNWIND-RFTCC4M][D:3][T:8][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
 Could not find stored procedure 'dbo.GetDatabaseVersion'.
-2026-10-05 12:26:40.352-07:00 [DNNWIND-V4KVR1T][D:3][T:11][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+2026-10-05 14:26:01.940-07:00 [DNNWIND-RFTCC4M][D:3][T:8][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
 Could not find stored procedure 'dbo.GetDatabaseVersion'.
-2026-10-05 12:26:40.367-07:00 [DNNWIND-V4KVR1T][D:3][T:11][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+2026-10-05 14:26:01.955-07:00 [DNNWIND-RFTCC4M][D:3][T:8][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
 Could not find stored procedure 'dbo.GetDatabaseVersion'.
-2026-10-05 12:26:40.383-07:00 [DNNWIND-V4KVR1T][D:3][T:11][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
+2026-10-05 14:26:01.971-07:00 [DNNWIND-RFTCC4M][D:3][T:8][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
 Could not find stored procedure 'dbo.GetHostSettings'.
-2026-10-05 12:26:40.383-07:00 [DNNWIND-V4KVR1T][D:3][T:11][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): Could not find stored procedure 'dbo.GetHostSettings'.
+2026-10-05 14:26:01.971-07:00 [DNNWIND-RFTCC4M][D:3][T:8][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): Could not find stored procedure 'dbo.GetHostSettings'.
    at System.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
    at System.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
    at System.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
@@ -307,156 +307,46 @@ Could not find stored procedure 'dbo.GetHostSettings'.
    at DotNetNuke.Data.PetaPoco.PetaPocoHelper.ExecuteReader(String connectionString, CommandType type, Int32 timeoutSec, String sql, Object[] args)
    at DotNetNuke.Data.SqlDataProvider.ExecuteReader(String procedureName, Object[] commandParameters)
    at DotNetNuke.Entities.Controllers.HostController.GetSettingsFromDatabase()
-ClientConnectionId:1f0d49ce-1c20-4a3a-bf29-acaa94b7e51d
+ClientConnectionId:6145d932-68b4-42bd-ab75-b6ae9ffdb638
 Error Number:2812,State:62,Class:16
-2026-10-05 12:27:40.836-07:00 [DNNWIND-V4KVR1T][D:5][T:14][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:27:40.867-07:00 [DNNWIND-V4KVR1T][D:5][T:14][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=An+unexpected+error+has+occurred&content=0
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:27:40.930-07:00 [DNNWIND-V4KVR1T][D:5][T:6][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:27:40.930-07:00 [DNNWIND-V4KVR1T][D:5][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=terminate
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:27:40.977-07:00 [DNNWIND-V4KVR1T][D:5][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - DotNetNuke.Services.Exceptions.PageLoadException: Object reference not set to an instance of an object. ---> System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-   --- End of inner exception stack trace ---
-2026-10-05 12:27:54.023-07:00 [DNNWIND-V4KVR1T][D:5][T:11][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:27:54.023-07:00 [DNNWIND-V4KVR1T][D:5][T:11][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=An+unexpected+error+has+occurred&content=0
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:27:54.055-07:00 [DNNWIND-V4KVR1T][D:5][T:5][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:27:54.070-07:00 [DNNWIND-V4KVR1T][D:5][T:5][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=terminate
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:27:54.070-07:00 [DNNWIND-V4KVR1T][D:5][T:5][ERROR] DotNetNuke.Services.Exceptions.Exceptions - DotNetNuke.Services.Exceptions.PageLoadException: Object reference not set to an instance of an object. ---> System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-   --- End of inner exception stack trace ---
-2026-10-05 12:31:16.611-07:00 [DNNWIND-V4KVR1T][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:16.658-07:00 [DNNWIND-V4KVR1T][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:16.658-07:00 [DNNWIND-V4KVR1T][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:16.658-07:00 [DNNWIND-V4KVR1T][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:16.658-07:00 [DNNWIND-V4KVR1T][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:16.658-07:00 [DNNWIND-V4KVR1T][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:16.658-07:00 [DNNWIND-V4KVR1T][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:16.658-07:00 [DNNWIND-V4KVR1T][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:16.658-07:00 [DNNWIND-V4KVR1T][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:16.658-07:00 [DNNWIND-V4KVR1T][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:16.658-07:00 [DNNWIND-V4KVR1T][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:16.658-07:00 [DNNWIND-V4KVR1T][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:16.829-07:00 [DNNWIND-V4KVR1T][D:2][T:7][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:16.845-07:00 [DNNWIND-V4KVR1T][D:2][T:7][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:16.845-07:00 [DNNWIND-V4KVR1T][D:2][T:7][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:16.845-07:00 [DNNWIND-V4KVR1T][D:2][T:7][ERROR] DotNetNuke.Common.Initialize - The connection to the database has failed, however, the application is already completely installed, a 500 error page will be shown to visitors
-2026-10-05 12:31:16.970-07:00 [DNNWIND-V4KVR1T][D:2][T:7][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:16.970-07:00 [DNNWIND-V4KVR1T][D:2][T:7][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:16.986-07:00 [DNNWIND-V4KVR1T][D:2][T:7][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:16.986-07:00 [DNNWIND-V4KVR1T][D:2][T:7][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.) ---> System.ComponentModel.Win32Exception (0x80004005): The message received was unexpected or badly formatted
+2026-10-05 14:29:24.541-07:00 [DNNWIND-RFTCC4M][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:24.588-07:00 [DNNWIND-RFTCC4M][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:24.588-07:00 [DNNWIND-RFTCC4M][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:24.588-07:00 [DNNWIND-RFTCC4M][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:24.588-07:00 [DNNWIND-RFTCC4M][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:24.588-07:00 [DNNWIND-RFTCC4M][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:24.588-07:00 [DNNWIND-RFTCC4M][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:24.588-07:00 [DNNWIND-RFTCC4M][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:24.588-07:00 [DNNWIND-RFTCC4M][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:24.604-07:00 [DNNWIND-RFTCC4M][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:24.604-07:00 [DNNWIND-RFTCC4M][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:24.604-07:00 [DNNWIND-RFTCC4M][D:2][T:1][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:24.807-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:24.807-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:24.822-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:24.822-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Common.Initialize - The connection to the database has failed, however, the application is already completely installed, a 500 error page will be shown to visitors
+2026-10-05 14:29:44.635-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.635-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.635-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.635-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.) ---> System.ComponentModel.Win32Exception (0x80004005): The remote computer refused the network connection
    at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
    at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal& connection)
    at System.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
@@ -469,13 +359,13 @@ A connection was successfully established with the server, but then an error occ
    at DotNetNuke.Data.PetaPoco.PetaPocoHelper.ExecuteReader(String connectionString, CommandType type, Int32 timeoutSec, String sql, Object[] args)
    at DotNetNuke.Data.SqlDataProvider.ExecuteReader(String procedureName, Object[] commandParameters)
    at DotNetNuke.Entities.Controllers.HostController.GetSettingsFromDatabase()
-ClientConnectionId:a900cae7-af86-474f-b46b-7254bced60e0
-Error Number:-2146893018,State:0,Class:20
-2026-10-05 12:31:17.001-07:00 [DNNWIND-V4KVR1T][D:2][T:7][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:17.001-07:00 [DNNWIND-V4KVR1T][D:2][T:7][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:17.017-07:00 [DNNWIND-V4KVR1T][D:2][T:7][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.) ---> System.ComponentModel.Win32Exception (0x80004005): The message received was unexpected or badly formatted
+ClientConnectionId:00000000-0000-0000-0000-000000000000
+Error Number:1225,State:0,Class:20
+2026-10-05 14:29:44.667-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.667-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.682-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.) ---> System.ComponentModel.Win32Exception (0x80004005): The remote computer refused the network connection
    at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
    at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal& connection)
    at System.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
@@ -488,167 +378,277 @@ A connection was successfully established with the server, but then an error occ
    at DotNetNuke.Data.PetaPoco.PetaPocoHelper.ExecuteReader(String connectionString, CommandType type, Int32 timeoutSec, String sql, Object[] args)
    at DotNetNuke.Data.SqlDataProvider.ExecuteReader(String procedureName, Object[] commandParameters)
    at DotNetNuke.Entities.Controllers.HostController.GetSettingsFromDatabase()
-ClientConnectionId:a900cae7-af86-474f-b46b-7254bced60e0
-Error Number:-2146893018,State:0,Class:20
-2026-10-05 12:31:17.017-07:00 [DNNWIND-V4KVR1T][D:2][T:7][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:17.017-07:00 [DNNWIND-V4KVR1T][D:2][T:7][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
-A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.)
-2026-10-05 12:31:17.017-07:00 [DNNWIND-V4KVR1T][D:2][T:7][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: SSL Provider, error: 0 - The message received was unexpected or badly formatted.) ---> System.ComponentModel.Win32Exception (0x80004005): The message received was unexpected or badly formatted
+ClientConnectionId:00000000-0000-0000-0000-000000000000
+Error Number:1225,State:0,Class:20
+2026-10-05 14:29:44.682-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.682-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.682-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.) ---> System.ComponentModel.Win32Exception (0x80004005): The remote computer refused the network connection
    at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
    at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal& connection)
    at System.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
    at System.Data.ProviderBase.DbConnectionInternal.TryOpenConnectionInternal(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
    at System.Data.SqlClient.SqlConnection.TryOpenInner(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.TryOpen(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.Open()
+   at PetaPoco.Database.OpenSharedConnection()
+   at DotNetNuke.Data.PetaPoco.PetaPocoExt.ExecuteReader(Database database, String sql, Object[] args)
+   at DotNetNuke.Data.PetaPoco.PetaPocoHelper.ExecuteReader(String connectionString, CommandType type, Int32 timeoutSec, String sql, Object[] args)
+   at DotNetNuke.Data.SqlDataProvider.ExecuteReader(String procedureName, Object[] commandParameters)
+   at DotNetNuke.Entities.Controllers.HostController.GetSettingsFromDatabase()
+ClientConnectionId:00000000-0000-0000-0000-000000000000
+Error Number:1225,State:0,Class:20
+2026-10-05 14:29:44.682-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.682-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.682-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.) ---> System.ComponentModel.Win32Exception (0x80004005): The remote computer refused the network connection
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionInternal.TryOpenConnectionInternal(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
+   at System.Data.SqlClient.SqlConnection.TryOpenInner(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.TryOpen(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.Open()
+   at PetaPoco.Database.OpenSharedConnection()
+   at DotNetNuke.Data.PetaPoco.PetaPocoExt.ExecuteReader(Database database, String sql, Object[] args)
+   at DotNetNuke.Data.PetaPoco.PetaPocoHelper.ExecuteReader(String connectionString, CommandType type, Int32 timeoutSec, String sql, Object[] args)
+   at DotNetNuke.Data.SqlDataProvider.ExecuteReader(String procedureName, Object[] commandParameters)
+   at DotNetNuke.Entities.Controllers.HostController.GetSettingsFromDatabase()
+ClientConnectionId:00000000-0000-0000-0000-000000000000
+Error Number:1225,State:0,Class:20
+2026-10-05 14:29:44.682-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.682-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.682-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.) ---> System.ComponentModel.Win32Exception (0x80004005): The remote computer refused the network connection
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionInternal.TryOpenConnectionInternal(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
+   at System.Data.SqlClient.SqlConnection.TryOpenInner(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.TryOpen(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.Open()
+   at PetaPoco.Database.OpenSharedConnection()
+   at DotNetNuke.Data.PetaPoco.PetaPocoExt.ExecuteReader(Database database, String sql, Object[] args)
+   at DotNetNuke.Data.PetaPoco.PetaPocoHelper.ExecuteReader(String connectionString, CommandType type, Int32 timeoutSec, String sql, Object[] args)
+   at DotNetNuke.Data.SqlDataProvider.ExecuteReader(String procedureName, Object[] commandParameters)
+   at DotNetNuke.Entities.Controllers.HostController.GetSettingsFromDatabase()
+ClientConnectionId:00000000-0000-0000-0000-000000000000
+Error Number:1225,State:0,Class:20
+2026-10-05 14:29:44.682-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.682-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.682-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.) ---> System.ComponentModel.Win32Exception (0x80004005): The remote computer refused the network connection
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionInternal.TryOpenConnectionInternal(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
+   at System.Data.SqlClient.SqlConnection.TryOpenInner(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.TryOpen(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.Open()
+   at PetaPoco.Database.OpenSharedConnection()
+   at DotNetNuke.Data.PetaPoco.PetaPocoExt.ExecuteReader(Database database, String sql, Object[] args)
+   at DotNetNuke.Data.PetaPoco.PetaPocoHelper.ExecuteReader(String connectionString, CommandType type, Int32 timeoutSec, String sql, Object[] args)
+   at DotNetNuke.Data.SqlDataProvider.ExecuteReader(String procedureName, Object[] commandParameters)
+   at DotNetNuke.Entities.Controllers.HostController.GetSettingsFromDatabase()
+ClientConnectionId:00000000-0000-0000-0000-000000000000
+Error Number:1225,State:0,Class:20
+2026-10-05 14:29:44.682-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.682-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.682-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.) ---> System.ComponentModel.Win32Exception (0x80004005): The remote computer refused the network connection
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionInternal.TryOpenConnectionInternal(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
+   at System.Data.SqlClient.SqlConnection.TryOpenInner(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.TryOpen(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.Open()
+   at PetaPoco.Database.OpenSharedConnection()
+   at DotNetNuke.Data.PetaPoco.PetaPocoExt.ExecuteReader(Database database, String sql, Object[] args)
+   at DotNetNuke.Data.PetaPoco.PetaPocoHelper.ExecuteReader(String connectionString, CommandType type, Int32 timeoutSec, String sql, Object[] args)
+   at DotNetNuke.Data.SqlDataProvider.ExecuteReader(String procedureName, Object[] commandParameters)
+   at DotNetNuke.Entities.Controllers.HostController.GetSettingsFromDatabase()
+ClientConnectionId:00000000-0000-0000-0000-000000000000
+Error Number:1225,State:0,Class:20
+2026-10-05 14:29:44.698-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.698-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.698-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.) ---> System.ComponentModel.Win32Exception (0x80004005): The remote computer refused the network connection
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionInternal.TryOpenConnectionInternal(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
+   at System.Data.SqlClient.SqlConnection.TryOpenInner(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.TryOpen(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.Open()
+   at PetaPoco.Database.OpenSharedConnection()
+   at DotNetNuke.Data.PetaPoco.PetaPocoExt.ExecuteReader(Database database, String sql, Object[] args)
+   at DotNetNuke.Data.PetaPoco.PetaPocoHelper.ExecuteReader(String connectionString, CommandType type, Int32 timeoutSec, String sql, Object[] args)
+   at DotNetNuke.Data.SqlDataProvider.ExecuteReader(String procedureName, Object[] commandParameters)
+   at DotNetNuke.Entities.Controllers.HostController.GetSettingsFromDatabase()
+ClientConnectionId:00000000-0000-0000-0000-000000000000
+Error Number:1225,State:0,Class:20
+2026-10-05 14:29:44.698-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.698-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:29:44.698-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.) ---> System.ComponentModel.Win32Exception (0x80004005): The remote computer refused the network connection
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
 === last lines
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:47:47.510-07:00 [DNNWIND-V4KVR1T][D:2][T:10][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:47:47.510-07:00 [DNNWIND-V4KVR1T][D:2][T:10][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=terminate
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:47:47.541-07:00 [DNNWIND-V4KVR1T][D:2][T:10][ERROR] DotNetNuke.Services.Exceptions.Exceptions - DotNetNuke.Services.Exceptions.PageLoadException: Object reference not set to an instance of an object. ---> System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-   --- End of inner exception stack trace ---
-2026-10-05 12:48:02.557-07:00 [DNNWIND-V4KVR1T][D:2][T:20][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:48:02.557-07:00 [DNNWIND-V4KVR1T][D:2][T:20][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=An+unexpected+error+has+occurred&content=0
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:48:02.557-07:00 [DNNWIND-V4KVR1T][D:2][T:35][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:48:02.557-07:00 [DNNWIND-V4KVR1T][D:2][T:35][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=terminate
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:48:02.557-07:00 [DNNWIND-V4KVR1T][D:2][T:35][ERROR] DotNetNuke.Services.Exceptions.Exceptions - DotNetNuke.Services.Exceptions.PageLoadException: Object reference not set to an instance of an object. ---> System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-   --- End of inner exception stack trace ---
-2026-10-05 12:48:17.572-07:00 [DNNWIND-V4KVR1T][D:2][T:20][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:48:17.572-07:00 [DNNWIND-V4KVR1T][D:2][T:20][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=An+unexpected+error+has+occurred&content=0
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:48:17.588-07:00 [DNNWIND-V4KVR1T][D:2][T:10][FATAL] DotNetNuke.Framework.PageBase - An error has occurred while loading page.
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:48:17.588-07:00 [DNNWIND-V4KVR1T][D:2][T:10][ERROR] DotNetNuke.Services.Exceptions.Exceptions - ~/Default.aspx?error=terminate
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-2026-10-05 12:48:17.588-07:00 [DNNWIND-V4KVR1T][D:2][T:10][ERROR] DotNetNuke.Services.Exceptions.Exceptions - DotNetNuke.Services.Exceptions.PageLoadException: Object reference not set to an instance of an object. ---> System.NullReferenceException: Object reference not set to an instance of an object.
-   at DotNetNuke.Entities.Portals.PortalSettingsController.ConfigureActiveTab(PortalSettings portalSettings)
-   at DotNetNuke.Framework.DefaultPage.InitializePage()
-   at DotNetNuke.Framework.DefaultPage.OnInit(EventArgs e)
-   at System.Web.UI.Control.<InitRecursiveAsync>d__225.MoveNext()
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Web.Util.WithinCancellableCallbackTaskAwaitable.WithinCancellableCallbackTaskAwaiter.GetResult()
-   at System.Web.UI.Page.<ProcessRequestMainAsync>d__523.MoveNext()
-   --- End of inner exception stack trace ---
+2026-10-05 14:30:44.729-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:30:44.729-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.) ---> System.ComponentModel.Win32Exception (0x80004005): The remote computer refused the network connection
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionInternal.TryOpenConnectionInternal(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
+   at System.Data.SqlClient.SqlConnection.TryOpenInner(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.TryOpen(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.Open()
+   at PetaPoco.Database.OpenSharedConnection()
+   at DotNetNuke.Data.PetaPoco.PetaPocoExt.ExecuteReader(Database database, String sql, Object[] args)
+   at DotNetNuke.Data.PetaPoco.PetaPocoHelper.ExecuteReader(String connectionString, CommandType type, Int32 timeoutSec, String sql, Object[] args)
+   at DotNetNuke.Data.SqlDataProvider.ExecuteReader(String procedureName, Object[] commandParameters)
+   at DotNetNuke.Entities.Controllers.HostController.GetSettingsFromDatabase()
+ClientConnectionId:00000000-0000-0000-0000-000000000000
+Error Number:1225,State:0,Class:20
+2026-10-05 14:30:44.729-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:30:44.729-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:30:44.729-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.) ---> System.ComponentModel.Win32Exception (0x80004005): The remote computer refused the network connection
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionInternal.TryOpenConnectionInternal(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
+   at System.Data.SqlClient.SqlConnection.TryOpenInner(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.TryOpen(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.Open()
+   at PetaPoco.Database.OpenSharedConnection()
+   at DotNetNuke.Data.PetaPoco.PetaPocoExt.ExecuteReader(Database database, String sql, Object[] args)
+   at DotNetNuke.Data.PetaPoco.PetaPocoHelper.ExecuteReader(String connectionString, CommandType type, Int32 timeoutSec, String sql, Object[] args)
+   at DotNetNuke.Data.SqlDataProvider.ExecuteReader(String procedureName, Object[] commandParameters)
+   at DotNetNuke.Entities.Controllers.HostController.GetSettingsFromDatabase()
+ClientConnectionId:00000000-0000-0000-0000-000000000000
+Error Number:1225,State:0,Class:20
+2026-10-05 14:30:44.729-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:30:44.745-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:30:44.745-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.) ---> System.ComponentModel.Win32Exception (0x80004005): The remote computer refused the network connection
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionInternal.TryOpenConnectionInternal(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
+   at System.Data.SqlClient.SqlConnection.TryOpenInner(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.TryOpen(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.Open()
+   at PetaPoco.Database.OpenSharedConnection()
+   at DotNetNuke.Data.PetaPoco.PetaPocoExt.ExecuteReader(Database database, String sql, Object[] args)
+   at DotNetNuke.Data.PetaPoco.PetaPocoHelper.ExecuteReader(String connectionString, CommandType type, Int32 timeoutSec, String sql, Object[] args)
+   at DotNetNuke.Data.SqlDataProvider.ExecuteReader(String procedureName, Object[] commandParameters)
+   at DotNetNuke.Entities.Controllers.HostController.GetSettingsFromDatabase()
+ClientConnectionId:00000000-0000-0000-0000-000000000000
+Error Number:1225,State:0,Class:20
+2026-10-05 14:30:44.745-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:30:44.745-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:30:44.745-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.) ---> System.ComponentModel.Win32Exception (0x80004005): The remote computer refused the network connection
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionInternal.TryOpenConnectionInternal(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
+   at System.Data.SqlClient.SqlConnection.TryOpenInner(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.TryOpen(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.Open()
+   at PetaPoco.Database.OpenSharedConnection()
+   at DotNetNuke.Data.PetaPoco.PetaPocoExt.ExecuteReader(Database database, String sql, Object[] args)
+   at DotNetNuke.Data.PetaPoco.PetaPocoHelper.ExecuteReader(String connectionString, CommandType type, Int32 timeoutSec, String sql, Object[] args)
+   at DotNetNuke.Data.SqlDataProvider.ExecuteReader(String procedureName, Object[] commandParameters)
+   at DotNetNuke.Entities.Controllers.HostController.GetSettingsFromDatabase()
+ClientConnectionId:00000000-0000-0000-0000-000000000000
+Error Number:1225,State:0,Class:20
+2026-10-05 14:30:44.745-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:30:44.745-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:30:44.745-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.) ---> System.ComponentModel.Win32Exception (0x80004005): The remote computer refused the network connection
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionInternal.TryOpenConnectionInternal(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
+   at System.Data.SqlClient.SqlConnection.TryOpenInner(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.TryOpen(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.Open()
+   at PetaPoco.Database.OpenSharedConnection()
+   at DotNetNuke.Data.PetaPoco.PetaPocoExt.ExecuteReader(Database database, String sql, Object[] args)
+   at DotNetNuke.Data.PetaPoco.PetaPocoHelper.ExecuteReader(String connectionString, CommandType type, Int32 timeoutSec, String sql, Object[] args)
+   at DotNetNuke.Data.SqlDataProvider.ExecuteReader(String procedureName, Object[] commandParameters)
+   at DotNetNuke.Entities.Controllers.HostController.GetSettingsFromDatabase()
+ClientConnectionId:00000000-0000-0000-0000-000000000000
+Error Number:1225,State:0,Class:20
+2026-10-05 14:30:44.745-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:30:44.745-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:30:44.745-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.) ---> System.ComponentModel.Win32Exception (0x80004005): The remote computer refused the network connection
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionInternal.TryOpenConnectionInternal(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
+   at System.Data.SqlClient.SqlConnection.TryOpenInner(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.TryOpen(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.Open()
+   at PetaPoco.Database.OpenSharedConnection()
+   at DotNetNuke.Data.PetaPoco.PetaPocoExt.ExecuteReader(Database database, String sql, Object[] args)
+   at DotNetNuke.Data.PetaPoco.PetaPocoHelper.ExecuteReader(String connectionString, CommandType type, Int32 timeoutSec, String sql, Object[] args)
+   at DotNetNuke.Data.SqlDataProvider.ExecuteReader(String procedureName, Object[] commandParameters)
+   at DotNetNuke.Entities.Controllers.HostController.GetSettingsFromDatabase()
+ClientConnectionId:00000000-0000-0000-0000-000000000000
+Error Number:1225,State:0,Class:20
+2026-10-05 14:30:44.745-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:30:44.745-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:30:44.745-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.) ---> System.ComponentModel.Win32Exception (0x80004005): The remote computer refused the network connection
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionInternal.TryOpenConnectionInternal(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
+   at System.Data.SqlClient.SqlConnection.TryOpenInner(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.TryOpen(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.Open()
+   at PetaPoco.Database.OpenSharedConnection()
+   at DotNetNuke.Data.PetaPoco.PetaPocoExt.ExecuteReader(Database database, String sql, Object[] args)
+   at DotNetNuke.Data.PetaPoco.PetaPocoHelper.ExecuteReader(String connectionString, CommandType type, Int32 timeoutSec, String sql, Object[] args)
+   at DotNetNuke.Data.SqlDataProvider.ExecuteReader(String procedureName, Object[] commandParameters)
+   at DotNetNuke.Entities.Controllers.HostController.GetSettingsFromDatabase()
+ClientConnectionId:00000000-0000-0000-0000-000000000000
+Error Number:1225,State:0,Class:20
+2026-10-05 14:30:44.745-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [1] Error executing SQL: ;Exec dbo.GetDatabaseVersion
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:30:44.760-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Data.PetaPoco.PetaPocoHelper - [3] Error executing SQL: ;Exec dbo.GetHostSettings
+A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.)
+2026-10-05 14:30:44.760-07:00 [DNNWIND-RFTCC4M][D:2][T:6][ERROR] DotNetNuke.Services.Exceptions.Exceptions - System.Data.SqlClient.SqlException (0x80131904): A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - The remote computer refused the network connection.) ---> System.ComponentModel.Win32Exception (0x80004005): The remote computer refused the network connection
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionInternal.TryOpenConnectionInternal(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
+   at System.Data.SqlClient.SqlConnection.TryOpenInner(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.TryOpen(TaskCompletionSource`1 retry)
+   at System.Data.SqlClient.SqlConnection.Open()
+   at PetaPoco.Database.OpenSharedConnection()
+   at DotNetNuke.Data.PetaPoco.PetaPocoExt.ExecuteReader(Database database, String sql, Object[] args)
+   at DotNetNuke.Data.PetaPoco.PetaPocoHelper.ExecuteReader(String connectionString, CommandType type, Int32 timeoutSec, String sql, Object[] args)
+   at DotNetNuke.Data.SqlDataProvider.ExecuteReader(String procedureName, Object[] commandParameters)
+   at DotNetNuke.Entities.Controllers.HostController.GetSettingsFromDatabase()
+ClientConnectionId:00000000-0000-0000-0000-000000000000
+Error Number:1225,State:0,Class:20
 
