@@ -1,8 +1,9 @@
     0 s  Installing IIS with ASP.NET 4.8
-   58 s  IIS is up
-   58 s  Installing SQL Server 2022 Express
-  370 s  SQL Server Express is up
-  370 s  Downloading DNN 10.3.3
-  388 s  Running DNN's unattended install
-  449 s  FAILED: Cannot find path 'C:\inetpub\dnn\Install\DotNetNuke.install.config' because it does not exist.
+   65 s  IIS is up
+   65 s  Installing SQL Server 2022 Express
+  378 s  SQL Server Express is up
+  379 s  Downloading DNN 10.3.3
+  400 s  Running DNN's unattended install
+  472 s  DNN 10.3.3 installed
+  472 s  READY
 
