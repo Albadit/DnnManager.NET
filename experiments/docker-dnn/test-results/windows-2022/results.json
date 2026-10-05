@@ -1,8 +1,8 @@
 {
   "Facts": {
-    "Run": "2026-10-05 17:46 UTC",
+    "Run": "2026-10-05 18:01 UTC",
     "Host": "Microsoft Windows NT 10.0.20348.0, Microsoft Windows Server 2022 Datacenter",
-    "Cpu": "AMD EPYC 9V45 96-Core Processor                , 4 logical",
+    "Cpu": "AMD EPYC 7763 64-Core Processor                , 4 logical",
     "Memory": "16 GB",
     "Docker": "client 29.7.2, server 29.7.2 (windows/amd64)",
     "Isolation": "process",
@@ -15,26 +15,26 @@
     {
       "Step": "Build the images (SQL Server Express, DNN)",
       "Result": "pass",
-      "Seconds": 440.0,
-      "Detail": "dnn-docker/dnn:10.3.3 6.73GB; dnn-docker/sqlexpress:2022 6.29GB"
+      "Seconds": 405.0,
+      "Detail": "dnn-docker/dnn:10.3.3 6.73GB; dnn-docker/sqlexpress:2022 6.32GB"
     },
     {
       "Step": "Start SQL Server and DNN (first start: DNN copied into the site volume, database created)",
       "Result": "pass",
-      "Seconds": 14.0,
+      "Seconds": 13.0,
       "Detail": "answering on http://localhost:8080/"
     },
     {
       "Step": "Install DNN unattended (Install.aspx?mode=install with an install template)",
       "Result": "FAIL",
-      "Seconds": 26.0,
-      "Detail": "DNN's install output doesn't say it completed: DotNetNuke --> Installing DNN Upgrade Error: ERROR: Could not connect to database specified in connectionString for SqlDataProvider"
+      "Seconds": 31.0,
+      "Detail": "DNN's install output doesn't say it completed: DotNetNuke --> Installing DNN Upgrade Error: ERROR: Could not connect to database specified in connectionString for SqlDataProvider DNN's log: 2026-10-05 18:09:05.234+00:00 [cb5f4a912afd][D:2][T:1][ERROR] DotNetNuke.ComponentModel.ProviderInstaller - System.Configuration.ConfigurationErrorsException: Could not load provider DNNConnect.CKEditorProvider.CKHtmlEditorProvider, DNNConnect.CKEditorProvider | 2026-10-05 18:09:06.000+00:00 [cb5f4a912afd][D:2][T:1][ERROR] DotNetNuke.Web.DependencyInjectionInitialize - Unable to configure services for DotNetNuke.Web.Startup, see exception for details | System.IO.FileNotFoundException: Could not load file or assembly 'System.Web.Http, Version=5.3.0.0, Culture=neutral, PublicKeyToken=31bf3856ad3…"
     },
     {
       "Step": "File change notifications on a bind-mounted host folder (web.config edited from the host)",
       "Result": "pass",
-      "Seconds": 17.0,
-      "Detail": "web.config changed on the host -> ASP.NET restarted the app ('one|2026-10-05T17:54:44.1033401+00:00' -> 'two|2026-10-05T17:54:44.1033401+00:00')"
+      "Seconds": 18.0,
+      "Detail": "web.config changed on the host -> ASP.NET restarted the app ('one|2026-10-05T18:09:34.4513086+00:00' -> 'two|2026-10-05T18:09:34.4513086+00:00')"
     }
   ]
 }
