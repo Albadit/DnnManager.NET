@@ -9,6 +9,8 @@ on:
       - 'experiments/docker-dnn/**'
       - '!experiments/docker-dnn/test-results/**'
       - '!experiments/docker-dnn/README.md'
+      - '!experiments/docker-dnn/vm/**'
+      - '!experiments/docker-dnn/scripts/test-vm.ps1'
       - '.github/workflows/docker-dnn-experiment.yml'
   workflow_dispatch:
 

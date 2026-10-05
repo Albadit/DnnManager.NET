@@ -1,0 +1,35 @@
+# The alternative for Linux: DNN on IIS in a Windows Server 2022 VM, run by QEMU/KVM inside a Linux container
+# (dockur/windows) - see ../README.md. Needs a Linux host with KVM (/dev/kvm); it doesn't work on macOS or Docker Desktop.
+#
+#   docker compose up -d     # first start: downloads Windows Server 2022 (evaluation, ~6 GB) and installs it,
+#                            # then oem/provision.ps1 installs IIS, SQL Server Express and DNN (about an hour)
+#   http://localhost:8081/status.txt   provisioning progress    http://localhost:8006   the VM's screen
+#   http://localhost:8080              DNN, once provisioned
+#
+# oem/settings.json (written by scripts/test-vm.ps1, or by hand) holds the sa and host passwords and the DNN version.
+name: dnn-vm
+
+services:
+  windows:
+    image: dockurr/windows
+    environment:
+      VERSION: "2022"
+      RAM_SIZE: ${VM_RAM:-8G}
+      CPU_CORES: ${VM_CPUS:-4}
+      DISK_SIZE: 64G
+      USERNAME: dnn
+      PASSWORD: ${VM_PASSWORD:-dnn-dev-only}
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "8006:8006"   # the VM's screen in a browser
+      - "8080:80"     # DNN
+      - "8081:8081"   # provisioning status
+      - "3389:3389/tcp"
+    volumes:
+      - ./oem:/oem
+      - ${VM_STORAGE:-./storage}:/storage
+    stop_grace_period: 2m
