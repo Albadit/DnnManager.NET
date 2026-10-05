@@ -96,7 +96,8 @@ try {
     }
     Set-Content "$statusDir\install-output.html" $body
     if ($code -ne 200 -or $body -notmatch 'Successfully Installed Site|Installation Complete') { throw "DNN's install didn't complete (HTTP $code) - see install-output.html" }
-    Remove-Item "$site\Install\DotNetNuke.install.config", "$site\Install\DotNetNuke.install.config.resources" -Force
+    # DNN deletes the template itself once it has installed.
+    Remove-Item "$site\Install\DotNetNuke.install.config", "$site\Install\DotNetNuke.install.config.resources" -Force -ErrorAction SilentlyContinue
     Sql $db "UPDATE dbo.Users SET UpdatePassword = 0 WHERE IsSuperUser = 1" | Out-Null
     $version = Sql $db "SELECT TOP 1 CONCAT(Major, '.', Minor, '.', Build) FROM dbo.Version ORDER BY VersionId DESC"
     Status "DNN $version installed"

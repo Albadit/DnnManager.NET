@@ -91,7 +91,13 @@ function Install-Dnn([string]$service, [int]$port) {
     $said = Hide ((($page.Html -replace '(?s)<(script|style)[^>]*>.*?</\1>', ' ' -replace '<[^>]+>', ' ' -replace '\s+', ' ').Trim()))
     if ($said.Length -gt 400) { $said = $said.Substring(0, 400) + '…' }
     if ($page.Status -ne 200) { throw "Install.aspx answered HTTP $($page.Status) ($($page.Hops -join '; ')): $said" }
-    if ($page.Html -notmatch 'Successfully Installed Site|Installation Complete') { throw "DNN's install output doesn't say it completed: $said" }
+    if ($page.Html -notmatch 'Successfully Installed Site|Installation Complete') {
+        # The cause is in DNN's own log (logs\ isn't committed with the results, so it goes in the message).
+        $log = Invoke-Docker @('compose', 'exec', '-T', $service, 'powershell', '-NoProfile', '-File', 'C:\scripts\dnn-logs.ps1') -Quiet
+        $cause = ($log | Where-Object { $_ -match 'Exception|error' } | Select-Object -First 3) -join ' | '
+        if ($cause.Length -gt 600) { $cause = $cause.Substring(0, 600) + '…' }
+        throw "DNN's install output doesn't say it completed: $said DNN's log: $(Hide $cause)"
+    }
     $after = Invoke-Docker @('compose', 'exec', '-T', $service, 'powershell', '-NoProfile', '-File', 'C:\scripts\after-install.ps1', '-HostUser', $hostUser) -Quiet
     $version = ($after | Where-Object { $_ -like 'version=*' }) -replace 'version='
     $hosts = ($after | Where-Object { $_ -like 'hosts=*' }) -replace 'hosts='
