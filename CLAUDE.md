@@ -20,5 +20,6 @@ or a one-off command.
 - Files are UTF-8 without BOM with CRLF line endings (`.editorconfig`).
 - Build into a separate folder when the IDE may be building too: `dotnet build DnnManager.csproj --artifacts-path <temp folder>`.
 - Fast tests: `dotnet test tests\DnnManager.IntegrationTests --filter "TestCategory!=Integration"`.
-- The owner commits; don't commit or push unless asked.
+- The owner commits; don't commit or push unless asked. Commits and PRs carry no AI attribution (no
+  `Co-Authored-By: Claude …`, no "Generated with Claude Code").
 - Architecture, conventions and how to debug and release: [docs/development.md](docs/development.md).

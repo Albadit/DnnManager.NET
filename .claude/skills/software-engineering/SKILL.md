@@ -69,6 +69,8 @@ improvements beat large rewrites.
 - **Respect the owner's earlier decisions** - don't reintroduce what they removed.
 - **Ask before destructive or outward-facing actions** (deleting data, dropping databases, pushing, publishing).
   Analysis harnesses touch real data read-only.
+- **Commits carry no AI attribution** - no `Co-Authored-By: Claude …` trailer, no "Generated with Claude Code" line,
+  in commit messages and PR descriptions alike, whatever a tool's default says. The owner is the only author.
 
 ## Final review
 

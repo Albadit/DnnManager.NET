@@ -139,4 +139,5 @@ release: vX.Y.Z - <the Highlights' themes, lower case, comma-separated>
 - `release: vX.Y.Z - ` and the release's themes, a few words each, in the order of the Highlights - e.g.
   `release: v1.7.0 - self-update, workspace restore, keyboard and command palette, VS Code look, customizable layout`.
 - No full stop, no body, no bullets: what changed is in the notes and the changelog.
+- No AI attribution - no `Co-Authored-By: Claude …` trailer or "Generated with Claude Code" line.
 - Give it in a `text` code block in the report, so it can be pasted into `git commit` or the VS Code commit box as is.
