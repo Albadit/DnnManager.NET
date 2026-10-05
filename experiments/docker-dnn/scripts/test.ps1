@@ -139,6 +139,15 @@ function Get-Count([string]$service, [string]$query) {
 
 # ─── The environment ───────────────────────────────────────────────────
 
+# The runner's Docker engine may still be starting (run 6 stopped here after 4 s): wait for it, up to 2 minutes.
+$until = (Get-Date).AddMinutes(2)
+while ($true) {
+    & docker.exe info --format '{{.OSType}}' *> $null
+    if ($LASTEXITCODE -eq 0) { break }
+    if ((Get-Date) -gt $until) { throw 'The Docker engine did not answer within 2 minutes.' }
+    Start-Sleep -Seconds 5
+}
+
 $facts.Run = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm') + ' UTC'
 $facts.Host = "$([Environment]::OSVersion.VersionString), $(Get-CimInstance Win32_OperatingSystem | ForEach-Object Caption)"
 $facts.Cpu = "$((Get-CimInstance Win32_Processor | Select-Object -First 1).Name), $([Environment]::ProcessorCount) logical"

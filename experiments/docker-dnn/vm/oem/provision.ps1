@@ -105,8 +105,12 @@ try {
     Remove-Item C:\ssei.exe, C:\setup, C:\dnn.zip -Recurse -Force -ErrorAction SilentlyContinue
 
     # DNN's log on the status site, every minute, so the host can read it (IIS won't serve DNN's .log.resources files).
-    Set-Content C:\status-log.ps1 ("Get-ChildItem '$site\Portals\_default\Logs' -File | Sort-Object LastWriteTime | " +
-        "Select-Object -Last 1 | ForEach-Object { Get-Content `$_.FullName -Tail 400 } | Set-Content '$statusDir\dnn-log.txt'")
+    # The start of every log (the install and the first visit) and the end of the newest one.
+    Set-Content C:\status-log.ps1 @"
+`$files = @(Get-ChildItem '$site\Portals\_default\Logs' -File | Sort-Object LastWriteTime)
+& { foreach (`$f in `$files) { "=== `$(`$f.Name)"; Get-Content `$f.FullName -TotalCount 250 }
+    if (`$files) { '=== last lines'; Get-Content `$files[-1].FullName -Tail 150 } } | Set-Content '$statusDir\dnn-log.txt'
+"@
     $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 1)
     Register-ScheduledTask 'DNN log to the status site' -User SYSTEM -Trigger $trigger `
         -Action (New-ScheduledTaskAction powershell.exe '-NoProfile -ExecutionPolicy Bypass -File C:\status-log.ps1') | Out-Null
@@ -126,6 +130,16 @@ try {
         break
     }
     Status "First visit from inside the VM: HTTP $code ($path)"
+    # What the site template left in the database - a page that can't find its tab or skin fails in ConfigureActiveTab.
+    foreach ($check in @(
+            'tabs: SELECT COUNT(*) FROM dbo.Tabs WHERE PortalID = 0 AND IsDeleted = 0',
+            'home tab: SELECT TOP 1 HomeTabId FROM dbo.PortalLocalization WHERE PortalID = 0',
+            'languages: SELECT COUNT(*) FROM dbo.PortalLanguages WHERE PortalID = 0',
+            'skin: SELECT TOP 1 SettingValue FROM dbo.PortalSettings WHERE PortalID = 0 AND SettingName = ''DefaultPortalSkin''')) {
+        $name, $query = $check -split ': ', 2
+        $value = try { Sql $db $query } catch { "error: $($_.Exception.GetBaseException().Message)" }
+        Status "Database: $name = $value"
+    }
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\status-log.ps1
     Status 'READY'
 }
