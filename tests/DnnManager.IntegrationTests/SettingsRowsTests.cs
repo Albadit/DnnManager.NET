@@ -42,4 +42,27 @@ public sealed class SettingsRowsTests
             try { Directory.Delete(root, recursive: true); } catch (IOException) { }
         }
     }
+
+    [TestMethod]
+    public void Keep_running_when_closed_is_on_by_default_and_reaches_the_running_app_when_saved()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "DnnManagerTests", "rows-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var store = new SettingsStore(new AppDataPaths(root));
+            var options = store.Load().Settings.ToAppOptions();
+            Assert.IsTrue(options.KeepRunningWhenClosed, "Closing the window hides it, unless asked otherwise.");
+            Assert.AreEqual("true", store.SavedValues()["window.keepRunningWhenClosed"]);
+
+            store.Update(s => s.Window.KeepRunningWhenClosed = false);
+
+            Assert.AreEqual("false", store.SavedValues()["window.keepRunningWhenClosed"]);
+            options.Apply(store.Read().ToAppOptions());
+            Assert.IsFalse(options.KeepRunningWhenClosed, "Saved on Settings, it applies at once.");
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch (IOException) { }
+        }
+    }
 }

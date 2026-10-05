@@ -137,6 +137,9 @@
                                       IsEnabled="False" Click="StartAtSignIn_Click" />
                             <TextBlock x:Name="StartAtSignInHint" Style="{StaticResource Hint}" Margin="22,2,0,0"
                                        Text="With its Administrator rights, without Windows asking for them at every sign-in (a scheduled task)." />
+                            <CheckBox x:Name="KeepRunningWhenClosed" Content="Keep DNN Manager running when you close the window" Margin="0,12,0,0" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
+                                       Text="Closing the window hides it: running operations go on and your sites are still followed and kept warm. The DNN Manager icon in the notification area (by the clock) opens it again - or right-click it to quit." />
 
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Scale and font size" />
                             <StackPanel Orientation="Horizontal">
@@ -152,16 +155,10 @@
                             <TextBlock Style="{StaticResource Hint}"
                                        Text="UI scale makes everything bigger or smaller - text, icons and spacing - like zooming in a browser. Font size changes only the text; the terminal has its own below. Both apply when you save." />
 
-                            <TextBlock Style="{StaticResource GroupLabel}" Text="Efficiency" />
-                            <CheckBox x:Name="SaveResourcesWhileMinimized" Content="Save resources while the window can't be seen" />
-                            <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
-                                       Text="While the window is minimized or completely covered by other windows, what only it shows pauses - animations, this PC's figures, redrawing terminals, following a log - and after a second, once nothing is running, Windows runs DNN Manager in its efficiency mode. Your sites are still followed and operations run at full speed; as soon as the window can be seen again, everything is brought up to date." />
-
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Terminal" />
-                            <CheckBox x:Name="TerminalEnabled" Content="Enable the terminal" Click="Terminal_Changed" />
-                            <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
-                                       Text="Shells on the Terminal tab of the panel at the bottom of the window - opened with its + button. They run with Administrator rights, like DNN Manager. Off: the Terminal tab is hidden." />
-                            <StackPanel x:Name="TerminalOptions" Margin="22,4,0,0">
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4"
+                                       Text="Shells on the Terminal tab of the panel at the bottom of the window - opened with its + button. They run with Administrator rights, like DNN Manager." />
+                            <StackPanel x:Name="TerminalOptions">
                                 <TextBlock Style="{StaticResource FieldLabel}" Text="Default shell" />
                                 <ComboBox x:Name="DefaultShell" Width="240" HorizontalAlignment="Left" SelectionChanged="Terminal_Changed" />
                                 <TextBlock Style="{StaticResource Hint}" Text="What + opens; the arrow next to it offers the other shells installed on this PC." />

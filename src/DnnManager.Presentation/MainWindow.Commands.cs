@@ -45,6 +45,7 @@ public partial class MainWindow
         Add("app.installUpdate", "Install the update", "Application", null, () => _ = _updater.UpdateAsync(),
             () => _updater.CanInstall && !_runner.IsBusy, "upgrade new version");
         Add("app.restart", "Restart DNN Manager", "Application", null, () => AppRestart.Restart(), () => !_runner.IsBusy, "reload");
+        Add("app.quit", "Quit DNN Manager", "Application", null, Quit, keywords: "exit close stop background notification area tray");
         Add("app.colorTheme", "Color theme…", "Application", null, ShowThemePick, keywords: "dark light modern system appearance");
 
         // ── Projects ──
@@ -65,7 +66,7 @@ public partial class MainWindow
             SetLogOpen(true);
             TerminalPanel.ShowLogs(r, null);
         }, "dnn iis event log");
-        AddForProject("project.terminal", "Open terminal in project folder", null, r => _terminal.Settings.Enabled && Directory.Exists(r.Path), r =>
+        AddForProject("project.terminal", "Open terminal in project folder", null, r => Directory.Exists(r.Path), r =>
         {
             SetLogOpen(true);
             TerminalPanel.NewTerminal(directory: r.Path);
@@ -92,8 +93,21 @@ public partial class MainWindow
         Add("pages.newProject", "New project", "Pages", "Ctrl+2", () => Go(NavSetup), keywords: "create setup install");
         Add("pages.hostProject", "Host project", "Pages", "Ctrl+3", () => Go(NavExisting), keywords: "existing folder");
         Add("settings.open", "Open Settings", "Pages", "Ctrl+,", () => { if (ModalKey == "Settings") CloseModal(); else ShowModal("Settings"); }, keywords: "preferences options", inTerminal: true);
-        Add("settings.keyboard", "Open Keyboard Shortcuts", "Pages", null, () => OpenSettings("Keyboard"), keywords: "keys bindings hotkeys");
         Add("troubleshoot.open", "Run troubleshooting", "Pages", null, () => ShowModal("Troubleshoot"), keywords: "restart reset clean up data");
+
+        // ── Settings: each category, straight from the palette (Settings itself is a page, above) ──
+        foreach (var (id, category, name, keywords) in new[]
+        {
+            ("settings.general", "General", "General", "start sign in background tray scale font terminal"),
+            ("settings.projects", "Projects", "Projects", "folder hostname port dnn defaults keep warm"),
+            ("settings.releases", "Releases", "DNN releases", "repositories github versions packages"),
+            ("settings.databaseServer", "Sql", "Database server", "sql server express localdb connection ssms"),
+            ("settings.docker", "Docker", "Docker container", "container volume edition collation compose"),
+            ("settings.iis", "Iis", "IIS", "windows features"),
+            ("settings.keyboard", "Keyboard", "Keyboard shortcuts", "keys bindings hotkeys"),
+            ("settings.about", "About", "About", "version license repository folders"),
+        })
+            Add(id, name, "Settings", null, () => OpenSettings(category), keywords: "open preferences options " + keywords);
         Add("view.next", "Next page", "Pages", "Ctrl+Tab", () => StepPage(1), keywords: "switch view");
         Add("view.previous", "Previous page", "Pages", "Ctrl+Shift+Tab", () => StepPage(-1), keywords: "switch view");
         // Next is up (or right), previous down (or left) - in every next / previous pair.
@@ -129,12 +143,12 @@ public partial class MainWindow
             SetLogOpen(true);
             TerminalPanel.ShowAppLog(null, switchTo: true);
         }, keywords: "logs dnnmanager file warnings errors", inTerminal: true);
-        Add("terminal.toggle", "Show the terminal", "Terminal", "Ctrl+`", ToggleTerminal, () => _terminal.Settings.Enabled, "shell", inTerminal: true);
+        Add("terminal.toggle", "Show the terminal", "Terminal", "Ctrl+`", ToggleTerminal, keywords: "shell", inTerminal: true);
         Add("terminal.new", "New terminal", "Terminal", "Ctrl+Shift+`", () =>
         {
             SetLogOpen(true);
             TerminalPanel.NewTerminal();
-        }, () => _terminal.Settings.Enabled, "shell powershell", inTerminal: true);
+        }, keywords: "shell powershell", inTerminal: true);
     }
 
     // ─── Shortcuts ──────────────────────────────────────────────────────────

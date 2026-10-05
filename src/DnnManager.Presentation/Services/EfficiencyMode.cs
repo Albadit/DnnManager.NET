@@ -3,16 +3,15 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Threading;
-using DnnManager.Application.Configuration;
 using DnnManager.Infrastructure.Processes;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace DnnManager.Presentation.Services;
 
 /// <summary>
-/// "Save resources while minimized" (Settings - General, on by default). A window that can't be seen - minimized, or
-/// covered completely by other windows, on another virtual desktop or behind a locked screen (<see cref="WindowOcclusion"/>,
+/// Saving resources while the window can't be seen - always on, not a setting. A window that can't be seen - minimized, closed
+/// while DNN Manager keeps running in the background, or covered completely by other windows, on another virtual
+/// desktop or behind a locked screen (<see cref="WindowOcclusion"/>,
 /// as Chromium apps such as Docker Desktop decide it) - shows nothing, but WPF keeps running whatever animates in it at
 /// about 60 frames a second, and the app keeps reading what only the window shows - so while it can't be seen that
 /// stops, and once nothing runs either, the app goes into Windows' efficiency mode (EcoQoS and Idle priority - Task
@@ -37,8 +36,7 @@ namespace DnnManager.Presentation.Services;
 /// <para>
 /// <b>Seen again</b>, everything is brought up to date at once, without a loading screen: Windows decides the app's speed
 /// again first, the figures are read within about a second, a log reads what was written meanwhile, a terminal draws
-/// once, and the Projects page reads what it shows (it follows the window itself). With the setting off nothing of
-/// this happens - everything runs as while the window is shown.
+/// once, and the Projects page reads what it shows (it follows the window itself).
 /// </para>
 /// </summary>
 public sealed class EfficiencyMode
@@ -77,7 +75,6 @@ public sealed class EfficiencyMode
         public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture) => throw new NotSupportedException();
     }
 
-    private readonly AppOptions _options;
     private readonly OperationRunner _runner;
     private readonly ServerStore _store;
     private readonly ILogger<EfficiencyMode> _logger;
@@ -89,21 +86,19 @@ public sealed class EfficiencyMode
     private long _savingSince, _operationEnded = Never, _lastOutput = Never;
     private bool _eco, _ecoRefused;
 
-    public EfficiencyMode(IOptions<AppOptions> options, OperationRunner runner, ServerStore store, ILogger<EfficiencyMode> logger)
+    public EfficiencyMode(OperationRunner runner, ServerStore store, ILogger<EfficiencyMode> logger)
     {
-        _options = options.Value; _runner = runner; _store = store; _logger = logger;
+        _runner = runner; _store = store; _logger = logger;
         _check = new DispatcherTimer(DispatcherPriority.Background, System.Windows.Application.Current.Dispatcher);
         _check.Tick += (_, _) =>
         {
             _check.Stop();
             Update();
         };
-        // Saved on the Settings page: applies at once.
-        _options.Changed += Update;
         _runner.PropertyChanged += OnRunnerChanged;
     }
 
-    /// <summary>The window can't be seen (minimized or covered) and the setting is on: what only the window shows is paused.</summary>
+    /// <summary>The window can't be seen (minimized, hidden or covered): what only the window shows is paused.</summary>
     public bool IsSaving { get; private set; }
 
     /// <summary><see cref="IsSaving"/> changed. Raised on the UI thread.</summary>
@@ -114,6 +109,7 @@ public sealed class EfficiencyMode
     {
         _window = window;
         window.StateChanged += (_, _) => Update();
+        window.IsVisibleChanged += (_, _) => Update();
         _occlusion = new WindowOcclusion(window);
         _occlusion.Changed += (_, _) => Update();
         window.Closed += (_, _) => _occlusion.Dispose();
@@ -145,8 +141,10 @@ public sealed class EfficiencyMode
     /// <summary>Brings everything in line with the window's state, the setting, the operation and the terminals - now.</summary>
     private void Update()
     {
-        var saving = _window is not null && _options.SaveResourcesWhileMinimized &&
-                     (_window.WindowState == WindowState.Minimized || _occlusion?.IsOccluded == true);
+        // Hidden: closed while DNN Manager keeps running (not yet shown, at the start, doesn't count).
+        var saving = _window is not null &&
+                     (_window.WindowState == WindowState.Minimized || _window is { IsLoaded: true, IsVisible: false } ||
+                      _occlusion?.IsOccluded == true);
         if (saving != IsSaving)
         {
             IsSaving = saving;

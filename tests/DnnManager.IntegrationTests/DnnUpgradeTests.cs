@@ -47,7 +47,7 @@ public sealed class DnnUpgradeTests
     private static void Prerequisites()
     {
         if (!IisExpressSites.Installed) Assert.Inconclusive("IIS Express isn't installed (or unpacked into the tests' folder).");
-        if (_container is null) Assert.Inconclusive("Docker isn't available for a SQL Server container.");
+        if (_container is null) Assert.Inconclusive("Docker with Linux containers isn't available for a SQL Server container.");
     }
 
     // ─── The whole path, with content ─────────────────────────────────────

@@ -30,7 +30,7 @@ public sealed class ReleaseNotesTests
     {
         var note = new ReleaseNote(new Version(1, 7, 3), "");
 
-        Assert.AreEqual("https://github.com/Bond-for-web-solutions/DnnManager.NET/blob/v1.7.3/CHANGELOG.md#v173",
+        Assert.AreEqual("https://github.com/Albadit/DnnManager.NET/blob/v1.7.3/CHANGELOG.md#v173",
             note.LinkTarget("../../CHANGELOG.md#v173"));
         Assert.AreEqual("https://example.com/a", note.LinkTarget("https://example.com/a"));
     }

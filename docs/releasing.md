@@ -71,6 +71,34 @@ terminal; `-NotesFile docs\release-notes\v1.7.0.md -Commit <hash>` answers them 
 only after you confirm. If the release workflow runs for the pushed tag too, it
 leaves the published release as it is.
 
+## Redo a release
+
+When a release failed (the workflow's tests, say) or needs one more change after
+its tag is made, **Ctrl+Shift+B → release: redo (GitHub)** runs
+[`.github/scripts/redo-release.ps1`](../.github/scripts/redo-release.ps1):
+
+1. It asks for the version (Enter takes the newest tag) and a new message for the
+   release commit (Enter keeps it).
+2. The release commit is the tag's commit, and it must be the newest commit of
+   the branch - one with commits after it is refused. Without a tag, the newest
+   commit counts when its message starts with `release: vX.Y.Z`.
+3. It shows the plan and asks once: amend the release commit with every change in
+   your working copy (new files too), push the branch (`--force-with-lease` when
+   the old commit is on GitHub - refused when GitHub's branch has commits yours
+   hasn't), delete the tag's GitHub release (a published one only after you type
+   the tag) and delete the tag here and on GitHub.
+4. Then it releases the version again: build and publish from this PC (as
+   **release (GitHub)**), push the tag for the [release workflow](#the-release-workflow),
+   or neither yet.
+
+`-DryRun` shows the plan and changes nothing; `-Version 1.7.6 -Message "release: …"`
+answers the questions and `-SkipTests` is passed on to the build.
+
+**Redo only a release nobody has installed yet.** DNN Manager updates only to a
+newer version: whoever installed the first build of that version is never offered
+the redone one. GitHub's release page shows the files' download counts; once others
+may have it, release the change as the next version instead.
+
 ## The release workflow
 
 [`.github/workflows/release.yml`](../.github/workflows/release.yml) runs on every
@@ -123,8 +151,24 @@ draft or a pre-release - a `vX.Y.Z-rc.1` tag isn't offered) - see
   `/SP- /HandedOver=1 /CURRENTUSER` (or `/ALLUSERS`), then closes. A newer Setup must
   keep `/HandedOver=1` meaning: don't ask GitHub, skip the license and the
   Repair / Uninstall page, and use a Setup mutex of its own
-  (`SetupMutex=DnnManager.NET.Setup{param:HandedOver|}`) - the older one may not have
+  (`SetupMutex=DnnManager.NET.Setup{param:HandedOver|}{param:Done|}`) - the older one may not have
   exited yet. Setup's log (`/LOG=<file>`) records what GitHub answered.
+- **Back to Setup's first page**: after Repair or Update (from 1.7.6 on) Setup skips its
+  Finished page and starts itself again with `/SP- /Done=Repaired` (or `Updated`,
+  or `Uninstalled` after the uninstaller), plus `/CURRENTUSER` or `/ALLUSERS`. A
+  Setup it hands over to gets `/Back=Repaired` (or `Updated`) to do the same; an
+  older one ignores it and shows its Finished page.
+- **A running DNN Manager**: Setup has no `AppMutex`, so it opens while DNN Manager
+  runs. Just before replacing or removing the files (`PrepareToInstall`, and the
+  uninstaller's `usUninstall` step - after its confirmation) it sets the event
+  `DnnManager.NET.Quit`, which DNN Manager 1.7.6 and newer listen to
+  ([`SingleInstance`](../src/DnnManager.Presentation/SingleInstance.cs)) and quit on
+  without asking (an open dialog is closed, a running operation cancelled, the
+  workspace saved), and waits up to 10 seconds for the mutex `DnnManager.NET.Running`
+  to go. Still there (an older version, or no answer): Setup doesn't run elevated,
+  so it ends the process with an elevated PowerShell (`runas` - one UAC prompt) -
+  only `DnnManager.exe` in the install folder, never the update helper in `%TEMP%` -
+  and waits 5 more seconds. Only then does it ask the user to quit it and **Retry**.
 
 How it works: the running DNN Manager downloads and checks the file, notes the
 update (the `update` area of the `state` table in `Documents\DnnManager\dnnmanager.db` -

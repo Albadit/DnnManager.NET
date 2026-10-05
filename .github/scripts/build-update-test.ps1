@@ -41,7 +41,7 @@ function Get-VersionBelow([version]$v) {
 if (-not $Version) {
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        $release = Invoke-RestMethod 'https://api.github.com/repos/Bond-for-web-solutions/DnnManager.NET/releases/latest' `
+        $release = Invoke-RestMethod 'https://api.github.com/repos/Albadit/DnnManager.NET/releases/latest' `
             -Headers @{ 'User-Agent' = 'DnnManager'; 'Accept' = 'application/vnd.github+json' }
         $latest = [version]($release.tag_name.TrimStart('v', 'V') -split '[-+]')[0]
         Write-Host "Newest release on GitHub: $($release.tag_name)"

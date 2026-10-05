@@ -86,6 +86,7 @@ public partial class MainWindow : Window
                 _stale.Remove(kept);
             }
             releases.Preload();
+            FollowKeepRunning();
         };
 
         // The bottom panel (Activity, Logs, Terminal). Closed at first - the running operation is a toast, with its
@@ -126,6 +127,11 @@ public partial class MainWindow : Window
             SetLogOpen(true);
             TerminalPanel.ShowActivity();
         });
+        // Running in the background, the window can't say so - Windows does; the toast waits in the window.
+        _runner.Failed += (title, error) =>
+        {
+            if (!IsVisible) _tray?.ShowNotice($"{title} failed", error);
+        };
 
         // On short screens (e.g. 768px laptops) the default height would push the window off screen.
         Height = Math.Min(Height, SystemParameters.WorkArea.Height);
@@ -154,6 +160,8 @@ public partial class MainWindow : Window
             _updater.Start();
         };
         Closing += OnClosing;
+        Closed += (_, _) => _tray?.Dispose();
+        FollowKeepRunning();
     }
 
     private void Nav_Checked(object sender, RoutedEventArgs e)
@@ -633,6 +641,7 @@ public partial class MainWindow : Window
     private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
 
     private const int WmNcHitTest = 0x0084, WmNcMouseLeave = 0x02A2, WmNcLButtonDown = 0x00A1, WmNcLButtonUp = 0x00A2;
+    private const int WmQueryEndSession = 0x0011, WmEndSession = 0x0016;
     private const int HtMaxButton = 9;
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -644,11 +653,20 @@ public partial class MainWindow : Window
     /// <summary>
     /// Tells Windows the maximize button is one (HTMAXBUTTON), so Windows 11 shows its Snap layouts when the pointer
     /// rests on it. Windows then sends the clicks there as non-client messages, so the click and the hover are handled here.
+    /// Also hears Windows signing out or shutting down (or Setup closing the app): the window then closes for good,
+    /// even when it would otherwise keep running in the background.
     /// </summary>
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         switch (msg)
         {
+            case WmQueryEndSession:
+                _quitting = true;
+                break;
+            // The session goes on after all (another app said no).
+            case WmEndSession when wParam == IntPtr.Zero:
+                _quitting = false;
+                break;
             case WmNcHitTest:
                 var over = IsOverMaximize(lParam);
                 MaximizeButton.Tag = over ? "Hover" : null;
@@ -775,8 +793,93 @@ public partial class MainWindow : Window
     }
 
 
+    // ─── Running in the background ──────────────────────────────────────────
+
+    // The notification area's icon - there while "Keep DNN Manager running when you close the window" is on.
+    private TrayIcon? _tray;
+    // Closing quits DNN Manager now, not hides it: Quit, or Windows signing out.
+    private bool _quitting;
+    // The notice that DNN Manager is still running is given once per start.
+    private bool _toldRunning;
+
+    /// <summary>The notification area's icon there while the setting is on - from the start, and as soon as it is saved.</summary>
+    private void FollowKeepRunning()
+    {
+        if (_options.KeepRunningWhenClosed == (_tray is not null)) return;
+        if (_tray is null)
+        {
+            _tray = new TrayIcon("DNN Manager");
+            _tray.Open += (_, _) => ShowFromBackground();
+            _tray.Quit += (_, _) => Quit();
+        }
+        else
+        {
+            _tray.Dispose();
+            _tray = null;
+        }
+    }
+
+    /// <summary>
+    /// The window back from the notification area - or from a second start of DNN Manager (<see cref="SingleInstance"/>) -
+    /// as it was hidden: maximized or not, on the page and with the panel it had.
+    /// </summary>
+    internal void ShowFromBackground()
+    {
+        Show();
+        if (WindowState == WindowState.Minimized) WindowState = _wasMaximized ? WindowState.Maximized : WindowState.Normal;
+        Activate();
+    }
+
+    /// <summary>
+    /// Quits DNN Manager - from the notification area's icon, the command palette or Setup (<see cref="SingleInstance"/>).
+    /// The window comes back first when closing has a question to ask (a running operation, an unsaved password).
+    /// </summary>
+    internal void Quit()
+    {
+        if (_runner.IsBusy || _modal is SettingsPage { HasUnsavedPassword: true }) ShowFromBackground();
+        _quitting = true;
+        Close();
+        // Still open: a question on closing was answered with "stay".
+        _quitting = false;
+    }
+
+    // Quitting because Setup replaces or removes DNN Manager: nothing is asked.
+    private bool _quittingForSetup;
+
+    /// <summary>
+    /// Quits for Setup (Repair, Update, Uninstall - <see cref="SingleInstance"/>) without asking anything: a running
+    /// operation is cancelled, an unsaved password is lost; the workspace is saved as on any quit.
+    /// </summary>
+    internal void QuitForSetup()
+    {
+        _quittingForSetup = true;
+        _quitting = true;
+        Close();
+    }
+
     private void OnClosing(object? sender, CancelEventArgs e)
     {
+        // Running in the background: the window hides, and everything in it goes on - an operation, the terminals, what
+        // was typed. Quit, a restart or an update closes it for good.
+        if (_tray is not null && !_quitting && !AppRestart.Requested)
+        {
+            e.Cancel = true;
+            // Kept as it is now, should Windows end DNN Manager while it is hidden.
+            _workspace.SaveNow();
+            Hide();
+            if (!_toldRunning)
+            {
+                _toldRunning = true;
+                _tray.ShowNotice("DNN Manager is still running", "Click its icon to open it again; right-click it to quit.");
+            }
+            return;
+        }
+        if (_quittingForSetup)
+        {
+            if (_runner.IsBusy) _runner.Cancel();
+            _workspace.SaveNow(last: true);
+            return;
+        }
         // Unsaved settings are kept for the next start - all but a password, so only that is asked about.
         if (_modal is SettingsPage { HasUnsavedPassword: true } &&
             !Dialogs.Confirm("You changed a password in the settings and didn't save it. The other unsaved settings are kept " +

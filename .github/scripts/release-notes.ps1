@@ -25,7 +25,7 @@ Set-StrictMode -Version Latest
 
 $root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 if (-not $Tag) { $Tag = "v$Version" }
-if (-not $Repository) { $Repository = 'Bond-for-web-solutions/DnnManager.NET' }
+if (-not $Repository) { $Repository = 'Albadit/DnnManager.NET' }
 $repoUrl = "https://github.com/$Repository"
 
 # Notes already written in docs\release-notes are the release's notes as they are - only their relative links

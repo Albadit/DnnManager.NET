@@ -35,10 +35,11 @@ internal sealed class WindowOcclusion : IDisposable
             _look.Stop();
             Look();
         };
-        // Listening only while it is shown but not in front: active it is seen, minimized it isn't there at all.
+        // Listening only while it is shown but not in front: active it is seen, minimized or hidden it isn't there at all.
         window.Activated += (_, _) => Follow(false);
-        window.Deactivated += (_, _) => Follow(window.WindowState != WindowState.Minimized);
-        window.StateChanged += (_, _) => Follow(!window.IsActive && window.WindowState != WindowState.Minimized);
+        window.Deactivated += (_, _) => Follow(window.IsVisible && window.WindowState != WindowState.Minimized);
+        window.StateChanged += (_, _) => Follow(window.IsVisible && !window.IsActive && window.WindowState != WindowState.Minimized);
+        window.IsVisibleChanged += (_, _) => Follow(window.IsVisible && !window.IsActive && window.WindowState != WindowState.Minimized);
         SystemEvents.SessionSwitch += OnSessionSwitch;
     }
 

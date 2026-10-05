@@ -32,8 +32,8 @@ public sealed class AppUpdateException(string message, Exception? inner = null) 
 /// </summary>
 public sealed class AppReleaseFeed(HttpClient http, string latestReleaseUrl = AppReleaseFeed.LatestReleaseUrl)
 {
-    public const string Repository = "https://github.com/Bond-for-web-solutions/DnnManager.NET";
-    public const string LatestReleaseUrl = "https://api.github.com/repos/Bond-for-web-solutions/DnnManager.NET/releases/latest";
+    public const string Repository = "https://github.com/Albadit/DnnManager.NET";
+    public const string LatestReleaseUrl = "https://api.github.com/repos/Albadit/DnnManager.NET/releases/latest";
 
     /// <summary>The newest release. Throws <see cref="AppUpdateException"/> when GitHub can't be reached or its answer can't be used.</summary>
     public async Task<AppRelease> GetLatestAsync(CancellationToken ct)

@@ -7,7 +7,8 @@ description: >-
   code - and the release commit's message, ready to paste. The release workflow publishes that file as the GitHub
   release's notes. Use when asked to write, draft,
   update or review release notes, prepare a release or "the next release", or turn the Unreleased changelog entry
-  into notes.
+  into notes - and to redo a release whose tag is already made (a failed release workflow, one more change before
+  anyone has it): the notes and changelog updated in place, then the task "release: redo (GitHub)".
 ---
 
 # Release notes
@@ -23,6 +24,8 @@ Readers are **people who use DNN Manager**, deciding whether to update and what 
 
 1. **Find the version and the range.** The version is the one asked for; when none is, ask (there is no
    `<Version>` in `DnnManager.csproj` to raise or read - builds take the newest tag's). The previous release is the newest tag: `git describe --tags --abbrev=0`.
+   When the version's own tag exists already, this is a **redo** - see [Redoing a release](#redoing-a-release)
+   first.
 2. **Collect what changed:**
    - the `## Unreleased` (or `## vX.Y.Z`) entry in `CHANGELOG.md` - the main source, written by hand;
    - `git log --no-merges --format="%h %s%n%b" <previous tag>..HEAD` - for what the changelog misses;
@@ -45,7 +48,33 @@ Readers are **people who use DNN Manager**, deciding whether to update and what 
    report, ready to paste.
 8. Report what the notes say, the commit message, and anything left unverified. Don't commit, tag or publish - the
    owner does, with the VS Code task **release (GitHub)** (`.github/scripts/publish-release.ps1`, see
-   `docs/releasing.md`), which picks this file and a commit, builds both exes and publishes the release.
+   `docs/releasing.md`), which picks this file and a commit, builds both exes and publishes the release - or, for a
+   redo, **release: redo (GitHub)** (below).
+
+## Redoing a release
+
+The version's tag is made already - its release workflow failed, or one more change is wanted - and the owner wants
+the same version again, not the next one. `.github/scripts/redo-release.ps1` (the VS Code task
+**release: redo (GitHub)**, see `docs/releasing.md#redo-a-release`) amends the release commit with the working copy,
+pushes the branch, deletes the tag and its GitHub release, and releases the version again.
+
+1. **Is a redo still right?** Look the release up:
+   `curl -s https://api.github.com/repos/<owner>/<repo>/releases/tags/vX.Y.Z` (the repository is `origin`'s) - a
+   404 means none is published (a draft isn't listed there). When it is published, give its date and the files'
+   `download_count`s: DNN Manager updates only to a *newer* version, so whoever installed the first build is never
+   offered the redone one. If anyone but the owner may have it, recommend the next version instead and let the owner
+   decide.
+2. **The range** is the tag before it to the working copy: the previous release is
+   `git describe --tags --abbrev=0 vX.Y.Z^`, and the changes are its commits plus what isn't committed yet
+   (`git status`, `git diff HEAD`) - the redo folds them into the release commit.
+3. **Update in place**: the `## vX.Y.Z` entry in `CHANGELOG.md` (no new heading) and `docs/release-notes/vX.Y.Z.md`
+   get the new changes where they belong - a new highlight, a line in *Other changes*, an *Upgrading* note for a
+   removed setting or changed behaviour. Run the fast tests again and update *Tested*.
+4. **The commit message** keeps the format; give the updated one when the themes changed - the script asks for it
+   (Enter keeps the old one).
+5. **Show the plan, don't run it**: `.github\scripts\redo-release.ps1 -Version X.Y.Z -DryRun` changes nothing and
+   prints what the redo would amend, push and delete - fine to run and report. The redo itself force-pushes the
+   branch and deletes a release: only the owner runs it.
 
 ## Structure
 

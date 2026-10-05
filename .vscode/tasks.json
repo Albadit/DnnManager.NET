@@ -145,6 +145,29 @@
                 "focus": true,
                 "clear": true
             }
+        },
+        {
+            // Redo a release whose tag is made: folds your changes into the release commit (amend, push), deletes the
+            // tag and its GitHub release, and releases it again. Asks for the version (Enter = the newest tag) and the
+            // commit message in the terminal, shows the plan and asks before changing anything. See docs/releasing.md.
+            "label": "release: redo (GitHub)",
+            "type": "process",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.github/scripts/redo-release.ps1"
+            ],
+            "group": "build",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true,
+                "clear": true
+            }
         }
     ],
     "inputs": [

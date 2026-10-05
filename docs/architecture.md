@@ -166,7 +166,7 @@ what Windows has no notification for is read on a timer, each at its own pace:
 
 ¹ Only while the Projects page is on screen and the window isn't minimized;
 showing it again reads everything once, at once.
-² With **Save resources while the window can't be seen** on (the default) - see
+² Paused while the window can't be seen (minimized, hidden or covered) - see
 [Efficiency mode](user-guide.md#efficiency-mode-while-the-window-cant-be-seen).
 
 A notification only says "look again" - the monitor then reads the real state,
@@ -326,7 +326,7 @@ DnnManager.NET/
         ├── AppRestart.cs        ← Troubleshoot → Restart, and restarting after a reset
         ├── Shell.cs             ← opens an address, folder or file through Explorer - as the user, not as Administrator
         ├── RunningMarker.cs     ← named mutex while the app runs - the installer checks it before replacing the app
-        ├── SingleInstance.cs    ← a second start hands over to the running app, which shows its window
+        ├── SingleInstance.cs    ← a second start hands over to the running app, which shows its window; Setup asks it to quit
         ├── App.xaml             ← merges the palette, tokens, icons and control styles; the sidebar's own styles
         ├── MainWindow.xaml      ← sidebar navigation + page host + activity log + status bar; .Layout.cs: Customize Layout, the gear's menu
         ├── Pages/               ← one page per sidebar item, plus Settings and Troubleshoot (opened over the page); AboutInfo (Settings → About)
@@ -336,7 +336,7 @@ DnnManager.NET/
         ├── Terminal/            ← the terminal itself: screen buffer + VT parser, the view that draws it, the shell session
         ├── Themes/              ← LightTheme / DarkTheme colour palettes, Tokens (radii, heights, padding), Icons (every icon)
         │   └── Controls/        ← the reusable control styles, one dictionary per kind (see Control styles)
-        └── Services/            ← ActivityLog + OutputModel (the Output tab's runs, stages and lines), OperationRunner, ServerStore, EfficiencyMode + WindowOcclusion, LiveSettings, DnnReleaseCatalog, ReleaseNotes (the notes built into the exe), TerminalService, ThemeManager, Toast, IdeLocator, SsmsConnectDialog, SettingsStartup, ByteSize, GUI adapters
+        └── Services/            ← ActivityLog + OutputModel (the Output tab's runs, stages and lines), OperationRunner, ServerStore, EfficiencyMode + WindowOcclusion, TrayIcon (the notification area's icon), LiveSettings, DnnReleaseCatalog, ReleaseNotes (the notes built into the exe), TerminalService, ThemeManager, Toast, IdeLocator, SsmsConnectDialog, SettingsStartup, ByteSize, GUI adapters
 ```
 
 ## Key design decisions
@@ -435,6 +435,7 @@ written inline anywhere else.
 | The workspace kept between starts (window, page, Projects table, Details, form drafts, panel) - see [The workspace kept between starts](#the-workspace-kept-between-starts) | [`State/StateStore.cs`](../src/DnnManager.Infrastructure/State/StateStore.cs), [`Services/WorkspaceService.cs`](../src/DnnManager.Presentation/Services/WorkspaceService.cs), [`Services/WorkspaceStates.cs`](../src/DnnManager.Presentation/Services/WorkspaceStates.cs) (the states), [`Services/FormDraft.cs`](../src/DnnManager.Presentation/Services/FormDraft.cs), `MainWindow` (*The workspace, kept between starts*), `CaptureTable`/`RestoreAsync` in [`ProjectsPage`](../src/DnnManager.Presentation/Pages/ProjectsPage.xaml.cs), `CaptureLogs`/`RestoreLogs` in [`Controls/TerminalPanel.xaml`](../src/DnnManager.Presentation/Controls/TerminalPanel.xaml.cs) |
 | Keyboard: commands, shortcuts, command palette, focus ring ([user guide](user-guide.md#keyboard)) | [`Services/AppCommands.cs`](../src/DnnManager.Presentation/Services/AppCommands.cs) (every command and its shortcut, kept in `keyboard.shortcuts`), [`Services/Shortcut.cs`](../src/DnnManager.Presentation/Services/Shortcut.cs), [`MainWindow.Commands.cs`](../src/DnnManager.Presentation/MainWindow.Commands.cs) (the commands, the key dispatch, what each does), [`Controls/CommandPalette.xaml`](../src/DnnManager.Presentation/Controls/CommandPalette.xaml.cs), [`Pages/SettingsPage.Keyboard.cs`](../src/DnnManager.Presentation/Pages/SettingsPage.Keyboard.cs) (Settings → Keyboard shortcuts), [`Services/FocusRing.cs`](../src/DnnManager.Presentation/Services/FocusRing.cs) + the `FocusRing` style in `Themes/Controls/LayoutStyles.xaml`. A new command: one `Add` in `RegisterCommands` - its id is what the settings keep, so never rename it |
 | DNN Manager's own update (the title bar's Update button; how it works: [releasing.md](releasing.md#the-in-app-update)) | [`Services/AppUpdater.cs`](../src/DnnManager.Presentation/Services/AppUpdater.cs), `UpdateRecord` in [`Services/WorkspaceStates.cs`](../src/DnnManager.Presentation/Services/WorkspaceStates.cs), [`Updates/`](../src/DnnManager.Infrastructure/Updates/) (`AppReleaseFeed`, `UpdateDownloader`, `UpdateTarget`, `UpdateHelper` - the helper process), [`AppRestart.cs`](../src/DnnManager.Presentation/AppRestart.cs), [`Program.cs`](../src/DnnManager.Presentation/Program.cs) (`--apply-update`) |
+| Running in the background (closing hides the window; the notification area's icon) | `MainWindow` (*Running in the background*: `OnClosing`, `Quit`, `ShowFromBackground`), [`Services/TrayIcon.cs`](../src/DnnManager.Presentation/Services/TrayIcon.cs), [`SingleInstance.cs`](../src/DnnManager.Presentation/SingleInstance.cs) (a second start shows the hidden window) |
 | Efficiency mode while out of sight | [`Services/WindowOcclusion.cs`](../src/DnnManager.Presentation/Services/WindowOcclusion.cs), [`Services/EfficiencyMode.cs`](../src/DnnManager.Presentation/Services/EfficiencyMode.cs), [`Processes/PowerThrottling.cs`](../src/DnnManager.Infrastructure/Processes/PowerThrottling.cs) (EcoQoS) |
 | Themes | [`Themes/`](../src/DnnManager.Presentation/Themes/), [`Services/ThemeManager.cs`](../src/DnnManager.Presentation/Services/ThemeManager.cs) |
 | Control styles (buttons, inputs, selects, switches…) | [`Themes/Controls/`](../src/DnnManager.Presentation/Themes/Controls/), [`Themes/Tokens.xaml`](../src/DnnManager.Presentation/Themes/Tokens.xaml) |

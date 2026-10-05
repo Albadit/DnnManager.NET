@@ -31,10 +31,13 @@
 
 #define AppName "DNN Manager"
 #define AppExe "DnnManager.exe"
-#define AppPublisher "Bond for web solutions"
-#define AppUrl "https://github.com/Bond-for-web-solutions/DnnManager.NET"
+#define AppPublisher "Albadit"
+#define AppUrl "https://github.com/Albadit/DnnManager.NET"
 ; Identifies the installation for upgrades and uninstall - never change it.
 #define AppGuid "AD68C57A-D887-4297-A905-B6F28C1D66D1"
+; There while DNN Manager runs, and set to ask it to quit (src\DnnManager.Presentation\RunningMarker.cs, SingleInstance.cs).
+#define RunningMutex "DnnManager.NET.Running"
+#define QuitEvent "DnnManager.NET.Quit"
 
 [Setup]
 AppId={{{#AppGuid}}
@@ -66,11 +69,11 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 
-; DNN Manager creates this mutex while it runs (src\DnnManager.Presentation\RunningMarker.cs), so Setup and the
-; uninstaller ask to close it first - it runs elevated, so Setup couldn't close it itself.
-AppMutex=DnnManager.NET.Running
-; A Setup started by an older one (/HandedOver=1) has a mutex of its own: the older one may not have exited yet.
-SetupMutex=DnnManager.NET.Setup{param:HandedOver|}
+; No AppMutex: a running DNN Manager isn't a reason to stop at the start. Setup and the uninstaller ask it to quit just
+; before they replace or remove its files (CloseDnnManager below) - it runs elevated, so they can't close it themselves.
+; A Setup started by an older one (/HandedOver=1), or by this one when it is done (/Done=…), has a mutex of its own:
+; the one that started it may not have exited yet.
+SetupMutex=DnnManager.NET.Setup{param:HandedOver|}{param:Done|}
 
 WizardStyle=modern
 SetupIconFile=..\DnnManager.Presentation\Assets\dnn.ico
@@ -109,8 +112,9 @@ Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{ap
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-; The app asks for administrator rights itself (UAC) when it starts, as it does from the shortcuts.
-Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
+; The app asks for administrator rights itself (UAC) when it starts, as it does from the shortcuts. Not when Setup goes
+; back to its first page after a Repair or Update - it starts DNN Manager again itself if it was running.
+Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent; Check: not GoesBackWhenDone
 
 [UninstallRun]
 ; "Start DNN Manager when you sign in" (Settings - General) is a scheduled task - it goes with the app. Best effort:
@@ -120,27 +124,46 @@ Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""DNN Manager"" /F"; Fl
 [Code]
 // What Setup installs comes from GitHub:
 // - a new install: the newest release;
-// - DNN Manager installed: the first page offers "Update to version X" (when GitHub has a newer release), "Repair",
-//   which installs the installed version again, and "Uninstall", which runs the installed uninstaller.
+// - DNN Manager installed: the first page has a button for each choice - "Update to X" (when GitHub has a newer
+//   release), "Repair", which installs the installed version again, and "Uninstall", which runs the installed
+//   uninstaller. When one is done, Setup starts again on that page (/Done=…) - after an uninstall, as a new install.
 // Setup installs the version it carries itself; any other version it downloads from GitHub (that release's Setup,
 // checked against GitHub's SHA-256 and its version) and hands over to it with /HandedOver=1 - the new Setup skips
-// the pages already answered here - and this Setup closes. Silent runs (the in-app update) install what they carry.
+// the pages already answered here (and, with /Back=…, comes back to the first page when it is done) - and this Setup
+// closes. Silent runs (the in-app update) install what they carry.
 // Offline: the newest version is the one this Setup carries, and when a download fails Setup offers to install that.
+// A running DNN Manager is closed just before its files are replaced or removed - not when Setup starts.
 const
   UninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{' + '{#AppGuid}' + '}_is1';
-  ReleasesApi = 'https://api.github.com/repos/Bond-for-web-solutions/DnnManager.NET/releases/';
+  ReleasesApi = 'https://api.github.com/repos/Albadit/DnnManager.NET/releases/';
+  EventModifyState = $0002;
+  ActionUpdate = 1;
+  ActionRepair = 2;
+  ActionUninstall = 3;
 
 var
-  MaintenancePage: TInputOptionWizardPage;
+  MaintenancePage: TWizardPage;
   DownloadPage: TDownloadWizardPage;
   InstalledVersion: String;
   InstalledUninstaller: String;
   // GitHub's newest release - or this Setup's version, when that is newer or GitHub couldn't be asked (Offline).
   NewestVersion: String;
   Offline: Boolean;
-  // The maintenance page's options; UpdateOption is -1 when there is no newer release.
-  UpdateOption, UninstallOption: Integer;
+  // The first page's button that was clicked.
+  Action: Integer;
+  // Set when Setup goes back to its first page once the install is done: 'Repaired' or 'Updated' - from that page's
+  // button, or /Back=… from the older Setup that handed over to this one.
+  BackWhenDone: String;
+  // DNN Manager was running and was asked to quit for the install - it is started again afterwards.
+  WasRunning: Boolean;
   Closing: Boolean;
+
+function OpenEvent(DesiredAccess: DWORD; InheritHandle: BOOL; Name: String): THandle;
+  external 'OpenEventW@kernel32.dll stdcall';
+function SetEvent(Event: THandle): BOOL;
+  external 'SetEvent@kernel32.dll stdcall';
+function CloseHandle(Handle: THandle): BOOL;
+  external 'CloseHandle@kernel32.dll stdcall';
 
 function IsInstalled: Boolean;
 begin
@@ -151,6 +174,71 @@ end;
 function IsHandedOver: Boolean;
 begin
   Result := ExpandConstant('{param:HandedOver|}') <> '';
+end;
+
+// The [Run] entry's check: no "Launch DNN Manager" on a Finished page that isn't shown.
+function GoesBackWhenDone: Boolean;
+begin
+  Result := BackWhenDone <> '';
+end;
+
+function IsDnnManagerRunning: Boolean;
+begin
+  Result := CheckForMutexes('{#RunningMutex}');
+end;
+
+// Waits up to Seconds for DNN Manager to be gone.
+function WaitUntilClosed(Seconds: Integer): Boolean;
+var
+  I: Integer;
+begin
+  for I := 1 to Seconds * 4 do
+  begin
+    if not IsDnnManagerRunning then Break;
+    Sleep(250);
+  end;
+  Result := not IsDnnManagerRunning;
+end;
+
+// Ends the installed DNN Manager's process - only the one in Folder, never the update helper (a copy of the exe in
+// TEMP). It runs elevated, so ending it needs administrator rights: Windows asks (UAC) unless Setup has them.
+procedure EndDnnManager(const Folder: String);
+var
+  ResultCode: Integer;
+begin
+  if not ShellExec('runas', ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+    '-NoProfile -NonInteractive -Command "Get-Process DnnManager -ErrorAction SilentlyContinue | ' +
+    'Where-Object { $_.Path -eq ''' + AddBackslash(Folder) + '{#AppExe}'' } | Stop-Process -Force"',
+    '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    Log('Could not end DNN Manager: ' + SysErrorMessage(ResultCode));
+end;
+
+// Closes the running DNN Manager in Folder before its files are replaced or removed - without asking: it is asked to
+// quit (1.7.6 and newer listen, and quit without questions - a running operation is cancelled), and when it is still
+// there after a few seconds (an older version, or it doesn't answer) its process is ended. False when it is still
+// running and the user chose Cancel.
+function CloseDnnManager(const Folder: String): Boolean;
+var
+  Event: THandle;
+begin
+  repeat
+    Event := OpenEvent(EventModifyState, False, '{#QuitEvent}');
+    if Event <> 0 then
+    begin
+      SetEvent(Event);
+      CloseHandle(Event);
+      WaitUntilClosed(10);
+    end;
+    if IsDnnManagerRunning then
+    begin
+      Log('DNN Manager didn''t quit when asked - ending its process.');
+      EndDnnManager(Folder);
+      WaitUntilClosed(5);
+    end;
+    Result := not IsDnnManagerRunning;
+  until Result or (SuppressibleMsgBox('{#AppName} couldn''t be closed.' + #13#10#13#10 +
+    'Quit it (right-click its icon by the clock, then Quit DNN Manager), then choose Retry.',
+    mbError, MB_RETRYCANCEL, IDCANCEL) <> IDRETRY);
 end;
 
 // True when version A is newer than B ("1.7.2" or "1.7.2.0"); False when either isn't a version.
@@ -206,6 +294,7 @@ begin
     if not RegQueryStringValue(HKA, UninstallKey, 'DisplayVersion', InstalledVersion) then
       InstalledVersion := '';
   end;
+  BackWhenDone := ExpandConstant('{param:Back|}');
 
   if not WizardSilent and not IsHandedOver then
     try
@@ -226,9 +315,71 @@ begin
   if InstalledVersion <> '' then Result := InstalledVersion else Result := '{#AppVersion}';
 end;
 
+// ─── The first page, when DNN Manager is installed: a button for each choice ───
+
+// Text on the first page at Left, Top - as wide as the page leaves, as high as its lines.
+function AddText(const Text: String; Left, Top: Integer): TNewStaticText;
+begin
+  Result := TNewStaticText.Create(MaintenancePage);
+  Result.Parent := MaintenancePage.Surface;
+  Result.AutoSize := False;
+  Result.WordWrap := True;
+  Result.Left := Left;
+  Result.Top := Top;
+  Result.Width := MaintenancePage.SurfaceWidth - Left;
+  Result.Caption := Text;
+  Result.AdjustHeight;
+end;
+
+// A button and, beside it, what it does - below Top, which moves past them.
+procedure AddAction(const Caption, Note: String; Click: TNotifyEvent; var Top: Integer);
+var
+  Button: TNewButton;
+  Text: TNewStaticText;
+begin
+  Button := TNewButton.Create(MaintenancePage);
+  Button.Parent := MaintenancePage.Surface;
+  Button.Caption := Caption;
+  Button.Left := 0;
+  Button.Top := Top;
+  Button.Width := ScaleX(150);
+  Button.Height := WizardForm.NextButton.Height + ScaleY(6);
+  Button.OnClick := Click;
+  Text := AddText(Note, Button.Width + ScaleX(14), Top);
+  Text.Top := Top + (Button.Height - Text.Height) div 2;
+  Top := Top + Button.Height + ScaleY(10);
+end;
+
+// A button was clicked: on as Next would go - the button is the page's Next, which is hidden there.
+procedure Choose(Chosen: Integer);
+begin
+  Action := Chosen;
+  WizardForm.NextButton.Visible := True;
+  WizardForm.NextButton.OnClick(WizardForm.NextButton);
+  // Still here: the uninstall was cancelled, or a download failed and Setup's own version was declined.
+  if WizardForm.CurPageID = MaintenancePage.ID then WizardForm.NextButton.Visible := False;
+end;
+
+procedure UpdateClick(Sender: TObject);
+begin
+  Choose(ActionUpdate);
+end;
+
+procedure RepairClick(Sender: TObject);
+begin
+  Choose(ActionRepair);
+end;
+
+procedure UninstallClick(Sender: TObject);
+begin
+  Choose(ActionUninstall);
+end;
+
 procedure InitializeWizard;
 var
-  OfflineNote: String;
+  Top: Integer;
+  Done, OfflineNote: String;
+  DoneText: TNewStaticText;
 begin
   DownloadPage := CreateDownloadPage('Downloading {#AppName}',
     'The version to install is downloaded from GitHub - Setup then continues with it.', nil);
@@ -237,26 +388,58 @@ begin
   // Started by an older Setup: what to do was chosen there.
   if not IsInstalled or IsHandedOver then Exit;
 
+  MaintenancePage := CreateCustomPage(wpWelcome, '{#AppName} is installed', 'Update, repair or uninstall it.');
+  Top := 0;
+  // Back here after Repair or Update.
+  Done := ExpandConstant('{param:Done|}');
+  if Done = 'Repaired' then Done := 'Repair finished.'
+  else if Done = 'Updated' then Done := 'Update finished.'
+  else Done := '';
+  if Done <> '' then
+  begin
+    DoneText := AddText(Done, 0, Top);
+    DoneText.Font.Style := [fsBold];
+    DoneText.AdjustHeight;
+    Top := DoneText.Height + ScaleY(10);
+  end;
   if Offline then
-    OfflineNote := #13#10#13#10 + 'GitHub can''t be reached - Setup installs the version it carries, {#AppVersion}.';
-  MaintenancePage := CreateInputOptionPage(wpWelcome,
-    '{#AppName} is already installed',
-    'Choose what to do with the installed version.',
-    '{#AppName} ' + RepairVersion + ' is installed in:' + #13#10 + ExtractFileDir(InstalledUninstaller) + #13#10#13#10 +
-      'Your settings in Documents\DnnManager are kept either way.' + OfflineNote,
-    True, False);
-  UpdateOption := -1;
+    OfflineNote := #13#10#13#10 + 'GitHub can''t be reached - Repair installs the version this Setup carries, {#AppVersion}.';
+  Top := Top + AddText('{#AppName} ' + RepairVersion + ' is installed in:' + #13#10 + ExtractFileDir(InstalledUninstaller) + #13#10#13#10 +
+    'Your settings in Documents\DnnManager are kept either way.' + OfflineNote, 0, Top).Height + ScaleY(18);
+
   if IsNewer(NewestVersion, InstalledVersion) then
-    UpdateOption := MaintenancePage.Add('Update to version ' + NewestVersion);
-  MaintenancePage.Add('Repair - install version ' + RepairVersion + ' again');
-  UninstallOption := MaintenancePage.Add('Uninstall {#AppName}');
-  MaintenancePage.SelectedValueIndex := 0;
+    AddAction('Update to ' + NewestVersion, 'Installs the newest release from GitHub.', @UpdateClick, Top);
+  AddAction('Repair', 'Installs version ' + RepairVersion + ' again.', @RepairClick, Top);
+  AddAction('Uninstall', 'Removes {#AppName} from this PC.', @UninstallClick, Top);
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if MaintenancePage = nil then Exit;
+  // The page's buttons go on; Setup only offers to close.
+  WizardForm.NextButton.Visible := CurPageID <> MaintenancePage.ID;
+  if CurPageID = MaintenancePage.ID then
+    WizardForm.CancelButton.Caption := 'Close'
+  else
+    WizardForm.CancelButton.Caption := SetupMessage(msgButtonCancel);
 end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  // The license was accepted when it was first installed, or in the older Setup that started this one.
-  Result := (PageID = wpLicense) and (IsInstalled or IsHandedOver);
+  // The license was accepted when it was first installed, or in the older Setup that started this one. Going back to
+  // the first page, Setup ends without its Finished page.
+  Result := ((PageID = wpLicense) and (IsInstalled or IsHandedOver)) or ((PageID = wpFinished) and GoesBackWhenDone);
+end;
+
+// Starts this Setup again, on its first page, and closes this one - Done says on that page what was done.
+procedure StartAgain(const Done: String);
+var
+  Mode: String;
+  ResultCode: Integer;
+begin
+  if IsAdminInstallMode then Mode := '/ALLUSERS' else Mode := '/CURRENTUSER';
+  if not Exec(ExpandConstant('{srcexe}'), '/SP- /Done=' + Done + ' ' + Mode, '', SW_SHOW, ewNoWait, ResultCode) then
+    Log('Could not start Setup again: ' + SysErrorMessage(ResultCode));
 end;
 
 // Downloads that version's Setup from GitHub, checks it, starts it and closes this Setup. Raises an exception with
@@ -297,6 +480,8 @@ begin
     RaiseException('Could not copy the download to ' + Folder + '.');
 
   if IsAdminInstallMode then Mode := '/ALLUSERS' else Mode := '/CURRENTUSER';
+  // A Setup older than 1.7.6 ignores /Back and shows its Finished page.
+  if BackWhenDone <> '' then Mode := Mode + ' /Back=' + BackWhenDone;
   if not Exec(NewSetup, '/SP- /HandedOver=1 ' + Mode, '', SW_SHOW, ewNoWait, ResultCode) then
     RaiseException('Could not start ' + NewSetup + ': ' + SysErrorMessage(ResultCode));
   Log('Started ' + NewSetup + ' - this Setup closes.');
@@ -324,7 +509,8 @@ var
 begin
   WizardForm.Hide;
   try
-    // Waits until the uninstall has finished; the uninstaller asks for confirmation itself.
+    // Waits until the uninstall has finished; the uninstaller asks for confirmation itself, and closes a running DNN
+    // Manager.
     if not Exec(InstalledUninstaller, '', '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
     begin
       MsgBox('Could not start the uninstaller:' + #13#10 + SysErrorMessage(ResultCode), mbError, MB_OK);
@@ -339,6 +525,8 @@ begin
   // returned - so check its registry key, which is gone by now. Still there: the uninstall was cancelled - stay
   // on the page.
   if RegKeyExists(HKA, UninstallKey) then Exit;
+  // Back to the first page - DNN Manager isn't installed now, so that is a new install's.
+  StartAgain('Uninstalled');
   Closing := True;
   WizardForm.Close;
 end;
@@ -354,19 +542,61 @@ begin
   end;
   if (MaintenancePage = nil) or (CurPageID <> MaintenancePage.ID) then Exit;
 
-  if MaintenancePage.SelectedValueIndex = UninstallOption then
-  begin
-    RunUninstaller;
-    Result := False;
-  end
-  else if MaintenancePage.SelectedValueIndex = UpdateOption then
-    Result := InstallVersion(NewestVersion)
+  case Action of
+    ActionUninstall:
+      begin
+        RunUninstaller;
+        Result := False;
+      end;
+    ActionUpdate:
+      begin
+        BackWhenDone := 'Updated';
+        Result := InstallVersion(NewestVersion);
+      end;
+    ActionRepair:
+      begin
+        BackWhenDone := 'Repaired';
+        Result := InstallVersion(RepairVersion);
+      end;
   else
-    Result := InstallVersion(RepairVersion);
+    // Next itself is hidden on this page - only its buttons go on.
+    Result := False;
+  end;
+end;
+
+// Just before the files are replaced: a running DNN Manager is asked to quit (not for a new install - another copy, a
+// portable one, can go on).
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := '';
+  if not IsInstalled or not IsDnnManagerRunning then Exit;
+  WasRunning := True;
+  if not CloseDnnManager(ExtractFileDir(InstalledUninstaller)) then
+    Result := '{#AppName} is still running. Quit it - right-click its icon by the clock, then Quit DNN Manager - and run Setup again.';
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
+begin
+  if (CurStep <> ssDone) or not GoesBackWhenDone then Exit;
+  // Quit for the install: running again, as before (it asks for administrator rights itself).
+  if WasRunning then
+    ExecAsOriginalUser(ExpandConstant('{app}\{#AppExe}'), '', ExpandConstant('{app}'), SW_SHOW, ewNoWait, ResultCode);
+  StartAgain(BackWhenDone);
 end;
 
 procedure CancelButtonClick(CurPageID: Integer; var Cancel, Confirm: Boolean);
 begin
-  // Closing after the uninstall or the hand-over: nothing to confirm.
-  if Closing then Confirm := False;
+  // Closing after the uninstall or the hand-over, or from the first page where nothing has started: nothing to confirm.
+  if Closing or ((MaintenancePage <> nil) and (CurPageID = MaintenancePage.ID)) then Confirm := False;
+end;
+
+// The uninstaller - started from Setup, or from Windows' Installed apps: once its "Are you sure" is answered, a running
+// DNN Manager is closed, so its files can be removed. Still running (Cancel on Setup's question): the files in use are
+// removed when Windows restarts.
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if (CurUninstallStep = usUninstall) and IsDnnManagerRunning then
+    CloseDnnManager(ExpandConstant('{app}'));
 end;

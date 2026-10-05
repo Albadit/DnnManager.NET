@@ -54,10 +54,9 @@ internal sealed class ProjectMenu(IServiceProvider services, OperationRunner run
         menu.Items.Add(open);
         menu.Items.Add(Item("Open site", (_, _) => Presentation.Shell.Open(row.Url), row.HasUrl));
         menu.Items.Add(Item("Open folder", (_, _) => OpenFolder(row)));
-        // A shell in the project's folder, in the terminal panel - unless the terminal is switched off in the settings.
+        // A shell in the project's folder, in the terminal panel.
         var terminal = _services.GetRequiredService<TerminalService>();
-        if (terminal.Settings.Enabled)
-            menu.Items.Add(Item("Open in terminal", (_, _) => terminal.OpenIn(row.Path), Directory.Exists(row.Path)));
+        menu.Items.Add(Item("Open in terminal", (_, _) => terminal.OpenIn(row.Path), Directory.Exists(row.Path)));
         menu.Items.Add(new Separator());
         AddSiteTools(menu.Items, _services, row);
         menu.Items.Add(new Separator());

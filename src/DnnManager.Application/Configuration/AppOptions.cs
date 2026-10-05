@@ -38,7 +38,7 @@ public sealed class AppOptions
         KeyboardShortcuts = other.KeyboardShortcuts;
         Layout = other.Layout;
         Terminal = other.Terminal;
-        SaveResourcesWhileMinimized = other.SaveResourcesWhileMinimized;
+        KeepRunningWhenClosed = other.KeepRunningWhenClosed;
         Changed?.Invoke();
     }
 
@@ -76,10 +76,10 @@ public sealed class AppOptions
     /// <summary>The terminal's settings at startup; the Settings page changes (and saves) them while the app runs.</summary>
     public TerminalSettings Terminal { get; set; } = new();
     /// <summary>
-    /// While the window is minimized, pause what only it shows and, while nothing runs, let Windows run the app on its
-    /// power-saving setting (the presentation's EfficiencyMode). On by default; set in Settings - General.
+    /// Closing the window hides it and the app keeps running, with an icon in the notification area to open or quit it
+    /// (the presentation's TrayIcon). On by default; set in Settings - General.
     /// </summary>
-    public bool SaveResourcesWhileMinimized { get; set; } = true;
+    public bool KeepRunningWhenClosed { get; set; } = true;
 
     /// <summary>The host header a project's IIS site is bound to: <c>{project}.{HostnameSuffix}</c>.</summary>
     public string HostnameFor(string projectName) => $"{projectName}.{HostnameSuffix}";

@@ -2,6 +2,59 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## v1.7.6
+
+### Upgrading
+
+- Closing the window now keeps DNN Manager running, with its icon in the
+  notification area - also for an installed version updated to this one. Quit
+  from that icon, or turn **Keep DNN Manager running when you close the window**
+  off in Settings → General to have closing quit again.
+- **Settings → General → Save resources while the window can't be seen** is
+  gone: it is always on. A `window.saveResourcesWhileMinimized` row saved by an
+  older version stays in the settings and is ignored.
+- **Settings → General → Enable the terminal** is gone: the terminal is always
+  there. A terminal switched off before is back; a `terminal.enabled` row saved
+  by an older version stays in the settings and is ignored.
+
+### Added
+
+- **Keep DNN Manager running when you close the window** (Settings → General,
+  on by default): closing the window hides it and DNN Manager keeps running -
+  operations, terminals, following the sites and keep warm go on. Its icon in
+  the notification area opens the window again (a click) or quits (right-click
+  → **Quit DNN Manager**, also in the command palette); starting DNN Manager
+  again shows the window too. While hidden, the window saves resources as when
+  minimized, and a failed operation shows a Windows notification.
+- **Settings: General**, **Projects**, **DNN releases**, **Database server**,
+  **Docker container**, **IIS**, **Keyboard shortcuts** and **About** in the
+  command palette open Settings on that category (they can have a shortcut too,
+  in Settings → Keyboard shortcuts). *Open Keyboard Shortcuts* is now
+  **Settings: Keyboard shortcuts**.
+
+### Changed
+
+- **Setup** opens while DNN Manager is running - no "Setup has detected that DNN
+  Manager is currently running" first. When DNN Manager is installed, its first
+  page has a button for **Update to X**, **Repair** and **Uninstall** instead
+  of a choice and Next; once one is done, Setup comes back to that page (*Repair
+  finished.*, *Update finished.*), or to a new install's after an uninstall.
+  Just before Repair or Update replace the files, and once an uninstall is
+  confirmed, a running DNN Manager is closed without asking (a running operation
+  is cancelled); one that doesn't close - 1.7.5 and older can't be asked - is
+  ended, after Windows asks for administrator rights. After Repair or Update it
+  is started again.
+- Saving resources while the window can't be seen is always on - it only pauses
+  what nobody can see, and everything is brought up to date as soon as the
+  window is seen again.
+- The terminal is always on: the Terminal tab, **New terminal** and **Open in
+  terminal** are always there; Settings → General keeps its shell and font.
+- The repository moved to [Albadit/DnnManager.NET](https://github.com/Albadit/DnnManager.NET):
+  update checks, the installer's links and the README point there, and the
+  publisher (Windows' installed apps) and the licence's copyright holder are
+  now Albadit. Installed versions keep updating - GitHub redirects the old
+  address.
+
 ## v1.7.5
 
 ### Added

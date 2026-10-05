@@ -72,7 +72,7 @@ public sealed class AutomaticInstallTests
     [TestMethod]
     public async Task LocalSqlContainer_ShowsTheSiteInsteadOfTheWizard()
     {
-        if (_container is null) Assert.Inconclusive("Docker isn't available for a SQL Server container.");
+        if (_container is null) Assert.Inconclusive("Docker with Linux containers isn't available for a SQL Server container.");
         // No database chosen: DNN Manager's default - a database named like the project on the local container, as sa.
         await InstallAndVerifyAsync("dnnit_box", null);
     }
@@ -80,7 +80,7 @@ public sealed class AutomaticInstallTests
     [TestMethod]
     public async Task SqlAuthentication_OwnLoginOnAnEmptyDatabase()
     {
-        if (_container is null) Assert.Inconclusive("Docker isn't available for a SQL Server container.");
+        if (_container is null) Assert.Inconclusive("Docker with Linux containers isn't available for a SQL Server container.");
         // A login of its own (not sa) owning an empty database made beforehand, with a password connection strings and
         // T-SQL have to quote.
         var password = TestEnvironment.Password(24, ";={'\"");

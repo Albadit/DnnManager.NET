@@ -154,13 +154,12 @@ public sealed class UserSettings
         Layout = Layout.Copy(),
         Terminal = new TerminalSettings
         {
-            Enabled = Terminal.Enabled,
             DefaultShell = Terminal.DefaultShell,
             FontFamily = Terminal.FontFamily,
             FontSize = Terminal.FontSize
         },
         SsmsRememberPassword = Ssms.RememberPassword,
-        SaveResourcesWhileMinimized = Window.SaveResourcesWhileMinimized,
+        KeepRunningWhenClosed = Window.KeepRunningWhenClosed,
         Docker = new DockerOptions
         {
             ContainerName = Docker.ContainerName,
@@ -451,8 +450,6 @@ public sealed class TerminalSettings
 {
     public const int MinFontSize = 8, MaxFontSize = 32;
 
-    /// <summary>Off: the panel only shows the activity log - no shells can be opened in it.</summary>
-    public bool Enabled { get; set; } = true;
     /// <summary>The shell the + button opens: "powershell", "pwsh", "cmd" or "gitbash" - the first installed one when this one isn't.</summary>
     public string DefaultShell { get; set; } = "powershell";
     /// <summary>The font of the terminal and the activity log; empty for the default (Cascadia Mono, or Consolas).</summary>
@@ -464,12 +461,10 @@ public sealed class TerminalSettings
 public sealed class WindowSettings
 {
     /// <summary>
-    /// While the window is minimized, stop what only it shows - animations, this PC's figures, redrawing terminals,
-    /// following a log, folder-size walks - and, while nothing runs, let Windows run DNN Manager on its power-saving
-    /// setting (EcoQoS). Restoring the window brings everything up to date at once. Off: everything goes on as while
-    /// the window is shown.
+    /// Closing the window (its ✕, Alt+F4) hides it and DNN Manager keeps running - its icon in the notification area
+    /// opens it again or quits it, as Docker Desktop's does. On by default. Off: closing the window quits DNN Manager.
     /// </summary>
-    public bool SaveResourcesWhileMinimized { get; set; } = true;
+    public bool KeepRunningWhenClosed { get; set; } = true;
 }
 
 public sealed class KeyboardSettings

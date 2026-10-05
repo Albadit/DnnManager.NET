@@ -129,13 +129,7 @@ public partial class TerminalPanel : UserControl
         Pipeline.SetFontSize(size);
         Logs.SetFont(font, size);
         foreach (var tab in _tabs) tab.View.SetFont(font, size);
-
-        var enabled = _service.Settings.Enabled;
-        TerminalTab.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
         NewButton.ToolTip = "New terminal";
-        if (enabled) return;
-        CloseAll();
-        if (_pane == Pane.Terminal) OutputTab.IsChecked = true;
     }
 
     // ─── The three tabs ───────────────────────────────────────────────────
@@ -169,7 +163,7 @@ public partial class TerminalPanel : UserControl
         SearchBar.Margin = new Thickness(0, pane == Pane.Logs ? 46 : 6, 20, 0);
 
         // Like VS Code: the terminal tab with no shell open starts one.
-        if (pane == Pane.Terminal && _tabs.Count == 0 && _service.Settings.Enabled) NewTerminal();
+        if (pane == Pane.Terminal && _tabs.Count == 0) NewTerminal();
         ShowTerminalState();
         if (pane == Pane.Terminal) FocusTerminal();
         else if (pane == Pane.Activity) Pipeline.Log.ScrollToEnd();
@@ -193,7 +187,7 @@ public partial class TerminalPanel : UserControl
     /// <summary>The next tab (<paramref name="by"/> 1) or the one before (-1) - Output, Logs, Terminal - round the end.</summary>
     public void StepPane(int by)
     {
-        var panes = _service.Settings.Enabled ? new[] { Pane.Activity, Pane.Logs, Pane.Terminal } : [Pane.Activity, Pane.Logs];
+        var panes = new[] { Pane.Activity, Pane.Logs, Pane.Terminal };
         var index = Array.IndexOf(panes, _pane);
         ShowPane(panes[((index + by) % panes.Length + panes.Length) % panes.Length]);
     }
@@ -220,7 +214,6 @@ public partial class TerminalPanel : UserControl
     /// </summary>
     public void NewTerminal(TerminalShell? shell = null, string? directory = null)
     {
-        if (!_service.Settings.Enabled) return;
         shell ??= _service.DefaultShell;
         var inProject = directory is not null;
         directory ??= _service.WorkingDirectory;
@@ -600,7 +593,7 @@ public partial class TerminalPanel : UserControl
         WholeWord.IsChecked = state.WholeWord;
         UseRegex.IsChecked = state.UseRegex;
         // The Terminal tab only with a terminal open (never after a start: they aren't kept) - it doesn't start a shell by itself.
-        var pane = state.Pane switch { "Logs" => Pane.Logs, "Terminal" when _service.Settings.Enabled && _tabs.Count > 0 => Pane.Terminal, _ => Pane.Activity };
+        var pane = state.Pane switch { "Logs" => Pane.Logs, "Terminal" when _tabs.Count > 0 => Pane.Terminal, _ => Pane.Activity };
         ShowPane(pane);
         if (state.SearchOpen) SearchBar.Visibility = Visibility.Visible;
     }

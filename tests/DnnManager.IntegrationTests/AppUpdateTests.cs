@@ -27,7 +27,7 @@ public sealed class AppUpdateTests
     private const string LatestJson = """
         {
           "tag_name": "v1.7.0",
-          "html_url": "https://github.com/Bond-for-web-solutions/DnnManager.NET/releases/tag/v1.7.0",
+          "html_url": "https://github.com/Albadit/DnnManager.NET/releases/tag/v1.7.0",
           "assets": [
             { "name": "DnnManager-1.7.0-x64.exe", "size": 100, "digest": "sha256:ABCDEF", "browser_download_url": "https://example.test/DnnManager-1.7.0-x64.exe" },
             { "name": "DnnManagerSetup-1.7.0-x64.exe", "size": 50, "digest": null, "browser_download_url": "https://example.test/DnnManagerSetup-1.7.0-x64.exe" }

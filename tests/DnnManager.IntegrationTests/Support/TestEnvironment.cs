@@ -105,11 +105,16 @@ public static class TestEnvironment
 
     public const string SqlServerImage = "mcr.microsoft.com/mssql/server:2022-latest";
 
+    /// <summary>
+    /// Docker runs and can run the Linux SQL Server image - not when it runs Windows containers, as on GitHub's Windows
+    /// runners, where the tests that need the container are then skipped instead of failing on <c>docker run</c>.
+    /// </summary>
     public static bool DockerAvailable()
     {
         try
         {
-            return Run("docker", "version --format {{.Server.Version}}", check: false).ExitCode == 0;
+            var (exitCode, output) = Run("docker", "version --format {{.Server.Os}}", check: false);
+            return exitCode == 0 && output.Trim().Equals("linux", StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {

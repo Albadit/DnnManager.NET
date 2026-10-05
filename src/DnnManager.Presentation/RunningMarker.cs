@@ -4,13 +4,13 @@ using System.Security.Principal;
 namespace DnnManager.Presentation;
 
 /// <summary>
-/// A named mutex that exists while DNN Manager runs. The installer and uninstaller look for it (Inno Setup's
-/// <c>AppMutex</c>) and ask to close the app before replacing or removing its files, and a second start of the app
-/// finds it and hands over to the running one (<see cref="SingleInstance"/>).
+/// A named mutex that exists while DNN Manager runs. Setup and the uninstaller look for it before replacing or removing
+/// the app's files - they ask it to quit (<see cref="SingleInstance"/>) and wait until it is gone - and a second start of
+/// the app finds it and hands over to the running one.
 /// </summary>
 internal static class RunningMarker
 {
-    /// <summary>Keep in step with <c>AppMutex</c> in <c>src\DnnManager.Installer\DnnManager.iss</c>.</summary>
+    /// <summary>Keep in step with <c>RunningMutex</c> in <c>src\DnnManager.Installer\DnnManager.iss</c>.</summary>
     public const string Name = "DnnManager.NET.Running";
 
     /// <summary>

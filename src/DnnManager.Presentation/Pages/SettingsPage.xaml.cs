@@ -100,7 +100,7 @@ public partial class SettingsPage : UserControl
 
         _categories = new Dictionary<string, (FrameworkElement, string)>
         {
-            ["General"] = (GeneralPanel, "general start sign in startup appearance scale zoom ui font text size bigger smaller efficiency efficient save resources minimized minimize power battery eco terminal shell powershell command prompt git bash font family size"),
+            ["General"] = (GeneralPanel, "general start sign in startup close closing quit exit background tray notification area keep running appearance scale zoom ui font text size bigger smaller terminal shell powershell command prompt git bash font family size"),
             ["Projects"] = (ProjectsPanel, "projects folder base directory hostname suffix site port address url dnn defaults install installation automatic manual setup wizard host account username password e-mail email website name language culture template keep warm alive keepalive warm-up idle time-out timeout interval ping cold start slow fast recycle"),
             ["Releases"] = (ReleasesPanel, "dnn releases repositories github versions install packages keep download"),
             ["Sql"] = (SqlPanel, "database server sql server express localdb file connection type local container docker host port user username sa password windows authentication login username ssms management studio remember test connection"),
@@ -137,7 +137,7 @@ public partial class SettingsPage : UserControl
         foreach (var language in DnnAccountRules.Languages) DnnLanguage.Items.Add(new ComboBoxItem { Content = Languages.Name(language), Tag = language });
         foreach (var template in DnnAccountRules.Templates) DnnTemplate.Items.Add(new ComboBoxItem { Content = template, Tag = template });
         foreach (var minutes in KeepWarmSettings.PingIntervals) KeepWarmInterval.Items.Add(KeepWarmIntervalItem(minutes));
-        foreach (var box in new[] { SsmsRememberPassword, KeepDnnPackages, SaveResourcesWhileMinimized })
+        foreach (var box in new[] { SsmsRememberPassword, KeepDnnPackages, KeepRunningWhenClosed })
         {
             box.Checked += (_, _) => Edited();
             box.Unchecked += (_, _) => Edited();
@@ -231,8 +231,13 @@ public partial class SettingsPage : UserControl
         Categories.SelectedItem = shown[((index + by) % shown.Count + shown.Count) % shown.Count];
     }
 
-    public void ShowCategory(string key) =>
-        Categories.SelectedItem = Categories.Items.OfType<ListBoxItem>().FirstOrDefault(i => (string)i.Tag == key) ?? Categories.SelectedItem;
+    public void ShowCategory(string key)
+    {
+        if (Categories.Items.OfType<ListBoxItem>().FirstOrDefault(i => (string)i.Tag == key) is not { } item) return;
+        // Left out by the search: the search goes, so the category is in the list again.
+        if (item.Visibility != Visibility.Visible) SearchBox.Text = "";
+        Categories.SelectedItem = item;
+    }
 
     // Leaves the categories that have a setting matching every word typed, and opens the first of them.
     private void Search_TextChanged(object sender, TextChangedEventArgs e)
@@ -280,8 +285,6 @@ public partial class SettingsPage : UserControl
     private void ShowTerminal(TerminalSettings settings)
     {
         _loading = true;
-        TerminalEnabled.IsChecked = settings.Enabled;
-        TerminalOptions.IsEnabled = settings.Enabled;
         // A shell that isn't installed (any more): the first one that is, as the terminal itself does.
         if (!Select(DefaultShell, settings.DefaultShell)) Select(DefaultShell, _terminal.Shells[0].Key);
         // A saved font or size that isn't in the list is added, so it stays chosen.
@@ -308,14 +311,12 @@ public partial class SettingsPage : UserControl
     private void Terminal_Changed(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
-        TerminalOptions.IsEnabled = TerminalEnabled.IsChecked == true;
         Edited();
     }
 
     /// <summary>The terminal's settings as the form has them.</summary>
     private TerminalSettings ChosenTerminal => new()
     {
-        Enabled = TerminalEnabled.IsChecked == true,
         DefaultShell = (DefaultShell.SelectedItem as ComboBoxItem)?.Tag as string ?? _terminal.Settings.DefaultShell,
         FontFamily = (TerminalFont.SelectedItem as ComboBoxItem)?.Tag as string ?? _terminal.Settings.FontFamily,
         FontSize = (TerminalFontSize.SelectedItem as ComboBoxItem)?.Tag as int? ?? _terminal.Settings.FontSize
@@ -429,7 +430,7 @@ public partial class SettingsPage : UserControl
         MssqlPid.Text = docker.Edition;
         Collation.Text = docker.Collation;
         SsmsRememberPassword.IsChecked = saved.Ssms.RememberPassword;
-        SaveResourcesWhileMinimized.IsChecked = saved.Window.SaveResourcesWhileMinimized;
+        KeepRunningWhenClosed.IsChecked = saved.Window.KeepRunningWhenClosed;
         var dnn = p.DnnDefaults;
         InstallAutomatic.IsChecked = dnn.Automatic;
         InstallManual.IsChecked = !dnn.Automatic;
@@ -465,8 +466,8 @@ public partial class SettingsPage : UserControl
             string.Join('\n', ReleaseApis.Text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)),
             KeepDnnPackages.IsChecked == true, ServerSnapshot(),
             ContainerName.Text.Trim(), VolumeName.Text.Trim(), MssqlPid.Text.Trim(), Collation.Text.Trim(),
-            SsmsRememberPassword.IsChecked == true, ChosenUiScale, ChosenFontSize, SaveResourcesWhileMinimized.IsChecked == true,
-            terminal.Enabled, terminal.DefaultShell, terminal.FontFamily, terminal.FontSize,
+            SsmsRememberPassword.IsChecked == true, ChosenUiScale, ChosenFontSize,
+            KeepRunningWhenClosed.IsChecked == true, terminal.DefaultShell, terminal.FontFamily, terminal.FontSize,
             InstallAutomatic.IsChecked == true, HostUsername.Text.Trim(), HostPassword.Password, HostEmail.Text.Trim(), WebsiteName.Text.Trim(),
             (DnnLanguage.SelectedItem as ComboBoxItem)?.Tag, (DnnTemplate.SelectedItem as ComboBoxItem)?.Tag,
             (KeepWarmInterval.SelectedItem as ComboBoxItem)?.Tag, KeepWarmSettings.NormalizePath(KeepWarmPingPath.Text),
@@ -701,7 +702,7 @@ public partial class SettingsPage : UserControl
         settings.Ssms.RememberPassword = SsmsRememberPassword.IsChecked == true;
         settings.Appearance.UiScale = ChosenUiScale;
         settings.Appearance.FontSize = ChosenFontSize;
-        settings.Window.SaveResourcesWhileMinimized = SaveResourcesWhileMinimized.IsChecked == true;
+        settings.Window.KeepRunningWhenClosed = KeepRunningWhenClosed.IsChecked == true;
         settings.Terminal = ChosenTerminal;
         return (null, null);
     }

@@ -111,7 +111,7 @@ public partial class ProjectsPage : UserControl
         // What only this page shows (worker processes, SQL, sizes…) is kept current only while it is on screen - the
         // page is kept, hidden, while other pages are shown. Coming back reads everything once, at once.
         IsVisibleChanged += (_, _) => UpdateWatching();
-        // Covered by other windows (with Save resources on) is as good as minimized.
+        // Covered by other windows is as good as minimized.
         efficiency.Changed += (_, _) => UpdateWatching();
         Loaded += (_, _) =>
         {

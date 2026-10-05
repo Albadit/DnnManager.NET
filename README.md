@@ -7,7 +7,7 @@ working DNN site in one step and then manages every site in your IIS from a
 single window - start, stop, logs, terminal, database - in the style of Docker
 Desktop.
 
-[**Download**](https://github.com/Bond-for-web-solutions/DnnManager.NET/releases/latest) ·
+[**Download**](https://github.com/Albadit/DnnManager.NET/releases/latest) ·
 [User guide](docs/user-guide.md) ·
 [Development](docs/development.md) ·
 [Architecture](docs/architecture.md) ·
@@ -48,7 +48,7 @@ project takes its IIS site, folder and database with it.
 ## Quick start
 
 1. Download `DnnManagerSetup-<version>-x64.exe` from
-   [Releases](https://github.com/Bond-for-web-solutions/DnnManager.NET/releases/latest)
+   [Releases](https://github.com/Albadit/DnnManager.NET/releases/latest)
    and run it - installing needs no administrator rights.
 2. Start **DNN Manager** and accept the UAC prompt - it manages IIS, so it runs
    as Administrator.
@@ -74,7 +74,7 @@ The [user guide](docs/user-guide.md) walks through every page, menu and setting.
 You need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ```bash
-git clone https://github.com/Bond-for-web-solutions/DnnManager.NET.git
+git clone https://github.com/Albadit/DnnManager.NET.git
 cd DnnManager.NET
 dotnet run                    # builds and starts the app (asks for admin rights)
 dotnet test tests/DnnManager.IntegrationTests --filter "TestCategory!=Integration"   # fast tests
