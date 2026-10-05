@@ -52,8 +52,8 @@ function Step([string]$name, [scriptblock]$body) {
     }
 }
 
-function Docker([string[]]$argv, [switch]$Quiet) {
-    $output = & docker @argv 2>&1 | ForEach-Object { "$_" }
+function Invoke-Docker([string[]]$argv, [switch]$Quiet) {
+    $output = & docker.exe @argv 2>&1 | ForEach-Object { "$_" }
     if (-not $Quiet) { $output | ForEach-Object { Write-Host "   $(Hide $_)" } }
     if ($LASTEXITCODE -ne 0) { throw "docker $($argv -join ' ') failed: $(Hide (($output | Select-Object -Last 5) -join ' | '))" }
     return $output
@@ -63,7 +63,7 @@ function Docker([string[]]$argv, [switch]$Quiet) {
 # back to the host, the container's own address (the Host header stays the alias).
 function Wait-Site([string]$service, [int]$port, [int]$seconds = 600) {
     $until = (Get-Date).AddSeconds($seconds)
-    $container = (Docker @('compose', 'ps', '-q', $service) -Quiet | Select-Object -First 1)
+    $container = (Invoke-Docker @('compose', 'ps', '-q', $service) -Quiet | Select-Object -First 1)
     while ((Get-Date) -lt $until) {
         foreach ($base in @("http://localhost:$port/")) {
             try {
@@ -72,7 +72,7 @@ function Wait-Site([string]$service, [int]$port, [int]$seconds = 600) {
             }
             catch { }
         }
-        $state = (Docker @('inspect', '-f', '{{.State.Status}}', $container) -Quiet)
+        $state = (Invoke-Docker @('inspect', '-f', '{{.State.Status}}', $container) -Quiet)
         if ($state -ne 'running') { throw "The $service container is $state." }
         Start-Sleep -Seconds 5
     }
@@ -81,13 +81,13 @@ function Wait-Site([string]$service, [int]$port, [int]$seconds = 600) {
 
 function Install-Dnn([string]$service, [int]$port) {
     $alias = "localhost:$port"
-    Docker @('compose', 'exec', '-T', $service, 'powershell', '-NoProfile', '-File', 'C:\scripts\write-install-template.ps1',
+    Invoke-Docker @('compose', 'exec', '-T', $service, 'powershell', '-NoProfile', '-File', 'C:\scripts\write-install-template.ps1',
         '-Alias', $alias, '-HostUser', $hostUser, '-HostPassword', $hostPassword) | Out-Null
     $session = New-DnnSession "http://localhost:$port/"
     # DNN writes new machine keys, restarts and redirects to itself: Invoke-DnnRequest follows that.
     $page = Invoke-DnnRequest $session 'Install/Install.aspx?mode=install'
     Set-Content "$out\logs\install-$service.html" (Hide $page.Html)
-    $after = Docker @('compose', 'exec', '-T', $service, 'powershell', '-NoProfile', '-File', 'C:\scripts\after-install.ps1', '-HostUser', $hostUser) -Quiet
+    $after = Invoke-Docker @('compose', 'exec', '-T', $service, 'powershell', '-NoProfile', '-File', 'C:\scripts\after-install.ps1', '-HostUser', $hostUser) -Quiet
     $version = ($after | Where-Object { $_ -like 'version=*' }) -replace 'version='
     $hosts = ($after | Where-Object { $_ -like 'hosts=*' }) -replace 'hosts='
     if ($page.Status -ne 200) { throw "Install.aspx answered HTTP $($page.Status) ($($page.Hops -join '; '))." }
@@ -119,7 +119,7 @@ function Test-SignIn([int]$port) {
 }
 
 function Get-Count([string]$service, [string]$query) {
-    [int]((Docker @('compose', 'exec', '-T', $service, 'powershell', '-NoProfile', '-File', 'C:\scripts\query.ps1', '-Query', $query) -Quiet) | Select-Object -Last 1)
+    [int]((Invoke-Docker @('compose', 'exec', '-T', $service, 'powershell', '-NoProfile', '-File', 'C:\scripts\query.ps1', '-Query', $query) -Quiet) | Select-Object -Last 1)
 }
 
 # ─── The environment ───────────────────────────────────────────────────
@@ -128,21 +128,21 @@ $facts.Run = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm') + ' UTC'
 $facts.Host = "$([Environment]::OSVersion.VersionString), $(Get-CimInstance Win32_OperatingSystem | ForEach-Object Caption)"
 $facts.Cpu = "$((Get-CimInstance Win32_Processor | Select-Object -First 1).Name), $([Environment]::ProcessorCount) logical"
 $facts.Memory = "$([math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 1)) GB"
-$facts.Docker = (Docker @('version', '--format', 'client {{.Client.Version}}, server {{.Server.Version}} ({{.Server.Os}}/{{.Server.Arch}})') -Quiet) -join ' '
-$facts.Isolation = (Docker @('info', '--format', '{{.Isolation}}') -Quiet) -join ' '
-$facts.Compose = (Docker @('compose', 'version', '--short') -Quiet) -join ' '
+$facts.Docker = (Invoke-Docker @('version', '--format', 'client {{.Client.Version}}, server {{.Server.Version}} ({{.Server.Os}}/{{.Server.Arch}})') -Quiet) -join ' '
+$facts.Isolation = (Invoke-Docker @('info', '--format', '{{.Isolation}}') -Quiet) -join ' '
+$facts.Compose = (Invoke-Docker @('compose', 'version', '--short') -Quiet) -join ' '
 $facts.DnnVersion = $DnnVersion
 
 # ─── The steps ─────────────────────────────────────────────────────────
 
 $built = Step 'Build the images (SQL Server Express, DNN)' {
-    Docker @('compose', 'build', 'sql', 'web') | Out-Null
-    (Docker @('images', '--format', '{{.Repository}}:{{.Tag}} {{.Size}}', 'dnn-docker/*') -Quiet) -join '; '
+    Invoke-Docker @('compose', 'build', 'sql', 'web') | Out-Null
+    (Invoke-Docker @('images', '--format', '{{.Repository}}:{{.Tag}} {{.Size}}', 'dnn-docker/*') -Quiet) -join '; '
 }
 if (-not $built) { $facts.Stopped = 'The images could not be built.' }
 
 $up = $built -and (Step 'Start SQL Server and DNN (first start: DNN copied into the site volume, database created)' {
-    Docker @('compose', 'up', '-d', 'sql', 'web') | Out-Null
+    Invoke-Docker @('compose', 'up', '-d', 'sql', 'web') | Out-Null
     $base = Wait-Site 'web' 8080
     "answering on $base"
 })
@@ -167,14 +167,14 @@ if ($installed) {
     } | Out-Null
 
     Step 'Restart the DNN container - the site comes back' {
-        Docker @('compose', 'restart', 'web') | Out-Null
+        Invoke-Docker @('compose', 'restart', 'web') | Out-Null
         [void](Wait-Site 'web' 8080)
         (Test-Home 8080) + '; ' + (Test-SignIn 8080)
     } | Out-Null
 
     Step 'Recreate both containers (docker compose down + up) - the volumes keep the site and the database' {
-        Docker @('compose', 'down') | Out-Null
-        Docker @('compose', 'up', '-d', 'sql', 'web') | Out-Null
+        Invoke-Docker @('compose', 'down') | Out-Null
+        Invoke-Docker @('compose', 'up', '-d', 'sql', 'web') | Out-Null
         [void](Wait-Site 'web' 8080)
         $google = Get-Count 'web' "SELECT COUNT(*) FROM dbo.Packages WHERE PackageType = 'Auth_System' AND Name LIKE '%Google%'"
         if ($google -lt 1) { throw 'The installed extension is gone.' }
@@ -182,15 +182,15 @@ if ($installed) {
     } | Out-Null
 
     Step 'A second DNN project next to the first (own site volume and database, port 8081)' {
-        Docker @('compose', '--profile', 'second', 'up', '-d', 'web2') | Out-Null
+        Invoke-Docker @('compose', '--profile', 'second', 'up', '-d', 'web2') | Out-Null
         [void](Wait-Site 'web2' 8081)
         $install = Install-Dnn 'web2' 8081
         "$install; " + (Test-Home 8081) + '; ' + (Test-SignIn 8081) + '; first project still: ' + (Test-Home 8080)
     } | Out-Null
 
     Step 'Resource use (docker stats) and disk (images, volumes)' {
-        $stats = Docker @('stats', '--no-stream', '--format', '{{.Name}} cpu {{.CPUPerc}} mem {{.MemUsage}}') -Quiet
-        $df = Docker @('system', 'df', '--format', '{{.Type}} {{.Size}}') -Quiet
+        $stats = Invoke-Docker @('stats', '--no-stream', '--format', '{{.Name}} cpu {{.CPUPerc}} mem {{.MemUsage}}') -Quiet
+        $df = Invoke-Docker @('system', 'df', '--format', '{{.Type}} {{.Size}}') -Quiet
         $facts.Stats = $stats -join '; '
         $facts.Disk = $df -join '; '
         "$($stats -join '; ') | $($df -join '; ')"
@@ -207,7 +207,7 @@ Step 'File change notifications on a bind-mounted host folder (web.config edited
     icacls $folder /grant '*S-1-5-11:(OI)(CI)RX' | Out-Null
     Set-Content "$folder\default.aspx" '<%@ Page Language="C#" %><%= System.Configuration.ConfigurationManager.AppSettings["marker"] %>|<%= System.Diagnostics.Process.GetCurrentProcess().StartTime.ToString("o") %>'
     Set-Content "$folder\web.config" '<configuration><appSettings><add key="marker" value="one" /></appSettings><system.web><compilation targetFramework="4.8" /></system.web></configuration>'
-    Docker @('run', '-d', '--name', 'bind-test', '-p', '8090:80', '-v', "$($folder):C:\inetpub\wwwroot", '--entrypoint', 'C:\ServiceMonitor.exe',
+    Invoke-Docker @('run', '-d', '--name', 'bind-test', '-p', '8090:80', '-v', "$($folder):C:\inetpub\wwwroot", '--entrypoint', 'C:\ServiceMonitor.exe',
         'mcr.microsoft.com/dotnet/framework/aspnet:4.8.1-windowsservercore-ltsc2022', 'w3svc') -Quiet | Out-Null
     try {
         $first = $null
@@ -222,20 +222,20 @@ Step 'File change notifications on a bind-mounted host folder (web.config edited
         if ($second -notlike 'two|*') { throw "ASP.NET didn't see the change (still '$second') - the app has to be restarted by hand." }
         "web.config changed on the host -> ASP.NET restarted the app ('$first' -> '$second')"
     }
-    finally { Docker @('rm', '-f', 'bind-test') -Quiet | Out-Null }
+    finally { Invoke-Docker @('rm', '-f', 'bind-test') -Quiet | Out-Null }
 } | Out-Null
 
 # ─── Logs and results ──────────────────────────────────────────────────
 
 foreach ($service in 'sql', 'web', 'web2') {
-    try { Set-Content "$out\logs\$service.log" (Hide ((Docker @('compose', '--profile', 'second', 'logs', '--no-color', $service) -Quiet) -join "`n")) } catch { }
+    try { Set-Content "$out\logs\$service.log" (Hide ((Invoke-Docker @('compose', '--profile', 'second', 'logs', '--no-color', $service) -Quiet) -join "`n")) } catch { }
 }
 try {
-    $dnnLogs = Docker @('compose', 'exec', '-T', 'web', 'powershell', '-NoProfile', '-File', 'C:\scripts\dnn-logs.ps1') -Quiet
+    $dnnLogs = Invoke-Docker @('compose', 'exec', '-T', 'web', 'powershell', '-NoProfile', '-File', 'C:\scripts\dnn-logs.ps1') -Quiet
     Set-Content "$out\logs\dnn-logs.txt" (Hide ($dnnLogs -join "`n"))
 } catch { }
 
-if (-not $KeepRunning) { try { Docker @('compose', '--profile', 'second', 'down', '-v') -Quiet | Out-Null } catch { } }
+if (-not $KeepRunning) { try { Invoke-Docker @('compose', '--profile', 'second', 'down', '-v') -Quiet | Out-Null } catch { } }
 
 $passed = @($results | Where-Object Result -eq 'pass').Count
 $facts.Summary = "$passed of $($results.Count) steps passed"
