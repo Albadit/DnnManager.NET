@@ -2,6 +2,16 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## Unreleased
+
+### Upgrading
+
+- Releases no longer carry their files under the old names
+  (`DnnManagerSetup-…`, `DnnManager-…`) too - only `DnnManager_Setup-…` and
+  `DnnManager_Portable-…`. DNN Manager 1.7.6 and older can't install this
+  version with **Update**: install 1.7.7 or newer by hand once (or update to
+  1.7.7 first while it is the latest). 1.7.7 and newer update as usual.
+
 ## v1.7.7
 
 ### Upgrading

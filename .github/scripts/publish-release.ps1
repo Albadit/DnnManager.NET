@@ -282,14 +282,6 @@ try {
     $null = New-Item -ItemType Directory -Force $out
     $assets = "DnnManager_Portable-$version-x64.exe", "DnnManager_Setup-$version-x64.exe"
     foreach ($name in $assets) { Copy-Item (Join-Path $work "publish\$name") $out }
-    # DNN Manager 1.7.6 and older - and the Setups of those versions - only look for the old names: the same two files
-    # under them too, so their Update keeps working. Newer versions take the new names.
-    $legacy = [ordered]@{
-        "DnnManager_Portable-$version-x64.exe" = "DnnManager-$version-x64.exe"
-        "DnnManager_Setup-$version-x64.exe"    = "DnnManagerSetup-$version-x64.exe"
-    }
-    foreach ($pair in $legacy.GetEnumerator()) { Copy-Item (Join-Path $out $pair.Key) (Join-Path $out $pair.Value) }
-    $assets += @($legacy.Values)
     foreach ($name in $assets) {
         $info = (Get-Item (Join-Path $out $name)).VersionInfo
         $product = ($info.ProductVersion -split '\+')[0].Trim()

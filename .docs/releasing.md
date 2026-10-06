@@ -118,13 +118,13 @@ draft or a pre-release - a `vX.Y.Z-rc.1` tag isn't offered) - see
 - **The file names**: `DnnManager_Setup-<version>-x64.exe` updates an installed DNN
   Manager, `DnnManager_Portable-<version>-x64.exe` a portable one
   ([`AppRelease.AssetFor`](../src/DnnManager.Infrastructure/Updates/AppRelease.cs)).
-  Releases up to 1.7.6 had only `DnnManagerSetup-<version>-x64.exe` and
+  Releases up to 1.7.6 had `DnnManagerSetup-<version>-x64.exe` and
   `DnnManager-<version>-x64.exe` - the only names DNN Manager 1.7.6 and older
-  (and their Setups) look for. So `publish-release.ps1` uploads the same two files
-  under those names too: four files per release, and the old versions keep
-  updating. Newer versions (and Setup, for **Repair** of an old version) take the
-  new names and find either. Drop the old-name copies once nobody runs 1.7.6 or
-  older.
+  (and their Setups) look for. 1.7.7 was released under both names, so those
+  versions could update to it; later releases have only the new names, so 1.7.6
+  and older can't update past 1.7.7 by themselves - install a newer version by
+  hand once. 1.7.7 and newer (and Setup, for **Repair** of an old version) find
+  either name.
 - **The version inside both files**: their *ProductVersion* must be the tag's version
   (`publish-release.ps1` checks it before publishing) - a download whose version differs is refused.
 - **GitHub's SHA-256** of each file (the asset's `digest`): checked when GitHub lists it.
