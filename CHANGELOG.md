@@ -2,6 +2,34 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## v1.7.9
+
+### Fixed
+
+- The site overview's **Assemblies** check reported assemblies as *Missing*,
+  a *Version conflict* or a *Binding redirect* to a version `bin` doesn't have
+  when `web.config` loads them from a folder of their own with `codeBase`
+  (`bin\Imageflow`, `bin\2sxc`). It now reads every `assemblyBinding`, every
+  `bindingRedirect` of an assembly (one per version range) and the `codeBase`
+  entries, and checks the files they point at.
+
+### Changed
+
+- **Assemblies** reads every DLL under `bin`, its folders too: the count per
+  folder, and under **Not loaded by ASP.NET** the ones neither the probing path
+  nor a `codeBase` points at. An assembly in such a folder finds what is next
+  to it; the compiler's in `bin\roslyn` (it has `csc.exe`) aren't checked
+  against the site.
+- A reference to an assembly that is only in such a folder says where it is -
+  *bin\Imageflow has 2.2.0.0, but web.config has no codeBase for it*. A
+  `codeBase` whose file isn't there is reported as **Code base** (red).
+- Messages name the folder of each version (*the site has 8.0.0.0 in bin,
+  9.0.0.0 in bin\2sxc*), and **Configuration** shows how many **Code bases**
+  `web.config` has.
+- Assembly problems are listed only in **Assemblies**, no longer again in
+  **Detected issues**; **Project health** on *General* counts them in a row of
+  their own, **Assemblies**.
+
 ## v1.7.8
 
 ### Upgrading
