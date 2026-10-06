@@ -13,6 +13,7 @@ conventions to follow. New here? Start with the [README](../README.md), then
 | [configuration.md](configuration.md) | `Documents\DnnManager`, `dnnmanager.db`, every settings key, environment variables |
 | [troubleshooting.md](troubleshooting.md) | Known problems and how to fix them |
 | [security.md](security.md) | Administrator rights, secrets, what DNN Manager deletes, network exposure |
+| [privileged-broker.md](privileged-broker.md) | Experiment: the UI without Administrator rights, IIS through a service; MSIX and the Store |
 
 ## Prerequisites
 

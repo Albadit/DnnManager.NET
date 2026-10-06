@@ -2,6 +2,22 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## v1.8.0
+
+### Added
+
+- **An MSIX package**, `DnnManager_<version>_x64.msix`, next to Setup and the
+  portable exe - on releases it is added to (it needs a trusted code-signing
+  certificate). It installs per user from the Start menu, without Administrator rights; DNN
+  Manager in it asks for them when it starts, as Setup's does. A package is
+  updated by installing the next release's package - DNN Manager's own update
+  is off in it, and so is **Start DNN Manager when you sign in to your
+  computer** (its scheduled task would start the package's exe by a path that
+  changes with every update).
+- For developers, an experiment that is off unless asked for: DNN Manager without
+  Administrator rights, with a Windows service doing the IIS work
+  (`DnnManager.exe --broker`, `--unelevated` - see `.docs/privileged-broker.md`).
+
 ## v1.7.9
 
 ### Fixed

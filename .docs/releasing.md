@@ -1,6 +1,6 @@
 # Releasing
 
-Making a new version: the steps, releasing from VS Code, the build workflow, the portable exe and the installer.
+Making a new version: the steps, releasing from VS Code, the build workflow, the portable exe, the installer and the MSIX package.
 
 ## Steps
 
@@ -29,6 +29,8 @@ until 1.7.2 is tagged ([`DnnManager.csproj`](../DnnManager.csproj), target
    offers it with its **Update** button (see [The in-app update](#the-in-app-update)).
    The tag it pushes is built and tested on GitHub too ([the build workflow](#the-build-workflow)),
    which publishes nothing.
+5. Optionally, run the task **release: MSIX (GitHub)** to add the MSIX package,
+   `DnnManager_X.Y.Z_x64.msix`, to that release ([The MSIX package](#the-msix-package)).
 
 ## Release from VS Code
 
@@ -216,4 +218,87 @@ passes the release's).
 The installer's `AppId` in `DnnManager.iss` identifies the installation for
 upgrades and uninstall - never change it.
 
-VS Code tasks for build, publish and the installer are in `.vscode/tasks.json`.
+## The MSIX package
+
+DNN Manager as an MSIX package, installed outside the Microsoft Store (the Store
+doesn't take an app that needs Administrator rights - see
+[privileged-broker.md](privileged-broker.md#why)):
+
+```powershell
+.\src\DnnManager.Package\build.ps1 -CertificateThumbprint <thumbprint>   # publish\DnnManager_<version>_x64.msix
+```
+
+[`build.ps1`](../src/DnnManager.Package/build.ps1) publishes the app as the installer
+does into `src\DnnManager.Package\bin\layout`, writes
+[`AppxManifest.xml`](../src/DnnManager.Package/AppxManifest.xml) with the version
+(four numbers: 1.7.9 → `1.7.9.0`) and the publisher, packs it with the Windows SDK's
+`makeappx` and signs it with `signtool` (SHA-256, time-stamped). VS Code: **package
+(DnnManager.msix, test-signed)**.
+
+- **What users get:** a per-user install from the Start menu, no Administrator rights
+  to install. DNN Manager in it asks for them (UAC) when it starts, as Setup's does -
+  the package declares `allowElevation`. Settings are the same `Documents\DnnManager`.
+- **Updates:** a package's files can't be replaced, so DNN Manager's own update is off
+  in it (`PackageIdentity`); users open the next release's `.msix`, which upgrades it.
+  Setup's installation and the package are separate - one of them is enough.
+- **Signing:** Windows installs a package only when its signature is trusted, and the
+  package's `Publisher` must be the certificate's subject - `build.ps1` takes it from
+  the certificate.
+- **A pre-release** (`1.7.9-rc.1`) gets the same package version as `1.7.9` - installing
+  the final one over it needs `Add-AppxPackage -ForceUpdateFromAnyVersion`.
+
+### Add it to a release
+
+The release itself - tag, notes, Setup and portable exe - is made by **release
+(GitHub)** as always. Then **Ctrl+Shift+B → release: MSIX (GitHub)** runs
+[`.github/scripts/publish-msix.ps1`](../.github/scripts/publish-msix.ps1):
+
+1. **Pick the release** from GitHub's newest 30 (drafts too); the picker says whether
+   it has a package already.
+2. In a temporary worktree of the release's tag it builds the package with that
+   tag's `build.ps1`, signed with your certificate - a release older than the package
+   (no `src\DnnManager.Package`) is refused: its DNN Manager would try to update
+   itself inside the package.
+3. It checks the package's version and that its signature is trusted - a self-signed
+   certificate is refused, since it reads as valid only on a PC that trusts it. The
+   package lands in `publish\vX.Y.Z\`.
+4. **After you confirm**, it uploads the package to the release (replacing one the
+   release has) and checks its size. Answer *N* and nothing is uploaded.
+
+The certificate: `-SigningThumbprint <thumbprint>`, or the environment variable
+`DNNMANAGER_SIGNING_THUMBPRINT` - a code-signing certificate Windows trusts, in
+`CurrentUser\My` or `LocalMachine\My` (a hardware token's or cloud HSM's included). Set
+it once for your account:
+
+```powershell
+[Environment]::SetEnvironmentVariable('DNNMANAGER_SIGNING_THUMBPRINT', '<thumbprint>', 'User')   # restart VS Code after
+```
+
+Outside VS Code, `.github\scripts\publish-msix.ps1` asks for the release in the
+terminal; `-Tag v1.8.0` answers it.
+
+### Test it
+
+Without a real certificate, `build.ps1 -TestCertificate` signs with a
+self-signed certificate `CN=DnnManager Test` (made in `CurrentUser\My`, its public part
+in `src\DnnManager.Package\bin\DnnManager-test.cer`). In PowerShell **as Administrator**:
+
+```powershell
+Import-Certificate -FilePath .\src\DnnManager.Package\bin\DnnManager-test.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+Add-AppxPackage .\publish\DnnManager_<version>_x64.msix
+```
+
+Quit a running DNN Manager first - another one started, the package's too, hands over to
+it. Remove it all again:
+
+```powershell
+Get-AppxPackage Albadit.DnnManager | Remove-AppxPackage
+Get-ChildItem Cert:\LocalMachine\TrustedPeople, Cert:\CurrentUser\TrustedPeople, Cert:\CurrentUser\My |
+    Where-Object Subject -eq 'CN=DnnManager Test' | Remove-Item
+```
+
+`build.ps1 -Broker` builds the experiment instead - DNN Manager without Administrator
+rights and a service that does the IIS work ([privileged-broker.md](privileged-broker.md));
+installing that one needs Administrator rights.
+
+VS Code tasks for build, publish, the installer and the package are in `.vscode/tasks.json`.
