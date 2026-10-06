@@ -6,6 +6,9 @@ namespace DnnManager.Infrastructure.Diagnostics;
 /// <summary>A binding redirect in web.config's runtime section: <paramref name="Name"/> from <paramref name="OldVersion"/> to <paramref name="NewVersion"/>.</summary>
 public sealed record BindingRedirect(string Name, string OldVersion, string NewVersion);
 
+/// <summary>A codeBase in web.config's runtime section: <paramref name="Name"/> <paramref name="Version"/> loads from <paramref name="Href"/> - a file outside the probing path, often bin\&lt;module&gt;.</summary>
+public sealed record CodeBase(string Name, string Version, string Href);
+
 /// <summary>
 /// What a site's web.config says that a developer looks for - never a password or a key, only whether one is set.
 /// A value that is null wasn't in the file: ASP.NET, IIS or DNN then use their default (see the *Default constants).
@@ -62,6 +65,7 @@ public sealed record WebConfigInspection
 
     // runtime
     public IReadOnlyList<BindingRedirect> BindingRedirects { get; init; } = [];
+    public IReadOnlyList<CodeBase> CodeBases { get; init; } = [];
     public string? ProbingPath { get; init; }
 
     // The SiteSqlServer connection's options - never its password.
@@ -112,13 +116,23 @@ public static class WebConfigInspector
         var (dataProvider, _) = Provider(dnn?.Element("data"), null);
         var dataElement = DefaultProviderElement(dnn?.Element("data"));
 
-        var redirects = root.Element("runtime")?.Element(Asm + "assemblyBinding")?.Elements(Asm + "dependentAssembly")
-            .Select(d => (Identity: d.Element(Asm + "assemblyIdentity"), Redirect: d.Element(Asm + "bindingRedirect")))
-            .Where(d => d.Identity is not null && d.Redirect is not null)
-            .Select(d => new BindingRedirect((string?)d.Identity!.Attribute("name") ?? "", (string?)d.Redirect!.Attribute("oldVersion") ?? "",
-                (string?)d.Redirect.Attribute("newVersion") ?? ""))
-            .Where(r => r.Name.Length > 0)
-            .ToList() ?? [];
+        // runtime can have more than one assemblyBinding, and a dependentAssembly more than one bindingRedirect and codeBase
+        // (one per version range - Imageflow's 2.2.0.0 from bin\Imageflow next to 2.1.1.0 in bin).
+        var bindings = root.Element("runtime")?.Elements(Asm + "assemblyBinding").ToList() ?? [];
+        var dependents = bindings.SelectMany(b => b.Elements(Asm + "dependentAssembly"))
+            .Select(d => (Name: (string?)d.Element(Asm + "assemblyIdentity")?.Attribute("name") ?? "", Element: d))
+            .Where(d => d.Name.Length > 0)
+            .ToList();
+        var redirects = dependents
+            .SelectMany(d => d.Element.Elements(Asm + "bindingRedirect").Select(r =>
+                new BindingRedirect(d.Name, (string?)r.Attribute("oldVersion") ?? "", (string?)r.Attribute("newVersion") ?? "")))
+            .ToList();
+        var codeBases = dependents
+            .SelectMany(d => d.Element.Elements(Asm + "codeBase").Select(c =>
+                new CodeBase(d.Name, (string?)c.Attribute("version") ?? "", (string?)c.Attribute("href") ?? "")))
+            .Where(c => c.Href.Length > 0)
+            .ToList();
+        var probing = bindings.Select(b => (string?)b.Element(Asm + "probing")?.Attribute("privatePath")).Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
 
         var inspection = new WebConfigInspection
         {
@@ -157,7 +171,8 @@ public static class WebConfigInspector
             InstallationDate = AppSetting(root, "InstallationDate"),
             AutoUpgrade = AppSetting(root, "AutoUpgrade"),
             BindingRedirects = redirects,
-            ProbingPath = (string?)root.Element("runtime")?.Element(Asm + "assemblyBinding")?.Element(Asm + "probing")?.Attribute("privatePath"),
+            CodeBases = codeBases,
+            ProbingPath = probing.Count == 0 ? null : string.Join(";", probing),
             ExternalSections = external
         };
         return WithConnection(inspection, root);

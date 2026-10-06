@@ -5,10 +5,19 @@ using System.Reflection.PortableExecutable;
 namespace DnnManager.Infrastructure.Diagnostics;
 
 /// <param name="File">Relative to the site: <c>bin\DotNetNuke.dll</c>.</param>
-public sealed record BinAssembly(string File, string Name, Version Version, string? FileVersion, string? PublicKeyToken, DateTime Modified);
+/// <param name="Loaded">
+/// ASP.NET finds it: in bin, the probing path or a codeBase. False in a folder of its own under bin that .NET doesn't
+/// look in (bin\Imageflow without a codeBase, bin\roslyn) - only what uses that folder loads it.
+/// </param>
+public sealed record BinAssembly(string File, string Name, Version Version, string? FileVersion, string? PublicKeyToken, DateTime Modified,
+    bool Loaded = true)
+{
+    /// <summary>The folder it is in, relative to the site: <c>bin</c>, <c>bin\Imageflow</c>.</summary>
+    public string Folder => System.IO.Path.GetDirectoryName(File) ?? "";
+}
 
 /// <summary>Something wrong between the site's assemblies - what was found, in words.</summary>
-/// <param name="Kind">"duplicate", "redirect", "version" or "missing".</param>
+/// <param name="Kind">"duplicate", "redirect", "codebase", "version" or "missing".</param>
 public sealed record AssemblyProblem(string Kind, string Assembly, string Text);
 
 public sealed record AssemblyInspection(
@@ -21,13 +30,15 @@ public sealed record AssemblyInspection(
 }
 
 /// <summary>
-/// Reads the assemblies ASP.NET loads for the site - bin and the folders web.config's probing path adds - without
-/// loading them (their metadata only): versions, duplicates, binding redirects that don't match what is there, and
-/// references to assemblies at a version bin doesn't have, or that are nowhere (bin, the GAC, the .NET Framework).
+/// Reads the site's assemblies - every DLL under bin, the folders web.config's probing path adds and the files its
+/// codeBase entries point at - without loading them (their metadata only): versions, duplicates, binding redirects
+/// that don't match what is there, codeBase files that aren't there, and references to assemblies at a version the
+/// site doesn't have, or that are nowhere (the site, the GAC, the .NET Framework). What ASP.NET loads is checked
+/// against what ASP.NET finds; an assembly in a folder of its own under bin (a module's) also finds what is next to it.
 /// </summary>
 public static class AssemblyInspector
 {
-    public static AssemblyInspection Inspect(string root, IReadOnlyList<BindingRedirect> redirects, string? probingPath)
+    public static AssemblyInspection Inspect(string root, IReadOnlyList<BindingRedirect> redirects, IReadOnlyList<CodeBase> codeBases, string? probingPath)
     {
         var folders = new List<string> { "bin" };
         foreach (var extra in (probingPath ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
@@ -36,28 +47,56 @@ public static class AssemblyInspector
         var assemblies = new List<BinAssembly>();
         var references = new List<(BinAssembly From, string Name, Version Version, bool StrongNamed)>();
         var native = 0;
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void Add(string file, bool loaded)
+        {
+            if (!seen.Add(System.IO.Path.GetFullPath(file))) return;
+            if (Read(file, System.IO.Path.GetRelativePath(root, file)) is not { } read)
+            {
+                native++;
+                return;
+            }
+            var assembly = read.Assembly with { Loaded = loaded };
+            assemblies.Add(assembly);
+            references.AddRange(read.References.Select(r => (assembly, r.Name, r.Version, r.StrongNamed)));
+        }
+
+        var problems = new List<AssemblyProblem>();
+        // A codeBase loads that version from its own file - one outside the probing path (bin\2sxc, bin\Imageflow) too.
+        var codeBaseFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var codeBase in codeBases)
+        {
+            var file = CodeBasePath(root, codeBase.Href);
+            if (file is not null && File.Exists(file))
+            {
+                Add(file, loaded: true);
+                codeBaseFiles.Add(System.IO.Path.GetRelativePath(root, file));
+            }
+            else
+                problems.Add(new("codebase", codeBase.Name,
+                    $"web.config loads {codeBase.Name} {codeBase.Version} from {codeBase.Href}, which isn't there"));
+        }
+
         foreach (var folder in folders)
         {
             var dir = System.IO.Path.Combine(root, folder);
             if (!Directory.Exists(dir)) continue;
-            foreach (var file in Directory.EnumerateFiles(dir, "*.dll"))
-            {
-                var read = Read(file, System.IO.Path.GetRelativePath(root, file));
-                if (read is null)
-                {
-                    native++;
-                    continue;
-                }
-                assemblies.Add(read.Value.Assembly);
-                references.AddRange(read.Value.References.Select(r => (read.Value.Assembly, r.Name, r.Version, r.StrongNamed)));
-            }
+            foreach (var file in Directory.EnumerateFiles(dir, "*.dll")) Add(file, loaded: true);
         }
 
-        var problems = new List<AssemblyProblem>();
-        var byName = assemblies.GroupBy(a => a.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+        // The rest of bin: folders of their own - a module's (bin\2sxc, bin\Imageflow, bin\DnnSharp), the compiler's
+        // (bin\roslyn), native ones (bin\runtimes, bin\x64).
+        var bin = System.IO.Path.Combine(root, "bin");
+        if (Directory.Exists(bin))
+            foreach (var file in Directory.EnumerateFiles(bin, "*.dll", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true }))
+                Add(file, loaded: false);
 
-        // The same assembly twice: which one loads depends on the probing order.
-        foreach (var (name, copies) in byName.Where(p => p.Value.Count > 1))
+        var byName = assemblies.Where(a => a.Loaded).GroupBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        // The same assembly twice: which one loads depends on the probing order - unless web.config's codeBase entries
+        // say which version comes from where.
+        foreach (var (name, copies) in byName.Where(p => p.Value.Count(c => !codeBaseFiles.Contains(c.File)) > 1))
             problems.Add(new("duplicate", name, $"{name} is there {copies.Count} times: " +
                                                 string.Join(", ", copies.Select(c => $"{c.File} ({c.Version})"))));
 
@@ -67,8 +106,26 @@ public static class AssemblyInspector
             if (!byName.TryGetValue(redirect.Name, out var copies) || !Version.TryParse(redirect.NewVersion, out var target)) continue;
             if (copies.Any(c => c.Version == target)) continue;
             problems.Add(new("redirect", redirect.Name,
-                $"web.config redirects {redirect.Name} {redirect.OldVersion} to {redirect.NewVersion}, but bin has {string.Join(", ", copies.Select(c => c.Version))}"));
+                $"web.config redirects {redirect.Name} {redirect.OldVersion} to {redirect.NewVersion}, but the site has {Versions(copies)}"));
         }
+
+        // A folder .NET doesn't look in - bin\Imageflow without a codeBase for it, say - that has the version a reference
+        // wants: what web.config lacks, in words.
+        string? Unreachable(string name, Version version) =>
+            assemblies.FirstOrDefault(a => !a.Loaded && a.Version == version && a.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) is { } other
+                ? $"{other.Folder} has {version}, but web.config has no codeBase for it"
+                : null;
+
+        // An assembly in a folder of its own finds what is next to it: whatever loads it from there - the module, the
+        // compiler - loads that too.
+        var besides = assemblies.Where(a => !a.Loaded).Select(a => (a.Folder.ToLowerInvariant(), a.Name.ToLowerInvariant(), a.Version)).ToHashSet();
+        references.RemoveAll(r => !r.From.Loaded && besides.Contains((r.From.Folder.ToLowerInvariant(), r.Name.ToLowerInvariant(), r.Version)));
+        // A program's folder - bin\roslyn has csc.exe, the compiler ASP.NET starts: what its assemblies reference loads in
+        // that program, never in the site.
+        var programs = assemblies.Where(a => !a.Loaded).Select(a => a.Folder).Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(f => Directory.EnumerateFiles(System.IO.Path.Combine(root, f), "*.exe", new EnumerationOptions { IgnoreInaccessible = true }).Any())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        references.RemoveAll(r => !r.From.Loaded && programs.Contains(r.From.Folder));
 
         // References: to another version of a strong-named assembly with no redirect bridging them, or to one nowhere.
         foreach (var group in references.GroupBy(r => (r.Name.ToLowerInvariant(), r.Version)))
@@ -82,16 +139,37 @@ public static class AssemblyInspector
                 // A redirect covers it: right, or reported above as pointing at a version bin doesn't have.
                 if (redirects.Any(r => r.Name.Equals(name, StringComparison.OrdinalIgnoreCase) && InRange(r.OldVersion, version))) continue;
                 problems.Add(new("version", name,
-                    $"{by} reference {name} {version}, bin has {string.Join(", ", copies.Select(c => c.Version))} - no binding redirect between them"));
+                    $"{by} reference {name} {version}, the site has {Versions(copies)} - " +
+                    (Unreachable(name, version) ?? "no binding redirect between them")));
             }
             else if (!InFramework(name))
             {
-                problems.Add(new("missing", name, $"{by} reference {name} {version} - not in bin, the GAC or the .NET Framework"));
+                problems.Add(new("missing", name,
+                    $"{by} reference {name} {version} - {Unreachable(name, version) ?? "not in bin, the GAC or the .NET Framework"}"));
             }
         }
 
         var newest = assemblies.MaxBy(a => a.Modified);
         return new AssemblyInspection(assemblies.OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase).ToList(), native, problems, newest);
+    }
+
+    /// <summary>"8.0.0.0 in bin, 9.0.0.0 in bin\2sxc".</summary>
+    private static string Versions(IEnumerable<BinAssembly> copies) =>
+        string.Join(", ", copies.Select(c => $"{c.Version} in {c.Folder}"));
+
+    /// <summary>The file a codeBase's href names - relative to the site, or a file: URI; null when it is neither.</summary>
+    private static string? CodeBasePath(string root, string href)
+    {
+        try
+        {
+            if (Uri.TryCreate(href, UriKind.Absolute, out var uri))
+                return uri.IsFile ? uri.LocalPath : null;
+            return System.IO.Path.GetFullPath(System.IO.Path.Combine(root, href.Replace('/', '\\')));
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return null;
+        }
     }
 
     private static bool InRange(string range, Version version)

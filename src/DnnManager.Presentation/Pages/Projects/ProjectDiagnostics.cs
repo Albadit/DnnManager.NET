@@ -110,10 +110,14 @@ public static class ProjectDiagnostics
                 aliasIssues == 0 ? null : "See Detected issues on Advanced.");
         }
 
-        var bad = issues.Count(i => i.Health == Projects.Health.Bad);
-        var warn = issues.Count(i => i.Health == Projects.Health.Warning);
-        section.Add("Detected issues", issues.Count == 0 ? "none" : string.Join(", ", new[] { bad > 0 ? Count(bad, "problem") : null, warn > 0 ? Count(warn, "warning") : null }.OfType<string>()),
-            bad > 0 ? Projects.Health.Bad : warn > 0 ? Projects.Health.Warning : Projects.Health.Ok, issues.Count > 0 ? "Listed at the bottom of Advanced." : null);
+        var (issuesText, issuesHealth) = Tally(issues.Select(i => i.Health));
+        section.Add("Detected issues", issuesText, issuesHealth, issues.Count > 0 ? "Listed at the bottom of Advanced." : null);
+        // Assembly problems have a list of their own - in Assemblies on Advanced, not in Detected issues.
+        if (s.Assemblies.Problems.Count > 0)
+        {
+            var (assembliesText, assembliesHealth) = Tally(s.Assemblies.Problems.Select(AssemblyHealth));
+            section.Add("Assemblies", assembliesText, assembliesHealth, "Listed in Assemblies on Advanced.");
+        }
         if (!s.DatabaseRead && s.Connection is not null) section.Note = "Reading the database…";
         return section;
     }
@@ -448,6 +452,7 @@ public static class ProjectDiagnostics
                 config.Add("HTTPS redirects", $"switched off for local use: {string.Join(", ", disabledHttpsRules)}", Projects.Health.Warning,
                     "Switch them back on before deploying.");
             config.Add("Binding redirects", w.BindingRedirects.Count.ToString(Culture));
+            if (w.CodeBases.Count > 0) config.Add("Code bases", w.CodeBases.Count.ToString(Culture), detail: "Assemblies loaded from a file of their own (bin\\Imageflow, say).");
             config.Add("Probing path", w.ProbingPath);
             if (w.ExternalSections.Count > 0)
                 config.Add("In files of their own", string.Join(", ", w.ExternalSections), detail: "configSource - not read here.");
@@ -486,12 +491,22 @@ public static class ProjectDiagnostics
             Note = account is null ? "The app pool's account isn't known (IIS couldn't be read) - only whether the folders are there." : null
         };
 
-        var assemblies = new InspectorSection("Assemblies", "bin and the probing path");
+        var assemblies = new InspectorSection("Assemblies", "bin and its folders, the probing path and codeBase");
         var a = s.Assemblies;
-        assemblies.Add("Assemblies", $"{a.Assemblies.Count}{(a.NativeFiles > 0 ? $" (+ {a.NativeFiles} native DLLs)" : "")}");
-        var dnnCore = a.Assemblies.FirstOrDefault(x => x.Name.Equals("DotNetNuke", StringComparison.OrdinalIgnoreCase));
+        // bin first, then its folders: "bin 186, bin\2sxc 1, bin\Imageflow 12".
+        var folders = a.Assemblies.GroupBy(x => x.Folder, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g.Key.Equals("bin", StringComparison.OrdinalIgnoreCase) ? 0 : 1).ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        assemblies.Add("Assemblies", $"{a.Assemblies.Count}{(a.NativeFiles > 0 ? $" (+ {a.NativeFiles} native DLLs)" : "")}",
+            detail: folders.Count > 1 ? string.Join(", ", folders.Select(g => $"{g.Key} {g.Count()}")) : null);
+        var own = folders.Select(g => (Folder: g.Key, Count: g.Count(x => !x.Loaded))).Where(f => f.Count > 0).ToList();
+        if (own.Count > 0)
+            assemblies.Add("Not loaded by ASP.NET", $"{own.Sum(f => f.Count)} - {string.Join(", ", own.Select(f => $"{f.Folder} {f.Count}"))}",
+                detail: "In a folder .NET doesn't look in, and no codeBase in web.config points at them - only what uses that folder " +
+                        @"loads them (a module, or the compiler in bin\roslyn).");
+        var dnnCore = a.Assemblies.FirstOrDefault(x => x.Loaded && x.Name.Equals("DotNetNuke", StringComparison.OrdinalIgnoreCase));
         // DNN's own (DotNetNuke.*) - modules and libraries (Dnn.Modules.*) have versions of their own.
-        var dnnAssemblies = a.Assemblies.Where(x => x.Name.StartsWith("DotNetNuke", StringComparison.OrdinalIgnoreCase)).ToList();
+        var dnnAssemblies = a.Assemblies.Where(x => x.Loaded && x.Name.StartsWith("DotNetNuke", StringComparison.OrdinalIgnoreCase)).ToList();
         if (dnnCore is not null)
         {
             var others = dnnAssemblies.Where(x => x.Version.Major != dnnCore.Version.Major || x.Version.Minor != dnnCore.Version.Minor).ToList();
@@ -501,10 +516,10 @@ public static class ProjectDiagnostics
         if (a.Problems.Count == 0) assemblies.Add("Conflicts", "none detected", Projects.Health.Ok);
         else
             assemblies.Table = new InspectorTable(["Kind", "Detected"], a.Problems.Select(x => new InspectorTableRow(
-                [KindText(x.Kind), x.Text], x.Kind is "redirect" ? Projects.Health.Bad : Projects.Health.Warning)).ToList());
+                [KindText(x.Kind), x.Text], AssemblyHealth(x))).ToList());
         yield return assemblies;
 
-        var all = new InspectorSection("Detected issues", "everything above");
+        var all = new InspectorSection("Detected issues", "everything above but the assemblies");
         if (issues.Count == 0) all.Add("Issues", "none detected", Projects.Health.Ok);
         else all.Table = new InspectorTable(["Area", "Issue"], issues.Select(i => new InspectorTableRow([i.Area, i.Text], i.Health)).ToList());
         if (!s.DatabaseRead && s.Connection is not null) all.Note = "The database is still being read - its issues follow.";
@@ -609,10 +624,7 @@ public static class ProjectDiagnostics
             else if (f.Exists && f.ReadOnly) Add(Projects.Health.Warning, "Filesystem", $"{f.Folder} is read-only.");
         }
 
-        // Assemblies
-        foreach (var a in s.Assemblies.Problems)
-            Add(a.Kind == "redirect" ? Projects.Health.Bad : Projects.Health.Warning, "Assemblies", a.Text);
-
+        // Not the assemblies' problems: Assemblies on Advanced lists them, and Project health counts them.
         return list.OrderBy(i => i.Health == Projects.Health.Bad ? 0 : 1).ToList();
     }
 
@@ -675,10 +687,26 @@ public static class ProjectDiagnostics
         170 => "2025", 160 => "2022", 150 => "2019", 140 => "2017", 130 => "2016", 120 => "2014", 110 => "2012", 100 => "2008", _ => null
     };
 
+    /// <summary>A binding redirect or codeBase to a file that isn't there: that assembly can't load. The rest may not matter.</summary>
+    private static Health AssemblyHealth(AssemblyProblem problem) =>
+        problem.Kind is "redirect" or "codebase" ? Projects.Health.Bad : Projects.Health.Warning;
+
+    /// <summary>"1 problem, 3 warnings" - and the worst of them; "none" and Ok when there are none.</summary>
+    private static (string Text, Health Health) Tally(IEnumerable<Health> healths)
+    {
+        var list = healths.ToList();
+        var bad = list.Count(h => h == Projects.Health.Bad);
+        var warn = list.Count(h => h == Projects.Health.Warning);
+        if (bad == 0 && warn == 0) return ("none", Projects.Health.Ok);
+        return (string.Join(", ", new[] { bad > 0 ? Count(bad, "problem") : null, warn > 0 ? Count(warn, "warning") : null }.OfType<string>()),
+            bad > 0 ? Projects.Health.Bad : Projects.Health.Warning);
+    }
+
     private static string KindText(string kind) => kind switch
     {
         "duplicate" => "Duplicate",
         "redirect" => "Binding redirect",
+        "codebase" => "Code base",
         "version" => "Version conflict",
         "missing" => "Missing",
         _ => kind

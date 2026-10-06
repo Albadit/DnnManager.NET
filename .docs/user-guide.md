@@ -685,7 +685,7 @@ password or key is ever shown.
   branch, solution, backups), **Project health** (DNN installation,
   `web.config`, the database configuration and whether it answers, the IIS
   site, the app pool, the portals and their aliases, how many issues were
-  detected).
+  detected, and how many assembly problems).
 - **IIS** - the **Site** (ID, state, physical path, app pool, auto-start,
   preload), its **Bindings** (protocol, host as a link, port, IP, the
   certificate and when it expires - expired or within 30 days is marked -,
@@ -719,14 +719,22 @@ password or key is ever shown.
 - **Advanced** - the **Configuration** of `web.config` (target framework,
   request validation and filtering, compression, static content cache, HTTP
   errors, managed modules, rewrite rules, the HTTPS redirects DNN Manager
-  switched off, binding redirects, probing path, sections kept in files of
-  their own), the **Limits** (DNN's upload limit, `maxRequestLength`,
+  switched off, binding redirects, code bases, probing path, sections kept in
+  files of their own), the **Limits** (DNN's upload limit, `maxRequestLength`,
   `maxAllowedContentLength`, the **effective upload limit** - the smallest of
   them - and the execution time-out), the **Filesystem** (whether the app
   pool's account can write to the site's folder, `bin`, `App_Data`,
   `Portals`, `DesktopModules` and `Providers`), the **Assemblies** in `bin`
-  (count, DNN's own, duplicates, a redirect to a version `bin` doesn't have,
-  a missing reference) and every **Detected issue** in one list.
+  and its folders (`bin\Imageflow`, `bin\2sxc`, `bin\roslyn`), the probing
+  path and the files `web.config`'s `codeBase` entries point at (count per
+  folder, the ones ASP.NET doesn't load because neither the probing path nor
+  a `codeBase` points at them, DNN's own, duplicates, a redirect to a version
+  the site doesn't have, a `codeBase` file that isn't there, a missing
+  reference - and when the file is in a folder .NET doesn't look in, which
+  one; an assembly in a folder of its own finds what is next to it, and the
+  compiler's references in `bin\roslyn` aren't checked) and every other
+  **Detected issue** in one list - the assemblies' problems are only in
+  **Assemblies**.
 
 ### Project menu
 

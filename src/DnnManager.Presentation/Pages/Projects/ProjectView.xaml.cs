@@ -288,7 +288,7 @@ public partial class ProjectView : UserControl
             var details = iis.GetSiteDetails(s.Name);
             var config = WebConfigInspector.Inspect(s.Directory);
             IReadOnlyList<FolderCheck> folders = Directory.Exists(s.Directory) ? FolderInspector.Inspect(s.Directory, details?.Pool?.Account) : [];
-            var assemblies = AssemblyInspector.Inspect(s.Directory, config.BindingRedirects, config.ProbingPath);
+            var assemblies = AssemblyInspector.Inspect(s.Directory, config.BindingRedirects, config.CodeBases, config.ProbingPath);
             string? product = null;
             try
             {
