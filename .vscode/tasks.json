@@ -52,7 +52,7 @@
             }
         },
         {
-            "label": "publish (DnnManager.exe)",
+            "label": "publish (DnnManager_Portable.exe)",
             "type": "process",
             "command": "dotnet",
             "args": [
