@@ -6,6 +6,7 @@ using DnnManager.Application.Configuration;
 using DnnManager.Infrastructure.KeepWarm;
 using DnnManager.Infrastructure.Settings;
 using DnnManager.Infrastructure.Startup;
+using DnnManager.Infrastructure.Updates;
 using DnnManager.Presentation.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -345,6 +346,13 @@ public partial class SettingsPage : UserControl
     /// <summary>Whether the scheduled task is there - and which exe it starts, when that isn't this one.</summary>
     private async void ShowStartAtSignIn()
     {
+        // The task would start the exe by its path - in a package that is a folder named after the version, gone at the
+        // next update, and started so it isn't the package's app. Left off (and disabled) there.
+        if (PackageIdentity.IsPackaged)
+        {
+            StartAtSignInHint.Text = "Not available when DNN Manager is installed as an MSIX package - start it from the Start menu.";
+            return;
+        }
         try
         {
             var target = await _startup.GetTargetAsync();

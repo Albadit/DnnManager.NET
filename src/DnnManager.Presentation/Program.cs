@@ -4,6 +4,7 @@ using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Presentation.Services;
 using DnnManager.Infrastructure;
+using DnnManager.Infrastructure.Broker;
 using DnnManager.Infrastructure.Files;
 using DnnManager.Infrastructure.Settings;
 using DnnManager.Infrastructure.Updates;
@@ -20,12 +21,18 @@ internal static class Program
     /// <summary>Prefix of the environment variables that override settings, e.g. <c>DNNMANAGER_DnnManager__SitePort</c>.</summary>
     public const string EnvironmentPrefix = "DNNMANAGER_";
 
+    /// <summary>Runs without Administrator rights, IIS through the broker service - the experiment's switch.</summary>
+    private const string UnelevatedArgument = "--unelevated";
+
     [STAThread]
     private static int Main(string[] args)
     {
         // The update helper (a copy of this exe, started by an update as DNN Manager closes): it installs the update and
         // starts DNN Manager again - none of the app below.
         if (UpdateHelper.IsHelper(args)) return UpdateHelper.Run(args);
+
+        // The DNN Manager Broker service (an experiment, .docs/privileged-broker.md), and its install / call commands.
+        if (BrokerService.IsBroker(args)) return BrokerService.Run(args);
 
         // Restarted (Troubleshoot): the previous DNN Manager is still closing - wait for it, or the check below finds it.
         args = AppRestart.WaitForPrevious(args);
@@ -34,7 +41,21 @@ internal static class Program
         // so it doesn't ask for Administrator rights first.
         if (SingleInstance.HandOffToRunning()) return 0;
 
-        if (!AdminElevation.IsAdministrator())
+        // Experiment: with --unelevated, or from an MSIX package that brought the broker service with it, DNN Manager runs
+        // as the user and has the service start, stop and read the IIS sites - whatever else needs Administrator rights
+        // fails. A package without the service (the release's) elevates as below, as Setup's DNN Manager does.
+        var brokered = !AdminElevation.IsAdministrator() &&
+                       (args.Contains(UnelevatedArgument) || (PackageIdentity.IsPackaged && BrokerClient.IsServiceRunning));
+        if (brokered && !BrokerClient.IsServiceRunning)
+        {
+            MessageBox.Show($"DNN Manager runs without Administrator rights here, and the {BrokerProtocol.DisplayName} " +
+                            "service that manages IIS for it isn't running.\n\n" +
+                            $"Install it with \"DnnManager.exe {BrokerService.Argument} install\" in a terminal opened as Administrator.",
+                "DNN Manager", MessageBoxButton.OK, MessageBoxImage.Error);
+            return 1;
+        }
+
+        if (!brokered && !AdminElevation.IsAdministrator())
         {
             if (AdminElevation.TryRelaunchElevated(args)) return 0;
             MessageBox.Show("DNN Manager needs Administrator rights to manage IIS.\n\n" +
@@ -86,6 +107,7 @@ internal static class Program
         builder.Services.AddSingleton(Options.Create(options));
         builder.Services.AddApplication();
         builder.Services.AddInfrastructure(paths, store);
+        if (brokered) builder.Services.AddBrokeredIis();
 
         builder.Services.AddSingleton<ActivityLog>();
         builder.Services.AddSingleton<GuiProgressReporter>();

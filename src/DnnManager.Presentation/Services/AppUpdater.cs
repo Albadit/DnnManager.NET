@@ -22,8 +22,9 @@ public sealed class AppUpdater : INotifyPropertyChanged
     private readonly WorkspaceService _workspace;
     private readonly OperationRunner _runner;
     private readonly ActivityLog _log;
-    // A single-file exe (installed or portable) has no DnnManager.dll beside it; a dotnet build's output has.
-    private readonly Lazy<UpdateTarget?> _target = new(() =>
+    // A single-file exe (installed or portable) has no DnnManager.dll beside it; a dotnet build's output has. A package's
+    // single-file exe would look portable - but its folder is read-only: a package is updated as a package.
+    private readonly Lazy<UpdateTarget?> _target = new(() => PackageIdentity.IsPackaged ? null :
         UpdateTarget.Detect(Environment.ProcessPath, !File.Exists(Path.Combine(AppContext.BaseDirectory, "DnnManager.dll"))));
     private bool _started;
     private DateTime _checkedAt = DateTime.MinValue;
@@ -46,7 +47,7 @@ public sealed class AppUpdater : INotifyPropertyChanged
     /// <summary>Why GitHub couldn't be asked, or why the update failed.</summary>
     public string? Problem { get; private set; }
 
-    /// <summary>What an update replaces; null for a development build, which isn't updated but rebuilt.</summary>
+    /// <summary>What an update replaces; null for a development build, which isn't updated but rebuilt, and for a package.</summary>
     public UpdateTarget? Target => _target.Value;
 
     /// <summary>A newer release is there and this DNN Manager can install it - the Update button shows.</summary>
@@ -60,6 +61,7 @@ public sealed class AppUpdater : INotifyPropertyChanged
     {
         UpdateState.Checking => "Checking for updates…",
         UpdateState.UpToDate => $"Up to date - v{Current} is the newest release",
+        UpdateState.Available when Target is null && PackageIdentity.IsPackaged => $"Update available - {Latest!.Tag} (a package is updated as a package)",
         UpdateState.Available when Target is null => $"Update available - {Latest!.Tag} (a development build doesn't update itself)",
         UpdateState.Available => $"Update available - {Latest!.Tag}",
         UpdateState.Unreachable => "Unable to reach GitHub",

@@ -99,6 +99,28 @@
             }
         },
         {
+            // DNN Manager as an MSIX package (the release's kind: it elevates as Setup's does), signed with a self-signed
+            // test certificate (CurrentUser\My): publish\DnnManager_<version>_x64.msix. See .docs/releasing.md, The MSIX package.
+            "label": "package (DnnManager.msix, test-signed)",
+            "type": "process",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/src/DnnManager.Package/build.ps1",
+                "-TestCertificate"
+            ],
+            "group": "build",
+            "problemMatcher": "$msCompile",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            }
+        },
+        {
             // A portable exe one version below GitHub's newest release (1.6.0 -> 1.5.9), so its Update button installs
             // that release: publish\update-test\DnnManager_Portable-<version>-x64.exe. See .docs/releasing.md, The in-app update.
             "label": "publish (update test, one version below the release)",
@@ -136,6 +158,31 @@
                 "${input:releaseNotes}",
                 "-Commit",
                 "${input:releaseCommit}"
+            ],
+            "group": "build",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true,
+                "clear": true
+            }
+        },
+        {
+            // Pick a release on GitHub (made by "release (GitHub)"); builds its MSIX package from the release's tag, signed with
+            // the certificate in DNNMANAGER_SIGNING_THUMBPRINT, and after you confirm uploads it to that release.
+            // See .docs/releasing.md, The MSIX package.
+            "label": "release: MSIX (GitHub)",
+            "type": "process",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.github/scripts/publish-msix.ps1",
+                "-Tag",
+                "${input:msixRelease}"
             ],
             "group": "build",
             "problemMatcher": [],
@@ -194,6 +241,19 @@
                 "cwd": "${workspaceFolder}",
                 "fieldSeparator": "||",
                 "description": "Commit to release (newest on GitHub first)",
+                "warnOnStderr": false
+            }
+        },
+        {
+            "id": "msixRelease",
+            "type": "command",
+            "command": "shellCommand.execute",
+            "args": {
+                "command": "powershell",
+                "commandArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/.github/scripts/publish-msix.ps1", "-List", "releases"],
+                "cwd": "${workspaceFolder}",
+                "fieldSeparator": "||",
+                "description": "Release to add the MSIX package to (newest first)",
                 "warnOnStderr": false
             }
         }

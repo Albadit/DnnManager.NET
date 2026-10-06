@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DNN Manager as an MSIX package, installed outside the Microsoft Store. build.ps1 fills in the $…$ values and keeps one
+  of the two marked blocks:
+
+  ELEVATE (the release): DNN Manager runs as it does from Setup - it asks for Administrator rights (UAC) when it starts.
+  allowElevation lets a packaged app do that; it is a restricted capability, which needs Microsoft's approval only for
+  the Store.
+
+  BROKER (build.ps1 -Broker, an experiment - .docs/privileged-broker.md): DNN Manager runs as the user, and the DNN
+  Manager Broker - the same exe, started with the broker argument - runs as a Local System service installed with the
+  package and does the IIS work. Installing it needs Administrator rights; the Store generally doesn't approve
+  packagedServices and localSystemServices.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap desktop6 rescap">
+
+  <Identity Name="Albadit.DnnManager" Publisher="$Publisher$" Version="$Version$" ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>DNN Manager</DisplayName>
+    <PublisherDisplayName>$PublisherDisplayName$</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <!-- Packaged services and allowElevation need Windows 10 1903 (build 18362). -->
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.18362.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="DnnManager" Executable="DnnManager.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="DNN Manager" Description="Manages local DNN sites on IIS"
+        BackgroundColor="transparent" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png" />
+      <!--BROKER-BEGIN-->
+      <Extensions>
+        <desktop6:Extension Category="windows.service" Executable="DnnManager.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop6:Service Name="DnnManagerBroker" StartupType="auto" StartAccount="localSystem" Arguments="--broker" />
+        </desktop6:Extension>
+      </Extensions>
+      <!--BROKER-END-->
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <!--ELEVATE-BEGIN-->
+    <rescap:Capability Name="allowElevation" />
+    <!--ELEVATE-END-->
+    <!--BROKER-BEGIN-->
+    <rescap:Capability Name="packagedServices" />
+    <rescap:Capability Name="localSystemServices" />
+    <!--BROKER-END-->
+  </Capabilities>
+</Package>
