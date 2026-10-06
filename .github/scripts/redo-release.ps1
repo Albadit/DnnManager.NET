@@ -107,8 +107,8 @@ if (-not $Version) {
 }
 $tag = 'v' + $Version.TrimStart('v', 'V')
 if ($tag -notmatch '^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw "$Version isn't a version like 1.7.6." }
-$notes = Join-Path $root "docs\release-notes\$tag.md"
-if (-not (Test-Path $notes)) { throw "There are no release notes docs\release-notes\$tag.md - the release needs them." }
+$notes = Join-Path $root ".docs\release-notes\$tag.md"
+if (-not (Test-Path $notes)) { throw "There are no release notes .docs\release-notes\$tag.md - the release needs them." }
 
 $branch = (Invoke-Git @('rev-parse', '--abbrev-ref', 'HEAD')) | Select-Object -First 1
 if ($branch -eq 'HEAD') { throw 'No branch is checked out (detached HEAD) - check out the branch the release is on.' }
@@ -269,7 +269,7 @@ if ($remoteTagSha -or $localTagSha) {
 $short = $head.Substring(0, 7)
 Write-Step "Release $tag from $short"
 if (Confirm-Step "Build and publish $tag from this PC now (publish-release.ps1 - the fast tests, both exes, the tag, the release)?") {
-    $publishArgs = @{ NotesFile = "docs\release-notes\$tag.md"; Commit = $head }
+    $publishArgs = @{ NotesFile = ".docs\release-notes\$tag.md"; Commit = $head }
     if ($SkipTests) { $publishArgs.SkipTests = $true }
     & (Join-Path $PSScriptRoot 'publish-release.ps1') @publishArgs
 }

@@ -2,10 +2,44 @@
 
 All notable changes to DnnManager.NET are documented here.
 
-## Unreleased
+## v1.7.7
+
+### Upgrading
+
+- The release files are renamed: `DnnManager_Setup-<version>-x64.exe` (was
+  `DnnManagerSetup-…`) and `DnnManager_Portable-<version>-x64.exe` (was
+  `DnnManager-…`). Each release also carries the same files under the old names,
+  so **Update** in DNN Manager 1.7.6 and older still installs it.
+
+### Added
+
+- **Getting started guide** on the very first start: eight steps, written for
+  someone who has never used DNN Manager, IIS or DNN - what it does, what to
+  set up first, the parts of the window, what the Projects table shows, what
+  every button does (each marked *Safe*, *Careful* or *Can't be undone*), logs
+  and Troubleshoot, updates. Skip it at any time; it isn't shown again (nor to
+  anyone who used DNN Manager before). A later version that adds a page shows
+  only that page. A new user isn't shown release notes: **What's new** stays
+  out of Help, Settings → Help and the command palette until their first
+  update.
+- **Tour of the window** - from the guide's last step or Help: one part at a
+  time, ringed, with a card saying what it is for. Back, Next, Skip tour,
+  Finish.
+- **Help** - a **?** in the title bar: help for the page shown (**F1**), the
+  guide, the tour, keyboard shortcuts, What's new, the user guide. Also
+  **Settings → Help** and *Help: …* in the command palette.
 
 ### Changed
 
+- The tooltips of the buttons that do something say what they do and what it
+  affects - *Stop - turn the website off until you start it again; nothing is
+  deleted* instead of *Stop*: the Projects table, its bulk actions, a project's
+  details, IIS in the status bar, the panel's tabs, Troubleshoot, the sidebar.
+- **F1** opens the help for the page shown. A shortcut you had set to F1 is
+  flagged in **Settings → Keyboard shortcuts** as used twice.
+- The documentation moved from `docs/` to `.docs/`. The release notes built
+  into DNN Manager, the release scripts, the VS Code tasks and the links
+  (README, **Settings → About → Documentation**) follow.
 - The workflow on GitHub is now `.github/workflows/ci.yml` ("CI", was
   `release.yml`): it only builds in Release and runs the tests when a version
   tag is pushed; it publishes nothing. Releases are published from VS Code with

@@ -385,14 +385,22 @@ public partial class MainWindow
     {
         SidebarIconFill.Visibility = _sidebarVisible ? Visibility.Visible : Visibility.Hidden;
         SidebarIcon.RenderTransform = _layout.SidebarRight ? new ScaleTransform(-1, 1) : Transform.Identity;
-        SidebarToggle.ToolTip = _sidebarVisible ? "Hide sidebar" : "Show sidebar";
+        SidebarToggle.ToolTip = _sidebarVisible ? "Hide the pages on the left" : "Show the pages on the left";
         PanelIconFill.Visibility = LogOpen ? Visibility.Visible : Visibility.Hidden;
-        PanelToggle.ToolTip = LogOpen ? "Hide panel" : "Show panel";
+        PanelToggle.ToolTip = LogOpen ? "Hide the panel" : "Show the panel: Output, Logs and Terminal";
     }
 
     /// <summary>A command's shortcut as shown ("Ctrl+B"), or "".</summary>
     private string ShortcutText(string commandId) =>
         _commands.Find(commandId) is { } command && _commands.ShortcutOf(command) is { } shortcut ? shortcut.ToString() : "";
+
+    /// <summary>An entry of the gear's or Help's menu, with its command's shortcut on the right.</summary>
+    private MenuItem MenuEntry(string header, string? command, Action run)
+    {
+        var item = new MenuItem { Header = header, InputGestureText = command is null ? "" : ShortcutText(command) };
+        item.Click += (_, _) => run();
+        return item;
+    }
 
     private void SetSidebarVisible(bool visible)
     {
@@ -603,17 +611,10 @@ public partial class MainWindow
             CustomPopupPlacementCallback = (popup, target, _) =>
                 [new CustomPopupPlacement(new Point(onRight ? -popup.Width - 6 : target.Width + 6, target.Height - popup.Height), PopupPrimaryAxis.None)]
         };
-        MenuItem Item(string header, string? command, Action run)
-        {
-            var item = new MenuItem { Header = header, InputGestureText = command is null ? "" : ShortcutText(command) };
-            item.Click += (_, _) => run();
-            return item;
-        }
-
-        menu.Items.Add(Item("Command Palette…", "workbench.commandPalette", () => ShowPalette(commands: true)));
+        menu.Items.Add(MenuEntry("Command Palette…", "workbench.commandPalette", () => ShowPalette(commands: true)));
         menu.Items.Add(new Separator());
-        menu.Items.Add(Item("Settings", "settings.open", () => ShowModal("Settings")));
-        menu.Items.Add(Item("Keyboard Shortcuts", "settings.keyboard", () => OpenSettings("Keyboard")));
+        menu.Items.Add(MenuEntry("Settings", "settings.open", () => ShowModal("Settings")));
+        menu.Items.Add(MenuEntry("Keyboard Shortcuts", "settings.keyboard", () => OpenSettings("Keyboard")));
         var themes = new MenuItem { Header = "Themes" };
         foreach (var (label, value) in Themes)
         {
@@ -631,10 +632,10 @@ public partial class MainWindow
             themes.Items.Add(theme);
         }
         menu.Items.Add(themes);
-        menu.Items.Add(Item("Customize Layout…", "layout.customize", ShowCustomizeLayout));
+        menu.Items.Add(MenuEntry("Customize Layout…", "layout.customize", ShowCustomizeLayout));
         menu.Items.Add(new Separator());
-        menu.Items.Add(Item("Troubleshoot", "troubleshoot.open", () => ShowModal("Troubleshoot")));
-        menu.Items.Add(Item("Check for Updates…", "app.checkUpdates", () => _ = CheckForUpdatesAsync()));
+        menu.Items.Add(MenuEntry("Troubleshoot", "troubleshoot.open", () => ShowModal("Troubleshoot")));
+        menu.Items.Add(MenuEntry("Check for Updates…", "app.checkUpdates", () => _ = CheckForUpdatesAsync()));
         menu.IsOpen = true;
     }
 

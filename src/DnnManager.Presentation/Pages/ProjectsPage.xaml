@@ -214,7 +214,7 @@
         </DockPanel>
 
         <!-- Search, columns and "only running" on the left; the bulk actions on the right, only while rows are checked. -->
-        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+        <DockPanel x:Name="Toolbar" DockPanel.Dock="Top" Margin="0,0,0,10">
             <!-- For the checked rows: one group of icons in the order of a row's Actions - Start, Stop, Restart and keep warm,
                  then Remove on the right. -->
             <Border x:Name="BulkActions" DockPanel.Dock="Right" Visibility="Collapsed" VerticalAlignment="Center" Padding="2" CornerRadius="5"
@@ -238,7 +238,7 @@
                          TextChanged="Search_TextChanged" PreviewKeyDown="Search_PreviewKeyDown"
                          ToolTip="Search projects"
                          s:CommandTip.Command="projects.search" />
-                <ToggleButton x:Name="ColumnsButton" Style="{StaticResource IconToggleButton}" Margin="8,0,0,0" ToolTip="Columns"
+                <ToggleButton x:Name="ColumnsButton" Style="{StaticResource IconToggleButton}" Margin="8,0,0,0" ToolTip="Choose which columns the list shows"
                               IsChecked="{Binding IsOpen, ElementName=ColumnsPopup, Mode=TwoWay}">
                     <!-- Three columns, like a table header. -->
                     <Path Style="{StaticResource IconStroke}" Data="{StaticResource Columns}" StrokeThickness="1.5"
@@ -275,7 +275,7 @@
                 </Popup>
                 <!-- Only the projects whose site runs - a row comes and goes as its site starts and stops. -->
                 <CheckBox x:Name="OnlyRunning" Style="{StaticResource ToggleSwitch}" Content="Only show running" Margin="14,0,0,0"
-                          VerticalAlignment="Center" Click="OnlyRunning_Click" ToolTip="Only show running" />
+                          VerticalAlignment="Center" Click="OnlyRunning_Click" ToolTip="Hide the websites that are stopped" />
             </StackPanel>
         </DockPanel>
 
@@ -322,7 +322,7 @@
                         <DataGridTemplateColumn Width="32" MinWidth="32" CanUserResize="False" CanUserSort="False" CellStyle="{StaticResource IconCell}">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <ToggleButton Style="{StaticResource ExpandToggle}" ToolTip="Details"
+                                    <ToggleButton Style="{StaticResource ExpandToggle}" ToolTip="Show a few facts under the row"
                                                   IsChecked="{Binding IsExpanded, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -341,7 +341,7 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <Button Style="{StaticResource LinkButton}" Content="{Binding Name}" FontWeight="SemiBold" HorizontalAlignment="Left"
-                                            VerticalAlignment="Center" Focusable="False" Click="RowOpen_Click" ToolTip="Open overview" />
+                                            VerticalAlignment="Center" Focusable="False" Click="RowOpen_Click" ToolTip="Show everything about this website" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
@@ -354,7 +354,7 @@
                                 <DataTemplate>
                                     <Grid VerticalAlignment="Center">
                                         <Button Style="{StaticResource LinkButton}" Content="{Binding Url}" HorizontalAlignment="Left" Focusable="False"
-                                                Click="OpenSite_Click" ToolTip="Open site" s:CommandTip.Command="project.openWebsite"
+                                                Click="OpenSite_Click" ToolTip="Open the website in your browser" s:CommandTip.Command="project.openWebsite"
                                                 Visibility="{Binding HasUrl, Converter={StaticResource BoolToVis}}" />
                                         <TextBlock Text="{Binding Url}" Foreground="{DynamicResource TextMuted}">
                                             <TextBlock.Style>
@@ -409,7 +409,7 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <Button Style="{StaticResource LinkButton}" Content="{Binding Path}" HorizontalAlignment="Left" VerticalAlignment="Center"
-                                            Focusable="False" Click="OpenFolder_Click" ToolTip="Open folder" s:CommandTip.Command="project.openFolder" />
+                                            Focusable="False" Click="OpenFolder_Click" ToolTip="Open the website's files in File Explorer" s:CommandTip.Command="project.openFolder" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
@@ -425,11 +425,11 @@
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <Grid Width="56">
                                             <StackPanel Orientation="Horizontal">
-                                                <Button Style="{StaticResource RowAction}" Content="{StaticResource GlyphPlay}" ToolTip="Start" s:CommandTip.Command="project.start" Click="RowStart_Click"
+                                                <Button Style="{StaticResource RowAction}" Content="{StaticResource GlyphPlay}" ToolTip="Start - turn the website on so it can be opened" s:CommandTip.Command="project.start" Click="RowStart_Click"
                                                         IsEnabled="{Binding CanStart}" Visibility="{Binding ShowStart, Converter={StaticResource BoolToVis}}" />
-                                                <Button Style="{StaticResource RowAction}" Content="{StaticResource GlyphStop}" ToolTip="Stop" s:CommandTip.Command="project.stop" Click="RowStop_Click"
+                                                <Button Style="{StaticResource RowAction}" Content="{StaticResource GlyphStop}" ToolTip="Stop - turn the website off until you start it again; nothing is deleted" s:CommandTip.Command="project.stop" Click="RowStop_Click"
                                                         IsEnabled="{Binding CanStop}" Visibility="{Binding ShowStop, Converter={StaticResource BoolToVis}}" />
-                                                <Button Style="{StaticResource RowAction}" Content="{StaticResource GlyphRefresh}" ToolTip="Restart" s:CommandTip.Command="project.restart" Click="RowRestart_Click"
+                                                <Button Style="{StaticResource RowAction}" Content="{StaticResource GlyphRefresh}" ToolTip="Restart the website's background process - can fix problems; it is unavailable for a few seconds" s:CommandTip.Command="project.restart" Click="RowRestart_Click"
                                                         IsEnabled="{Binding CanRestart}" Visibility="{Binding ShowStop, Converter={StaticResource BoolToVis}}" />
                                             </StackPanel>
 
@@ -446,7 +446,7 @@
 
                                         <Border Width="1" Height="18" Margin="8,0" Background="{DynamicResource CardBorder}" />
                                         <Button Style="{StaticResource IconButton}" Content="{StaticResource GlyphDelete}" Foreground="{DynamicResource ErrorText}"
-                                                ToolTip="Remove (Del)" Click="RowRemove_Click" IsEnabled="{Binding CanRemove}" />
+                                                ToolTip="Remove - delete the website, its folder and its database from this computer; asks first (Del)" Click="RowRemove_Click" IsEnabled="{Binding CanRemove}" />
                                     </StackPanel>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>

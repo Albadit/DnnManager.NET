@@ -2,7 +2,7 @@ using DnnManager.Infrastructure.Updates;
 
 namespace DnnManager.Presentation.Services;
 
-/// <summary>A release's notes: its version and its Markdown, as <c>docs/release-notes/vX.Y.Z.md</c> has it.</summary>
+/// <summary>A release's notes: its version and its Markdown, as <c>.docs/release-notes/vX.Y.Z.md</c> has it.</summary>
 public sealed record ReleaseNote(Version Version, string Markdown)
 {
     /// <summary>
@@ -12,11 +12,14 @@ public sealed record ReleaseNote(Version Version, string Markdown)
     public string LinkTarget(string link) =>
         Uri.TryCreate(link, UriKind.Absolute, out var absolute) && absolute.Scheme is "http" or "https" or "mailto" ? link
         : link.StartsWith('#') ? $"{AppReleaseFeed.Repository}/releases/tag/v{Version}"
-        : new Uri(new Uri($"{AppReleaseFeed.Repository}/blob/v{Version}/docs/release-notes/"), link).ToString();
+        : new Uri(new Uri($"{AppReleaseFeed.Repository}/blob/v{Version}/{NotesFolder}/"), link).ToString();
+
+    // Where the notes are at the release's tag: docs/ up to v1.7.6, .docs/ since the folder was renamed.
+    private string NotesFolder => Version <= new Version(1, 7, 6) ? "docs/release-notes" : ".docs/release-notes";
 }
 
 /// <summary>
-/// The release notes built into DNN Manager (<c>docs/release-notes/v*.md</c>, embedded by DnnManager.csproj) - the same
+/// The release notes built into DNN Manager (<c>.docs/release-notes/v*.md</c>, embedded by DnnManager.csproj) - the same
 /// text each GitHub release shows. What's new after an update shows the ones since the version before.
 /// </summary>
 public static class ReleaseNotes

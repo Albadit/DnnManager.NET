@@ -1,7 +1,7 @@
 ---
 name: release-notes
 description: >-
-  Writes the release notes for the next DNN Manager release as docs/release-notes/vX.Y.Z.md, in the structure every
+  Writes the release notes for the next DNN Manager release as .docs/release-notes/vX.Y.Z.md, in the structure every
   release uses (bold summary, Highlights, Other changes, Upgrading, Tested, link to the changelog), from the
   CHANGELOG.md entry, the commits since the previous tag and real test results - every claim checked against the
   code - and the release commit's message, ready to paste. The VS Code task "release (GitHub)" publishes that file as
@@ -13,10 +13,10 @@ description: >-
 
 # Release notes
 
-The notes for a release are **`docs/release-notes/vX.Y.Z.md`**. The VS Code task **release (GitHub)**
+The notes for a release are **`.docs/release-notes/vX.Y.Z.md`**. The VS Code task **release (GitHub)**
 (`.github/scripts/publish-release.ps1`) publishes that file unchanged as the GitHub release's notes
 (`.github/scripts/release-notes.ps1`), and builds it into the exe - so it is written and committed before the release.
-The workflow on GitHub (`.github/workflows/ci.yml`) only builds and tests the pushed tag. [`docs/release-notes/v1.6.0.md`](../../../docs/release-notes/v1.6.0.md) is the model: match
+The workflow on GitHub (`.github/workflows/ci.yml`) only builds and tests the pushed tag. [`.docs/release-notes/v1.6.0.md`](../../../.docs/release-notes/v1.6.0.md) is the model: match
 its structure, length and tone.
 
 Readers are **people who use DNN Manager**, deciding whether to update and what changes for them - not developers.
@@ -39,7 +39,7 @@ Readers are **people who use DNN Manager**, deciding whether to update and what 
    if they were really run - ask the owner what was tested by hand. The integration tests that run real sites (e.g.
    `DnnUpgradeTests`, DNN upgrades on IIS Express and a SQL Server container) go in as what they did and found, in
    the user's words: the versions, the content on the site, the result.
-5. **Write `docs/release-notes/vX.Y.Z.md`** in the structure below. The file name is the tag and the release title,
+5. **Write `.docs/release-notes/vX.Y.Z.md`** in the structure below. The file name is the tag and the release title,
    so it must be exactly `v` + the version (`v1.7.0.md`, or `v1.7.0-rc.1.md` for a pre-release). If the changelog
    entry is still `## Unreleased`, offer to rename it `## vX.Y.Z`.
 6. **Check it**: every relative link resolves, the changelog anchor exists, and
@@ -49,14 +49,14 @@ Readers are **people who use DNN Manager**, deciding whether to update and what 
    report, ready to paste.
 8. Report what the notes say, the commit message, and anything left unverified. Don't commit, tag or publish - the
    owner does, with the VS Code task **release (GitHub)** (`.github/scripts/publish-release.ps1`, see
-   `docs/releasing.md`), which picks this file and a commit, builds both exes and publishes the release - or, for a
+   `.docs/releasing.md`), which picks this file and a commit, builds both exes and publishes the release - or, for a
    redo, **release: redo (GitHub)** (below).
 
 ## Redoing a release
 
 The version's tag is made already - its release workflow failed, or one more change is wanted - and the owner wants
 the same version again, not the next one. `.github/scripts/redo-release.ps1` (the VS Code task
-**release: redo (GitHub)**, see `docs/releasing.md#redo-a-release`) amends the release commit with the working copy,
+**release: redo (GitHub)**, see `.docs/releasing.md#redo-a-release`) amends the release commit with the working copy,
 pushes the branch, deletes the tag and its GitHub release, and releases the version again.
 
 1. **Is a redo still right?** Look the release up:
@@ -68,7 +68,7 @@ pushes the branch, deletes the tag and its GitHub release, and releases the vers
 2. **The range** is the tag before it to the working copy: the previous release is
    `git describe --tags --abbrev=0 vX.Y.Z^`, and the changes are its commits plus what isn't committed yet
    (`git status`, `git diff HEAD`) - the redo folds them into the release commit.
-3. **Update in place**: the `## vX.Y.Z` entry in `CHANGELOG.md` (no new heading) and `docs/release-notes/vX.Y.Z.md`
+3. **Update in place**: the `## vX.Y.Z` entry in `CHANGELOG.md` (no new heading) and `.docs/release-notes/vX.Y.Z.md`
    get the new changes where they belong - a new highlight, a line in *Other changes*, an *Upgrading* note for a
    removed setting or changed behaviour. Run the fast tests again and update *Tested*.
 4. **The commit message** keeps the format; give the updated one when the themes changed - the script asks for it

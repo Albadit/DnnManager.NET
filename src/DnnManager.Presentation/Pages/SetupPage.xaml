@@ -230,7 +230,7 @@
 
             <StackPanel Orientation="Horizontal">
                 <Button x:Name="RunButton" Style="{StaticResource Primary}" Content="Create project" IsEnabled="False" Click="Run_Click"
-                        ToolTip="Create project" />
+                        ToolTip="Create the website with these choices - the panel at the bottom shows each step, Cancel undoes it" />
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

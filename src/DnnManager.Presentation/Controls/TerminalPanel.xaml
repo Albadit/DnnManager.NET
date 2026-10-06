@@ -173,7 +173,7 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal">
                     <RadioButton x:Name="OutputTab" Style="{StaticResource PanelTab}" GroupName="PanelTabs" IsChecked="True"
-                                 Checked="PanelTab_Checked" ToolTip="Output"
+                                 Checked="PanelTab_Checked" ToolTip="Output - what DNN Manager is doing, step by step"
                                  s:CommandTip.Command="panel.output">
                         <!-- The red dot: the last operation failed - until Output is opened again. -->
                         <StackPanel Orientation="Horizontal">
@@ -183,9 +183,9 @@
                         </StackPanel>
                     </RadioButton>
                     <RadioButton x:Name="LogsTab" Style="{StaticResource PanelTab}" GroupName="PanelTabs" Content="Logs"
-                                 Checked="PanelTab_Checked" ToolTip="Logs" />
+                                 Checked="PanelTab_Checked" ToolTip="Logs - what a website, IIS, Windows or DNN Manager wrote down; look here when something goes wrong" />
                     <RadioButton x:Name="TerminalTab" Style="{StaticResource PanelTab}" GroupName="PanelTabs" Content="Terminal"
-                                 Checked="PanelTab_Checked" ToolTip="Terminal"
+                                 Checked="PanelTab_Checked" ToolTip="Terminal - a command line, for advanced users"
                                  s:CommandTip.Command="terminal.toggle" />
                 </StackPanel>
             </DockPanel>

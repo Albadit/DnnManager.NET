@@ -41,7 +41,7 @@
     <Resource Include="src\DnnManager.Presentation\Assets\dnn.ico" />
     <!-- Each release's notes, as GitHub shows them - "What's new" after an update reads them from here, offline too
          (src/DnnManager.Presentation/Services/ReleaseNotes.cs). -->
-    <EmbeddedResource Include="docs\release-notes\v*.md" LogicalName="ReleaseNotes.%(Filename)%(Extension)" />
+    <EmbeddedResource Include=".docs\release-notes\v*.md" LogicalName="ReleaseNotes.%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -79,12 +79,12 @@
        run (src/DnnManager.Infrastructure/Settings). -->
 
   <!-- Portable publish (-p:PortableExe=true, used by the VS Code publish task): the single-file exe is renamed
-       DnnManager-<version>-<arch>.exe, e.g. DnnManager-1.6.0-x64.exe. Only the file is renamed - the assembly
+       DnnManager_Portable-<version>-<arch>.exe, e.g. DnnManager_Portable-1.7.7-x64.exe. Only the file is renamed - the assembly
        stays DnnManager, which the XAML pack URIs refer to. The installer's publish keeps DnnManager.exe. -->
   <Target Name="RenamePortableExe" AfterTargets="Publish" Condition="'$(PortableExe)' == 'true'">
     <PropertyGroup>
       <PortableArch>$(RuntimeIdentifier.Replace('win-', ''))</PortableArch>
-      <PortableExePath>$(PublishDir)DnnManager-$(Version)-$(PortableArch).exe</PortableExePath>
+      <PortableExePath>$(PublishDir)DnnManager_Portable-$(Version)-$(PortableArch).exe</PortableExePath>
     </PropertyGroup>
     <Error Condition="'$(PublishSingleFile)' != 'true'" Text="PortableExe=true needs a single-file publish (-p:PublishSingleFile=true)." />
     <Copy SourceFiles="$(PublishDir)$(AssemblyName).exe" DestinationFiles="$(PortableExePath)" />

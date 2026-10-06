@@ -126,29 +126,29 @@
                     VerticalAlignment="Top" ToolTip="Back (Esc)" Click="Back_Click" />
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,4,0,0">
                 <Button Style="{StaticResource HeaderButton}" Click="Start_Click" IsEnabled="{Binding CanStart}"
-                        ToolTip="Start" s:CommandTip.Command="project.start"
+                        ToolTip="Start - turn the website on so it can be opened" s:CommandTip.Command="project.start"
                         Visibility="{Binding ShowStart, Converter={StaticResource Visible}}">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphPlay}" /><TextBlock Text="Start" /></StackPanel>
                 </Button>
                 <Button Style="{StaticResource HeaderButton}" Click="Stop_Click" IsEnabled="{Binding CanStop}"
-                        ToolTip="Stop" s:CommandTip.Command="project.stop"
+                        ToolTip="Stop - turn the website off until you start it again; nothing is deleted" s:CommandTip.Command="project.stop"
                         Visibility="{Binding ShowStop, Converter={StaticResource Visible}}">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphStop}" /><TextBlock Text="Stop" /></StackPanel>
                 </Button>
                 <Button Style="{StaticResource HeaderButton}" Click="Restart_Click" IsEnabled="{Binding CanRestart}"
-                        Visibility="{Binding ShowStop, Converter={StaticResource Visible}}" ToolTip="Restart"
+                        Visibility="{Binding ShowStop, Converter={StaticResource Visible}}" ToolTip="Restart the website's background process - can fix problems; it is unavailable for a few seconds"
                         s:CommandTip.Command="project.restart">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphRefresh}" /><TextBlock Text="Restart" /></StackPanel>
                 </Button>
                 <Button Style="{StaticResource HeaderButton}" Click="OpenSite_Click" IsEnabled="{Binding HasUrl}"
-                        ToolTip="Open site" s:CommandTip.Command="project.openWebsite">
+                        ToolTip="Open the website in your browser" s:CommandTip.Command="project.openWebsite">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphGlobe}" /><TextBlock Text="Open site" /></StackPanel>
                 </Button>
-                <Button Style="{StaticResource HeaderButton}" Click="OpenFolder_Click" ToolTip="Open folder"
+                <Button Style="{StaticResource HeaderButton}" Click="OpenFolder_Click" ToolTip="Open the website's files in File Explorer"
                         s:CommandTip.Command="project.openFolder">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphFolderOpen}" /><TextBlock Text="Open folder" /></StackPanel>
                 </Button>
-                <Button x:Name="MoreButton" Style="{StaticResource HeaderButton}" Click="More_Click" ToolTip="More actions">
+                <Button x:Name="MoreButton" Style="{StaticResource HeaderButton}" Click="More_Click" ToolTip="More actions: logs, clear cache, export, backups, upgrade">
                     <TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphMore}" Margin="0" RenderTransformOrigin="0.5,0.5">
                         <TextBlock.RenderTransform>
                             <RotateTransform Angle="90" />

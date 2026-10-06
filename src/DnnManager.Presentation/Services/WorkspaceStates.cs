@@ -119,6 +119,24 @@ public sealed class VersionState : IStateFile
     public string? LastRun { get; set; }
 }
 
+/// <summary>
+/// The getting started guide: the version of it the user went through or skipped (<see cref="Onboarding.Version"/>) - 0
+/// until then. It decides what a start shows of it (<see cref="Onboarding.AtStart"/>); Help opens it any time.
+/// </summary>
+public sealed class OnboardingState : IStateFile
+{
+    public static string Area => "onboarding";
+
+    public int GuideVersion { get; set; }
+    /// <summary>Left with Skip guide (or closed) rather than finished.</summary>
+    public bool Skipped { get; set; }
+    /// <summary>
+    /// The version DNN Manager's very first start was - null for someone who used it before this was kept. Still on it,
+    /// the user is new: release notes (What's new) would only tell them about changes they never saw, so none are offered.
+    /// </summary>
+    public string? FirstVersion { get; set; }
+}
+
 /// <summary>The commands last run from the command palette, the newest first - listed first as "recently used", as VS Code does.</summary>
 public sealed class PaletteState : IStateFile
 {

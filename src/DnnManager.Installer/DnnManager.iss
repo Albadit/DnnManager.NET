@@ -85,7 +85,7 @@ UninstallDisplayName={#AppName}
 UninstallDisplayIcon={app}\{#AppExe}
 
 OutputDir={#OutputDir}
-OutputBaseFilename=DnnManagerSetup-{#AppVersion}-x64
+OutputBaseFilename=DnnManager_Setup-{#AppVersion}-x64
 Compression=lzma2/max
 SolidCompression=yes
 
@@ -451,9 +451,15 @@ var
 begin
   // GitHub's SHA-256 of the release's Setup ("digest", in its asset - before its browser_download_url).
   Json := GitHubRelease('tags/v' + Version);
-  AssetName := 'DnnManagerSetup-' + Version + '-x64.exe';
+  // DnnManager_Setup-<version>-x64.exe - or, for a release up to 1.7.6 (Repair of one), DnnManagerSetup-<version>-x64.exe.
+  AssetName := 'DnnManager_Setup-' + Version + '-x64.exe';
   P := Pos('"name":"' + AssetName + '"', Json);
-  if P = 0 then RaiseException('Release ' + Version + ' on GitHub has no ' + AssetName + '.');
+  if P = 0 then
+  begin
+    AssetName := 'DnnManagerSetup-' + Version + '-x64.exe';
+    P := Pos('"name":"' + AssetName + '"', Json);
+  end;
+  if P = 0 then RaiseException('Release ' + Version + ' on GitHub has no DnnManager_Setup-' + Version + '-x64.exe.');
   Json := Copy(Json, P, Length(Json));
   P := Pos('"browser_download_url"', Json);
   if P > 0 then Json := Copy(Json, 1, P);

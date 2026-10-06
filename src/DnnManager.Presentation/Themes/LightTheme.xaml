@@ -52,6 +52,8 @@
     <SolidColorBrush x:Key="PickerGroupBorder"        Color="#E5E5E5" />   <!-- pickerGroup.border -->
     <!-- Behind Settings and Troubleshoot, which open over the page: the page dimmed. -->
     <SolidColorBrush x:Key="ModalBackdrop"            Color="#33000000" />
+    <!-- The tour's: darker, so the one part it is about stands out. -->
+    <SolidColorBrush x:Key="TourBackdrop"             Color="#80000000" />
     <!-- The search in the middle of the title bar. -->
     <SolidColorBrush x:Key="CommandCenterFg"          Color="#1E1E1E" />   <!-- commandCenter.foreground -->
     <SolidColorBrush x:Key="CommandCenterBg"          Color="#0D000000" /> <!-- commandCenter.background -->

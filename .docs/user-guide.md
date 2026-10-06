@@ -1,12 +1,13 @@
 # User guide
 
-How to use DNN Manager: installing it, the window, every page and menu, the
-settings, automatic DNN setup, importing, hosting and cloning sites, keep warm
-and backups. New here? Start with the [README](../README.md).
+How to use DNN Manager: installing it, the getting started guide, the window,
+every page and menu, the settings, automatic DNN setup, importing, hosting and
+cloning sites, keep warm and backups. New here? Start with the [README](../README.md).
 
 **Contents**
 
 - [Install](#install)
+- [Getting started guide and help](#getting-started-guide-and-help)
 - [Using the app](#using-the-app)
 - [Backups](#backups)
 - [Automatic DNN setup](#automatic-dnn-setup)
@@ -20,7 +21,7 @@ Settings and their keys, and where DNN Manager keeps its data: [configuration.md
 
 ## Install
 
-Run `DnnManagerSetup-<version>-x64.exe` (see [Build the installer](releasing.md#build-the-installer)).
+Run `DnnManager_Setup-<version>-x64.exe` (see [Build the installer](releasing.md#build-the-installer)).
 Like the Visual Studio Code user installer, it needs no administrator rights:
 
 - installs into `%LOCALAPPDATA%\Programs\DnnManager` - **Browse…** picks another folder
@@ -71,6 +72,50 @@ writes there, so upgrading, reinstalling or uninstalling keeps them. To remove
 them, delete that folder after uninstalling. Updating from 1.7.1 or earlier
 starts with the default settings: set them again in the app (see [Upgrading
 from 1.7.1 or earlier](configuration.md#upgrading-from-171-or-earlier)).
+
+## Getting started guide and help
+
+DNN Manager's very first start opens **Getting started**: a guide in eight
+steps for someone who has never used DNN Manager, IIS or DNN - what the app
+does, what to set up first, the parts of the window, what the Projects table
+shows, what every button does (each marked *Safe*, *Careful* or *Can't be
+undone*), logs and Troubleshoot, and updates. **Back** / **Next** (Enter) go
+through it, the steps on the left jump to one, and **Skip guide** (or Esc)
+leaves it at any time. Its last step offers **Take the tour** next to **Start
+using DNN Manager**.
+
+- **The tour** dims the window but for one part at a time - the pages, the
+  Projects table, the bar above it, the title bar's search, **Update** (when
+  there is one), Help, the bottom panel, IIS, this PC's figures and the gear -
+  ringed in blue, with a card saying what it is for. **Next** / **Back** (→ /
+  ←), **Skip tour** (Esc), **Finish** on the last. On the way it shows the
+  Projects table and opens the panel - closed again afterwards if it was
+  closed; nothing under it can be clicked meanwhile. Parts the layout hides
+  (the sidebar, the status bar) aren't on it.
+- **Help** - the **?** in the title bar, left of the layout buttons: **Help for
+  This Page** (**F1**) explains the page shown - Projects, a project's details,
+  New project, Host project, Settings or Troubleshoot - in the guide's window;
+  then **Getting Started Guide**, **Take the Tour**, **Keyboard Shortcuts**,
+  **What's New in This Version** (not for a new user - below) and **User Guide
+  on GitHub**.
+- **Settings → Help** has the guide, the tour, What's new and the user guide
+  too; the command palette has them as *Help: …*.
+- **Tooltips** of the buttons that do something say what they do (*Restart the
+  website's background process - can fix problems; it is unavailable for a few
+  seconds*), not only their name.
+
+The guide is shown once: whether it was finished or skipped is kept in DNN
+Manager's database (`state`, area `onboarding`), so later starts don't show it,
+and someone who used DNN Manager before the guide existed isn't shown it
+either. **Reset to factory defaults** forgets it - the next start shows it
+again.
+
+A new user isn't shown release notes: until the first update after DNN
+Manager's first start, there is no **What's new** - not at a start, in Help,
+Settings → Help or the command palette - since it would only list changes they
+never saw. The version of the first start is kept with the guide (`state`,
+area `onboarding`). When a later version adds a page to the guide, that version's first
+start shows only the new pages (*New in DNN Manager*), not the whole guide.
 
 ## Update
 
@@ -155,7 +200,7 @@ forgets it.
   the search: click it to open the [command palette](#keyboard) on the projects
   (**Ctrl+P**; type **>** for the commands). It narrows with the window and is
   gone in a very narrow one. Next to the minimize / maximize / close buttons are
-  VS Code's layout buttons: **Customize Layout** (see [Layout](#layout)), then
+  **?** - [Help](#getting-started-guide-and-help) - and VS Code's layout buttons: **Customize Layout** (see [Layout](#layout)), then
   the sidebar and the bottom panel - each drawn filled in while it is shown; a
   click shows or hides it. Drag the title bar to move the window, double-click it
   to maximize; on Windows 11, resting on maximize shows Snap layouts.
@@ -373,19 +418,21 @@ DNN Manager works without a mouse, the way VS Code does.
   last 8, kept for the next start), then the *other commands* - also while you
   type. The *Settings* commands - **Settings: General**, **Projects**, **DNN
   releases**, **Database server**, **Docker container**, **IIS**, **Keyboard
-  shortcuts** and **About** - open Settings on that category, or switch to it
+  shortcuts**, **Help** and **About** - open Settings on that category, or switch to it
   while Settings is open. A project command chosen in the palette always asks which project next - the
   selected one (the table's selected row, or the open Details) first, so
   **Enter** takes it. Its shortcut acts on the selected project; without one
   the palette asks.
 - **Tooltips** - resting the pointer on a button or a field shows its name, as
-  in VS Code, with its shortcut when it has one - as set now, so a changed
-  shortcut shows there at once.
+  in VS Code - and, for a button that does something, what it does - with its
+  shortcut when it has one - as set now, so a changed shortcut shows there at
+  once.
 - **Shortcuts** (the defaults - change them in **Settings → Keyboard shortcuts**):
 
   | Shortcut | Does |
   |---|---|
   | **Ctrl+Shift+P** / **Ctrl+P** | Command palette / go to a project |
+  | **F1** | Help for the page shown (see [Getting started guide and help](#getting-started-guide-and-help)) |
   | **Ctrl+,** | Settings - a second time closes it |
   | **Ctrl+B** | Show or hide the sidebar |
   | **Ctrl+F** | Search in the view: the panel's tab when it has the keyboard, else the Projects or Settings search |
@@ -404,7 +451,8 @@ DNN Manager works without a mouse, the way VS Code does.
   website, the project folder, its logs, a terminal in its folder, keep it warm
   (or stop), open its Details, clear the output, run troubleshooting, the
   keyboard shortcuts, the color theme, Customize Layout, the status bar, check
-  for updates, install the update, restart DNN Manager.
+  for updates, install the update, restart DNN Manager, the getting started
+  guide, the tour, the user guide on GitHub.
   While a **terminal** has the keyboard, its keys go to the shell - only the
   palette (Ctrl+Shift+P, Ctrl+P), Settings, Ctrl+F, Ctrl+B, the panel and
   terminal keys (Ctrl+J, Ctrl+`, Ctrl+Shift+`, Ctrl+Shift+U, Ctrl+Shift+M) are
@@ -491,7 +539,7 @@ Manager as before. Turned off, closing the window quits DNN Manager.
 | **New project** | Enter a name (validated as you type), then **Start from**: *a new site* - pick the **Repository** (e.g. `dnnsoftware/Dnn.Platform`), then a **Version** from its GitHub releases (highest version first; pre-releases are listed too, marked *(pre-release)*, but the latest release - marked *(latest)* - is what's selected; *kept, no download* marks a version whose package is kept). The lists are asked of GitHub when the app starts and saved in DNN Manager's database; when GitHub can't be reached, it is asked again the next time New project is shown. **Without internet** the versions of the last lookup are offered; with **Settings → DNN releases → Keep downloaded DNN install packages** on, those marked *kept, no download* are set up as usual; a version that isn't kept needs internet to download - or *an existing site* - pick the site `.zip` and its database `.bacpac` (see [Import a site .zip](#import-a-site-zip)). A name whose folder already exists is refused - set up an existing folder on **Host project**. For a new site: **IIS** - the host name and port it answers on; **DNN installation** - *Automatic setup* (the default) or *Manual DNN setup*; **DNN account and website** (automatic setup) - host username and password (**Generate** makes one), e-mail, website name, language and site template, filled in from **Settings → Projects → DNN defaults**. **Database** - filled in from **Settings → Database server** (connection type, server, authentication, username and password) and named like the project; change any of it here for this project only (**Use the settings** fills it in again - the settings stay as they are). A LocalDB file is the site's own `App_Data\Database.mdf`. It is tested before anything is created. Host name and website name follow the project's name until you type your own. **Create project** is ready once everything is valid. See [Automatic DNN setup](#automatic-dnn-setup). |
 | **Host project** | Pick a folder, then *IIS website + database* (the default), *database only* or *IIS website only*, and optionally a backup to restore. See [Host a project](#host-a-project). |
 | **Test and set up** (Settings → Docker container, Database server and IIS) | A card at the end of each of those categories, checked when you press its **Test** button (nothing runs on opening it; an action re-tests what it changed), with a green / red status and a button to fix it. **Docker**: **Docker Desktop** (**Install Docker Desktop** via winget), the **Docker engine** (**Start Docker Desktop**, then waits for the engine) and the **SQL Server container**. **Set up docker-compose** runs the docker-compose.yml made from the settings (`docker compose up -d`, handed to Docker directly - no file is written, and it has the real SA password): it creates the container, starts it, or updates it after the settings changed, then waits for the sa login. The compose project is `dnn-mssql`; a container made by an older DNN Manager under `dnn-shared` is removed and made again under the new name - the databases stay, they're in the volume. **Show docker-compose.yml** shows the same file with a **Copy** button, to run yourself - without the SA password: replace `<your-sa-password>` after copying. **Database server**: the server from **Settings → Database server**, whichever connection type it is - it answers, the sign-in works, its version, and whether the login may create the databases new projects get. **IIS**: the Windows features as a table with their status. **Set up IIS** checks them and, after a confirmation, enables the missing ones (a reboot may be needed). Restarting IIS is on the status bar. |
-| **Settings** (the gear's menu at the bottom of the sidebar, or **Ctrl+,** - a second time closes it) | Opens over the page and edits the settings, laid out like Docker Desktop's settings: the categories on the left, under a **search** box that leaves the ones with a matching setting, and the chosen category on the right. **General**: **Start DNN Manager when you sign in** (a scheduled task that starts it with its Administrator rights, so Windows doesn't ask for them at every sign-in), **Keep DNN Manager running when you close the window** (see [Running in the background](#running-in-the-background)), the **UI scale** (80-175 %, everything bigger or smaller like a browser's zoom) and **font size** (11-18 px, only the text), and the **terminal** (the default shell, font family and size) - putting every setting back to its default is on **Troubleshoot**. **Projects**: the projects folder, hostname suffix and site port, the **DNN defaults** new projects start with (install mode, host username and password, e-mail, website name, language, site template - the password is kept in the Windows Credential Manager, not in the settings), and **Keep warm** - the interval, keep-alive page and warm-up page of the sites kept warm (see [Keep warm](#keep-warm)). **DNN releases**: the repositories, and keeping downloaded packages. **Database server**: the **connection type** new projects get their database on - the *Local SQL container (Docker)* (host, port, SA password), *SQL Server / SQL Server Express* (server, Windows or SQL Server authentication, login - its password kept in the Windows Credential Manager) or a *SQL Server Express LocalDB (file)* (the LocalDB instance); only the chosen type's settings are saved, the others keep what they had - and remembering the password in SSMS. **Docker container**: its name, volume, edition and collation. **IIS**: the Windows features DNN Manager needs - **Edit…** on the IIS card adds or removes them, a row each (how it is shown and its Windows feature name, e.g. *ASP.NET 4.8* and `IIS-ASPNET45`), or puts the defaults back with **Use the defaults**; saved at once, no Save needed. **Keyboard shortcuts**: every command's shortcut, to search, change and reset - saved at once, no Save needed (see [Keyboard](#keyboard)). **About**: which DNN Manager this is (version, commit, build date, program folder, release channel, the update status - see [Update](#update) -, license, repository and documentation as links), what it runs on (.NET, architecture, Windows, Administrator or not) and works with (IIS, .NET Framework, Docker, its IIS and SQL libraries), then the folders with your files (settings, backups, deployments, logs, DNN packages - all there from the first start), each with **Open**. Nothing is saved until **Save** (bottom right, ready once you change something in any category; **Discard changes** puts the saved values back), which saves the settings and applies them at once - no restart. **Close** (or the ✕, **Esc**, or a click on the dimmed page) goes back to the page under it. **Docker container**, **Database server** and **IIS** each end with their **Test and set up** card - **Test**, **Set up docker-compose**, **Set up IIS** and the rest - working with the saved settings (while there are unsaved changes they wait for **Save**). See [Configuration](configuration.md). |
+| **Settings** (the gear's menu at the bottom of the sidebar, or **Ctrl+,** - a second time closes it) | Opens over the page and edits the settings, laid out like Docker Desktop's settings: the categories on the left, under a **search** box that leaves the ones with a matching setting, and the chosen category on the right. **General**: **Start DNN Manager when you sign in** (a scheduled task that starts it with its Administrator rights, so Windows doesn't ask for them at every sign-in), **Keep DNN Manager running when you close the window** (see [Running in the background](#running-in-the-background)), the **UI scale** (80-175 %, everything bigger or smaller like a browser's zoom) and **font size** (11-18 px, only the text), and the **terminal** (the default shell, font family and size) - putting every setting back to its default is on **Troubleshoot**. **Projects**: the projects folder, hostname suffix and site port, the **DNN defaults** new projects start with (install mode, host username and password, e-mail, website name, language, site template - the password is kept in the Windows Credential Manager, not in the settings), and **Keep warm** - the interval, keep-alive page and warm-up page of the sites kept warm (see [Keep warm](#keep-warm)). **DNN releases**: the repositories, and keeping downloaded packages. **Database server**: the **connection type** new projects get their database on - the *Local SQL container (Docker)* (host, port, SA password), *SQL Server / SQL Server Express* (server, Windows or SQL Server authentication, login - its password kept in the Windows Credential Manager) or a *SQL Server Express LocalDB (file)* (the LocalDB instance); only the chosen type's settings are saved, the others keep what they had - and remembering the password in SSMS. **Docker container**: its name, volume, edition and collation. **IIS**: the Windows features DNN Manager needs - **Edit…** on the IIS card adds or removes them, a row each (how it is shown and its Windows feature name, e.g. *ASP.NET 4.8* and `IIS-ASPNET45`), or puts the defaults back with **Use the defaults**; saved at once, no Save needed. **Keyboard shortcuts**: every command's shortcut, to search, change and reset - saved at once, no Save needed (see [Keyboard](#keyboard)). **Help**: the getting started guide, the tour, What's new and the user guide on GitHub - see [Getting started guide and help](#getting-started-guide-and-help); nothing to save. **About**: which DNN Manager this is (version, commit, build date, program folder, release channel, the update status - see [Update](#update) -, license, repository and documentation as links), what it runs on (.NET, architecture, Windows, Administrator or not) and works with (IIS, .NET Framework, Docker, its IIS and SQL libraries), then the folders with your files (settings, backups, deployments, logs, DNN packages - all there from the first start), each with **Open**. Nothing is saved until **Save** (bottom right, ready once you change something in any category; **Discard changes** puts the saved values back), which saves the settings and applies them at once - no restart. **Close** (or the ✕, **Esc**, or a click on the dimmed page) goes back to the page under it. **Docker container**, **Database server** and **IIS** each end with their **Test and set up** card - **Test**, **Set up docker-compose**, **Set up IIS** and the rest - working with the saved settings (while there are unsaved changes they wait for **Save**). See [Configuration](configuration.md). |
 | **Troubleshoot** (the gear's menu, or the command palette) | Opens over the page, like Settings - **✕**, **Esc** or a click on the dimmed page goes back to the page under it - laid out like Docker Desktop's: **Restart** closes DNN Manager (asking first, as on any quit) and starts it again - projects, settings and data are kept. **Clean up data** deletes what is ticked from `Documents\DnnManager`, each with its size: the logs, the kept DNN packages and - never ticked for you - the project backups. **Reset settings to defaults** puts every setting in every category back as DNN Manager is installed - the saved passwords and starting at sign-in too - and applies them at once, without a restart (the current settings aren't kept; the logs, kept packages and which sites are kept warm stay). **Reset to factory defaults** puts DNN Manager back as it was installed: the settings, the saved passwords, starting at sign-in, which sites are kept warm, the logs and the kept packages go, then it restarts. Your projects - their IIS sites, folders and databases - and their backups are never touched. Not while an operation runs. |
 
 ### Projects table
@@ -1167,8 +1215,9 @@ The first failure, giving up and recovering are noted in the log file; the
 
 The flame shows how it is going: an outline while off; filled in orange while
 the site is warm, pulsing while it warms up, grey while paused, with a red dot
-while it fails. Its tooltip only says what a click does - *Enable keep warm* or
-*Disable keep warm*. The overview's **Keep warm** card says how it is going and
+while it fails. Its tooltip only says what a click does - *Keep this website
+ready, so it opens fast even after a while without visits*, or *Stop keeping
+this website ready*. The overview's **Keep warm** card says how it is going and
 shows the app pool's idle time-out, how often the site is requested and which
 pages - the interval and pages from **Settings → Projects → Keep warm**.
 

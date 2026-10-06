@@ -40,7 +40,7 @@
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="14,8,10,4">
                         <Button DockPanel.Dock="Right" x:Name="RefreshButton" Padding="10,0" VerticalAlignment="Center"
-                                ToolTip="Refresh" Click="Refresh_Click">
+                                ToolTip="Look at the folders again" Click="Refresh_Click">
                             <TextBlock Text="{StaticResource GlyphRefresh}" FontFamily="{StaticResource IconFont}" FontSize="13" VerticalAlignment="Center" />
                         </Button>
                         <TextBlock Style="{StaticResource CardTitle}" Text="Project folders" Margin="0" VerticalAlignment="Center" />
@@ -99,7 +99,7 @@
                     </Border>
                     <StackPanel Orientation="Horizontal">
                         <Button x:Name="RunButton" Style="{StaticResource Primary}" Content="Set up" IsEnabled="False" Click="Run_Click"
-                                ToolTip="Set up" />
+                                ToolTip="Create what is missing for the chosen folder - its files aren't overwritten" />
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>

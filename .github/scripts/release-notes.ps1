@@ -3,7 +3,7 @@
     Writes the release notes for a version as Markdown.
 
 .DESCRIPTION
-    docs\release-notes\vX.Y.Z.md, when it exists, is used as it is - write it with the release-notes skill
+    .docs\release-notes\vX.Y.Z.md, when it exists, is used as it is - write it with the release-notes skill
     (.claude\skills\release-notes). Otherwise the notes are drafted in the same structure: a summary, Highlights,
     Other changes, Upgrading and Tested, from the CHANGELOG.md entry "## vX.Y.Z" (or "## Unreleased" when there is
     none), or from the commit subjects since the previous release when there is no entry at all.
@@ -28,9 +28,9 @@ if (-not $Tag) { $Tag = "v$Version" }
 if (-not $Repository) { $Repository = 'Albadit/DnnManager.NET' }
 $repoUrl = "https://github.com/$Repository"
 
-# Notes already written in docs\release-notes are the release's notes as they are - only their relative links
+# Notes already written in .docs\release-notes are the release's notes as they are - only their relative links
 # become links to the tag's files, since the GitHub release page isn't in the repository.
-$saved = Join-Path $root "docs\release-notes\$Tag.md"
+$saved = Join-Path $root ".docs\release-notes\$Tag.md"
 $target = [IO.Path]::GetFullPath($OutFile)
 if ((Test-Path $saved) -and [IO.Path]::GetFullPath($saved) -ne $target) {
     $notes = [IO.File]::ReadAllText($saved)
@@ -42,7 +42,7 @@ if ((Test-Path $saved) -and [IO.Path]::GetFullPath($saved) -ne $target) {
             "]($repoUrl/blob/$Tag/$relative$anchor)"
         })
     [IO.File]::WriteAllText($target, $notes, [Text.UTF8Encoding]::new($false))
-    Write-Host "Release notes for $Tag (docs\release-notes\$Tag.md) -> $OutFile"
+    Write-Host "Release notes for $Tag (.docs\release-notes\$Tag.md) -> $OutFile"
     return
 }
 
@@ -79,7 +79,7 @@ if (Test-Path $changelog) {
     }
 }
 
-# The sections every release's notes have (docs\release-notes\v1.6.0.md is the model).
+# The sections every release's notes have (.docs\release-notes\v1.6.0.md is the model).
 $order = @('Highlights', 'Other changes', 'Upgrading', 'Tested')
 $sections = [ordered]@{}
 foreach ($name in $order) { $sections[$name] = [Collections.Generic.List[string]]::new() }
@@ -151,9 +151,9 @@ if ($upgrade.Count -gt 0) { [void]$md.AppendLine(($upgrade -join "`n")) }
 $tested = @(Get-TrimmedBlock $sections['Tested'])
 if ($tested.Count -gt 0) { [void]$md.AppendLine('## Tested').AppendLine(($tested -join "`n")).AppendLine() }
 
-# A draft kept in docs\release-notes links into the repository; the GitHub release links to the tag's copy.
+# A draft kept in .docs\release-notes links into the repository; the GitHub release links to the tag's copy.
 $anchor = if ($entryHeading -match '^## v') { '#' + (($entryHeading -replace '^##\s+', '').ToLowerInvariant() -replace '[^\w\- ]', '' -replace ' ', '-') } else { '' }
-$inDocs = [IO.Path]::GetDirectoryName($target) -eq [IO.Path]::GetFullPath((Join-Path $root 'docs\release-notes'))
+$inDocs = [IO.Path]::GetDirectoryName($target) -eq [IO.Path]::GetFullPath((Join-Path $root '.docs\release-notes'))
 $changelogUrl = if ($inDocs) { '../../CHANGELOG.md' } else { "$repoUrl/blob/$Tag/CHANGELOG.md" }
 [void]$md.AppendLine("Full list of changes: [CHANGELOG.md]($changelogUrl$anchor)")
 

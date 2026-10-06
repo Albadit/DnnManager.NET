@@ -79,7 +79,7 @@ public partial class ProjectsPage : UserControl
         }
         ProjectsGrid.ItemsSource = _view;
 
-        _selectAll = new CheckBox { Style = (Style)FindResource("TableCheckBox"), ToolTip = "Select all" };
+        _selectAll = new CheckBox { Style = (Style)FindResource("TableCheckBox"), ToolTip = "Select every website in the list" };
         _selectAll.Click += SelectAll_Click;
         SelectColumn.Header = _selectAll;
 
@@ -276,10 +276,10 @@ public partial class ProjectsPage : UserControl
         BulkStopButton.IsEnabled = chosen.Any(r => r.CanStop);
         BulkRestartButton.IsEnabled = chosen.Any(r => r.CanRestart);
         BulkRemoveButton.IsEnabled = chosen.Count > 0 && chosen.All(r => r.CanRemove);
-        BulkStartButton.ToolTip = "Start";
-        BulkStopButton.ToolTip = "Stop";
-        BulkRestartButton.ToolTip = "Restart";
-        BulkRemoveButton.ToolTip = "Remove";
+        BulkStartButton.ToolTip = "Start the selected websites";
+        BulkStopButton.ToolTip = "Stop the selected websites - nothing is deleted";
+        BulkRestartButton.ToolTip = "Restart the selected websites - each is unavailable for a few seconds";
+        BulkRemoveButton.ToolTip = "Remove the selected websites - their folders and databases are deleted; asks first";
 
         // Keep warm: on for those that aren't yet - or, when all that can be are, off for them all.
         var warmable = chosen.Where(r => r.CanToggleKeepWarm).ToList();
@@ -287,7 +287,7 @@ public partial class ProjectsPage : UserControl
         BulkKeepWarmButton.IsEnabled = warmable.Count > 0;
         BulkKeepWarmIcon.Data = (Geometry)FindResource(allWarm ? "FlameFilled" : "FlameOutline");
         BulkKeepWarmIcon.SetResourceReference(Shape.FillProperty, allWarm ? "KeepWarmFg" : "TextPrimary");
-        BulkKeepWarmButton.ToolTip = allWarm ? "Stop keeping warm" : "Keep warm";
+        BulkKeepWarmButton.ToolTip = allWarm ? "Stop keeping the selected websites ready" : "Keep the selected websites ready, so they open fast after a while without visits";
 
         // A message in the middle only while there are no rows to show: before the first snapshot, without projects,
         // or when the search matches none. Never over rows that are there.
@@ -554,6 +554,11 @@ public partial class ProjectsPage : UserControl
     public bool DetailsOpen => ProjectHost.Content is ProjectView;
 
     public ProjectView? Details => ProjectHost.Content as ProjectView;
+
+    /// <summary>The table and the bar above it, while the table is shown - what the tour points at (MainWindow.Help).</summary>
+    internal FrameworkElement? TourTable => TableView.IsVisible ? ProjectsGrid : null;
+
+    internal FrameworkElement? TourToolbar => TableView.IsVisible ? Toolbar : null;
 
     public void CloseDetails()
     {

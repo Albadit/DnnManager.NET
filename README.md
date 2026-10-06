@@ -8,9 +8,9 @@ single window - start, stop, logs, terminal, database - in the style of Docker
 Desktop.
 
 [**Download**](https://github.com/Albadit/DnnManager.NET/releases/latest) ·
-[User guide](docs/user-guide.md) ·
-[Development](docs/development.md) ·
-[Architecture](docs/architecture.md) ·
+[User guide](.docs/user-guide.md) ·
+[Development](.docs/development.md) ·
+[Architecture](.docs/architecture.md) ·
 [Changelog](CHANGELOG.md)
 
 ## Why
@@ -42,16 +42,21 @@ project takes its IIS site, folder and database with it.
   Management Studio signed in to the site's database.
 - **Your choice of database** - a SQL Server container it sets up in Docker for
   you, your own SQL Server / SQL Server Express, or a LocalDB file.
+- **Help built in, in plain words** - a step-by-step getting started guide on
+  the first start, a tour of the window, **F1** help for every page and
+  tooltips that say what each button does.
 - **Light and dark theme**, UI scaling, and an efficiency mode that keeps the
   app idle while you aren't looking at it.
 
 ## Quick start
 
-1. Download `DnnManagerSetup-<version>-x64.exe` from
+1. Download `DnnManager_Setup-<version>-x64.exe` from
    [Releases](https://github.com/Albadit/DnnManager.NET/releases/latest)
    and run it - installing needs no administrator rights.
 2. Start **DNN Manager** and accept the UAC prompt - it manages IIS, so it runs
-   as Administrator.
+   as Administrator. The **Getting started** guide opens and explains the rest -
+   **Skip guide** if you know your way; the **?** at the top right opens it
+   again.
 3. Open **Settings** (the gear): **IIS → Set up IIS** enables the Windows
    features DNN needs, and **Docker container → Set up docker-compose** creates
    the SQL Server container. Using your own SQL Server instead? Pick it under
@@ -60,7 +65,7 @@ project takes its IIS site, folder and database with it.
    project**. When it's done, open `http://<name>.dnndev.me` - `dnndev.me`
    points to your own PC.
 
-The [user guide](docs/user-guide.md) walks through every page, menu and setting.
+The [user guide](.docs/user-guide.md) walks through every page, menu and setting.
 
 ## Requirements
 
@@ -81,9 +86,9 @@ dotnet test tests/DnnManager.IntegrationTests --filter "TestCategory!=Integratio
 ```
 
 Debugging, the conventions and how to extend it are in
-[docs/development.md](docs/development.md); the tests in
-[docs/testing.md](docs/testing.md); publishing and the installer in
-[docs/releasing.md](docs/releasing.md).
+[.docs/development.md](.docs/development.md); the tests in
+[.docs/testing.md](.docs/testing.md); publishing and the installer in
+[.docs/releasing.md](.docs/releasing.md).
 
 ## How it's built
 
@@ -99,7 +104,7 @@ A WPF app on .NET 10, laid out as Clean Architecture in a single project:
 Domain and Application don't depend on WPF or Infrastructure; use cases reach
 IIS, SQL Server and the file system through interfaces. The layers, how an
 operation runs, how the window stays current and a map from each feature to its
-code are in [docs/architecture.md](docs/architecture.md).
+code are in [.docs/architecture.md](.docs/architecture.md).
 
 ## Documentation
 
@@ -107,24 +112,24 @@ code are in [docs/architecture.md](docs/architecture.md).
 |---|---|
 | For | Document | What's in it |
 |---|---|---|
-| Users | [User guide](docs/user-guide.md) | The window, every page and menu, automatic DNN setup, import / host / clone, keep warm, backups, limitations |
-| | [Configuration](docs/configuration.md) | `Documents\DnnManager` and its database, every settings key, environment variables |
-| | [Troubleshooting](docs/troubleshooting.md) | Known problems, their causes and fixes |
-| Developers | [Development](docs/development.md) | Prerequisites, build, run, debugging, conventions, extending |
-| | [Architecture](docs/architecture.md) | Layers, how an operation runs, live updates, project layout, design decisions, component map |
-| | [Upgrading DNN](docs/dnn-upgrades.md) | DNN's upgrade path, the analyser, backups, each step, the checks, rollback, the knowledge base, what was tested |
-| | [Testing](docs/testing.md) | The fast and the integration tests, adding a test |
-| | [Releasing](docs/releasing.md) | Version, changelog, portable exe, installer, GitHub release |
-| | [Security](docs/security.md) | Administrator rights, secrets, what DNN Manager deletes, network exposure, open risks |
+| Users | [User guide](.docs/user-guide.md) | The window, every page and menu, automatic DNN setup, import / host / clone, keep warm, backups, limitations |
+| | [Configuration](.docs/configuration.md) | `Documents\DnnManager` and its database, every settings key, environment variables |
+| | [Troubleshooting](.docs/troubleshooting.md) | Known problems, their causes and fixes |
+| Developers | [Development](.docs/development.md) | Prerequisites, build, run, debugging, conventions, extending |
+| | [Architecture](.docs/architecture.md) | Layers, how an operation runs, live updates, project layout, design decisions, component map |
+| | [Upgrading DNN](.docs/dnn-upgrades.md) | DNN's upgrade path, the analyser, backups, each step, the checks, rollback, the knowledge base, what was tested |
+| | [Testing](.docs/testing.md) | The fast and the integration tests, adding a test |
+| | [Releasing](.docs/releasing.md) | Version, changelog, portable exe, installer, GitHub release |
+| | [Security](.docs/security.md) | Administrator rights, secrets, what DNN Manager deletes, network exposure, open risks |
 | Everyone | [Changelog](CHANGELOG.md) | What changed in each version |
-| | [Release notes](docs/release-notes/) | The notes of every GitHub release, one file per version |
+| | [Release notes](.docs/release-notes/) | The notes of every GitHub release, one file per version |
 
 ## Contributing
 
 Issues and pull requests are welcome. Before opening a pull request, run the
 fast tests, add a line to [CHANGELOG.md](CHANGELOG.md) under *Unreleased*, and
 update the docs when behaviour changes. Follow the conventions in
-[docs/development.md](docs/development.md#conventions).
+[.docs/development.md](.docs/development.md#conventions).
 
 ## License
 

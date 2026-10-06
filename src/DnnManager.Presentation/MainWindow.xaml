@@ -236,6 +236,10 @@
                     <!-- Only while a newer release is there (AppUpdater): it downloads, installs and restarts on it. -->
                     <Button x:Name="UpdateButton" Style="{StaticResource TitleBarUpdate}" Content="Update" Visibility="Collapsed"
                             s:CommandTip.Command="app.installUpdate" Click="Update_Click" />
+                    <!-- Help: this page's help, the getting started guide, the tour (MainWindow.Help). -->
+                    <Button x:Name="HelpButton" Style="{StaticResource LayoutButton}" Content="{StaticResource GlyphQuestion}"
+                            ToolTip="Help - what this page is for, the getting started guide and the tour" s:CommandTip.Command="help.page"
+                            Click="Help_Click" />
                     <!-- The layout, as VS Code's: Customize Layout, the sidebar and the panel shown or hidden - each drawn
                          filled in while it is shown (UpdateLayoutButtons). The icons are in Themes\Icons.xaml. -->
                     <Button Style="{StaticResource LayoutButton}" ToolTip="Customize Layout…" s:CommandTip.Command="layout.customize"
@@ -309,19 +313,19 @@
             <!-- The gear as far from the bottom - and the first entry from the top - as the entries are from the sides
                  (FitSidebarEdges). -->
             <StackPanel x:Name="SidebarBottom" DockPanel.Dock="Bottom">
-                <Button x:Name="ManageButton" Style="{StaticResource SidebarAction}" ToolTip="Manage" AutomationProperties.Name="Manage - settings, keyboard shortcuts, themes, layout"
+                <Button x:Name="ManageButton" Style="{StaticResource SidebarAction}" ToolTip="Settings, themes, Troubleshoot and updates" AutomationProperties.Name="Manage - settings, keyboard shortcuts, themes, layout"
                         Click="Manage_Click">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="{StaticResource GlyphSettings}" /><TextBlock Style="{StaticResource SidebarLabel}" Text="Settings" /></StackPanel>
                 </Button>
             </StackPanel>
             <StackPanel x:Name="SidebarTop">
-                <RadioButton Style="{StaticResource SidebarNav}" GroupName="Nav" Tag="Projects" Checked="Nav_Checked" x:Name="NavProjects" ToolTip="Projects" s:CommandTip.Command="pages.projects">
+                <RadioButton Style="{StaticResource SidebarNav}" GroupName="Nav" Tag="Projects" Checked="Nav_Checked" x:Name="NavProjects" ToolTip="Projects - every website on this computer" s:CommandTip.Command="pages.projects">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="{StaticResource GlyphList}" /><TextBlock Style="{StaticResource SidebarLabel}" Text="Projects" /></StackPanel>
                 </RadioButton>
-                <RadioButton Style="{StaticResource SidebarNav}" GroupName="Nav" Tag="Setup" Checked="Nav_Checked" x:Name="NavSetup" ToolTip="New project" s:CommandTip.Command="pages.newProject">
+                <RadioButton Style="{StaticResource SidebarNav}" GroupName="Nav" Tag="Setup" Checked="Nav_Checked" x:Name="NavSetup" ToolTip="New project - create a website, or one from a backup" s:CommandTip.Command="pages.newProject">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="{StaticResource GlyphAdd}" /><TextBlock Style="{StaticResource SidebarLabel}" Text="New project" /></StackPanel>
                 </RadioButton>
-                <RadioButton Style="{StaticResource SidebarNav}" GroupName="Nav" Tag="Existing" Checked="Nav_Checked" x:Name="NavExisting" ToolTip="Host project" s:CommandTip.Command="pages.hostProject">
+                <RadioButton Style="{StaticResource SidebarNav}" GroupName="Nav" Tag="Existing" Checked="Nav_Checked" x:Name="NavExisting" ToolTip="Host project - make website files already on this computer work" s:CommandTip.Command="pages.hostProject">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="{StaticResource GlyphFolderOpen}" /><TextBlock Style="{StaticResource SidebarLabel}" Text="Host project" /></StackPanel>
                 </RadioButton>
             </StackPanel>
@@ -383,6 +387,9 @@
             <c:OperationToast x:Name="OperationToast" HorizontalAlignment="Right" />
             <c:ToastView x:Name="ToastHost" HorizontalAlignment="Right" />
         </StackPanel>
+
+        <!-- The tour (Help → Take the Tour): over the whole window, one part at a time - see MainWindow.Help. -->
+        <c:GuidedTour x:Name="Tour" Grid.RowSpan="3" Panel.ZIndex="95" />
 
         <!-- The command palette (Ctrl+P, Ctrl+Shift+P) over everything, title bar included - see MainWindow.Commands. -->
         <c:CommandPalette x:Name="Palette" Grid.RowSpan="3" Panel.ZIndex="100" />

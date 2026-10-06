@@ -25,7 +25,7 @@ until 1.7.2 is tagged ([`DnnManager.csproj`](../DnnManager.csproj), target
    they must be committed before the release is built.
 4. Commit and push, then run the task **release (GitHub)** (see
    [Release from VS Code](#release-from-vs-code)). The GitHub release gets
-   `DnnManager-X.Y.Z-x64.exe` and `DnnManagerSetup-X.Y.Z-x64.exe`, and every running DNN Manager
+   `DnnManager_Portable-X.Y.Z-x64.exe` and `DnnManager_Setup-X.Y.Z-x64.exe`, and every running DNN Manager
    offers it with its **Update** button (see [The in-app update](#the-in-app-update)).
    The tag it pushes is built and tested on GitHub too ([the build workflow](#the-build-workflow)),
    which publishes nothing.
@@ -115,9 +115,16 @@ Every DNN Manager from 1.7.0 on updates itself from GitHub's **latest release** 
 draft or a pre-release - a `vX.Y.Z-rc.1` tag isn't offered) - see
 [Update](user-guide.md#update). A release must keep what it relies on:
 
-- **The file names**: `DnnManagerSetup-<version>-x64.exe` updates an installed DNN
-  Manager, `DnnManager-<version>-x64.exe` a portable one
+- **The file names**: `DnnManager_Setup-<version>-x64.exe` updates an installed DNN
+  Manager, `DnnManager_Portable-<version>-x64.exe` a portable one
   ([`AppRelease.AssetFor`](../src/DnnManager.Infrastructure/Updates/AppRelease.cs)).
+  Releases up to 1.7.6 had only `DnnManagerSetup-<version>-x64.exe` and
+  `DnnManager-<version>-x64.exe` - the only names DNN Manager 1.7.6 and older
+  (and their Setups) look for. So `publish-release.ps1` uploads the same two files
+  under those names too: four files per release, and the old versions keep
+  updating. Newer versions (and Setup, for **Repair** of an old version) take the
+  new names and find either. Drop the old-name copies once nobody runs 1.7.6 or
+  older.
 - **The version inside both files**: their *ProductVersion* must be the tag's version
   (`publish-release.ps1` checks it before publishing) - a download whose version differs is refused.
 - **GitHub's SHA-256** of each file (the asset's `digest`): checked when GitHub lists it.
@@ -127,7 +134,7 @@ draft or a pre-release - a `vX.Y.Z-rc.1` tag isn't offered) - see
 - **Setup's hand-over**: a Setup newer than 1.7.1 asks GitHub for the latest release as
   it starts. A new install and **Update** install that one, **Repair** the installed
   version (the release `v<installed version>`); for any version but its own, Setup
-  downloads that release's `DnnManagerSetup-<version>-x64.exe` (GitHub's
+  downloads that release's `DnnManager_Setup-<version>-x64.exe` (`DnnManagerSetup-…` up to 1.7.6; GitHub's
   SHA-256, and a *file version* of `<version>.0`), copies it to
   `%TEMP%\DnnManager-update\<version>\` and starts it with
   `/SP- /HandedOver=1 /CURRENTUSER` (or `/ALLUSERS`), then closes. A newer Setup must
@@ -167,7 +174,7 @@ the updates after it.
 ([`.github/scripts/build-update-test.ps1`](../.github/scripts/build-update-test.ps1)): it
 builds the working copy as a portable exe one version below GitHub's newest release
 (1.6.0 → 1.5.9, 1.7.0 → 1.6.9, 2.0.0 → 1.9.9) into
-`publish\update-test\DnnManager-<version>-x64.exe`. Start it and click **Update**: it
+`publish\update-test\DnnManager_Portable-<version>-x64.exe`. Start it and click **Update**: it
 installs the real release over itself. `-Version 1.5.9` picks the version by hand.
 
 ## Publish the portable exe
@@ -178,7 +185,7 @@ One file, no .NET runtime needed on the target machine:
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:PortableExe=true -o publish
 ```
 
-`-p:PortableExe=true` names the exe `publish\DnnManager-<version>-x64.exe`
+`-p:PortableExe=true` names the exe `publish\DnnManager_Portable-<version>-x64.exe`
 (without it, it's `DnnManager.exe`). The publish output holds only the program. Settings live in
 `Documents\DnnManager` and are created on first start (see
 [configuration.md](configuration.md)).
@@ -195,7 +202,7 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 Publishes the app (self-contained, single file) into
 `src\DnnManager.Installer\bin\app`, then compiles
 [`src/DnnManager.Installer/DnnManager.iss`](../src/DnnManager.Installer/DnnManager.iss) with Inno Setup
-into `publish\DnnManagerSetup-<version>-x64.exe`. The version
+into `publish\DnnManager_Setup-<version>-x64.exe`. The version
 is the newest version tag in git, as for every local build (see [Steps](#steps)). It uses an installed Inno Setup 6
 when there is one, otherwise it downloads a pinned copy (the `Tools.InnoSetup`
 package from nuget.org) into `src\DnnManager.Installer\bin\tools` - no admin

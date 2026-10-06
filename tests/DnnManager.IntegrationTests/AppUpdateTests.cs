@@ -26,11 +26,11 @@ public sealed class AppUpdateTests
 
     private const string LatestJson = """
         {
-          "tag_name": "v1.7.0",
-          "html_url": "https://github.com/Albadit/DnnManager.NET/releases/tag/v1.7.0",
+          "tag_name": "v1.7.7",
+          "html_url": "https://github.com/Albadit/DnnManager.NET/releases/tag/v1.7.7",
           "assets": [
-            { "name": "DnnManager-1.7.0-x64.exe", "size": 100, "digest": "sha256:ABCDEF", "browser_download_url": "https://example.test/DnnManager-1.7.0-x64.exe" },
-            { "name": "DnnManagerSetup-1.7.0-x64.exe", "size": 50, "digest": null, "browser_download_url": "https://example.test/DnnManagerSetup-1.7.0-x64.exe" }
+            { "name": "DnnManager_Portable-1.7.7-x64.exe", "size": 100, "digest": "sha256:ABCDEF", "browser_download_url": "https://example.test/DnnManager_Portable-1.7.7-x64.exe" },
+            { "name": "DnnManager_Setup-1.7.7-x64.exe", "size": 50, "digest": null, "browser_download_url": "https://example.test/DnnManager_Setup-1.7.7-x64.exe" }
           ]
         }
         """;
@@ -41,13 +41,27 @@ public sealed class AppUpdateTests
         var feed = new AppReleaseFeed(new HttpClient(new Answer(HttpStatusCode.OK, LatestJson)));
         var release = await feed.GetLatestAsync(CancellationToken.None);
 
-        Assert.AreEqual("v1.7.0", release.Tag);
-        Assert.AreEqual(new Version(1, 7, 0), release.Version);
-        Assert.AreEqual("DnnManagerSetup-1.7.0-x64.exe", release.AssetFor(UpdateKind.Installer)?.Name);
+        Assert.AreEqual("v1.7.7", release.Tag);
+        Assert.AreEqual(new Version(1, 7, 7), release.Version);
+        Assert.AreEqual("DnnManager_Setup-1.7.7-x64.exe", release.AssetFor(UpdateKind.Installer)?.Name);
         var portable = release.AssetFor(UpdateKind.Portable);
-        Assert.AreEqual("DnnManager-1.7.0-x64.exe", portable?.Name);
+        Assert.AreEqual("DnnManager_Portable-1.7.7-x64.exe", portable?.Name);
         Assert.AreEqual("abcdef", portable?.Sha256);
         Assert.IsNull(release.AssetFor(UpdateKind.Installer)?.Sha256);
+    }
+
+    [TestMethod]
+    public void A_release_up_to_1_7_6_is_found_by_its_old_file_names()
+    {
+        AppReleaseAsset Asset(string name) => new(name, 1, null, $"https://example.test/{name}");
+        var old = new AppRelease("v1.7.6", new Version(1, 7, 6), "https://example.test",
+            [Asset("DnnManager-1.7.6-x64.exe"), Asset("DnnManagerSetup-1.7.6-x64.exe")]);
+        Assert.AreEqual("DnnManagerSetup-1.7.6-x64.exe", old.AssetFor(UpdateKind.Installer)?.Name);
+        Assert.AreEqual("DnnManager-1.7.6-x64.exe", old.AssetFor(UpdateKind.Portable)?.Name);
+        // Both names in one release: the new one.
+        var both = old with { Assets = [.. old.Assets, Asset("DnnManager_Setup-1.7.6-x64.exe"), Asset("DnnManager_Portable-1.7.6-x64.exe")] };
+        Assert.AreEqual("DnnManager_Setup-1.7.6-x64.exe", both.AssetFor(UpdateKind.Installer)?.Name);
+        Assert.AreEqual("DnnManager_Portable-1.7.6-x64.exe", both.AssetFor(UpdateKind.Portable)?.Name);
     }
 
     [TestMethod]

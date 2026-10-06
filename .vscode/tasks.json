@@ -80,7 +80,7 @@
             }
         },
         {
-            "label": "installer (DnnManagerSetup.exe)",
+            "label": "installer (DnnManager_Setup.exe)",
             "type": "process",
             "command": "powershell",
             "args": [
@@ -100,7 +100,7 @@
         },
         {
             // A portable exe one version below GitHub's newest release (1.6.0 -> 1.5.9), so its Update button installs
-            // that release: publish\update-test\DnnManager-<version>-x64.exe. See docs/releasing.md, The in-app update.
+            // that release: publish\update-test\DnnManager_Portable-<version>-x64.exe. See .docs/releasing.md, The in-app update.
             "label": "publish (update test, one version below the release)",
             "type": "process",
             "command": "powershell",
@@ -120,8 +120,8 @@
             }
         },
         {
-            // Pick docs/release-notes/vX.Y.Z.md (its name is the tag and the title) and a commit on GitHub; builds both
-            // exes for that commit and, after you confirm, tags it and publishes the GitHub release. See docs/releasing.md.
+            // Pick .docs/release-notes/vX.Y.Z.md (its name is the tag and the title) and a commit on GitHub; builds both
+            // exes for that commit and, after you confirm, tags it and publishes the GitHub release. See .docs/releasing.md.
             // The two pickers are filled fresh each time by the extension Tasks Shell Input (augustocdias.tasks-shell-input).
             "label": "release (GitHub)",
             "type": "process",
@@ -149,7 +149,7 @@
         {
             // Redo a release whose tag is made: folds your changes into the release commit (amend, push), deletes the
             // tag and its GitHub release, and releases it again. Asks for the version (Enter = the newest tag) and the
-            // commit message in the terminal, shows the plan and asks before changing anything. See docs/releasing.md.
+            // commit message in the terminal, shows the plan and asks before changing anything. See .docs/releasing.md.
             "label": "release: redo (GitHub)",
             "type": "process",
             "command": "powershell",

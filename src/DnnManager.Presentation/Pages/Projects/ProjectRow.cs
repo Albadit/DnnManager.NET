@@ -258,7 +258,9 @@ public sealed class ProjectRow : INotifyPropertyChanged
     /// The flame's (and the overview switch's) tooltip: only what a click does. How it is going is in the overview's
     /// Keep warm card, what it is in Settings → Projects → Keep warm.
     /// </summary>
-    public string KeepWarmTip => KeepWarmOn ? "Disable keep warm" : "Enable keep warm";
+    public string KeepWarmTip => KeepWarmOn
+        ? "Stop keeping this website ready - it may open slowly after a while without visits"
+        : "Keep this website ready, so it opens fast even after a while without visits";
 
     /// <summary>Why keep warm can't be switched on; null when it can, or is on.</summary>
     public string? KeepWarmUnavailable => KeepWarmOn || HasUrl ? null : "The site has no http or https binding to request";

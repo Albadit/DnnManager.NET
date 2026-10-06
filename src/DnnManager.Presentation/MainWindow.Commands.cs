@@ -40,13 +40,20 @@ public partial class MainWindow
         Add("view.search", "Search in this view", "Application", "Ctrl+F", SearchHere, () => SearchTarget() is not null,
             "find filter output log terminal", inTerminal: true);
         Add("app.checkUpdates", "Check for updates", "Application", null, () => _ = CheckForUpdatesAsync(), keywords: "version release github");
-        Add("app.whatsNew", "What's new in this version", "Application", null,
-            () => WhatsNewDialog.Show(ReleaseNotes.Between(null, _updater.Current).Take(1).ToList()), keywords: "release notes changes changelog version");
+        Add("app.whatsNew", "What's new in this version", "Application", null, ShowWhatsNew, () => !IsNewUser,
+            "release notes changes changelog version");
         Add("app.installUpdate", "Install the update", "Application", null, () => _ = _updater.UpdateAsync(),
             () => _updater.CanInstall && !_runner.IsBusy, "upgrade new version");
         Add("app.restart", "Restart DNN Manager", "Application", null, () => AppRestart.Restart(), () => !_runner.IsBusy, "reload");
         Add("app.quit", "Quit DNN Manager", "Application", null, Quit, keywords: "exit close stop background notification area tray");
         Add("app.colorTheme", "Color theme…", "Application", null, ShowThemePick, keywords: "dark light modern system appearance");
+
+        // ── Help (MainWindow.Help) ──
+        Add("help.page", "Help for this page", "Help", "F1", ShowPageHelp, keywords: "explain what is this question how");
+        Add("help.gettingStarted", "Getting started guide", "Help", null, ShowGuide,
+            keywords: "welcome onboarding tutorial introduction beginner first start how to");
+        Add("help.tour", "Take the tour", "Help", null, StartTour, keywords: "tutorial walkthrough show around highlight window");
+        Add("help.userGuide", "User guide on GitHub", "Help", null, OpenUserGuide, keywords: "documentation docs manual read");
 
         // ── Projects ──
         Add("projects.quickOpen", "Go to project…", "Projects", "Ctrl+P", () => ShowPalette(commands: false),
@@ -105,6 +112,7 @@ public partial class MainWindow
             ("settings.docker", "Docker", "Docker container", "container volume edition collation compose"),
             ("settings.iis", "Iis", "IIS", "windows features"),
             ("settings.keyboard", "Keyboard", "Keyboard shortcuts", "keys bindings hotkeys"),
+            ("settings.help", "Help", "Help", "getting started guide tour tutorial what's new"),
             ("settings.about", "About", "About", "version license repository folders"),
         })
             Add(id, name, "Settings", null, () => OpenSettings(category), keywords: "open preferences options " + keywords);
@@ -161,7 +169,8 @@ public partial class MainWindow
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
         base.OnPreviewKeyDown(e);
-        if (e.Handled || Palette.IsOpen || Shortcut.Of(e) is not { } pressed) return;
+        // The tour has the keys while it is open (← → Esc); nothing under it runs.
+        if (e.Handled || Palette.IsOpen || Tour.IsOpen || Shortcut.Of(e) is not { } pressed) return;
         if (Keyboard.FocusedElement is FrameworkElement { Tag: ShortcutRecording }) return;
         if (_commands.Match(pressed) is not { } command) return;
         if (Keyboard.FocusedElement is TerminalView && !command.InTerminal) return;

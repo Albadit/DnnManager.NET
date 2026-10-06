@@ -4,7 +4,7 @@
     publishes the GitHub release.
 
 .DESCRIPTION
-    1. Lists docs\release-notes\vX.Y.Z.md - the file's name is the version, the tag and the release title.
+    1. Lists .docs\release-notes\vX.Y.Z.md - the file's name is the version, the tag and the release title.
     2. Lists the recent commits of the current branch; the newest is the default.
     3. Checks out that commit into a temporary worktree (your working copy is not touched), runs the fast tests,
        and builds the portable exe and the installer with the version stamped in. (GitHub Actions only builds and
@@ -20,7 +20,7 @@
 .EXAMPLE
     .github\scripts\publish-release.ps1
 .EXAMPLE
-    .github\scripts\publish-release.ps1 -NotesFile docs\release-notes\v1.7.0.md -Commit 9030c5f -SkipTests
+    .github\scripts\publish-release.ps1 -NotesFile .docs\release-notes\v1.7.0.md -Commit 9030c5f -SkipTests
 .EXAMPLE
     .github\scripts\publish-release.ps1 -List commits
 #>
@@ -42,7 +42,7 @@ Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-$notesDir = Join-Path $root 'docs\release-notes'
+$notesDir = Join-Path $root '.docs\release-notes'
 
 # --- Helpers ---
 
@@ -163,7 +163,7 @@ if ($List) {
             $state = if ($released) { 'already released' } elseif ($next) { 'next release' } else { 'not released' }
             if (-not $released) { $next = $false }
             $icon = if ($released) { '$(tag)' } else { '$(rocket)' }
-            "docs/release-notes/$($f.Name)||$icon $($f.BaseName)||$state||$(& $clean (Get-NotesSummary $f))"
+            ".docs/release-notes/$($f.Name)||$icon $($f.BaseName)||$state||$(& $clean (Get-NotesSummary $f))"
         }
     }
     else {
@@ -186,7 +186,7 @@ if ($files.Count -eq 0) { throw "No vX.Y.Z.md files in $notesDir - write the rel
 if ($NotesFile) {
     $path = if ([IO.Path]::IsPathRooted($NotesFile)) { $NotesFile } else { Join-Path $root $NotesFile }
     $notes = $files | Where-Object { $_.FullName -eq [IO.Path]::GetFullPath($path) } | Select-Object -First 1
-    if (-not $notes) { throw "$NotesFile isn't a release-notes file (docs\release-notes\vX.Y.Z.md)." }
+    if (-not $notes) { throw "$NotesFile isn't a release-notes file (.docs\release-notes\vX.Y.Z.md)." }
 }
 else {
     $labels = $files | ForEach-Object { if ($tags -contains $_.BaseName) { "$($_.Name)  (already tagged)" } else { $_.Name } }
@@ -234,7 +234,7 @@ if ($onRemote.Count -eq 0) {
 
 Write-Host ''
 Write-Host "  Version  $version$(if ($prerelease) { ' (pre-release)' })"
-Write-Host "  Notes    docs\release-notes\$($notes.Name)"
+Write-Host "  Notes    .docs\release-notes\$($notes.Name)"
 Write-Host "  Commit   $($selected.Short) $($selected.Subject)"
 Write-Host "           $($selected.Author), $($selected.Date)"
 
@@ -280,8 +280,16 @@ try {
     Write-Step 'Files'
     if (Test-Path $out) { Remove-Item $out -Recurse -Force }
     $null = New-Item -ItemType Directory -Force $out
-    $assets = "DnnManager-$version-x64.exe", "DnnManagerSetup-$version-x64.exe"
+    $assets = "DnnManager_Portable-$version-x64.exe", "DnnManager_Setup-$version-x64.exe"
     foreach ($name in $assets) { Copy-Item (Join-Path $work "publish\$name") $out }
+    # DNN Manager 1.7.6 and older - and the Setups of those versions - only look for the old names: the same two files
+    # under them too, so their Update keeps working. Newer versions take the new names.
+    $legacy = [ordered]@{
+        "DnnManager_Portable-$version-x64.exe" = "DnnManager-$version-x64.exe"
+        "DnnManager_Setup-$version-x64.exe"    = "DnnManagerSetup-$version-x64.exe"
+    }
+    foreach ($pair in $legacy.GetEnumerator()) { Copy-Item (Join-Path $out $pair.Key) (Join-Path $out $pair.Value) }
+    $assets += @($legacy.Values)
     foreach ($name in $assets) {
         $info = (Get-Item (Join-Path $out $name)).VersionInfo
         $product = ($info.ProductVersion -split '\+')[0].Trim()
@@ -302,7 +310,7 @@ finally {
 
 Write-Step 'Ready to publish'
 Write-Host "  Tag      $tag -> $($selected.Short) (pushed to origin)"
-Write-Host "  Release  $tag$(if ($prerelease) { ' (pre-release)' } else { ' (latest)' }), notes from docs\release-notes\$($notes.Name)"
+Write-Host "  Release  $tag$(if ($prerelease) { ' (pre-release)' } else { ' (latest)' }), notes from .docs\release-notes\$($notes.Name)"
 Write-Host "  Files    $($assets -join ', ')"
 Write-Host "           in $out"
 if (-not (Confirm-Step "Publish $tag on GitHub now?")) {

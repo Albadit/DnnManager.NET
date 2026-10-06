@@ -37,7 +37,7 @@ internal static class AboutInfo
         app.Add("Update", update.StatusText, UpdateHealth(update.State), update.State == UpdateState.Unreachable ? update.Problem : null);
         app.Add("License", "MIT");
         app.Add("Repository", Repository);
-        app.Add("Documentation", $"{Repository}/tree/main/docs");
+        app.Add("Documentation", $"{Repository}/tree/main/.docs");
         yield return app;
 
         var runtime = new InspectorSection("Runs on", "this PC");

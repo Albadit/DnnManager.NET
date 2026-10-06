@@ -7,10 +7,10 @@
        takes the newest version tag in git.
     2. Takes the version just below it: 1.6.0 -> 1.5.9, 1.7.0 -> 1.6.9, 2.0.0 -> 1.9.9.
     3. Publishes the working copy as the portable exe with that version stamped in:
-       publish\update-test\DnnManager-<version>-x64.exe (an older test exe there is replaced).
+       publish\update-test\DnnManager_Portable-<version>-x64.exe (an older test exe there is replaced).
 
     Start that exe, open a page, a project's Details and a tab, and click Update in the title bar: it downloads the
-    real release, closes, installs it over the test exe and opens it again. See docs/releasing.md, The in-app update.
+    real release, closes, installs it over the test exe and opens it again. See .docs/releasing.md, The in-app update.
 
 .EXAMPLE
     .github\scripts\build-update-test.ps1
@@ -62,7 +62,7 @@ Write-Host "Building DNN Manager $Version for the update test"
 
 # A test exe left from before (any version) goes - one that still runs can't, so say so.
 New-Item -ItemType Directory -Force $out | Out-Null
-foreach ($old in Get-ChildItem -LiteralPath $out -Filter 'DnnManager-*-x64.exe*' -File) {
+foreach ($old in Get-ChildItem -LiteralPath $out -File | Where-Object { $_.Name -like 'DnnManager_Portable-*-x64.exe*' -or $_.Name -like 'DnnManager-*-x64.exe*' }) {
     try { Remove-Item -LiteralPath $old.FullName -Force }
     catch { throw "$($old.FullName) is in use - close that DNN Manager first." }
 }
@@ -74,7 +74,7 @@ foreach ($old in Get-ChildItem -LiteralPath $out -Filter 'DnnManager-*-x64.exe*'
     --artifacts-path (Join-Path $root 'obj\update-test') -o $out
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed (exit code $LASTEXITCODE)." }
 
-$exe = Join-Path $out "DnnManager-$Version-x64.exe"
+$exe = Join-Path $out "DnnManager_Portable-$Version-x64.exe"
 if (-not (Test-Path -LiteralPath $exe)) { throw "No $exe after publishing." }
 $product = ((Get-Item -LiteralPath $exe).VersionInfo.ProductVersion -split '\+')[0]
 if ($product -ne $Version) { throw "$exe reports version $product, not $Version." }

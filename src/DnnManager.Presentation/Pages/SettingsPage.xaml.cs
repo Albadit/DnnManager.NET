@@ -108,6 +108,7 @@ public partial class SettingsPage : UserControl
             ["Iis"] = (IisPanel, "iis windows features test set up enable " + string.Join(' ', _options.RequiredIisFeatures.Select(f => $"{f.Label} {f.Name}"))),
             ["Keyboard"] = (KeyboardPanel, "keyboard shortcuts shortcut keys key bindings keybindings hotkeys accelerators command palette " +
                                            string.Join(' ', services.GetRequiredService<AppCommands>().All.Select(c => $"{c.Title} {c.Area}"))),
+            ["Help"] = (HelpPanel, "help getting started guide welcome tutorial onboarding introduction beginner tour walkthrough what's new whats new changes user guide documentation docs manual f1"),
             ["About"] = (AboutPanel, "about version build commit release channel update upgrade install new latest license mit repository github documentation docs runtime .net framework windows architecture administrator iis docker components libraries your files folders settings backups logs packages"),
         };
 
@@ -164,6 +165,23 @@ public partial class SettingsPage : UserControl
 
     private void Close_Click(object sender, RoutedEventArgs e) => CloseRequested?.Invoke(this, EventArgs.Empty);
 
+    /// <summary>A button on Help was pressed - the main window runs it: <c>guide</c>, <c>tour</c>, <c>whatsNew</c> or <c>userGuide</c>.</summary>
+    public event EventHandler<string>? HelpRequested;
+
+    /// <summary>Whether Help offers What's new - not to a user still on the version they started with.</summary>
+    public bool OfferWhatsNew
+    {
+        set => WhatsNewRow.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void HelpGuide_Click(object sender, RoutedEventArgs e) => HelpRequested?.Invoke(this, "guide");
+
+    private void HelpTour_Click(object sender, RoutedEventArgs e) => HelpRequested?.Invoke(this, "tour");
+
+    private void HelpWhatsNew_Click(object sender, RoutedEventArgs e) => HelpRequested?.Invoke(this, "whatsNew");
+
+    private void HelpUserGuide_Click(object sender, RoutedEventArgs e) => HelpRequested?.Invoke(this, "userGuide");
+
     // Esc: the search is emptied first; then back to the page Settings was opened from (asking about unsaved changes).
     protected override void OnKeyDown(System.Windows.Input.KeyEventArgs e)
     {
@@ -212,7 +230,7 @@ public partial class SettingsPage : UserControl
 
     private void ShowAboutInfo() => AboutInfoPanel.Show(AboutInfo.Sections(_services.GetRequiredService<AppUpdater>(), _docker));
 
-    /// <summary>The category shown: General, Projects, Releases, Sql, Docker, Iis or About.</summary>
+    /// <summary>The category shown: General, Projects, Releases, Sql, Docker, Iis, Keyboard, Help or About.</summary>
     public string? Category => (Categories.SelectedItem as ListBoxItem)?.Tag as string;
 
     /// <summary>The keyboard in the search box (Ctrl+F).</summary>

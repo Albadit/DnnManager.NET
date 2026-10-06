@@ -46,7 +46,7 @@
                 <Border Style="{StaticResource ActionRow}" BorderThickness="0,1,0,1">
                     <DockPanel>
                         <Button x:Name="RestartButton" Style="{StaticResource ActionButton}" Content="Restart" Click="Restart_Click"
-                                ToolTip="Restart" s:CommandTip.Command="app.restart" />
+                                ToolTip="Close DNN Manager and open it again - nothing is lost" s:CommandTip.Command="app.restart" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Style="{StaticResource ActionTitle}" Text="Restart DNN Manager" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" Text="Closes and starts it again. Your projects, settings and data are kept." />
@@ -58,7 +58,7 @@
                     <StackPanel>
                         <DockPanel>
                             <Button x:Name="CleanupButton" Style="{StaticResource ActionButton}" Content="Clean up data" Click="Cleanup_Click"
-                                    ToolTip="Clean up data" />
+                                    ToolTip="Delete what is ticked below, to free disk space" />
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Style="{StaticResource ActionTitle}" Text="Clean up data" />
                                 <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" Text="The data selected below is removed from Documents\DnnManager." />
@@ -78,7 +78,7 @@
                 <Border Style="{StaticResource ActionRow}">
                     <DockPanel>
                         <Button x:Name="ResetSettingsButton" Style="{StaticResource ActionButton}" Content="Reset settings" Click="ResetSettings_Click"
-                                ToolTip="Reset settings" />
+                                ToolTip="Put every setting back as it was at install - your websites aren't touched" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Style="{StaticResource ActionTitle}" Text="Reset settings to defaults" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
@@ -90,7 +90,7 @@
                 <Border Style="{StaticResource ActionRow}">
                     <DockPanel>
                         <Button x:Name="ResetButton" Style="{StaticResource DangerAction}" Content="Reset to factory defaults" Click="Reset_Click"
-                                ToolTip="Reset to factory defaults" />
+                                ToolTip="Put DNN Manager back as it was installed - your websites and backups are kept; asks first" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Style="{StaticResource ActionTitle}" Text="Reset to factory defaults" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"

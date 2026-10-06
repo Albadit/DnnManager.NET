@@ -118,6 +118,7 @@ public partial class MainWindow : Window
             TerminalPanel.StopLogs();
         };
         SetLogOpen(false);
+        Tour.Ended += Tour_Ended;
         ThemeManager.Track(this);
 
         _runner.PropertyChanged += OnRunnerChanged;
@@ -197,7 +198,12 @@ public partial class MainWindow : Window
             page.Loaded += fill;
         }
         // Their ✕ (and Esc) close them, back to the page under them.
-        if (page is SettingsPage settings) settings.CloseRequested += (_, _) => CloseModal();
+        if (page is SettingsPage settings)
+        {
+            settings.CloseRequested += (_, _) => CloseModal();
+            settings.HelpRequested += (_, what) => RunHelp(what);
+            settings.OfferWhatsNew = !IsNewUser;
+        }
         if (page is TroubleshootPage troubleshoot) troubleshoot.CloseRequested += (_, _) => CloseModal();
         return page;
     }
@@ -281,7 +287,7 @@ public partial class MainWindow : Window
             UpdateState.Installing => $"Installing {u.Latest?.Tag}…",
             UpdateState.Restarting => "Restarting…",
             UpdateState.Failed => "Update failed - try again",
-            _ => $"Update to {u.Latest?.Tag}"
+            _ => $"Install {u.Latest?.Tag} - DNN Manager closes and opens again by itself, where you were"
         };
     }
 
@@ -404,10 +410,14 @@ public partial class MainWindow : Window
         var state = _workspace.Load<WorkspaceState>();
         var logs = _workspace.Load<LogsState>();
         var lastRun = _workspace.Load<VersionState>().LastRun;
+        // DNN Manager has never run here: no version and no window place saved (1.7.3 and older kept no version).
+        var firstStart = lastRun is null && layout.Width is null;
         var current = _updater.Current.ToString();
         // An update by 1.7.2 or older noted itself where this version doesn't look - its helper's plan says it.
         var update = TakeUpdate() ?? (lastRun != current ? _updater.HandedOver() : null);
-        var whatsNewSince = WhatsNewSince(update, lastRun);
+        NoteFirstVersion(firstStart);
+        // A new user gets the getting started guide, never release notes of changes they didn't see.
+        var whatsNewSince = IsNewUser ? null : WhatsNewSince(update, lastRun);
         if (lastRun != current) _workspace.Store.Save(new VersionState { LastRun = current });
         foreach (var (key, draft) in _workspace.Load<FormsState>().Drafts) _drafts[key] = draft;
         _restoringWorkspace = state;
@@ -446,10 +456,13 @@ public partial class MainWindow : Window
             else if (logs.LogSite is { } site && _store.Projects.FirstOrDefault(r => r.Name.Equals(site, StringComparison.OrdinalIgnoreCase)) is { } row)
                 TerminalPanel.ShowLog(row, logs.LogGroup, logs.LogTitle);
             Report(update, missing, settingsBack);
-            // What changed - once the window is up and restored.
-            if (whatsNewSince is not null)
-                _ = Dispatcher.BeginInvoke(() => Controls.WhatsNewDialog.Show(ReleaseNotes.Between(whatsNewSince, _updater.Current)),
-                    System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            // What changed, then the getting started guide - once the window is up and restored. One after the other in
+            // one go: queued apart, the second would open inside the first one's dialog loop, both at once.
+            _ = Dispatcher.BeginInvoke(() =>
+            {
+                if (whatsNewSince is not null) Controls.WhatsNewDialog.Show(ReleaseNotes.Between(whatsNewSince, _updater.Current));
+                ShowGuideAtStart(firstStart);
+            }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
         }
         catch (Exception ex)
         {

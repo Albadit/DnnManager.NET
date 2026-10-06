@@ -42,6 +42,22 @@
         <Style x:Key="CategoryGlyph" TargetType="TextBlock" BasedOn="{StaticResource NavGlyph}">
             <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
         </Style>
+        <!-- Help's rows: what it is on the left, its button on the right, a line under it - as on Troubleshoot. -->
+        <Style x:Key="HelpRow" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{DynamicResource GridLine}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Padding" Value="0,14" />
+        </Style>
+        <Style x:Key="HelpTitle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+        </Style>
+        <Style x:Key="HelpButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="DockPanel.Dock" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="MinWidth" Value="120" />
+            <Setter Property="Margin" Value="16,0,0,0" />
+        </Style>
         <Style x:Key="FolderPath" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
@@ -108,6 +124,9 @@
                     </ListBoxItem>
                     <ListBoxItem Tag="Keyboard">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="{StaticResource GlyphKeyboard}" /><TextBlock Style="{StaticResource NavLabel}" Text="Keyboard shortcuts" /></StackPanel>
+                    </ListBoxItem>
+                    <ListBoxItem Tag="Help">
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="{StaticResource GlyphQuestion}" /><TextBlock Style="{StaticResource NavLabel}" Text="Help" /></StackPanel>
                     </ListBoxItem>
                     <ListBoxItem Tag="About">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="{StaticResource GlyphInfo}" /><TextBlock Style="{StaticResource NavLabel}" Text="About" /></StackPanel>
@@ -489,6 +508,65 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                        </StackPanel>
+
+                        <!-- The getting started guide, the tour, what's new - run by the main window (HelpRequested). Nothing to
+                             save: they change no setting. -->
+                        <StackPanel x:Name="HelpPanel" Visibility="Collapsed">
+                            <TextBlock Style="{StaticResource CategoryTitle}" Text="Help" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8"
+                                       Text="New to DNN Manager, or looking for something? Open these whenever you like - they don't change any setting." />
+                            <Border Style="{StaticResource HelpRow}" BorderThickness="0,1,0,1">
+                                <DockPanel>
+                                    <Button Style="{StaticResource HelpButton}" Content="Show getting started guide" Click="HelpGuide_Click"
+                                            ToolTip="What DNN Manager does, what to set up first and what every button does - step by step" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Style="{StaticResource HelpTitle}" Text="Getting started guide" />
+                                        <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                                   Text="What DNN Manager does, what it needs before you start, and what every button does - in plain words, step by step." />
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+                            <Border Style="{StaticResource HelpRow}">
+                                <DockPanel>
+                                    <Button Style="{StaticResource HelpButton}" Content="Take the tour" Click="HelpTour_Click"
+                                            ToolTip="Close Settings and point at each part of the window" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Style="{StaticResource HelpTitle}" Text="Tour of the window" />
+                                        <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                                   Text="Points at each part of the window, one at a time, and says what it is for. Settings closes first." />
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+                            <Border Style="{StaticResource HelpRow}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource HelpTitle}" Text="Help for the page you are on" />
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                               Text="Press F1, or click the ? at the top right of the window, to see what the page you are on is for and what its buttons do. Pointing at a button with the mouse says what it does." />
+                                </StackPanel>
+                            </Border>
+                            <!-- Not for a new user (MainWindow.IsNewUser): release notes of changes they never saw confuse. -->
+                            <Border x:Name="WhatsNewRow" Style="{StaticResource HelpRow}">
+                                <DockPanel>
+                                    <Button Style="{StaticResource HelpButton}" Content="What's new" Click="HelpWhatsNew_Click"
+                                            ToolTip="What changed in this version of DNN Manager" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Style="{StaticResource HelpTitle}" Text="What's new in this version" />
+                                        <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" Text="What changed in the version you have." />
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+                            <Border Style="{StaticResource HelpRow}">
+                                <DockPanel>
+                                    <Button Style="{StaticResource HelpButton}" Content="Open user guide" Click="HelpUserGuide_Click"
+                                            ToolTip="The full user guide on GitHub, in your browser" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Style="{StaticResource HelpTitle}" Text="User guide" />
+                                        <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                                   Text="Every page, button and setting in detail, on GitHub - opens in your browser." />
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
                         </StackPanel>
 
                         <StackPanel x:Name="AboutPanel" Visibility="Collapsed">

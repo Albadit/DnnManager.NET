@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Builds the DNN Manager installer: publish\DnnManagerSetup-<version>-x64.exe
+    Builds the DNN Manager installer: publish\DnnManager_Setup-<version>-x64.exe
 
 .DESCRIPTION
     1. Publishes the app self-contained for win-x64 as a single file into src\DnnManager.Installer\bin\app.
@@ -156,5 +156,5 @@ Write-Host "Compiling the installer with $compiler"
 & $compiler /Q "/DAppVersion=$version" "/DFileVersion=$fileVersion" "/DPublishDir=$publishDir" "/DOutputDir=$outputDir" "/DImagesDir=$imagesDir" $script
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed (exit code $LASTEXITCODE)." }
 
-$setup = Join-Path $outputDir "DnnManagerSetup-$version-x64.exe"
+$setup = Join-Path $outputDir "DnnManager_Setup-$version-x64.exe"
 Write-Host "Installer: $setup ($([math]::Round((Get-Item $setup).Length / 1MB, 1)) MB)"
