@@ -51,9 +51,9 @@
     <PackageReference Include="Microsoft.Web.Administration" Version="11.1.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
     <!-- DNN Manager's own data - settings, workspace, project records, keep warm - in Documents\DnnManager\dnnmanager.db. -->
+    <!-- It brings SQLitePCLRaw 2.1.12 - SQLite 3.53.3, past the fix for GHSA-2m69-gcr7-jv3q (3.50.2); 10.0.10 and older
+         brought 2.1.11, which DNN Manager pinned over until then. Upgrading it upgrades SQLite. -->
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
-    <!-- The native SQLite it brings is 2.1.11, whose SQLite has a known vulnerability (GHSA-2m69-gcr7-jv3q) - 2.1.13 hasn't. -->
-    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" />
     <!-- The state of the IIS service (W3SVC) for the status bar. -->
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
   </ItemGroup>

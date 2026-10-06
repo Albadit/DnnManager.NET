@@ -1027,7 +1027,7 @@ anything.
 |---|---|
 | **Local SQL container (Docker)** | A database named like the project on the shared container, as `sa` - the default. |
 | **SQL Server / SQL Server Express** | Any SQL Server, e.g. `.\SQLEXPRESS`: with *Windows authentication* the site signs in as its app pool identity, which DNN Manager makes a login and the database's owner (on this machine's SQL Server); with *SQL Server authentication* as a login that may create the database, or owns it. |
-| **SQL Server Express LocalDB (file)** | The package's own `App_Data\Database.mdf`, run by LocalDB under the site's app pool identity. Fine for trying things out; DNN Manager can't open it while the site runs. |
+| **SQL Server Express LocalDB (file)** | The package's own `App_Data\Database.mdf`, run by LocalDB under the site's app pool identity. Fine for trying things out; DNN Manager can't open it while the site runs. DNN Manager opens it in a LocalDB of the file's own version - your `MSSQLLocalDB`, or with several LocalDB versions installed an instance of its own (`DnnManager17` for 2025) - so a file made by 2025 is never opened in 2019, nor a 2019 file upgraded behind the site's back. |
 
 **Create project** first tests the database and shows each check in the Output panel: the server answers, the
 sign-in works, the version is new enough (SQL Server 2017 for DNN 10, 2012 for

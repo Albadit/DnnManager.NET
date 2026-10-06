@@ -106,9 +106,9 @@ Where to look when something goes wrong:
   made by a new step at the end of `AppDatabase.Steps`; a new piece of workspace
   is a state area ([architecture.md](architecture.md#the-workspace-kept-between-starts)).
   Every value in a column or a row of its own - never JSON in the database, and
-  never a file of its own in `Documents\DnnManager`. `DnnManager.csproj` pins
-  `SQLitePCLRaw.lib.e_sqlite3` 2.1.13 over the 2.1.11 that `Microsoft.Data.Sqlite`
-  brings, which has a known vulnerability (GHSA-2m69-gcr7-jv3q).
+  never a file of its own in `Documents\DnnManager`. The native SQLite comes with
+  `Microsoft.Data.Sqlite`; a test fails when it is older than 3.50.2, which fixed
+  GHSA-2m69-gcr7-jv3q.
 - **Tests** that save anything give `AppDataPaths` / `AppDatabase` a folder
   under `%TEMP%` - their own `dnnmanager.db`, never yours.
 

@@ -3,7 +3,6 @@ using DnnManager.Application.Abstractions;
 using DnnManager.Domain;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Win32;
 
 namespace DnnManager.Infrastructure.Sql;
 
@@ -216,20 +215,12 @@ public sealed partial class DatabaseProvisioner(ILogger<DatabaseProvisioner> log
         }
         checks.Add(new DatabaseCheck("Site database", CheckOutcome.Warning,
             $"App_Data\\{c.Database} runs in the LocalDB instance of the site's app pool identity - fine for trying things out; " +
-            "DNN Manager can't open it to show portals or change the host password. Use SQL Server for anything you keep."));
+            "DNN Manager opens it only while the site is stopped (to check the install or change the host password), and can't back it up as a .bacpac. " +
+            "Use SQL Server for anything you keep."));
     }
 
     /// <summary>The highest LocalDB major version installed (13 = 2016, 14 = 2017, 15 = 2019, 16 = 2022, 17 = 2025), or null.</summary>
-    private static int? InstalledLocalDbMajorVersion()
-    {
-        using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Microsoft SQL Server Local DB\Installed Versions");
-        if (key is null) return null;
-        var majors = key.GetSubKeyNames()
-            .Select(name => int.TryParse(name.Split('.')[0], out var major) ? major : 0)
-            .Where(major => major > 0)
-            .ToList();
-        return majors.Count == 0 ? null : majors.Max();
-    }
+    private static int? InstalledLocalDbMajorVersion() => LocalDbVersions.Installed().Keys.Cast<int?>().Max();
 
     // ─── Creating, granting, dropping ─────────────────────────────────────
 
@@ -386,7 +377,7 @@ public sealed partial class DatabaseProvisioner(ILogger<DatabaseProvisioner> log
                host.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string ProductName(int major) => major switch
+    internal static string ProductName(int major) => major switch
     {
         >= 17 => "SQL Server 2025",
         16 => "SQL Server 2022",

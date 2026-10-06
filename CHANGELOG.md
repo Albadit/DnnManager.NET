@@ -2,7 +2,7 @@
 
 All notable changes to DnnManager.NET are documented here.
 
-## Unreleased
+## v1.7.8
 
 ### Upgrading
 
@@ -11,6 +11,40 @@ All notable changes to DnnManager.NET are documented here.
   `DnnManager_Portable-…`. DNN Manager 1.7.6 and older can't install this
   version with **Update**: install 1.7.7 or newer by hand once (or update to
   1.7.7 first while it is the latest). 1.7.7 and newer update as usual.
+
+### Fixed
+
+- A new project with a **LocalDB file** failed at **Creating host account** -
+  *"cannot be opened because it is version 998. This server supports version
+  904 and earlier"* - on a PC with two LocalDB versions (Visual Studio's 2019
+  next to 2025). DNN Manager opened the site's file in your own `MSSQLLocalDB`,
+  which can be older than the site's; it now opens it in a LocalDB of the
+  file's own version, making an instance of its own (`DnnManager17`) when yours
+  is another version.
+- Missing IIS features you agree to enable no longer leave **Checking IIS**
+  marked as failed: they are listed as missing, and only a feature that still
+  can't be enabled - or that you chose not to - is an error. *A restart may be
+  needed* is said only when Windows says so.
+- DNN Manager's database (`dnnmanager.db`) could be left unusable when two
+  threads opened a new file at the same moment: both made its tables, the
+  count of table versions went back, and every later start failed. Its table
+  changes now run in one transaction, counted under the write lock.
+- A damaged `dnnmanager.db` stopped DNN Manager at its start - even **Reset to
+  defaults** failed on it. It is now put aside (`dnnmanager.damaged-<date>.db`)
+  and DNN Manager goes on from its last copy or the defaults.
+
+### Changed
+
+- Before an update changes the tables of `dnnmanager.db`, a copy of it is kept
+  as `dnnmanager.backup.db`.
+- An older DNN Manager started after a newer one leaves a `dnnmanager.db` with
+  newer tables alone and says so, instead of writing into it.
+- LocalDB: DNN Manager's own instance (`DnnManager17`) is checked by connecting
+  to it, and a site's database file gets the folder's permissions before it is
+  opened, not only after.
+- The native SQLite comes with `Microsoft.Data.Sqlite` (3.53.3); the separate
+  pin of `SQLitePCLRaw.lib.e_sqlite3` is gone, and a test checks it has the fix
+  for CVE-2025-6965.
 
 ## v1.7.7
 

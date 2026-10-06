@@ -385,8 +385,9 @@ begin
     'The version to install is downloaded from GitHub - Setup then continues with it.', nil);
   DownloadPage.ShowBaseNameInsteadOfUrl := True;
 
-  // Started by an older Setup: what to do was chosen there.
-  if not IsInstalled or IsHandedOver then Exit;
+  // Started by an older Setup: what to do was chosen there. A silent run (the in-app update) installs what it carries -
+  // nobody can click the page's buttons, and without one its Next aborts Setup.
+  if not IsInstalled or IsHandedOver or WizardSilent then Exit;
 
   MaintenancePage := CreateCustomPage(wpWelcome, '{#AppName} is installed', 'Update, repair or uninstall it.');
   Top := 0;

@@ -109,8 +109,15 @@ public sealed class AppDatabase
     public string Path { get; }
 
     /// <summary>
+    /// <c>dnnmanager.backup.db</c>: the file as it was before its tables last changed (an update) - what a damaged file is
+    /// put back from (<see cref="RecoverIfDamaged"/>).
+    /// </summary>
+    public string BackupPath => System.IO.Path.Combine(Folder, "dnnmanager.backup.db");
+
+    /// <summary>
     /// The file, open - made, or brought up to the current tables, the first time. Throws <see cref="SqliteException"/>
-    /// or <see cref="IOException"/> when it can't be opened or made.
+    /// or <see cref="IOException"/> when it can't be opened or made - <see cref="NewerDatabaseException"/> when a newer
+    /// DNN Manager wrote it.
     /// </summary>
     public SqliteConnection Open()
     {
@@ -121,8 +128,8 @@ public sealed class AppDatabase
             connection.Open();
             // Asked each time (it costs nothing): a file deleted meanwhile is made again with its tables.
             var version = Scalar<long>(connection, "PRAGMA user_version");
-            for (var step = (int)version; step < Steps.Length; step++)
-                Execute(connection, $"BEGIN IMMEDIATE; {Steps[step]} PRAGMA user_version = {step + 1}; COMMIT;");
+            if (version > Steps.Length) throw new NewerDatabaseException(Path, version, Steps.Length);
+            if (version < Steps.Length) Upgrade(connection, version);
             return connection;
         }
         catch
@@ -131,6 +138,104 @@ public sealed class AppDatabase
             throw;
         }
     }
+
+    /// <summary>
+    /// Brings the tables up to this version's: a copy of what the user had first, then every step that hasn't run, and the
+    /// count with them, in one transaction - all or nothing.
+    /// </summary>
+    private void Upgrade(SqliteConnection connection, long seen)
+    {
+        // A file with tables of an older version, not a new one: kept as it was.
+        if (seen > 0) Backup(connection);
+        Execute(connection, "BEGIN IMMEDIATE");
+        try
+        {
+            // Counted again under the write lock: another connection (keep warm, the workspace) may have brought it up since
+            // it was read - running a step twice would set the count back and fail at the next one on every start.
+            var version = Scalar<long>(connection, "PRAGMA user_version");
+            if (version > Steps.Length) throw new NewerDatabaseException(Path, version, Steps.Length);
+            for (var step = (int)version; step < Steps.Length; step++)
+                Execute(connection, $"{Steps[step]} PRAGMA user_version = {step + 1};");
+            Execute(connection, "COMMIT");
+        }
+        catch
+        {
+            try { Execute(connection, "ROLLBACK"); }
+            catch (SqliteException) { /* already rolled back by the error */ }
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// <see cref="BackupPath"/> made anew from the file as it is now - written beside it (VACUUM INTO, a consistent copy)
+    /// and only then put in its place, so a copy is always whole.
+    /// </summary>
+    private void Backup(SqliteConnection connection)
+    {
+        var temp = BackupPath + ".tmp";
+        try
+        {
+            File.Delete(temp);
+            Execute(connection, "VACUUM INTO $file", ("$file", temp));
+            File.Move(temp, BackupPath, overwrite: true);
+        }
+        catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException)
+        {
+            // No copy this time (a full disk, say): the tables still change safely, in one transaction - the copy is for
+            // what can't be foreseen. The last copy, if any, stays.
+            try { File.Delete(temp); }
+            catch (Exception ignored) when (ignored is IOException or UnauthorizedAccessException) { }
+        }
+    }
+
+    /// <summary>
+    /// Puts a damaged file aside - <c>dnnmanager.damaged-yyyyMMdd-HHmmss.db</c>, kept to look into - and brings back
+    /// <see cref="BackupPath"/> when it is sound; otherwise the next <see cref="Open"/> starts a new file. Returns what
+    /// happened, for the user - null when the file is sound or isn't there. Called at the start, before anything reads it.
+    /// Throws <see cref="IOException"/> when the file can't be moved.
+    /// </summary>
+    public string? RecoverIfDamaged()
+    {
+        if (!File.Exists(Path) || IsSound(Path)) return null;
+        var aside = System.IO.Path.Combine(Folder, $"dnnmanager.damaged-{DateTime.Now:yyyyMMdd-HHmmss}.db");
+        File.Move(Path, aside);
+        // A journal left by an interrupted write belongs to the damaged file, not to what comes in its place.
+        if (File.Exists(Path + "-journal")) File.Move(Path + "-journal", aside + "-journal");
+        if (File.Exists(BackupPath) && IsSound(BackupPath))
+        {
+            File.Copy(BackupPath, Path);
+            return $"{Path} was damaged - it is kept as {aside}. DNN Manager went back to the copy of " +
+                   $"{File.GetLastWriteTime(BackupPath):g}, made before its last update.";
+        }
+        return $"{Path} was damaged - it is kept as {aside}. DNN Manager starts with its defaults.";
+    }
+
+    /// <summary>
+    /// Whether SQLite finds <paramref name="file"/> sound (PRAGMA quick_check). Only a file it reports damaged, or not a
+    /// database, isn't - one it can't open now (in use, no access) counts as sound: it isn't moved for that.
+    /// </summary>
+    private static bool IsSound(string file)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+            {
+                DataSource = file, Mode = SqliteOpenMode.ReadWrite, Pooling = false, DefaultTimeout = 30
+            }.ToString());
+            connection.Open();
+            return Scalar<string>(connection, "PRAGMA quick_check") == "ok";
+        }
+        catch (SqliteException ex) when (ex.SqliteErrorCode is SqliteCorrupt or SqliteNotADatabase)
+        {
+            return false;
+        }
+        catch (SqliteException)
+        {
+            return true;
+        }
+    }
+
+    private const int SqliteCorrupt = 11, SqliteNotADatabase = 26;
 
     // ─── Helpers for the tables ───────────────────────────────────────────
 
@@ -180,3 +285,12 @@ public sealed class AppDatabase
         }
     }
 }
+
+/// <summary>
+/// <c>dnnmanager.db</c> has tables of a newer DNN Manager than this one (an older version started after a newer one) -
+/// this version neither reads nor writes it, rather than change tables it doesn't know. An <see cref="IOException"/>, so
+/// everything that handles a database it can't use handles this too.
+/// </summary>
+public sealed class NewerDatabaseException(string path, long found, int known) : IOException(
+    $"{path} was written by a newer DNN Manager (its tables are at version {found}, this one knows {known}) - this version " +
+    "leaves it as it is. Start the newer DNN Manager, or update this one.");

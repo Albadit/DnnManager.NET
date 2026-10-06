@@ -37,23 +37,43 @@ public sealed class WindowsPrerequisiteChecker(ProcessRunner proc, IOptions<AppO
         }
         if (missing.Count == 0) return Result.Ok();
 
+        // Missing isn't a failure yet - it is offered to be fixed. Only what still doesn't work afterwards is an error, so a
+        // stage whose missing features were enabled doesn't end as failed.
         reporter.Info("Missing IIS features:");
-        foreach (var f in missing) reporter.Fail($"{f.Label} ({f.Name})");
+        foreach (var f in missing) reporter.Info($"   {f.Label} ({f.Name})");
         if (!await prompt.ConfirmAsync($"{missing.Count} IIS feature(s) are missing - see the Output panel. Enable them now?",
                 "Enable features", "Not now", true, ct))
+        {
+            foreach (var f in missing) reporter.Fail($"Not enabled: {f.Label} ({f.Name})");
             return Result.Fail("IIS features missing.");
+        }
 
         reporter.Info($"Enabling {missing.Count} feature(s)…");
         var enabled = await RunPerFeatureAsync(missing,
-            "try { Enable-WindowsOptionalFeature -Online -FeatureName $n -All -NoRestart -ErrorAction Stop | Out-Null; 'OK' } catch { 'FAIL' }", ct);
+            "try { $o = Enable-WindowsOptionalFeature -Online -FeatureName $n -All -NoRestart -ErrorAction Stop; " +
+            "if ($o.RestartNeeded) { 'RESTART' } else { 'OK' } } catch { 'FAIL' }", ct);
+        var failed = 0;
+        var restart = false;
         foreach (var f in missing)
         {
-            if (enabled.TryGetValue(f.Name, out var r) && r == "OK")
-                reporter.Success($"Enabled {f.Label}");
-            else
-                reporter.Fail($"Failed: {f.Label}");
+            switch (enabled.GetValueOrDefault(f.Name))
+            {
+                case "OK":
+                    reporter.Success($"Enabled {f.Label}");
+                    break;
+                case "RESTART":
+                    reporter.Success($"Enabled {f.Label}");
+                    restart = true;
+                    break;
+                default:
+                    reporter.Fail($"Could not enable {f.Label} ({f.Name})");
+                    failed++;
+                    break;
+            }
         }
-        reporter.Success("IIS feature changes applied (a reboot may be required).");
+        // Said only when Windows says so - not "a reboot may be required" after every change.
+        if (restart) reporter.Warn("Windows needs a restart to finish enabling IIS features - restart the PC if the site doesn't open.");
+        else if (failed == 0) reporter.Success("IIS features enabled.");
         return Result.Ok();
     }
 

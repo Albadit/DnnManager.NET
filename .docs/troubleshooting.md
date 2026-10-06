@@ -28,7 +28,10 @@ places tell you most of what went wrong:
   *Controlled folder access* blocks DNN Manager), the settings were saved by a
   newer DNN Manager, the `sa` password was encrypted by another Windows account
   or on another PC, or a setting has a value that can't be read or isn't
-  allowed (one changed by hand in the database, say).
+  allowed (one changed by hand in the database, say). A **damaged** file isn't
+  among them any more: it is put aside at the start and DNN Manager goes on
+  from its last copy or the defaults (see
+  [configuration.md](configuration.md#where-your-files-are)).
 - **Fix:** the dialog names the problem. Fix what it names (close the other
   program, allow `DnnManager.exe` through Controlled folder access, update DNN
   Manager) and press **Try again** - or **Reset to defaults**, which starts
@@ -175,6 +178,36 @@ each project was installed, the saved DNN versions - is one SQLite database,
 - **Fix:** the project is left as it is so you can look into it; then remove it
   (**Remove…**) and create it again - DNN can't install twice into the same
   files and database.
+
+### "The database '…\APP_DATA\DATABASE.MDF' cannot be opened because it is version 998"
+
+- **Cause:** a site with a LocalDB file, on a PC with two LocalDB versions -
+  often Visual Studio's 2019 next to 2025. LocalDB is one instance per Windows
+  account, at the version it was made with: the site's (its app pool identity's,
+  new) is 2025 and makes the file a 2025 one (version 998), the user's own
+  `MSSQLLocalDB`, made earlier by 2019, only opens up to 904. DNN Manager 1.7.7
+  and older opened the file in the user's instance.
+- **Fix:** newer versions open the file in a LocalDB of the file's own version:
+  the user's `MSSQLLocalDB` when it is that version, else an instance of DNN
+  Manager's own (`DnnManager17` for 2025), made the first time. Remove the
+  project that failed and create it again. With an older DNN Manager, make the
+  user's instance the newest version (`sqllocaldb stop MSSQLLocalDB`,
+  `sqllocaldb delete MSSQLLocalDB`, `sqllocaldb create MSSQLLocalDB 17.0 -s`) -
+  databases attached to the old one are detached, their files stay.
+
+### Windows blocked a DNN file ("blocked by an application control policy")
+
+- **Cause:** Smart App Control (or a company's App Control policy) stopped IIS
+  from loading one of DNN's DLLs: most of them aren't signed, and a rarely seen
+  one - `DNN.Connectors.GoogleAnalytics4.dll` in DNN 10.3.3 - has no reputation
+  yet. DNN's installer then answers *HTTP 500* with that message (Windows error
+  `0x800711C7`).
+- **Fix:** see whether it is Smart App Control - **Windows Security → App &
+  browser control → Smart App Control settings**. Turned off, the site works;
+  on most Windows 11 versions it can't be turned on again without reinstalling
+  Windows. A policy of your organisation is for its IT to allow. Windows' log
+  **Applications and Services Logs → Microsoft → Windows → CodeIntegrity →
+  Operational** names each blocked file (event 3077).
 
 ### Remove… couldn't delete the folder
 

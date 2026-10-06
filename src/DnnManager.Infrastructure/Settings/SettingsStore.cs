@@ -59,6 +59,16 @@ public sealed class SettingsStore(AppDataPaths paths)
             throw new SettingsException($"Could not create {_paths.Root}: {ex.Message}" + AccessHint(ex), inner: ex);
         }
 
+        // A damaged file is put aside before anything reads it - back from the copy of the last update, or anew.
+        try
+        {
+            if (_database.RecoverIfDamaged() is { } recovered) notices.Add(new(true, recovered));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // It couldn't be moved (in use): reading it below says what is wrong.
+        }
+
         var saved = ReadRows();
         var settings = ToSettings(saved);
         // The first start - or values added since: what is saved is complete again.
@@ -106,6 +116,8 @@ public sealed class SettingsStore(AppDataPaths paths)
         _paths.EnsureCreated();
         try
         {
+            // From the start-up dialog, the file may be what is wrong: a damaged one is put aside first.
+            _database.RecoverIfDamaged();
             using var connection = _database.Open();
             AppDatabase.Execute(connection, "BEGIN IMMEDIATE");
             AppDatabase.Execute(connection, "DELETE FROM settings");

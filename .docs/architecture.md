@@ -250,7 +250,22 @@ DNN Manager's own data is one SQLite file, `Documents\DnnManager\dnnmanager.db`
   for a file deleted meanwhile: `AppDatabase.Steps` are the numbered steps that
   make each version of the tables from the one before, and `PRAGMA
   user_version` holds how many have run. A change of the tables is a new step
-  at the end; the steps before never change.
+  at the end; the steps before never change. The steps that haven't run, and
+  the count, run in **one** `BEGIN IMMEDIATE` transaction, counted again under
+  that lock (threads opening a new file at once each saw 0 - running a step
+  twice set the count back and broke every later start), after a
+  `VACUUM INTO` copy of an existing file (`dnnmanager.backup.db`, written beside
+  it and then moved in place). A count above this version's steps (an older
+  DNN Manager after a newer one) throws `NewerDatabaseException` - an
+  `IOException`, handled wherever the database can't be used - and nothing is
+  written.
+- **Kept on a local disk, rollback journal, `synchronous=FULL`** (SQLite's
+  defaults - the most crash-safe; WAL would add `-wal` / `-shm` files and buys
+  nothing at this write rate). `SettingsStore.Load` calls
+  `AppDatabase.RecoverIfDamaged` before anything reads the file: `PRAGMA
+  quick_check`, and a file SQLite reports damaged or not a database is moved to
+  `dnnmanager.damaged-<date>.db`, `dnnmanager.backup.db` copied back when it is
+  sound. A file that only can't be opened now (in use, no access) isn't moved.
 - **No JSON in the database**: every value is a column or a row of its own.
   The settings and the workspace are objects made into rows by
   [`ValueRows`](../src/DnnManager.Infrastructure/Data/ValueRows.cs) - a key is
@@ -268,10 +283,11 @@ DNN Manager's own data is one SQLite file, `Documents\DnnManager\dnnmanager.db`
   `projects\` of 1.7.1 and older stay on disk untouched, and the first start
   of this version begins with the defaults
   ([configuration.md](configuration.md#upgrading-from-171-or-earlier)).
-- **The native SQLite**: `Microsoft.Data.Sqlite` brings
-  `SQLitePCLRaw.lib.e_sqlite3` 2.1.11, whose SQLite has a known vulnerability
-  (GHSA-2m69-gcr7-jv3q), so `DnnManager.csproj` pins 2.1.13. Drop that
-  reference once `Microsoft.Data.Sqlite` brings a fixed version itself.
+- **The native SQLite** comes with `Microsoft.Data.Sqlite` (10.0.12:
+  SQLitePCLRaw 2.1.12, SQLite 3.53.3) - upgrading it upgrades SQLite. A test
+  checks that it is at least 3.50.2, which fixed GHSA-2m69-gcr7-jv3q
+  (CVE-2025-6965); before 10.0.11 it brought 2.1.11, which had it, and
+  `DnnManager.csproj` pinned a newer one.
 - **Tests** give `AppDataPaths` / `AppDatabase` a folder under `%TEMP%`, so
   each test has its own `dnnmanager.db` and never touches yours.
 

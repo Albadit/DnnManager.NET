@@ -13,6 +13,8 @@ folder, so updating, reinstalling or uninstalling the app never touches it:
 ```text
 Documents\DnnManager\
 ├── dnnmanager.db        DNN Manager's own data, one SQLite database (below)
+├── dnnmanager.backup.db the database as it was before its tables last changed (an update) - what a damaged one
+│                        comes back from; only there after such an update
 ├── backups\             project backups (user guide: Backups)
 ├── deployments\         packages made by Export for deployment: <project>_<date>\ with .zip, .bacpac and DEPLOY.txt
 ├── logs\                one file per day, kept 30 days: every operation's messages, one line each after its
@@ -46,7 +48,15 @@ the settings and removes the `state` and `keep_warm` rows;
 
 The tables are made at the first start. A change of them in a later version is
 made once, at that version's first start (the file's `PRAGMA user_version`
-says how far it is).
+says how far it is) - all of it or nothing, after a copy of the file as it was
+(`dnnmanager.backup.db`). An older DNN Manager started after a newer one leaves
+a file with newer tables alone and says so, instead of writing into tables it
+doesn't know.
+
+**A damaged `dnnmanager.db`** - SQLite reports it damaged or not a database -
+is put aside at the start as `dnnmanager.damaged-<date>-<time>.db`, to look
+into, and DNN Manager goes on with `dnnmanager.backup.db` when there is a sound
+one, otherwise with the defaults. The Output tab says which.
 
 An [update](user-guide.md#update) downloads into `%TEMP%\DnnManager-update\<version>\`,
 with its log (`update.log`, and `update.setup.log` for Setup) - removed a couple of
