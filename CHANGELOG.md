@@ -6,9 +6,10 @@ All notable changes to DnnManager.NET are documented here.
 
 ### Added
 
-- **An MSIX package**, `DnnManager_<version>_x64.msix`, next to Setup and the
-  portable exe - on releases it is added to (it needs a trusted code-signing
-  certificate). It installs per user from the Start menu, without Administrator rights; DNN
+- **An MSIX package**, `DnnManager_<version>_x64.msix`, besides Setup and the
+  portable exe - published as a GitHub release of its own, `vX.Y.Z (MSIX)` (tag
+  `msix-vX.Y.Z`), signed with a trusted code-signing certificate. It installs
+  per user from the Start menu, without Administrator rights; DNN
   Manager in it asks for them when it starts, as Setup's does. A package is
   updated by installing the next release's package - DNN Manager's own update
   is off in it, and so is **Start DNN Manager when you sign in to your

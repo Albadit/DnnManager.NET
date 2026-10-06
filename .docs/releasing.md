@@ -29,8 +29,8 @@ until 1.7.2 is tagged ([`DnnManager.csproj`](../DnnManager.csproj), target
    offers it with its **Update** button (see [The in-app update](#the-in-app-update)).
    The tag it pushes is built and tested on GitHub too ([the build workflow](#the-build-workflow)),
    which publishes nothing.
-5. Optionally, run the task **release: MSIX (GitHub)** to add the MSIX package,
-   `DnnManager_X.Y.Z_x64.msix`, to that release ([The MSIX package](#the-msix-package)).
+5. Optionally, run the task **release: MSIX (GitHub)** to publish the MSIX package,
+   `DnnManager_X.Y.Z_x64.msix`, as a release of its own ([The MSIX package](#the-msix-package)).
 
 ## Release from VS Code
 
@@ -239,7 +239,7 @@ does into `src\DnnManager.Package\bin\layout`, writes
   to install. DNN Manager in it asks for them (UAC) when it starts, as Setup's does -
   the package declares `allowElevation`. Settings are the same `Documents\DnnManager`.
 - **Updates:** a package's files can't be replaced, so DNN Manager's own update is off
-  in it (`PackageIdentity`); users open the next release's `.msix`, which upgrades it.
+  in it (`PackageIdentity`); users open the next MSIX release's `.msix`, which upgrades it.
   Setup's installation and the package are separate - one of them is enough.
 - **Signing:** Windows installs a package only when its signature is trusted, and the
   package's `Publisher` must be the certificate's subject - `build.ps1` takes it from
@@ -247,23 +247,31 @@ does into `src\DnnManager.Package\bin\layout`, writes
 - **A pre-release** (`1.7.9-rc.1`) gets the same package version as `1.7.9` - installing
   the final one over it needs `Add-AppxPackage -ForceUpdateFromAnyVersion`.
 
-### Add it to a release
+### Release it
 
-The release itself - tag, notes, Setup and portable exe - is made by **release
-(GitHub)** as always. Then **Ctrl+Shift+B → release: MSIX (GitHub)** runs
-[`.github/scripts/publish-msix.ps1`](../.github/scripts/publish-msix.ps1):
+The package is a GitHub release of its own, apart from the exe release that
+**release (GitHub)** makes: tag `msix-vX.Y.Z`, title `vX.Y.Z (MSIX)`, and **never the
+latest release** - DNN Manager's own update and Setup only look at the latest release,
+for Setup and the portable exe, so they never see it. The version's exe release
+(`vX.Y.Z`) can come before, after or not at all. **Ctrl+Shift+B → release: MSIX
+(GitHub)** runs [`.github/scripts/publish-msix.ps1`](../.github/scripts/publish-msix.ps1):
 
-1. **Pick the release** from GitHub's newest 30 (drafts too); the picker says whether
-   it has a package already.
-2. In a temporary worktree of the release's tag it builds the package with that
-   tag's `build.ps1`, signed with your certificate - a release older than the package
-   (no `src\DnnManager.Package`) is refused: its DNN Manager would try to update
-   itself inside the package.
-3. It checks the package's version and that its signature is trusted - a self-signed
+1. **Pick the release notes** from `docs/release-notes` - the file's name is the version,
+   its notes are the release's. Versions without an MSIX release come first, marked
+   *next MSIX release*.
+2. **Pick the commit** from the 20 newest on GitHub, as for **release (GitHub)**.
+3. It stops when the tag `msix-vX.Y.Z` is on another commit, GitHub has that release
+   already, or the commit isn't on GitHub.
+4. In a temporary worktree of that commit it runs the fast tests and builds the package
+   with that commit's `build.ps1`, signed with your certificate - a commit older than
+   the package (no `src\DnnManager.Package`) is refused: its DNN Manager would try to
+   update itself inside the package.
+5. It checks the package's version and that its signature is trusted - a self-signed
    certificate is refused, since it reads as valid only on a PC that trusts it. The
-   package lands in `publish\vX.Y.Z\`.
-4. **After you confirm**, it uploads the package to the release (replacing one the
-   release has) and checks its size. Answer *N* and nothing is uploaded.
+   package lands in `publish\msix-vX.Y.Z\`.
+6. **After you confirm**, it tags the commit, pushes the tag, creates the release as a
+   draft with the notes, uploads the package, checks its size and publishes it - not as
+   the latest. Answer *N* and nothing is published.
 
 The certificate: `-SigningThumbprint <thumbprint>`, or the environment variable
 `DNNMANAGER_SIGNING_THUMBPRINT` - a code-signing certificate Windows trusts, in
@@ -274,8 +282,9 @@ it once for your account:
 [Environment]::SetEnvironmentVariable('DNNMANAGER_SIGNING_THUMBPRINT', '<thumbprint>', 'User')   # restart VS Code after
 ```
 
-Outside VS Code, `.github\scripts\publish-msix.ps1` asks for the release in the
-terminal; `-Tag v1.8.0` answers it.
+Outside VS Code, `.github\scripts\publish-msix.ps1` asks the same two questions in the
+terminal; `-NotesFile .docs\release-notes\v1.8.0.md -Commit <hash>` answers them and
+`-SkipTests` skips the fast tests.
 
 ### Test it
 

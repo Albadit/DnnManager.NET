@@ -169,9 +169,10 @@
             }
         },
         {
-            // Pick a release on GitHub (made by "release (GitHub)"); builds its MSIX package from the release's tag, signed with
-            // the certificate in DNNMANAGER_SIGNING_THUMBPRINT, and after you confirm uploads it to that release.
-            // See .docs/releasing.md, The MSIX package.
+            // The MSIX package as a GitHub release of its own (tag msix-vX.Y.Z, never the latest release - the exe release and
+            // DNN Manager's own update don't see it). Pick .docs/release-notes/vX.Y.Z.md and a commit on GitHub; builds the
+            // package signed with the certificate in DNNMANAGER_SIGNING_THUMBPRINT and, after you confirm, tags and publishes
+            // it. See .docs/releasing.md, The MSIX package.
             "label": "release: MSIX (GitHub)",
             "type": "process",
             "command": "powershell",
@@ -181,8 +182,10 @@
                 "Bypass",
                 "-File",
                 "${workspaceFolder}/.github/scripts/publish-msix.ps1",
-                "-Tag",
-                "${input:msixRelease}"
+                "-NotesFile",
+                "${input:msixNotes}",
+                "-Commit",
+                "${input:releaseCommit}"
             ],
             "group": "build",
             "problemMatcher": [],
@@ -245,15 +248,15 @@
             }
         },
         {
-            "id": "msixRelease",
+            "id": "msixNotes",
             "type": "command",
             "command": "shellCommand.execute",
             "args": {
                 "command": "powershell",
-                "commandArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/.github/scripts/publish-msix.ps1", "-List", "releases"],
+                "commandArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/.github/scripts/publish-msix.ps1", "-List", "notes"],
                 "cwd": "${workspaceFolder}",
                 "fieldSeparator": "||",
-                "description": "Release to add the MSIX package to (newest first)",
+                "description": "Version to release as an MSIX package - its release notes are the release's",
                 "warnOnStderr": false
             }
         }

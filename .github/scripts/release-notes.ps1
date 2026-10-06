@@ -15,7 +15,8 @@
 param(
     [Parameter(Mandatory)] [string]$Version,
     [Parameter(Mandatory)] [string]$OutFile,
-    # The tag being released; defaults to v<Version>. HEAD is used when the tag doesn't exist yet.
+    # The tag being released (its files are what the notes link to); defaults to v<Version> - the MSIX release's is
+    # msix-v<Version>. HEAD is used when the tag doesn't exist yet.
     [string]$Tag,
     [string]$Repository = $env:GITHUB_REPOSITORY
 )
@@ -30,7 +31,7 @@ $repoUrl = "https://github.com/$Repository"
 
 # Notes already written in .docs\release-notes are the release's notes as they are - only their relative links
 # become links to the tag's files, since the GitHub release page isn't in the repository.
-$saved = Join-Path $root ".docs\release-notes\$Tag.md"
+$saved = Join-Path $root ".docs\release-notes\v$Version.md"
 $target = [IO.Path]::GetFullPath($OutFile)
 if ((Test-Path $saved) -and [IO.Path]::GetFullPath($saved) -ne $target) {
     $notes = [IO.File]::ReadAllText($saved)
@@ -42,7 +43,7 @@ if ((Test-Path $saved) -and [IO.Path]::GetFullPath($saved) -ne $target) {
             "]($repoUrl/blob/$Tag/$relative$anchor)"
         })
     [IO.File]::WriteAllText($target, $notes, [Text.UTF8Encoding]::new($false))
-    Write-Host "Release notes for $Tag (.docs\release-notes\$Tag.md) -> $OutFile"
+    Write-Host "Release notes for $Tag (.docs\release-notes\v$Version.md) -> $OutFile"
     return
 }
 
