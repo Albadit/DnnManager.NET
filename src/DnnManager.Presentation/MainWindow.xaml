@@ -381,9 +381,9 @@
             </Border>
         </Grid>
 
-        <!-- Toasts float over the bottom-right, above the status bar - over Settings too: the running operation
-             (OperationToast), and under it a message (Services/Toast). -->
-        <StackPanel Grid.Row="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,16" Panel.ZIndex="60">
+        <!-- Toasts float over the page's bottom-right - above the bottom panel, not over its Output (PlaceToasts) - and
+             over Settings too: the running operation (OperationToast), and under it a message (Services/Toast). -->
+        <StackPanel x:Name="Toasts" Grid.Row="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,16" Panel.ZIndex="60">
             <c:OperationToast x:Name="OperationToast" HorizontalAlignment="Right" />
             <c:ToastView x:Name="ToastHost" HorizontalAlignment="Right" />
         </StackPanel>

@@ -114,7 +114,16 @@ and then, because a notification can be missed.
   made again while its project exists, and only the properties of the changed
   part are announced - so one site stopping redraws that row's state, and the
   check boxes, search, sorting, scroll position and open details are not
-  touched. It also runs the rows' actions: the row says *Starting…* at once,
+  touched. The table makes only the rows on screen and reuses them as it
+  scrolls (virtualized, scrolled by pixels), and the search looks again only at
+  the rows it shows or hides (`ProjectRow.Refilter`) - a refresh of the view
+  would make every row on screen again at every key. Its UI Automation tree is
+  lean ([`ProjectsTable`](../src/DnnManager.Presentation/Pages/Projects/ProjectsTable.cs)):
+  a row is one element named after its project, holding only what can be
+  operated - when a program on the PC listens to UI Automation (Windows' text
+  input, PowerToys, screen readers), WPF tells it about every element that
+  changes, and the DataGrid's own tree (an element for every cell, text and
+  resize grip) made a sort or the figures changing cost up to half a second. It also runs the rows' actions: the row says *Starting…* at once,
   the use case runs, the sites are read again and the row shows what IIS
   reports - the new state, or the old one and a toast when it failed.
 - Both are in one process, so the "connection" between them is a .NET event
@@ -153,14 +162,14 @@ what Windows has no notification for is read on a timer, each at its own pace:
 |---|---|
 | IIS started or stopped | Pushed: the service control manager reports the web service's status. |
 | A site or app pool added, removed, started or stopped | Pushed: `applicationHost.config` being written, and what IIS writes to the System event log. Reconciled every 5 s (30 s while Projects isn't on screen) - IIS has no notification for a site's running state. |
-| A worker process started or ended | The set of `w3wp` processes, every 2 s ¹ - a change reads the sites again. |
+| A worker process started or ended | The set of `w3wp` processes, every 2 s ¹ - the IDs of all processes, and the program of an ID only when it is new (`WorkerProcessList`; a snapshot of every process took 6 ms) - a change reads the sites again. |
 | A folder in the projects folder made, removed or renamed | Pushed: the projects folder is watched - the sites' folders are read again (DNN version, database). |
 | What a site's folder holds (DNN version, web.config database) | When the site turns up or serves another folder, and every 30 s ¹. |
-| Worker-process CPU, memory and disk I/O | Every 2 s ¹. |
+| Worker-process CPU, memory and disk I/O | Every 2 s ¹ - each worker process opened once and its handle kept until it ends (`ProcessSampler`). |
 | HTTP traffic per site | Every 5 s ¹, and only while that column is shown. |
-| The SQL Server and its databases | Every 10 s ¹. |
+| The SQL Server and its databases | Every 10 s ¹ - once per server and login; a server that doesn't answer is asked once more, not once per site (`SiteDatabaseChecks`). |
 | Each project's database (`web.config`) and DNN version | Every 30 s ¹, and after an operation. |
-| Folder sizes | Only while the table's *Size* column is shown: every 10 min ¹, and after an operation (one that ends while the window is minimized: once it is restored ²). A site's Details measure that site's folder when they open. |
+| Folder sizes | Only while the table's *Size* column is shown: every 10 min ¹, a new site when it turns up, and after an operation on a site that site's folder (one that ends while the window is minimized: once it is restored ²) - not every folder: a walk of all of them is tens of thousands of files each. A site's Details measure that site's folder when they open. |
 | This PC's memory and CPU; its disk | Every 2 s; every 10 s - not while the window is minimized ². |
 | The PC woke up | Pushed (power event) - or a timer tick that comes half a minute late. Everything is read again. |
 
@@ -330,6 +339,7 @@ DnnManager.NET/
     │   ├── Startup/             ← the "start at sign-in" scheduled task
     │   ├── Monitoring/          ← ServerStateMonitor: the live state of the projects, IIS and this PC - what tells it to look (ChangeSources) and what it measures with
     │   ├── KeepWarm/            ← KeepWarmService (one loop, a channel of messages) with its rules, plan and requester
+    │   ├── Hosts/               ← HostsFileService: the sites' host names in the hosts file, following the monitor
     │   ├── Diagnostics/         ← what a site's Details show: web.config, folders and permissions, bin assemblies, its database, this PC
     │   ├── SiteLogs/            ← a site's logs (DNN, IIS, event logs) and following one as it is written
     │   └── DependencyInjection.cs
@@ -375,6 +385,7 @@ DnnManager.NET/
 | **SQL** | The local container is checked by logging in with `Microsoft.Data.SqlClient` and driven with `sqlcmd` via `docker exec`; remote / Azure SQL uses `Microsoft.Data.SqlClient` and SqlPackage (`.bacpac`). |
 | **Centralised error handling** | `OperationRunner` catches per-action exceptions and reports them in the activity log; `App` shows anything escaping a click handler; `Program.cs` catches fatal errors. |
 | **Admin enforcement** | `AdminElevation` relaunches the app elevated (UAC prompt) when it isn't. |
+| **Host names in the hosts file, not a DNS server of its own** | `*.dnndev.me` resolves through public DNS, so without internet the browser can't find a local site. DNN Manager writes the sites' host names into Windows' hosts file ([`HostsFileService`](../src/DnnManager.Infrastructure/Hosts/HostsFileService.cs), following the monitor) instead of running a resolver: nothing runs when DNN Manager is closed or after a restart of the PC, normal DNS isn't touched, and browsers with a resolver of their own read the hosts file too. The cost: no wildcards, so each name is written - which the monitor's view of the bindings makes easy. |
 | **No hardcoded values** | Container name, SA password, port, GitHub APIs, IIS feature list, hostname suffix, base directory, theme - all in the settings. |
 
 ## Control styles
@@ -447,6 +458,7 @@ written inline anywhere else.
 | Installer | [`src/DnnManager.Installer/DnnManager.iss`](../src/DnnManager.Installer/DnnManager.iss), [`src/DnnManager.Installer/build.ps1`](../src/DnnManager.Installer/build.ps1) |
 | Bottom panel (Output, Logs, Terminal; search) | [`Controls/TerminalPanel.xaml`](../src/DnnManager.Presentation/Controls/TerminalPanel.xaml.cs), [`Terminal/`](../src/DnnManager.Presentation/Terminal/) (`TerminalBuffer`, `TerminalView`, `TerminalSession`), [`Services/TerminalService.cs`](../src/DnnManager.Presentation/Services/TerminalService.cs), [`Terminal/PseudoConsole.cs`](../src/DnnManager.Infrastructure/Terminal/PseudoConsole.cs) |
 | Keep warm (the flame) | [`KeepWarm/KeepWarmService.cs`](../src/DnnManager.Infrastructure/KeepWarm/KeepWarmService.cs), [`KeepWarm/KeepWarmRules.cs`](../src/DnnManager.Infrastructure/KeepWarm/KeepWarmRules.cs) (why sites go cold, the numbers), [`KeepWarm/KeepWarmPlan.cs`](../src/DnnManager.Infrastructure/KeepWarm/KeepWarmPlan.cs), [`KeepWarm/KeepWarmRequester.cs`](../src/DnnManager.Infrastructure/KeepWarm/KeepWarmRequester.cs), [`Projects/KeepWarmRecords.cs`](../src/DnnManager.Infrastructure/Projects/KeepWarmRecords.cs), [`Services/ServerStore.cs`](../src/DnnManager.Presentation/Services/ServerStore.cs) |
+| Host names in the hosts file (sites open without internet, custom domains) | [`Hosts/HostsFileService.cs`](../src/DnnManager.Infrastructure/Hosts/HostsFileService.cs) (why, when it writes), [`Hosts/HostsFile.cs`](../src/DnnManager.Infrastructure/Hosts/HostsFile.cs) (which names, the block in the file), [`Services/ServerStore.cs`](../src/DnnManager.Presentation/Services/ServerStore.cs) (starts it, shows its warning) |
 | Site tools: clear cache, the Logs tab (a site's logs and DNN Manager's own) | [`UseCases/ClearSiteCacheUseCase.cs`](../src/DnnManager.Application/UseCases/ClearSiteCacheUseCase.cs), [`SiteLogs/SiteLogs.cs`](../src/DnnManager.Infrastructure/SiteLogs/SiteLogs.cs), [`Controls/LogsView.xaml`](../src/DnnManager.Presentation/Controls/LogsView.xaml.cs), [`Controls/PanelSearch.cs`](../src/DnnManager.Presentation/Controls/PanelSearch.cs) |
 | Start at sign-in | [`Startup/StartupTask.cs`](../src/DnnManager.Infrastructure/Startup/StartupTask.cs) |
 | The workspace kept between starts (window, page, Projects table, Details, form drafts, panel) - see [The workspace kept between starts](#the-workspace-kept-between-starts) | [`State/StateStore.cs`](../src/DnnManager.Infrastructure/State/StateStore.cs), [`Services/WorkspaceService.cs`](../src/DnnManager.Presentation/Services/WorkspaceService.cs), [`Services/WorkspaceStates.cs`](../src/DnnManager.Presentation/Services/WorkspaceStates.cs) (the states), [`Services/FormDraft.cs`](../src/DnnManager.Presentation/Services/FormDraft.cs), `MainWindow` (*The workspace, kept between starts*), `CaptureTable`/`RestoreAsync` in [`ProjectsPage`](../src/DnnManager.Presentation/Pages/ProjectsPage.xaml.cs), `CaptureLogs`/`RestoreLogs` in [`Controls/TerminalPanel.xaml`](../src/DnnManager.Presentation/Controls/TerminalPanel.xaml.cs) |

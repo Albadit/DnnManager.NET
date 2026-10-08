@@ -430,6 +430,12 @@ public sealed class AppearanceSettings
     public double FontSize { get; set; } = 13;
 
     /// <summary>
+    /// The panel and the sidebar slide, toasts and menus fade, switches slide, and what is changing pulses. Off,
+    /// everything changes at once - as it does while Windows' animation effects are off. Set in Settings - General.
+    /// </summary>
+    public bool Animations { get; set; } = true;
+
+    /// <summary>
     /// The columns the Projects table starts with (and its Columns menu's "Default" goes back to) - what is looked at
     /// every day while working on DNN sites: the site's address (a click opens it), which DNN version it runs, its
     /// database and whether that is there, what its worker process costs, the process ID to attach a debugger to, and

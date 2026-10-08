@@ -17,6 +17,13 @@ coding rules that keep it that way are in
 - **What doesn't:** web addresses, folders and files it opens are handed to
   Explorer ([`Shell.cs`](../src/DnnManager.Presentation/Shell.cs)), so the
   browser runs as you.
+- **The hosts file** (`C:\Windows\System32\drivers\etc\hosts`): DNN Manager
+  keeps one block of it - the host names of the IIS sites, to `127.0.0.1` or
+  the address their binding listens on - and leaves every other line as it is
+  ([`Hosts/HostsFile.cs`](../src/DnnManager.Infrastructure/Hosts/HostsFile.cs)).
+  A site bound to a real domain therefore opens locally on this PC instead of
+  the live site - see
+  [Host names and working offline](user-guide.md#host-names-and-working-offline).
 - **Start at sign-in** is a scheduled task that runs `DnnManager.exe` with the
   highest rights at sign-in, without a UAC prompt
   ([`StartupTask.cs`](../src/DnnManager.Infrastructure/Startup/StartupTask.cs)).

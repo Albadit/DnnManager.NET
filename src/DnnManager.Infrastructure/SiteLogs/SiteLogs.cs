@@ -1,6 +1,7 @@
 using System.Diagnostics.Eventing.Reader;
 using System.Text;
 using DnnManager.Application.Abstractions;
+using DnnManager.Infrastructure.Hosts;
 using DnnManager.Infrastructure.Settings;
 using Microsoft.Extensions.Logging;
 
@@ -17,14 +18,20 @@ public sealed record EventLogFilter(string LogName, IReadOnlyList<string> Provid
 /// <param name="Description">Where it is: the file's path with its size and time, or the event log and its filter.</param>
 public sealed record SiteLogSource(string Group, string Title, string Description, string? FilePath, EventLogFilter? Events)
 {
+    /// <summary>
+    /// A file that is rewritten rather than added to (the hosts file): shown whole, and again whenever it changes -
+    /// not its end and what is appended.
+    /// </summary>
+    public bool Whole { get; init; }
+
     /// <summary>Opens it: its newest lines, then new ones as they are written.</summary>
-    public ILogTail Open() => FilePath is not null ? new FileLogTail(FilePath) : new EventLogTail(Events!);
+    public ILogTail Open() => FilePath is null ? new EventLogTail(Events!) : Whole ? new WholeFileTail(FilePath) : new FileLogTail(FilePath);
 }
 
 /// <summary>
 /// Finds a website's logs: DNN's own (Portals\_default\Logs), IIS's request logs for the site, HTTP.sys's errors,
 /// and the Windows event log entries about it (ASP.NET errors, its app pool, worker process crashes) - and DNN
-/// Manager's own log (<see cref="ForApp"/>).
+/// Manager's own log and the hosts file it keeps the sites' host names in (<see cref="ForApp"/>).
 /// </summary>
 public sealed class SiteLogCatalog(IIisManager iis, AppDataPaths paths, ILogger<SiteLogCatalog> log)
 {
@@ -37,23 +44,40 @@ public sealed class SiteLogCatalog(IIisManager iis, AppDataPaths paths, ILogger<
     private readonly AppDataPaths _paths = paths;
     private readonly ILogger<SiteLogCatalog> _log = log;
 
-    /// <summary>DNN Manager's own log - a file a day, <c>logs\dnnmanager-yyyyMMdd.log</c> - newest first, named by its day.</summary>
+    /// <summary>The hosts file in DNN Manager's list: a section of its own, first.</summary>
+    public const string HostsGroup = "Windows", HostsTitle = "Hosts file";
+
+    /// <summary>
+    /// One of DNN Manager's own entries - its logs or the hosts file - not a site's. A site's "Windows" section has no
+    /// "Hosts file".
+    /// </summary>
+    public static bool IsAppLog(string? group, string? title) => group == AppGroup || group == HostsGroup && title == HostsTitle;
+
+    /// <summary>The hosts file (tests give one of their own).</summary>
+    internal string HostsFilePath { get; init; } = HostsFile.DefaultPath;
+
+    /// <summary>
+    /// The hosts file, with the sites' host names DNN Manager keeps in it (<see cref="HostsFileService"/>), in a section
+    /// of its own; then DNN Manager's own log - a file a day, <c>logs\dnnmanager-yyyyMMdd.log</c> - newest first, named
+    /// by its day.
+    /// </summary>
     public IReadOnlyList<SiteLogSource> ForApp()
     {
+        var logs = new List<SiteLogSource>();
+        if (File.Exists(HostsFilePath)) logs.Add(FileSource(HostsGroup, HostsTitle, HostsFilePath) with { Whole = true });
         try
         {
-            return Newest(_paths.LogsDirectory, "dnnmanager-*.log")
+            logs.AddRange(Newest(_paths.LogsDirectory, "dnnmanager-*.log")
                 .Select(file => (File: file, Day: Path.GetFileNameWithoutExtension(file)["dnnmanager-".Length..]))
                 .Where(f => DateOnly.TryParseExact(f.Day, "yyyyMMdd", out _))
                 .Take(FilesPerKind)
-                .Select(f => FileSource(AppGroup, $"DNN Manager log - {DateOnly.ParseExact(f.Day, "yyyyMMdd"):yyyy-MM-dd}", f.File))
-                .ToList();
+                .Select(f => FileSource(AppGroup, $"DNN Manager log - {DateOnly.ParseExact(f.Day, "yyyyMMdd"):yyyy-MM-dd}", f.File)));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _log.LogWarning(ex, "Could not list DNN Manager's logs");
-            return [];
         }
+        return logs;
     }
 
     /// <summary>The logs of site <paramref name="siteName"/> (ID <paramref name="siteId"/>), newest files first within each kind.</summary>
@@ -113,6 +137,91 @@ public sealed class SiteLogCatalog(IIisManager iis, AppDataPaths paths, ILogger<
 }
 
 /// <summary>
+/// A small file that is rewritten rather than added to - the hosts file: read whole, then looked at every
+/// <see cref="PollEvery"/>; when its size or time differ it is read whole again, after <see cref="ILogTail.Replaced"/>
+/// and a line saying when. The lines asked for at <see cref="Start"/> don't matter: it is all shown.
+/// </summary>
+internal sealed class WholeFileTail(string path) : ILogTail
+{
+    private static readonly TimeSpan PollEvery = TimeSpan.FromSeconds(2);
+
+    private readonly string _path = path;
+    private readonly object _lock = new();
+    private Timer? _timer;
+    private (long Length, DateTime Written) _seen;
+    private int _busy;
+    private bool _disposed, _paused;
+
+    public event Action<IReadOnlyList<string>>? Lines;
+    public event Action? Replaced;
+
+    public bool Paused
+    {
+        get { lock (_lock) return _paused; }
+        set
+        {
+            lock (_lock)
+            {
+                if (_paused == value) return;
+                _paused = value;
+                _timer?.Change(value ? Timeout.InfiniteTimeSpan : TimeSpan.Zero, value ? Timeout.InfiniteTimeSpan : PollEvery);
+            }
+        }
+    }
+
+    public void Start(int lines) => Task.Run(() =>
+    {
+        Read(changed: false);
+        lock (_lock)
+        {
+            var every = _paused ? Timeout.InfiniteTimeSpan : PollEvery;
+            if (!_disposed) _timer = new Timer(_ => Read(changed: true), null, every, every);
+        }
+    });
+
+    private void Read(bool changed)
+    {
+        if (Interlocked.Exchange(ref _busy, 1) != 0) return;
+        try
+        {
+            var info = new FileInfo(_path);
+            var now = (info.Length, info.LastWriteTimeUtc);
+            if (changed && now == _seen) return;
+            using var stream = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+            var lines = reader.ReadToEnd().Split('\n').Select(l => l.TrimEnd('\r')).ToList();
+            if (lines.Count > 0 && lines[^1].Length == 0) lines.RemoveAt(lines.Count - 1);
+            _seen = now;
+            if (changed)
+            {
+                Replaced?.Invoke();
+                lines.Insert(0, $"--- changed at {info.LastWriteTime:HH:mm:ss}; read again ---");
+            }
+            Lines?.Invoke(lines);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Being written for a moment: looked at again at the next poll. Said only when it can't be read at all.
+            if (!changed) Lines?.Invoke([$"Can't read {_path}: {ex.Message}"]);
+        }
+        finally
+        {
+            Volatile.Write(ref _busy, 0);
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (_lock)
+        {
+            _disposed = true;
+            _timer?.Dispose();
+            _timer = null;
+        }
+    }
+}
+
+/// <summary>
 /// A log being shown: its newest lines first (<see cref="Start"/>), then each new batch of lines as it is written -
 /// raised on a background thread. A large file is never read whole: only its end, then what is added.
 /// </summary>
@@ -120,6 +229,9 @@ public interface ILogTail : IDisposable
 {
     /// <summary>New lines, in order.</summary>
     event Action<IReadOnlyList<string>>? Lines;
+
+    /// <summary>What was shown is out of date - the file was rewritten: clear it; its new lines follow.</summary>
+    event Action? Replaced;
 
     /// <summary>Starts reading: the last <paramref name="lines"/> lines, then following.</summary>
     void Start(int lines);
@@ -147,6 +259,9 @@ internal sealed class FileLogTail(string path) : ILogTail
     private bool _disposed, _paused;
 
     public event Action<IReadOnlyList<string>>? Lines;
+
+    // A log is added to: the end that was shown stays true.
+    public event Action? Replaced { add { } remove { } }
 
     public bool Paused
     {
@@ -279,6 +394,9 @@ internal sealed class EventLogTail(EventLogFilter filter) : ILogTail
     private const int MaxScanned = 5000;
 
     public event Action<IReadOnlyList<string>>? Lines;
+
+    // Entries are only added.
+    public event Action? Replaced { add { } remove { } }
 
     // Windows pushes each new entry - there is no polling to pause.
     public bool Paused { get; set; }

@@ -128,6 +128,10 @@ public sealed class SetupProjectUseCase(
             var iisAvailable = _iis.IsAvailable();
             if (iisAvailable)
             {
+                // Before anything is downloaded: a second site with the same address wouldn't start, and DNN's installer
+                // would talk to the first one. New project says so as it is typed; this is for what changed since.
+                if (IisHostNames.SiteUsing(_iis.GetSiteRuntimes() ?? new Dictionary<string, IisSiteRuntime>(), hostName, port, project.Name) is { } other)
+                    return Result.Fail($"{url} is already the address of the IIS site '{other}' - choose another host name or port.");
                 await _prereq.EnsureIisFeaturesAsync(reporter, _prompt, ct);
             }
             else if (automatic)

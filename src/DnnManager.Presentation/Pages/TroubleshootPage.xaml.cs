@@ -170,6 +170,7 @@ public partial class TroubleshootPage : UserControl
         _live.Apply(settings);
         ThemeManager.Initialize(settings.Appearance.Theme);
         ThemeManager.ApplyLayout(settings.Appearance.UiScale, settings.Appearance.FontSize);
+        Motion.Apply(settings.Appearance.Animations);
         _terminal.Apply(settings.Terminal);
         ResetSettingsButton.IsEnabled = !_runner.IsBusy;
 

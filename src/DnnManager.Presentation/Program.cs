@@ -69,6 +69,7 @@ internal static class Program
         var startupNotices = loaded.Notices.ToList();
         ThemeManager.Initialize(loaded.Settings.Appearance.Theme);
         ThemeManager.ApplyLayout(loaded.Settings.Appearance.UiScale, loaded.Settings.Appearance.FontSize);
+        Motion.Apply(loaded.Settings.Appearance.Animations);
 
         // No default configuration sources: the settings come from the store above, with only the
         // DNNMANAGER_* environment variables on top.

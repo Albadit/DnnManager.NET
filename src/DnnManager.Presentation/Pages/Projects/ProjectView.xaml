@@ -111,6 +111,7 @@
                     <MultiDataTrigger.Conditions>
                         <Condition Binding="{Binding ShowProgress}" Value="True" />
                         <Condition Binding="{Binding (s:EfficiencyMode.IsSaving), RelativeSource={RelativeSource Self}}" Value="False" />
+                        <Condition Binding="{Binding (s:Motion.Off), RelativeSource={RelativeSource Self}}" Value="False" />
                     </MultiDataTrigger.Conditions>
                     <Setter Property="IsIndeterminate" Value="True" />
                 </MultiDataTrigger>

@@ -1,6 +1,7 @@
 <ResourceDictionary x:Class="DnnManager.Presentation.Themes.SelectionStyles"
                     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:s="clr-namespace:DnnManager.Presentation.Services">
     <!-- On / off controls: <RadioButton /> and <CheckBox /> get these without a Style, and
          Style="{StaticResource ToggleSwitch}" / TableCheckBox on a CheckBox for the others. The stock Windows ones are
          white whatever the theme, so they get their own - the input colours, and the accent when chosen. The text starts
@@ -148,6 +149,10 @@
             <Setter.Value>
                 <ControlTemplate TargetType="CheckBox">
                     <Grid Background="Transparent">
+                        <!-- The knob slides - not while animations are off (Motion). -->
+                        <VisualStateManager.CustomVisualStateManager>
+                            <s:MotionStates />
+                        </VisualStateManager.CustomVisualStateManager>
                         <VisualStateManager.VisualStateGroups>
                             <VisualStateGroup x:Name="CheckStates">
                                 <VisualStateGroup.Transitions>

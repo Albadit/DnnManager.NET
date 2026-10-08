@@ -154,6 +154,8 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
     private int _sitesFailures;
     // The worker processes seen at the last look - a different set means a site's workers changed.
     private HashSet<int>? _workers;
+    // The w3wp.exe processes, asked every two seconds - cheaply (WorkerProcessList).
+    private readonly WorkerProcessList _workerList = new();
     private volatile bool _active, _trafficWanted, _saving;
     private int _started, _resuming;
     // The loop's timer, once it runs - its period changes with SavingResources (under _tickLock).
@@ -300,9 +302,11 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
 
     /// <summary>
     /// Reads the sites and the project folders again now and completes when both have been published; the databases
-    /// and the folder sizes follow. After an operation that may have added, removed or changed a project.
+    /// follow, and the sizes of <paramref name="measure"/>'s folders. After an operation that may have added, removed
+    /// or changed a project. Only the folders named are walked again - a walk of every site is tens of thousands of
+    /// files each (seconds of disk); a new site is measured when it turns up, and the rest by the timer.
     /// </summary>
-    public async Task SyncAsync()
+    public async Task SyncAsync(IReadOnlyCollection<string>? measure = null)
     {
         // The sites first, so a project that turns up is published with its site.
         await SyncSitesAsync();
@@ -310,7 +314,7 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
         await _projectsJob.RunNowAsync();
         Done(ref _sqlAt);
         _sqlJob.Request();
-        QueueAllSizes();
+        if (measure is { Count: > 0 }) QueueSizes(measure);
     }
 
     /// <summary>
@@ -844,15 +848,15 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
     {
         List<(string Name, string Directory)> sites;
         lock (_gate) sites = _projects.Values.Select(p => (p.Name, p.Directory)).ToList();
-        var read = sites.ToDictionary(s => s.Name, s => ReadFolder(s.Name, s.Directory), StringComparer.OrdinalIgnoreCase);
+        var read = sites.ToDictionary(s => s.Name, s => (s.Directory, Folder: ReadFolder(s.Name, s.Directory)), StringComparer.OrdinalIgnoreCase);
 
         lock (_gate)
         {
             var events = new List<MonitorEvent>();
-            foreach (var (name, folder) in read)
+            foreach (var (name, (directory, folder)) in read)
             {
                 // Gone, or moved to another folder meanwhile (the sites read has read that one).
-                if (!_projects.TryGetValue(name, out var known) || known.Directory != sites.First(s => s.Name == name).Directory) continue;
+                if (!_projects.TryGetValue(name, out var known) || known.Directory != directory) continue;
                 var check = TrackConnection(name, folder.Connection);
                 var next = WithSql(known with
                 {
@@ -912,6 +916,15 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
         lock (_gate)
             foreach (var name in _projects.Keys) _sizesWanted.Add(name);
         Done(ref _sizesAt);
+        if (!_saving && _sizesShown) _sizesJob.Request();
+    }
+
+    /// <summary>The folders of <paramref name="names"/> are to be walked again - as <see cref="QueueAllSizes"/>, only these.</summary>
+    private void QueueSizes(IEnumerable<string> names)
+    {
+        lock (_gate)
+            foreach (var name in names)
+                if (_projects.ContainsKey(name)) _sizesWanted.Add(name);
         if (!_saving && _sizesShown) _sizesJob.Request();
     }
 
@@ -993,12 +1006,7 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
 
         // IIS starts a worker on a site's first request and ends it when idle, without telling anyone: a different
         // set of w3wp processes means the sites have to be read again to see whose they are.
-        var workers = new HashSet<int>();
-        foreach (var process in Process.GetProcessesByName("w3wp"))
-        {
-            workers.Add(process.Id);
-            process.Dispose();
-        }
+        var workers = _workerList.Read();
         if (_workers is not null && !_workers.SetEquals(workers)) _sitesJob.Request();
         _workers = workers;
 

@@ -72,6 +72,8 @@ public partial class ProjectsPage : UserControl
                 live.LiveFilteringProperties.Add(nameof(ProjectRow.IsDnn));
                 // For "Only show running".
                 live.LiveFilteringProperties.Add(nameof(ProjectRow.State));
+                // The search and "Only show running" changed for this row (Refilter).
+                live.LiveFilteringProperties.Add(nameof(ProjectRow.FilterVersion));
                 live.IsLiveFiltering = true;
             }
             // No properties named: the ones the table is sorted by at the time.
@@ -216,9 +218,17 @@ public partial class ProjectsPage : UserControl
     /// <summary>The checked rows the search shows - what the bulk actions act on.</summary>
     private List<ProjectRow> Checked => Shown.Where(r => r.IsChecked).ToList();
 
-    private void Search_TextChanged(object sender, TextChangedEventArgs e)
+    private void Search_TextChanged(object sender, TextChangedEventArgs e) => Refilter();
+
+    /// <summary>
+    /// The search or "Only show running" changed: only the rows that now show or hide are looked at again - a
+    /// Refresh would make every row on screen again, a quarter of a second for 18 sites at every key.
+    /// </summary>
+    private void Refilter()
     {
-        _view.Refresh();
+        var shown = _view.Cast<ProjectRow>().ToHashSet();
+        foreach (var row in _store.Projects)
+            if (Passes(row) != shown.Contains(row)) row.Refilter();
         UpdateSelection();
     }
 
@@ -228,9 +238,8 @@ public partial class ProjectsPage : UserControl
 
     private async void OnlyRunning_Click(object sender, RoutedEventArgs e)
     {
-        await Task.Delay(SwitchSlide);
-        _view.Refresh();
-        UpdateSelection();
+        if (Motion.Enabled) await Task.Delay(SwitchSlide);
+        Refilter();
     }
 
     private void Search_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -246,6 +255,28 @@ public partial class ProjectsPage : UserControl
 
     // A row container is made (or reused for another row) - give it that row's details state.
     private void Grid_LoadingRow(object? sender, DataGridRowEventArgs e) => ShowDetails(e.Row);
+
+    private static double _detailsWidth = 800;
+
+    /// <summary>
+    /// The visible table's width - what an expanded row's facts wrap at. Static, and bound as such: the details of a
+    /// row that is reused (rows are virtualized) are measured before they are back under the table's ScrollViewer, so a
+    /// binding up to it comes too late - unbound, every fact lies on one line and the table stays that wide (scrolled
+    /// sideways, Actions drawn over Site). There is one Projects page.
+    /// </summary>
+    public static double DetailsWidth
+    {
+        get => _detailsWidth;
+        private set
+        {
+            if (Math.Abs(_detailsWidth - value) < 0.5) return;
+            _detailsWidth = value;
+            StaticPropertyChanged?.Invoke(null, new PropertyChangedEventArgs(nameof(DetailsWidth)));
+        }
+    }
+
+    /// <summary>WPF's change notification for a static property (<see cref="DetailsWidth"/>).</summary>
+    public static event EventHandler<PropertyChangedEventArgs>? StaticPropertyChanged;
 
     // Select all when not every shown row is checked, else none.
     private void SelectAll_Click(object sender, RoutedEventArgs e)
@@ -662,8 +693,12 @@ public partial class ProjectsPage : UserControl
         var direction = descending ? ListSortDirection.Descending : ListSortDirection.Ascending;
         foreach (var other in ProjectsGrid.Columns) other.SortDirection = null;
         column.SortDirection = direction;
-        _view.SortDescriptions.Clear();
-        _view.SortDescriptions.Add(new SortDescription(property, direction));
+        // Sorted once, not again for the Clear.
+        using (_view.DeferRefresh())
+        {
+            _view.SortDescriptions.Clear();
+            _view.SortDescriptions.Add(new SortDescription(property, direction));
+        }
     }
 
     private void Grid_Sorting(object sender, DataGridSortingEventArgs e) =>
@@ -682,6 +717,8 @@ public partial class ProjectsPage : UserControl
         var others = ProjectsGrid.Columns.Where(c => c != FillerColumn && c.Visibility == Visibility.Visible).Sum(c => c.ActualWidth);
         var width = Math.Max(0, Math.Floor(viewer.ViewportWidth - others));
         if (Math.Abs(FillerColumn.Width.Value - width) >= 1) FillerColumn.Width = new DataGridLength(width);
+        // The window or the panel changed the visible width: the expanded rows' details follow.
+        DetailsWidth = viewer.ViewportWidth;
         UpdateActionsShift(viewer);
     }
 

@@ -5,6 +5,7 @@ using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Application.UseCases;
 using DnnManager.Domain;
+using DnnManager.Infrastructure.Hosts;
 using DnnManager.Infrastructure.KeepWarm;
 using DnnManager.Infrastructure.Monitoring;
 using DnnManager.Presentation.Pages.Projects;
@@ -40,6 +41,7 @@ public sealed class ServerStore
 
     private readonly ServerStateMonitor _monitor;
     private readonly KeepWarmService _keepWarm;
+    private readonly HostsFileService _hosts;
     private readonly AppOptions _options;
     private readonly OperationRunner _runner;
     private readonly ActivityLog _log;
@@ -57,10 +59,10 @@ public sealed class ServerStore
     private readonly HashSet<string> _explained = new(StringComparer.OrdinalIgnoreCase);
     private string? _runtimePending;
 
-    public ServerStore(ServerStateMonitor monitor, KeepWarmService keepWarm, OperationRunner runner,
+    public ServerStore(ServerStateMonitor monitor, KeepWarmService keepWarm, HostsFileService hosts, OperationRunner runner,
         ActivityLog log, IOptions<AppOptions> options, ILogger<ServerStore> logger)
     {
-        _monitor = monitor; _keepWarm = keepWarm; _runner = runner; _log = log; _logger = logger;
+        _monitor = monitor; _keepWarm = keepWarm; _hosts = hosts; _runner = runner; _log = log; _logger = logger;
         _options = options.Value;
         _runner.PropertyChanged += OnRunnerChanged;
         // Other settings (the projects folder) change what the sites' folders are read as: the app's own doing.
@@ -116,8 +118,15 @@ public sealed class ServerStore
         });
         // Background activity: the Output tab shows each site's keep warm on its own, not among the operations.
         _keepWarm.Noticed += notice => _log.Background(notice.Message, notice.IsWarning);
-        // Before the monitor: it sees the first snapshot of the sites too.
+        // A hosts file that can't be written is shown too: the sites then don't open without internet.
+        _hosts.Noticed += (message, isWarning) =>
+        {
+            _log.Background(message, isWarning);
+            if (isWarning) _dispatcher.InvokeAsync(() => Toast.Show(message, ToastKind.Warning));
+        };
+        // Before the monitor: they see the first snapshot of the sites too.
         _keepWarm.Start();
+        _hosts.Start();
         _monitor.Start();
     }
 
@@ -305,6 +314,7 @@ public sealed class ServerStore
         // do the same; this doesn't wait for them. The store's own operations read back themselves - and resume keep
         // warm then (RunAsync).
         if (_operation is not null) return;
+        // A site it made is measured when it turns up; the others' sizes are as they were.
         if (_started) _ = ResumeKeepWarmAfterAsync(_monitor.SyncAsync(), recheck: null);
         else _keepWarm.Resume();
     }
@@ -370,7 +380,8 @@ public sealed class ServerStore
     /// is read back after it.
     /// </summary>
     public Task<bool> RunOnSiteAsync(ProjectRow row, string title, Func<IServiceProvider, IProgressReporter, CancellationToken, Task<Result>> work) =>
-        RunAsync(new Operation([row], began: true), title, work, _monitor.SyncAsync);
+        // Its folder may have grown or shrunk (an upgrade, a restore, a cleared cache): measured again - only that one.
+        RunAsync(new Operation([row], began: true), title, work, () => _monitor.SyncAsync([row.Name]));
 
     /// <summary>
     /// Starts, stops or restarts the sites of <paramref name="rows"/> as one operation. The rows say so at once;
@@ -422,7 +433,7 @@ public sealed class ServerStore
             await RunAsync(operation, names.Count == 1 ? $"Remove '{names[0]}'" : $"Remove {names.Count} projects",
                 (sp, reporter, ct) => sp.GetRequiredService<RemoveProjectUseCase>()
                     .ExecuteAsync(sites, new StartSignal(reporter, () => Begin(operation, Started)), ct),
-                _monitor.SyncAsync);
+                () => _monitor.SyncAsync());
         }
         finally
         {

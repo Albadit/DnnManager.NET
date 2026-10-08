@@ -36,6 +36,7 @@
                             <Binding Path="IsVisible" RelativeSource="{RelativeSource Self}" />
                             <Binding Path="IsVisible" RelativeSource="{RelativeSource Self}" />
                             <Binding Path="(s:EfficiencyMode.IsSaving)" RelativeSource="{RelativeSource Self}" />
+                            <Binding Path="(s:Motion.Off)" RelativeSource="{RelativeSource Self}" />
                         </MultiBinding>
                     </DataTrigger.Binding>
                     <DataTrigger.EnterActions>
@@ -63,7 +64,29 @@
         <!-- A stage in the rail: its icon, name and duration, coloured by how it went - laid out like the Terminal tab's
              list, the running one highlighted. Its content 10 from the rail's edges (margin and padding), as the header's,
              the labels' and the summary's. -->
+        <!-- A stage is a button: clicked (or Enter / Space), the log scrolls to it. One still to come isn't in the log yet,
+             so it can't be clicked. Flat - the row inside draws it. -->
+        <Style x:Key="StageButton" TargetType="Button">
+            <Setter Property="Focusable" Value="True" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Cursor" Value="Arrow" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <DataTemplate x:Key="StageRow" DataType="{x:Type s:OutputStage}">
+            <Button Style="{StaticResource StageButton}" IsEnabled="{Binding IsShownInLog}" Click="Stage_Click"
+                    AutomationProperties.Name="{Binding Title}">
             <Border x:Name="Row" Padding="6,4,6,4" Margin="4,1" CornerRadius="{StaticResource ControlRadius}" Background="Transparent"
                     ToolTip="{Binding Title}">
                 <DockPanel>
@@ -78,7 +101,16 @@
                                Foreground="{DynamicResource LogFg}" />
                 </DockPanel>
             </Border>
+            </Button>
             <DataTemplate.Triggers>
+                <!-- Under the mouse, a stage that can be clicked is lit; how it went (below) still colours it. -->
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True" />
+                        <Condition Binding="{Binding IsShownInLog}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter TargetName="Row" Property="Background" Value="{DynamicResource HoverBg}" />
+                </MultiDataTrigger>
                 <DataTrigger Binding="{Binding Status}" Value="{x:Static s:StageStatus.Pending}">
                     <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource OutDim}" />
                     <Setter TargetName="Duration" Property="Foreground" Value="{DynamicResource OutDim}" />

@@ -174,6 +174,11 @@
                             <TextBlock Style="{StaticResource Hint}"
                                        Text="UI scale makes everything bigger or smaller - text, icons and spacing - like zooming in a browser. Font size changes only the text; the terminal has its own below. Both apply when you save." />
 
+                            <TextBlock Style="{StaticResource GroupLabel}" Text="Animations" />
+                            <CheckBox x:Name="Animations" Content="Play animations" Click="Animations_Click" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
+                                       Text="The panel and the sidebar slide, toasts and menus fade, switches slide, and a site that is starting or stopping pulses. Off, everything changes at once. They are off while Windows' animation effects are off too (Settings → Accessibility → Visual effects). Applies when you save." />
+
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Terminal" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4"
                                        Text="Shells on the Terminal tab of the panel at the bottom of the window - opened with its + button. They run with Administrator rights, like DNN Manager." />

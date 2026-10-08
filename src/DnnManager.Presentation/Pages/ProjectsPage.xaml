@@ -2,6 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:s="clr-namespace:DnnManager.Presentation.Services"
+             xmlns:pages="clr-namespace:DnnManager.Presentation.Pages"
+             xmlns:projects="clr-namespace:DnnManager.Presentation.Pages.Projects"
              Focusable="True" KeyboardNavigation.IsTabStop="False" FocusVisualStyle="{x:Null}" Background="Transparent"
              PreviewMouseLeftButtonDown="Page_PreviewMouseLeftButtonDown">
     <!-- Focusable (not a tab stop): a click outside the table puts the keyboard here, out of the table
@@ -77,6 +79,7 @@
                             <Binding Path="IsTransitioning" />
                             <Binding Path="IsVisible" RelativeSource="{RelativeSource Self}" />
                             <Binding Path="(s:EfficiencyMode.IsSaving)" RelativeSource="{RelativeSource Self}" />
+                            <Binding Path="(s:Motion.Off)" RelativeSource="{RelativeSource Self}" />
                         </MultiBinding>
                     </DataTrigger.Binding>
                     <DataTrigger.EnterActions>
@@ -101,6 +104,7 @@
                     <MultiDataTrigger.Conditions>
                         <Condition Binding="{Binding ShowProgress}" Value="True" />
                         <Condition Binding="{Binding (s:EfficiencyMode.IsSaving), RelativeSource={RelativeSource Self}}" Value="False" />
+                        <Condition Binding="{Binding (s:Motion.Off), RelativeSource={RelativeSource Self}}" Value="False" />
                     </MultiDataTrigger.Conditions>
                     <Setter Property="IsIndeterminate" Value="True" />
                 </MultiDataTrigger>
@@ -246,7 +250,8 @@
                 </ToggleButton>
                 <!-- While open, the button ignores the mouse, so clicking it closes the menu instead of reopening it. -->
                 <Popup x:Name="ColumnsPopup" PlacementTarget="{Binding ElementName=ColumnsButton}" Placement="Bottom"
-                       VerticalOffset="4" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade"
+                       VerticalOffset="4" StaysOpen="False" AllowsTransparency="True"
+                       PopupAnimation="{Binding (s:Motion.Off), RelativeSource={RelativeSource Self}, Converter={x:Static s:Motion.PopupFade}}"
                        Opened="ColumnsPopup_Opened" Closed="ColumnsPopup_Closed">
                     <Border Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource InputBorder}" BorderThickness="1"
                             CornerRadius="6" Padding="14,10" Margin="0,0,8,8" MinWidth="220" LayoutTransform="{DynamicResource UiScale}">
@@ -291,8 +296,10 @@
             <Border CornerRadius="{StaticResource CardRadius}" BorderThickness="1" BorderBrush="{DynamicResource CardBorder}"
                     Background="{DynamicResource CardBg}">
                 <!-- The check box, chevron, status and name stay put while the rest scrolls sideways (scrollbar or
-                     Shift + wheel). A filler column takes the room left over, so Actions sits at the right edge. -->
-                <DataGrid x:Name="ProjectsGrid" FrozenColumnCount="4" RowHeight="38" RowStyle="{StaticResource ProjectRowStyle}"
+                     Shift + wheel). A filler column takes the room left over, so Actions sits at the right edge.
+                     Only the rows on screen are made, and a row that scrolls out (or a search hides) is reused for the
+                     next one: filtering and sorting don't build every row again. Scrolled by pixels, not by rows. -->
+                <projects:ProjectsTable x:Name="ProjectsGrid" Style="{StaticResource {x:Type DataGrid}}" FrozenColumnCount="4" RowHeight="38" RowStyle="{StaticResource ProjectRowStyle}"
                           BorderThickness="0" Background="Transparent" SizeChanged="Grid_SizeChanged"
                           IsKeyboardFocusWithinChanged="Grid_IsKeyboardFocusWithinChanged"
                           RowDetailsVisibilityMode="Collapsed" AreRowDetailsFrozen="True" HeadersVisibility="Column"
@@ -302,13 +309,15 @@
                           KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Projects"
                           PreviewMouseWheel="Grid_PreviewMouseWheel" PreviewMouseRightButtonDown="Grid_PreviewMouseRightButtonDown"
                           ContextMenuOpening="Grid_ContextMenuOpening"
-                          ScrollViewer.CanContentScroll="False" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          ScrollViewer.CanContentScroll="True" VirtualizingPanel.IsVirtualizing="True"
+                          VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel"
+                          EnableRowVirtualization="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
                           ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.PanningMode="Both">
-                    <DataGrid.ContextMenu>
+                    <projects:ProjectsTable.ContextMenu>
                         <!-- Filled in Grid_ContextMenuOpening (Pages/Projects/ProjectMenu). -->
                         <ContextMenu />
-                    </DataGrid.ContextMenu>
-                    <DataGrid.Columns>
+                    </projects:ProjectsTable.ContextMenu>
+                    <projects:ProjectsTable.Columns>
                         <!-- Header: the select-all check box, made in code. -->
                         <DataGridTemplateColumn x:Name="SelectColumn" Width="40" MinWidth="40" CanUserResize="False" CanUserSort="False"
                                                 CellStyle="{StaticResource IconCell}">
@@ -451,13 +460,14 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                    </DataGrid.Columns>
+                    </projects:ProjectsTable.Columns>
 
-                    <DataGrid.RowDetailsTemplate>
+                    <projects:ProjectsTable.RowDetailsTemplate>
                         <DataTemplate>
-                            <!-- As wide as the visible table, so the facts wrap instead of widening what scrolls. -->
+                            <!-- As wide as the visible table, so the facts wrap instead of widening what scrolls
+                                 (DetailsWidth). -->
                             <Border Padding="20,4,16,12" BorderBrush="{DynamicResource GridLine}" BorderThickness="0,1,0,0" HorizontalAlignment="Left"
-                                    Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+                                    Width="{Binding Path=(pages:ProjectsPage.DetailsWidth)}">
                                 <ItemsControl ItemsSource="{Binding Details}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -476,8 +486,8 @@
                                 </ItemsControl>
                             </Border>
                         </DataTemplate>
-                    </DataGrid.RowDetailsTemplate>
-                </DataGrid>
+                    </projects:ProjectsTable.RowDetailsTemplate>
+                </projects:ProjectsTable>
             </Border>
             <!-- Only shown while the table is empty (the first snapshot, no projects, or no match) - never over rows. -->
             <Border x:Name="Overlay" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="16,10" CornerRadius="6"

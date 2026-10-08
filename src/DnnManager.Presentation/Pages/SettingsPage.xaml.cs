@@ -100,7 +100,7 @@ public partial class SettingsPage : UserControl
 
         _categories = new Dictionary<string, (FrameworkElement, string)>
         {
-            ["General"] = (GeneralPanel, "general start sign in startup close closing quit exit background tray notification area keep running appearance scale zoom ui font text size bigger smaller terminal shell powershell command prompt git bash font family size"),
+            ["General"] = (GeneralPanel, "general start sign in startup close closing quit exit background tray notification area keep running appearance scale zoom ui font text size bigger smaller animations animation motion slide fade reduce effects terminal shell powershell command prompt git bash font family size"),
             ["Projects"] = (ProjectsPanel, "projects folder base directory hostname suffix site port address url dnn defaults install installation automatic manual setup wizard host account username password e-mail email website name language culture template keep warm alive keepalive warm-up idle time-out timeout interval ping cold start slow fast recycle"),
             ["Releases"] = (ReleasesPanel, "dnn releases repositories github versions install packages keep download"),
             ["Sql"] = (SqlPanel, "database server sql server express localdb file connection type local container docker host port user username sa password windows authentication login username ssms management studio remember test connection"),
@@ -293,10 +293,13 @@ public partial class SettingsPage : UserControl
             AppFontSize.Items.Add(new ComboBoxItem { Content = $"{appearance.FontSize} px", Tag = appearance.FontSize });
             AppFontSize.SelectedIndex = AppFontSize.Items.Count - 1;
         }
+        Animations.IsChecked = appearance.Animations;
         _loading = false;
     }
 
     private void Appearance_Changed(object sender, SelectionChangedEventArgs e) => Edited();
+
+    private void Animations_Click(object sender, RoutedEventArgs e) => Edited();
 
     // ─── Terminal ─────────────────────────────────────────────────────────
 
@@ -484,7 +487,7 @@ public partial class SettingsPage : UserControl
             string.Join('\n', ReleaseApis.Text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)),
             KeepDnnPackages.IsChecked == true, ServerSnapshot(),
             ContainerName.Text.Trim(), VolumeName.Text.Trim(), MssqlPid.Text.Trim(), Collation.Text.Trim(),
-            SsmsRememberPassword.IsChecked == true, ChosenUiScale, ChosenFontSize,
+            SsmsRememberPassword.IsChecked == true, ChosenUiScale, ChosenFontSize, Animations.IsChecked == true,
             KeepRunningWhenClosed.IsChecked == true, terminal.DefaultShell, terminal.FontFamily, terminal.FontSize,
             InstallAutomatic.IsChecked == true, HostUsername.Text.Trim(), HostPassword.Password, HostEmail.Text.Trim(), WebsiteName.Text.Trim(),
             (DnnLanguage.SelectedItem as ComboBoxItem)?.Tag, (DnnTemplate.SelectedItem as ComboBoxItem)?.Tag,
@@ -588,6 +591,7 @@ public partial class SettingsPage : UserControl
         _live.Apply(settings);
         _savedSaPassword = settings.SqlServer.SaPassword;
         ThemeManager.ApplyLayout(settings.Appearance.UiScale, settings.Appearance.FontSize);
+        Motion.Apply(settings.Appearance.Animations);
         _terminal.Apply(settings.Terminal);
         SaveSecrets(settings);
         // What another connection type's fields still show wasn't saved - show what is.
@@ -720,6 +724,7 @@ public partial class SettingsPage : UserControl
         settings.Ssms.RememberPassword = SsmsRememberPassword.IsChecked == true;
         settings.Appearance.UiScale = ChosenUiScale;
         settings.Appearance.FontSize = ChosenFontSize;
+        settings.Appearance.Animations = Animations.IsChecked == true;
         settings.Window.KeepRunningWhenClosed = KeepRunningWhenClosed.IsChecked == true;
         settings.Terminal = ChosenTerminal;
         return (null, null);

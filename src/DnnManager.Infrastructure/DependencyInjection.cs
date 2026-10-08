@@ -67,6 +67,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IServerStateFeed>(sp => sp.GetRequiredService<ServerStateMonitor>());
         // Keeps the sites switched to "keep warm" warm while DNN Manager runs - it follows the monitor.
         services.AddSingleton<KeepWarm.KeepWarmService>();
+        // Keeps the sites' host names in the hosts file, so they open without internet - it follows the monitor.
+        services.AddSingleton<Hosts.HostsFileService>();
         services.AddSingleton<SiteLogs.SiteLogCatalog>();
         services.AddSingleton<Application.Upgrades.IDnnSiteInspector, Dnn.DnnSiteInspector>();
         services.AddSingleton<Application.Upgrades.IDnnUpgradeChecks, Dnn.DnnUpgradeChecks>();

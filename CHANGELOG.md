@@ -2,6 +2,79 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## v1.8.0
+
+### Added
+
+- **Sites open without internet.** `*.dnndev.me` is found through public DNS,
+  so with the PC offline the browser couldn't find a local site, though IIS and
+  DNN were running. DNN Manager now keeps every site's host name in Windows'
+  hosts file (`127.0.0.1 mysite.dnndev.me`), in a block of its own between two
+  marker lines - the rest of the file stays as it is. It is written when DNN
+  Manager starts and whenever a site is added, removed or gets other host
+  names (also one made in IIS Manager), and it stays when DNN Manager is
+  closed, so the sites open offline after a restart of the PC too.
+- **Custom domains.** A site bound to a host name of your own - `shop.test`,
+  `klant.local`, `www.customer.nl` - gets its line too, so it opens on this PC
+  without editing the hosts file. New project's hint says so; a real domain
+  then opens the local site on this PC instead of the live one.
+- A hosts file that can't be written (read-only, blocked by security software)
+  shows a warning instead of the sites silently needing internet.
+- **New project checks the host name and the database as you type.** A host
+  name and port that are already another IIS site's address are refused at
+  once - IIS would take the second binding and then not start the new site,
+  and DNN's installer would talk to the other one. The database server is
+  asked whether the database is free (*Checking…*, *is free*, *already
+  exists*, or why it can't be asked - asked again every 10 seconds).
+  **Create project** waits until both pass, instead of the setup stopping
+  after the download. With *Manual DNN setup* an existing database is still
+  allowed. The setup checks the host name against IIS again before it
+  downloads anything.
+- **Settings → General → Play animations**: off, the panel and the sidebar
+  stop sliding, toasts and menus stop fading, switches stop sliding, and the
+  state dots, flames, spinners and progress bars stop moving - everything
+  changes at once. They are also off while Windows' animation effects are off
+  (Settings → Accessibility → Visual effects).
+- In the **Output** tab, click a stage (or **Tab** to it and press **Enter**)
+  and the log scrolls to it.
+- The **Logs** tab shows the hosts file: **DNN Manager** → **Hosts file**, first
+  in the list under a section of its own (*Windows*), the whole file, shown
+  again from the top whenever it changes.
+
+### Changed
+
+- **Faster with many sites.** The search filters as you type without a pause -
+  about 7 ms a key instead of 230 ms with 18 sites (600 ms with 50): it looks
+  again only at the rows it shows or hides, instead of making every row again.
+  The Projects table makes only the rows on screen (it still scrolls by pixels),
+  so 50 sites show in half the time and sort in half the time. After an
+  operation on a site only its folder is measured again for the *Size* column,
+  not every site's (seconds of disk with many sites). IIS's worker processes are
+  read in one call instead of one per app pool.
+- **No more stalls from UI Automation.** When a program on the PC listens to
+  UI Automation - Windows' text input, PowerToys, screen readers do - WPF told
+  it about every cell, text and resize grip of the Projects table that changed:
+  the CPU and memory figures every two seconds, every row when the table was
+  sorted or shown again - up to half a second of the window not answering. The
+  table now has one element per row, named after its project ("shop, Running,
+  http://shop.dnndev.me"), with only its buttons, check box and links in it: a
+  sort takes about half the time, following the sites less than half, and a
+  screen reader reads the project instead of "ProjectRow".
+- A site's overview opens faster: only the tab shown is built (the others when
+  you choose them, not three times each as the overview reads the site), and
+  its database is read off the UI thread.
+- A SQL Server that doesn't answer (the container stopped) is asked once every
+  10 seconds instead of once per site - each was a connection waiting 5 seconds
+  on a thread of its own.
+- The worker processes' figures are read from a handle kept open per process,
+  and new ones are found from the list of process IDs - not a snapshot of every
+  process on the PC every two seconds.
+- Toasts (the running operation, messages) sit at the bottom-right of the page,
+  above the bottom panel - no longer over the Output or a terminal.
+- The bottom panel slides open whatever opens it - a toast's **Show output**,
+  the running operation's toast, **View logs**, a new terminal, a command - as
+  it does with its button; it opened at once before.
+
 ## v1.7.9
 
 ### Fixed

@@ -46,7 +46,8 @@ public sealed class AppLogChoice
 }
 
 /// <summary>
-/// The Logs tab: a website's logs - DNN's, IIS's, the Windows events about it - or DNN Manager's own, one at a time. Its newest lines are
+/// The Logs tab: a website's logs - DNN's, IIS's, the Windows events about it - or DNN Manager's own (and the hosts
+/// file it keeps the sites' host names in), one at a time. Its newest lines are
 /// read (never the whole of a large file), then new ones arrive as they are written; the view follows them while it
 /// is at the bottom. Its text can be selected and copied (<see cref="LogView"/>). Searchable
 /// (<see cref="ISearchTarget"/>): every match highlighted, the current one stronger. While the window is minimized
@@ -105,8 +106,11 @@ public partial class LogsView : UserControl, ISearchTarget
     internal void Show(ProjectRow site, string? group, string? title) =>
         Show(site, s => s.Group == group && s.Title == title);
 
-    /// <summary>DNN Manager's own log named <paramref name="title"/> - its newest when null, or when that one is gone.</summary>
-    internal void ShowApp(string? title) => Show(AppLogChoice.Instance, s => title is null || s.Title == title);
+    /// <summary>
+    /// DNN Manager's own log named <paramref name="title"/> (or the hosts file) - its newest log when null, or when that
+    /// one is gone.
+    /// </summary>
+    internal void ShowApp(string? title) => Show(AppLogChoice.Instance, s => title is null ? !s.Whole : s.Title == title);
 
     private async void Show(object choice, Func<SiteLogSource, bool> wanted)
     {
@@ -115,6 +119,7 @@ public partial class LogsView : UserControl, ISearchTarget
         _filling = false;
         if (!await FillLogsAsync(choice)) return;
         var item = LogBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag is SiteLogSource s && wanted(s))
+                   ?? LogBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag is SiteLogSource { Whole: false })
                    ?? LogBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag is SiteLogSource);
         LogBox.SelectedItem = item;
     }
@@ -130,7 +135,9 @@ public partial class LogsView : UserControl, ISearchTarget
     {
         if (_filling || SiteBox.SelectedItem is not ({ } choice and (ProjectRow or AppLogChoice))) return;
         if (!await FillLogsAsync(choice)) return;
-        LogBox.SelectedItem = LogBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag is SiteLogSource);
+        // A log, not the hosts file listed above DNN Manager's logs.
+        LogBox.SelectedItem = LogBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag is SiteLogSource { Whole: false })
+                              ?? LogBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag is SiteLogSource);
     }
 
     // Which listing the log list belongs to - a site chosen meanwhile makes an older one moot.
@@ -181,8 +188,8 @@ public partial class LogsView : UserControl, ISearchTarget
         Stop();
         _source = source;
         CurrentSite = site;
-        // "DNN Manager log - 2026-10-04" names itself.
-        Current = source.Group == SiteLogCatalog.AppGroup ? source.Title : $"{site} - {source.Title}";
+        // "DNN Manager log - 2026-10-04" and "Hosts file" name themselves.
+        Current = SiteLogCatalog.IsAppLog(source.Group, source.Title) ? source.Title : $"{site} - {source.Title}";
         Description.Text = source.Description;
         Description.ToolTip = source.Description;
         FolderButton.IsEnabled = source.FilePath is not null;
@@ -193,6 +200,13 @@ public partial class LogsView : UserControl, ISearchTarget
         _tail = tail;
         // Lines arrive on a background thread; they are added on the UI thread in batches.
         tail.Lines += lines => Dispatcher.BeginInvoke(() => { if (ReferenceEquals(_tail, tail)) Append(lines); }, DispatcherPriority.Background);
+        // A file rewritten (the hosts file): shown anew - queued like the lines, so it comes before its new ones.
+        tail.Replaced += () => Dispatcher.BeginInvoke(() =>
+        {
+            if (!ReferenceEquals(_tail, tail)) return;
+            _held.Clear();
+            LogText.Clear();
+        }, DispatcherPriority.Background);
         tail.Paused = EfficiencyMode.GetIsSaving(this);
         tail.Start(InitialLines);
         // Nothing came: say the log is empty rather than show nothing.

@@ -34,21 +34,60 @@ public sealed class SiteDatabaseChecksTests
         Assert.AreEqual(2, tester.Lists);
     }
 
+    [TestMethod]
+    public async Task AServerThatDoesntAnswer_IsAskedOnce_NotOncePerSite()
+    {
+        var tester = new FakeTester();
+        var sites = Enumerable.Range(0, 19).ToDictionary(i => $"site{i}", i => new SiteSqlConnection("gone,1433", $"dnn_{i}", "sa", "secret"),
+            StringComparer.OrdinalIgnoreCase);
+
+        var checks = await SiteDatabaseChecks.AskAsync(tester, sites, CancellationToken.None);
+
+        Assert.IsTrue(checks.Values.All(c => c == new SiteDatabaseCheck(false, false, "A network-related error occurred.")));
+        Assert.AreEqual(1, tester.Lists);
+        Assert.AreEqual(1, tester.Tests, "Each connection to a server that is down waits for the time-out - once, not 19 times.");
+    }
+
+    [TestMethod]
+    public async Task ALoginThatSeesOnlyItsOwnDatabase_IsAskedPerSite()
+    {
+        var tester = new FakeTester { ListFails = true };
+        var sites = new Dictionary<string, SiteSqlConnection>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["contained"] = new("localhost,1433", "dnn_contained", "user", "secret"),
+            ["other"] = new("localhost,1433", "dnn_other", "user", "secret"),
+        };
+
+        var checks = await SiteDatabaseChecks.AskAsync(tester, sites, CancellationToken.None);
+
+        Assert.AreEqual(new SiteDatabaseCheck(true, true, null), checks["contained"]);
+        Assert.IsFalse(checks["other"].Reachable);
+        Assert.AreEqual(2, tester.Tests, "The first answered otherwise than the list: each site is asked.");
+    }
+
     private sealed class FakeTester : ISqlConnectionTester
     {
-        private int _lists;
+        private int _lists, _tests;
         public int Lists => _lists;
+        public int Tests => _tests;
 
-        public Task<Result<string>> TestAsync(SiteSqlConnection connection, CancellationToken ct, int timeoutSeconds = 15) =>
-            Task.FromResult(connection.Database == "dnn_contained"
+        /// <summary>The list can't be read on any server (a login that can't sign in to master).</summary>
+        public bool ListFails { get; init; }
+
+        public Task<Result<string>> TestAsync(SiteSqlConnection connection, CancellationToken ct, int timeoutSeconds = 15)
+        {
+            Interlocked.Increment(ref _tests);
+            return Task.FromResult(connection.Database == "dnn_contained"
                 ? Result<string>.Ok("[dnn_contained] on SQL Server")
                 : Result<string>.Fail("A network-related error occurred.\nMore detail."));
+        }
 
         public Task<Result<IReadOnlyList<string>>> ListDatabasesAsync(SiteSqlConnection server, CancellationToken ct, int timeoutSeconds = 15)
         {
             Interlocked.Increment(ref _lists);
             return Task.FromResult(server.Server == "gone,1433"
                 ? Result<IReadOnlyList<string>>.Fail("A network-related error occurred.")
+                : ListFails ? Result<IReadOnlyList<string>>.Fail("Login failed for user 'user'.")
                 : Result<IReadOnlyList<string>>.Ok(["master", "dnn_live"]));
         }
     }

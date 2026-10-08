@@ -1,6 +1,7 @@
 <ResourceDictionary x:Class="DnnManager.Presentation.Themes.InputStyles"
                     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:s="clr-namespace:DnnManager.Presentation.Services">
     <!-- Inputs: <TextBox />, <PasswordBox /> and <ComboBox /> get these without a Style, and
          Style="{StaticResource SearchBox}" is the search field. All share the rounded box: the input colours, the accent
          on hover and focus. The stock Windows templates are square and ignore the theme, so each has its own. -->
@@ -158,7 +159,8 @@
                                           ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
                                           ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}" />
                         <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True" Focusable="False"
-                               PopupAnimation="Fade" IsOpen="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}">
+                               PopupAnimation="{Binding (s:Motion.Off), RelativeSource={RelativeSource Self}, Converter={x:Static s:Motion.PopupFade}}"
+                               IsOpen="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}">
                             <Border Margin="0,2,0,0" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
                                     MaxHeight="{TemplateBinding MaxDropDownHeight}" CornerRadius="{StaticResource ControlRadius}" BorderThickness="1"
                                     Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource InputBorder}" LayoutTransform="{DynamicResource UiScale}">

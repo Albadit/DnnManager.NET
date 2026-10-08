@@ -126,6 +126,7 @@ public partial class ProjectView : UserControl
         DnnSection.Visibility = DnnTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         DatabaseSection.Visibility = DatabaseTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         AdvancedSection.Visibility = AdvancedTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        ShowVisiblePanel();
     }
 
     protected override void OnPreviewKeyDown(KeyEventArgs e)
@@ -251,6 +252,7 @@ public partial class ProjectView : UserControl
         }
         catch (Exception ex)
         {
+            _stale.Remove(GeneralPanel);
             GeneralPanel.Show([new InspectorSection("Project") { Note = $"Couldn't be read: {ex.Message}" }]);
         }
     }
@@ -337,10 +339,17 @@ public partial class ProjectView : UserControl
     /// <summary>The database, with web.config's connection - and its host accounts - shown with <paramref name="snapshot"/>.</summary>
     private async Task ReadDatabaseAsync(int generation, ProjectSnapshot snapshot)
     {
-        var inspection = await DatabaseInspector.InspectAsync(_connection!, CancellationToken.None);
-        var hosts = inspection.Problem is null && _database is not null && _row.IsDnn
-            ? await _services.GetRequiredService<IDatabaseProvisioner>().ListHostAccountsAsync(_database, CancellationToken.None)
-            : null;
+        // Off the UI thread: connecting and reading the results run between the awaits, and they would run here.
+        var (connection, database, isDnn) = (_connection!, _database, _row.IsDnn);
+        var provisioner = _services.GetRequiredService<IDatabaseProvisioner>();
+        var (inspection, hosts) = await Task.Run(async () =>
+        {
+            var found = await DatabaseInspector.InspectAsync(connection, CancellationToken.None);
+            var accounts = found.Problem is null && database is not null && isDnn
+                ? await provisioner.ListHostAccountsAsync(database, CancellationToken.None)
+                : null;
+            return (found, accounts);
+        });
         if (generation != _reading) return;
         Show(snapshot with { Database = inspection, DatabaseRead = true, Hosts = hosts });
     }
@@ -354,16 +363,35 @@ public partial class ProjectView : UserControl
             panel.Show([new InspectorSection("Reading…") { Note = "IIS, the site's folder, web.config, bin and its database are being read." }]);
     }
 
+    // The tabs whose panel shows an older snapshot - built again when they are shown (ShowVisiblePanel).
+    private readonly HashSet<InspectorPanel> _stale = [];
+    private IReadOnlyList<DetectedIssue> _issues = [];
+
+    /// <summary>
+    /// Shows <paramref name="snapshot"/> - on the tab that is shown; the others when they are chosen. A snapshot comes
+    /// three times as the overview opens (the folder, IIS, the database), and building every tab each time - the
+    /// assemblies and folder tables of Advanced too - was most of what opening a site's overview cost.
+    /// </summary>
     private void Show(ProjectSnapshot snapshot)
     {
         _snapshot = snapshot;
-        var issues = ProjectDiagnostics.Issues(snapshot);
-        GeneralPanel.Show(ProjectDiagnostics.General(snapshot, issues));
-        IisPanel.Show(ProjectDiagnostics.Iis(snapshot));
-        DnnPanel.Show(ProjectDiagnostics.Dnn(snapshot));
-        DatabasePanel.Show(ProjectDiagnostics.Database(snapshot, issues));
-        AdvancedPanel.Show(ProjectDiagnostics.Advanced(snapshot, issues, _disabledHttps));
+        _issues = ProjectDiagnostics.Issues(snapshot);
+        _stale.UnionWith([GeneralPanel, IisPanel, DnnPanel, DatabasePanel, AdvancedPanel]);
+        ShowVisiblePanel();
         ShowHosts(snapshot);
+    }
+
+    private void ShowVisiblePanel()
+    {
+        if (_snapshot is not { } snapshot) return;
+        var panel = GeneralTab.IsChecked == true ? GeneralPanel : IisTab.IsChecked == true ? IisPanel : DnnTab.IsChecked == true ? DnnPanel
+            : DatabaseTab.IsChecked == true ? DatabasePanel : AdvancedPanel;
+        if (!_stale.Remove(panel)) return;
+        panel.Show(panel == GeneralPanel ? ProjectDiagnostics.General(snapshot, _issues)
+            : panel == IisPanel ? ProjectDiagnostics.Iis(snapshot)
+            : panel == DnnPanel ? ProjectDiagnostics.Dnn(snapshot)
+            : panel == DatabasePanel ? ProjectDiagnostics.Database(snapshot, _issues)
+            : ProjectDiagnostics.Advanced(snapshot, _issues, _disabledHttps));
     }
 
     // ─── DNN: the host accounts ───────────────────────────────────────────

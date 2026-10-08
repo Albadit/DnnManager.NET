@@ -70,7 +70,9 @@ public sealed class EfficiencyMode
 
     private sealed class WhileSeenConverter : IMultiValueConverter
     {
-        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture) => values is [true, true, false];
+        // The condition, seen, not saving - and, when given, animations not off (Motion).
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture) =>
+            values is [true, true, false] or [true, true, false, false];
 
         public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture) => throw new NotSupportedException();
     }

@@ -326,6 +326,24 @@ public sealed class ProjectRow : INotifyPropertyChanged
 
     public bool Matches(string text) => SearchKey.Contains(text, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>What assistive technology reads for the row: "shop, Running, http://shop.dnndev.me" (<see cref="ProjectsTable"/>).</summary>
+    public string AutomationName => $"{Name}, {StateText}, {Url}";
+
+    public override string ToString() => Name;
+
+    /// <summary>
+    /// Goes up when the table's search or filter changed what this row shows as: the table filters live on it, so it
+    /// looks at this row again - and only at it (<see cref="Refilter"/>), instead of every row.
+    /// </summary>
+    public int FilterVersion { get; private set; }
+
+    /// <summary>The table's filter changed for this row: it is looked at again by itself.</summary>
+    public void Refilter()
+    {
+        FilterVersion++;
+        Raise(nameof(FilterVersion));
+    }
+
     /// <summary>The project changed: takes it over and announces what shows <paramref name="changed"/>.</summary>
     public void Apply(ProjectState project, ProjectFacets changed)
     {

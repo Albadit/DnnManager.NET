@@ -78,6 +78,35 @@ public sealed class SetupRejectionTests
         outcome.AssertNothingCreated();
     }
 
+    [TestMethod]
+    public async Task HostNameOfAnotherSite_NothingIsCreated()
+    {
+        // IIS would take the second binding and then not start the new site - and DNN's installer would talk to the shop.
+        var outcome = await SetUpAsync(Path.Combine(_run, "p"), Account(), iis: iis =>
+            iis.Sites["shop"] = Site("shop", new IisBinding("http", "*", 8199, "LOCALHOST", false)));
+        StringAssert.Contains(outcome.Result.Error!, "already the address of the IIS site 'shop'");
+        Assert.IsFalse(outcome.Reporter.Text.Contains("Downloading DNN", StringComparison.Ordinal), outcome.Reporter.Text);
+        outcome.AssertNothingCreated();
+    }
+
+    [TestMethod]
+    public void HostNames_TheSiteAlreadyAnsweringIt()
+    {
+        var sites = new Dictionary<string, IisSiteRuntime>
+        {
+            ["shop"] = Site("shop", new IisBinding("http", "*", 80, "shop.dnndev.me", false), new IisBinding("https", "*", 443, "secure.dnndev.me", true)),
+            ["blog"] = Site("blog", new IisBinding("http", "*", 8080, "blog.dnndev.me", false), new IisBinding("http", "*", 80, "", false)),
+        };
+        Assert.AreEqual("shop", IisHostNames.SiteUsing(sites, "Shop.DnnDev.Me.", 80), "Case and a trailing dot don't make it another name.");
+        Assert.IsNull(IisHostNames.SiteUsing(sites, "shop.dnndev.me", 8080), "Another port is another address.");
+        Assert.AreEqual("blog", IisHostNames.SiteUsing(sites, "blog.dnndev.me", 8080));
+        Assert.IsNull(IisHostNames.SiteUsing(sites, "new.dnndev.me", 80), "A binding for any name doesn't take this one: IIS prefers the named one.");
+        Assert.IsNull(IisHostNames.SiteUsing(sites, "secure.dnndev.me", 80), "An https binding isn't the http address.");
+        Assert.IsNull(IisHostNames.SiteUsing(sites, "shop.dnndev.me", 80, replacing: "SHOP"), "The site a new one of the same name replaces.");
+    }
+
+    private static IisSiteRuntime Site(string name, params IisBinding[] bindings) => new(1, "Started", name, "Started", [], bindings, $@"C:\DNN\{name}");
+
     // ─── The run ──────────────────────────────────────────────────────────
 
     private sealed record Outcome(Result Result, RecordingReporter Reporter, string SiteDirectory, UntouchedIis Iis, ProjectRecord? Record)
@@ -93,10 +122,11 @@ public sealed class SetupRejectionTests
 
     private static DnnAccount Account() => new("dnnhost", "Valid-Pass-1", "host@dnnit.example", "Refused", "en-US", "Default Website");
 
-    private async Task<Outcome> SetUpAsync(string projects, DnnAccount? account, DatabaseConnection? database = null)
+    private async Task<Outcome> SetUpAsync(string projects, DnnAccount? account, DatabaseConnection? database = null, Action<UntouchedIis>? iis = null)
     {
-        var iis = new UntouchedIis();
-        await using var services = Services(projects, Path.Combine(_run, "data"), iis);
+        var stand = new UntouchedIis();
+        iis?.Invoke(stand);
+        await using var services = Services(projects, Path.Combine(_run, "data"), stand);
         var reporter = new RecordingReporter();
         Result result;
         using (var scope = services.CreateScope())
@@ -111,7 +141,7 @@ public sealed class SetupRejectionTests
                 Account = account,
                 Database = database
             }, reporter, CancellationToken.None);
-        return new Outcome(result, reporter, Path.Combine(projects, Name), iis, services.GetRequiredService<IProjectRecords>().Find(Name));
+        return new Outcome(result, reporter, Path.Combine(projects, Name), stand, services.GetRequiredService<IProjectRecords>().Find(Name));
     }
 
     private static ServiceProvider Services(string projects, string data, UntouchedIis iis)

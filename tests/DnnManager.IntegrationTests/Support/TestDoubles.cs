@@ -55,6 +55,9 @@ public sealed class UntouchedIis : IIisManager
 {
     public List<string> Changes { get; } = [];
 
+    /// <summary>The sites IIS has before - none unless a test puts some in.</summary>
+    public Dictionary<string, IisSiteRuntime> Sites { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     private Result Change(string what)
     {
         lock (Changes) Changes.Add(what);
@@ -77,7 +80,7 @@ public sealed class UntouchedIis : IIisManager
     public bool IsAvailable() => true;
     public IisServerState GetServerState() => IisServerState.Running;
     public IReadOnlyDictionary<string, string> GetSiteStates() => new Dictionary<string, string>();
-    public IReadOnlyDictionary<string, IisSiteRuntime>? GetSiteRuntimes() => new Dictionary<string, IisSiteRuntime>();
+    public IReadOnlyDictionary<string, IisSiteRuntime>? GetSiteRuntimes() => Sites;
     public IReadOnlyDictionary<string, SiteTraffic> GetSiteTraffic() => new Dictionary<string, SiteTraffic>();
     public IReadOnlyDictionary<string, long> GetRequestsServed() => new Dictionary<string, long>();
 }

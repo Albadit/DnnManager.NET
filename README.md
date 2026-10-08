@@ -63,7 +63,9 @@ project takes its IIS site, folder and database with it.
    **Database server**.
 4. Click **New project**, enter a name, pick a DNN version and press **Create
    project**. When it's done, open `http://<name>.dnndev.me` - `dnndev.me`
-   points to your own PC.
+   points to your own PC, and DNN Manager puts the name in the hosts file too,
+   so it opens without internet (a custom domain like `shop.test` works the
+   same way - see [Host names and working offline](.docs/user-guide.md#host-names-and-working-offline)).
 
 The [user guide](.docs/user-guide.md) walks through every page, menu and setting.
 

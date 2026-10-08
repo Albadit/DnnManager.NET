@@ -63,6 +63,12 @@ public partial class ToastView : UserControl
         _timer.Stop();
         _timeWaits = false;
         if (!IsVisible) return;
+        if (Motion.GetOff(this))
+        {
+            BeginAnimation(OpacityProperty, null);
+            Visibility = Visibility.Collapsed;
+            return;
+        }
         var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(250));
         fade.Completed += (_, _) =>
         {

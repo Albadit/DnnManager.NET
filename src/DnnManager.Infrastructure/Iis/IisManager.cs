@@ -530,8 +530,21 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
         try
         {
             using var sm = new ServerManager();
-            // Several sites can share a pool - read each pool's workers and idle time-out once.
-            var workers = new Dictionary<string, IReadOnlyList<int>>(StringComparer.OrdinalIgnoreCase);
+            // Every worker process of every pool, asked of the running IIS in one call - not once per pool (each a call
+            // into IIS, and this read runs every few seconds). None while IIS is stopped.
+            var workers = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                foreach (var worker in sm.WorkerProcesses)
+                {
+                    if (!workers.TryGetValue(worker.AppPoolName, out var list)) workers[worker.AppPoolName] = list = [];
+                    list.Add(worker.ProcessId);
+                }
+                // In order: the monitor compares them with the last read's.
+                foreach (var list in workers.Values) list.Sort();
+            }
+            catch { workers.Clear(); }
+            // Several sites can share a pool - read each pool's idle time-out once.
             var idleTimeouts = new Dictionary<string, TimeSpan?>(StringComparer.OrdinalIgnoreCase);
             foreach (var site in sm.Sites)
             {
@@ -542,12 +555,10 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
                 var pool = PoolOf(sm, site);
                 string? poolState = null;
                 try { poolState = pool?.State.ToString(); } catch { /* unknown */ }
-                IReadOnlyList<int> pids = [];
+                IReadOnlyList<int> pids = pool is not null && workers.TryGetValue(pool.Name, out var found) ? found : [];
                 TimeSpan? idleTimeout = null;
-                if (pool is not null && !workers.TryGetValue(pool.Name, out pids!))
+                if (pool is not null && !idleTimeouts.ContainsKey(pool.Name))
                 {
-                    try { pids = pool.WorkerProcesses.Select(w => w.ProcessId).ToList(); } catch { pids = []; }
-                    workers[pool.Name] = pids;
                     // Configuration, not the running IIS - it reads the same while IIS is stopped.
                     try { idleTimeouts[pool.Name] = pool.ProcessModel.IdleTimeout; } catch { idleTimeouts[pool.Name] = null; }
                 }

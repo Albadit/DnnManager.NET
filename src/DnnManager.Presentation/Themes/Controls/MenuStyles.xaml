@@ -1,6 +1,7 @@
 <ResourceDictionary x:Class="DnnManager.Presentation.Themes.MenuStyles"
                     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:s="clr-namespace:DnnManager.Presentation.Services">
     <!-- Pop-ups in the theme's colours: <ToolTip />, context menus (the Projects right-click menu, text box
          Cut/Copy/Paste) and their items, and menu separators. -->
 
@@ -66,7 +67,8 @@
                         </Border>
                         <Popup x:Name="PART_Popup" Placement="Right" HorizontalOffset="4" VerticalOffset="-5"
                                IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
-                               AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
+                               AllowsTransparency="True" Focusable="False"
+                               PopupAnimation="{Binding (s:Motion.Off), RelativeSource={RelativeSource Self}, Converter={x:Static s:Motion.PopupFade}}">
                             <Border Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource InputBorder}"
                                     BorderThickness="1" CornerRadius="{StaticResource ControlRadius}" Padding="4" MinWidth="200" LayoutTransform="{DynamicResource UiScale}">
                                 <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />

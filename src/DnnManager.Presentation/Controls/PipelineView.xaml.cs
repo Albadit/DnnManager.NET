@@ -148,6 +148,12 @@ public partial class PipelineView : UserControl
         Log.Tick();
     }
 
+    // A stage in the list: the log scrolls to it.
+    private void Stage_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is OutputStage stage) Log.ShowStage(stage);
+    }
+
     // ─── Background ───────────────────────────────────────────────────────
 
     private void UpdateBackground()

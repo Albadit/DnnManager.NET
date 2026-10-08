@@ -1,5 +1,7 @@
+using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Application.UseCases;
@@ -16,7 +18,8 @@ namespace DnnManager.Presentation.Pages;
 /// exists is refused - setting up an existing folder is what Host project is for. A DNN download gets its IIS website
 /// (host name, port), its database (named like the project, filled in from Settings → Database server and changeable
 /// here for this project only - tested before anything is created) and - with automatic
-/// setup - DNN installed with the account and website given here, so the first visit shows the new site.
+/// setup - DNN installed with the account and website given here, so the first visit shows the new site. Whether the
+/// host name and the database are free is checked as they are typed: <b>Create project</b> waits until both are.
 /// </summary>
 public partial class SetupPage : UserControl, IRefreshable
 {
@@ -26,6 +29,8 @@ public partial class SetupPage : UserControl, IRefreshable
     private readonly IDnnPackageInstaller _packages;
     private readonly AppOptions _options;
     private readonly ISecretStore _secrets;
+    private readonly ServerStore _store;
+    private readonly IDatabaseProvisioner _databases;
 
     /// <summary>A DNN release source: its GitHub releases API URL, shown as <c>owner/repo</c>.</summary>
     public sealed record SourceOption(string Api, string Label);
@@ -41,15 +46,28 @@ public partial class SetupPage : UserControl, IRefreshable
     private bool _filling;
 
     public SetupPage(OperationRunner runner, IProjectRepository repo, IDnnReleaseService releases, DnnReleaseCatalog catalog,
-        IDnnPackageInstaller packages, IOptions<AppOptions> options, ISecretStore secrets)
+        IDnnPackageInstaller packages, IOptions<AppOptions> options, ISecretStore secrets, ServerStore store, IDatabaseProvisioner databases)
     {
         _runner = runner; _repo = repo; _catalog = catalog; _packages = packages;
-        _options = options.Value; _secrets = secrets;
+        _options = options.Value; _secrets = secrets; _store = store; _databases = databases;
         InitializeComponent();
+        _dbAsk.Tick += (_, _) => { _dbAsk.Stop(); AskDatabase(); };
         // Saving the settings can change the database server: the database follows it - unless it was changed here.
-        // Followed only while the page is shown: a page MainWindow lets go of isn't kept alive by the settings.
-        Loaded += (_, _) => _options.Changed += OnOptionsChanged;
-        Unloaded += (_, _) => _options.Changed -= OnOptionsChanged;
+        // Followed only while the page is shown: a page MainWindow lets go of isn't kept alive by the settings. So are
+        // the IIS sites - one added meanwhile may have the host name typed here.
+        Loaded += (_, _) =>
+        {
+            _options.Changed += OnOptionsChanged;
+            _store.Projects.CollectionChanged += OnSitesChanged;
+            // Back on the page: the database is asked about again (it was let go when the page was left).
+            UpdateState();
+        };
+        Unloaded += (_, _) =>
+        {
+            _options.Changed -= OnOptionsChanged;
+            _store.Projects.CollectionChanged -= OnSitesChanged;
+            ForgetDatabaseAnswer();
+        };
 
         SourceCombo.ItemsSource = releases.KnownReleaseApis.Select(api => new SourceOption(api, RepositoryLabel(api))).ToList();
         SourceCombo.SelectedIndex = 0;
@@ -207,6 +225,8 @@ public partial class SetupPage : UserControl, IRefreshable
     public void Refresh()
     {
         LoadBackupProjects();
+        // Shown again: the database may have been made or removed meanwhile - asked anew.
+        ForgetDatabaseAnswer();
         UpdateState();
         LoadVersions(); // from the kept list - only the "kept, no download" marks may have changed; GitHub again if it failed
     }
@@ -301,6 +321,11 @@ public partial class SetupPage : UserControl, IRefreshable
 
     private string ChosenHostName => HostNameBox.Text.Trim();
 
+    // A host name of the user's own - not one under the host name suffix (mysite.dnndev.me).
+    private bool IsCustomDomain(string host) =>
+        host.Length > 0 && !host.EndsWith("." + _options.HostnameSuffix, StringComparison.OrdinalIgnoreCase) &&
+        !host.Equals(_options.HostnameSuffix, StringComparison.OrdinalIgnoreCase);
+
     private int? ChosenPort => int.TryParse(PortBox.Text.Trim(), out var port) && port is > 0 and <= 65535 ? port : null;
 
     private string? IisProblem()
@@ -308,8 +333,15 @@ public partial class SetupPage : UserControl, IRefreshable
         var host = ChosenHostName;
         if (host.Length == 0) return "Enter the host name the site answers on.";
         if (host.Any(c => !(char.IsLetterOrDigit(c) || c is '.' or '-'))) return "The host name can only have letters, digits, '.' and '-'.";
-        return ChosenPort is null ? "The port must be a number between 1 and 65535." : null;
+        if (ChosenPort is not { } port) return "The port must be a number between 1 and 65535.";
+        // From the sites the window shows - IIS isn't asked at every key. The setup asks IIS itself again.
+        if (_store.IsLoaded &&
+            IisHostNames.SiteUsing(_store.Projects.Select(r => KeyValuePair.Create(r.Name, r.IisSite)), host, port, EnteredName) is { } other)
+            return $"http://{DnnSiteAddress.AliasFor(host, port)} is already the address of the IIS site '{other}' - choose another host name or port.";
+        return null;
     }
+
+    private void OnSitesChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdateState();
 
     private DnnAccount ChosenAccount => new(
         HostUserBox.Text.Trim(),
@@ -445,6 +477,78 @@ public partial class SetupPage : UserControl, IRefreshable
         };
     }
 
+    // ─── Is the database free? ────────────────────────────────────────────
+
+    private enum DbAnswer { None, Asking, Free, Exists, NoAnswer }
+
+    // Asked of the server once the database fields have been still for a moment: a database that already exists, or a
+    // server that doesn't answer, is said here - not after DNN has been downloaded. The answer is about the connection
+    // it was asked with (_dbAsked); a server that couldn't be asked (not running, the login refused) is asked again every
+    // 10 seconds while the page shows.
+    private static readonly TimeSpan AskAgainAfter = TimeSpan.FromSeconds(10);
+    private readonly DispatcherTimer _dbAsk = new() { Interval = TimeSpan.FromMilliseconds(600) };
+    private DatabaseConnection? _dbAsked;
+    private DbAnswer _dbAnswer;
+    private string? _dbAnswerDetail;
+    private CancellationTokenSource? _dbAskCancel;
+
+    /// <summary>Asks about <paramref name="connection"/> a moment from now, unless that is what was asked already.</summary>
+    private void FollowDatabase(DatabaseConnection connection)
+    {
+        if (connection == _dbAsked) return;
+        ForgetDatabaseAnswer();
+        _dbAsked = connection;
+        _dbAnswer = DbAnswer.Asking;
+        _dbAsk.Start();
+    }
+
+    private void ForgetDatabaseAnswer()
+    {
+        _dbAsk.Stop();
+        _dbAskCancel?.Cancel();
+        _dbAskCancel = null;
+        _dbAsked = null;
+        _dbAnswer = DbAnswer.None;
+        _dbAnswerDetail = null;
+    }
+
+    private async void AskDatabase()
+    {
+        if (_dbAsked is not { } asked || !IsLoaded) return;
+        var cancel = new CancellationTokenSource();
+        _dbAskCancel = cancel;
+        Result<bool> exists;
+        try
+        {
+            exists = await Task.Run(() => _databases.DatabaseExistsAsync(asked, cancel.Token));
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        // Another connection typed meanwhile - this answer is about the old one.
+        if (cancel.IsCancellationRequested || asked != _dbAsked) return;
+        (_dbAnswer, _dbAnswerDetail) = !exists.Success ? (DbAnswer.NoAnswer, exists.Error) : exists.Value ? (DbAnswer.Exists, null) : (DbAnswer.Free, null);
+        UpdateState();
+        if (_dbAnswer != DbAnswer.NoAnswer) return;
+        // The container may be starting - asked again while nothing changes (a change cancels this wait).
+        try
+        {
+            await Task.Delay(AskAgainAfter, cancel.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        if (_dbAnswer == DbAnswer.NoAnswer && IsLoaded) AskDatabase();
+    }
+
+    /// <summary>
+    /// Whether the database lets the project be created: a LocalDB file is the site's own; another is free - or, for a
+    /// manual install (which may go into a database that is there), exists.
+    /// </summary>
+    private bool DatabaseFree => _dbType == LocalDbType || _dbAnswer == DbAnswer.Free || (_dbAnswer == DbAnswer.Exists && !Automatic);
+
     /// <summary>The card's fields for the connection type, its hint and its problem.</summary>
     private void ShowDatabase(bool started)
     {
@@ -455,10 +559,21 @@ public partial class SetupPage : UserControl, IRefreshable
         ResetDatabaseButton.Visibility = _dbEdited || _dbNameEdited ? Visibility.Visible : Visibility.Collapsed;
 
         var problem = DatabaseProblem();
+        var database = $"[{DbNameBox.Text.Trim()}] on {DbServerBox.Text.Trim()}";
         // An empty name isn't an error yet - the database name follows it.
-        DatabaseError.Text = problem is not null && (started || _dbEdited) ? problem : "";
+        DatabaseError.Text = problem is not null ? (started || _dbEdited ? problem : "")
+            : _dbAnswer == DbAnswer.Exists && Automatic ? $"Database {database} already exists - choose another name, or remove that database first."
+            : _dbAnswer == DbAnswer.NoAnswer ? $"Can't check the database on {DbServerBox.Text.Trim()}: {_dbAnswerDetail} Asked again every {AskAgainAfter.TotalSeconds:0} seconds."
+            : "";
         DatabaseError.Visibility = DatabaseError.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-        DatabaseHint.Text = (_dbType == LocalDbType
+        var answer = problem is not null ? "" : _dbAnswer switch
+        {
+            DbAnswer.Asking => $"Checking whether database {database} is free… ",
+            DbAnswer.Free => $"Database {database} is free. ",
+            DbAnswer.Exists when !Automatic => $"Database {database} already exists - the setup asks whether to drop it or install into it. ",
+            _ => ""
+        };
+        DatabaseHint.Text = answer + (_dbType == LocalDbType
                 ? $@"The site's own App_Data\{DatabaseConnection.LocalDbFileName}, attached by LocalDB. "
                 : "Named like the project until you type another name. ") +
             (_dbEdited ? "Changed for this project only - Settings → Database server stays as it is."
@@ -504,11 +619,15 @@ public partial class SetupPage : UserControl, IRefreshable
         var shownIisProblem = ChosenHostName.Length > 0 ? iisProblem
             : fresh && port is null ? "The port must be a number between 1 and 65535." : null;
         IisHint.Text = shownIisProblem ?? $"The IIS website and its app pool are named '{(name.Length > 0 ? name : "<project>")}'; the site answers at " +
-                       $"http://{DnnSiteAddress.AliasFor(ChosenHostName.Length > 0 ? ChosenHostName : "<host>", port ?? 80)}";
+                       $"http://{DnnSiteAddress.AliasFor(ChosenHostName.Length > 0 ? ChosenHostName : "<host>", port ?? 80)} - " +
+                       "DNN Manager adds the host name to this PC's hosts file, so it opens without internet too." +
+                       (IsCustomDomain(ChosenHostName) ? " A custom domain then opens this site on this PC, not what the internet has at that name." : "");
         IisHint.SetResourceReference(TextBlock.ForegroundProperty, shownIisProblem is null ? "TextMuted" : "ErrorText");
 
         DatabaseCard.Visibility = fresh ? Visibility.Visible : Visibility.Collapsed;
         var databaseProblem = fresh ? DatabaseProblem() : null;
+        if (fresh && databaseProblem is null && _dbType != LocalDbType) FollowDatabase(ChosenDatabase());
+        else ForgetDatabaseAnswer();
         if (fresh) ShowDatabase(name.Length > 0);
 
         var accountProblems = fresh && Automatic ? DnnAccountRules.Problems(ChosenAccount) : [];
@@ -526,7 +645,7 @@ public partial class SetupPage : UserControl, IRefreshable
         RunButton.Content = importing ? "Import project" : "Create project";
         RunButton.IsEnabled = valid && (importing ? problem is null
             : SourceCombo.SelectedItem is SourceOption && VersionCombo.SelectedItem is VersionOption { Ready: true } &&
-              iisProblem is null && databaseProblem is null && accountProblems.Count == 0);
+              iisProblem is null && databaseProblem is null && DatabaseFree && accountProblems.Count == 0);
     }
 
     private async void Run_Click(object sender, RoutedEventArgs e)
@@ -554,7 +673,7 @@ public partial class SetupPage : UserControl, IRefreshable
 
         if (SourceCombo.SelectedItem is not SourceOption source ||
             VersionCombo.SelectedItem is not VersionOption { Ready: true } version ||
-            IisProblem() is not null || DatabaseProblem() is not null) return;
+            IisProblem() is not null || DatabaseProblem() is not null || !DatabaseFree) return;
         var automatic = Automatic;
         var account = ChosenAccount;
         if (automatic && DnnAccountRules.Problems(account).Count > 0) return;

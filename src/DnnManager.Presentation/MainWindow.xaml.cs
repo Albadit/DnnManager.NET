@@ -72,6 +72,10 @@ public partial class MainWindow : Window
         Loaded += (_, _) => store.Start();
         SizeChanged += (_, _) => UpdateCompact();
         Root.SizeChanged += (_, _) => FitPanel();
+        // The toasts follow the page's corner: the panel opened, closed, dragged or maximized, the window resized.
+        PageCard.SizeChanged += (_, _) => PlaceToasts();
+        PageCard.IsVisibleChanged += (_, _) => PlaceToasts();
+        Body.SizeChanged += (_, _) => PlaceToasts();
         // Settings saved: they apply at once. The kept pages were filled in with the old ones (folders, repositories,
         // the container's name) - they are made anew on their next visit. Projects follows by itself.
         options.Value.Changed += () =>
@@ -97,19 +101,19 @@ public partial class MainWindow : Window
         TerminalPanel.MaximizeToggled += (_, _) => SetPanelMaximized(!_panelMaximized);
         OperationToast.OperationClicked += (_, _) =>
         {
-            SetLogOpen(true);
+            OpenPanel();
             TerminalPanel.ShowActivity();
         };
         // "Open in terminal" on a project: a new shell in its folder.
         terminal.OpenRequested += directory =>
         {
-            SetLogOpen(true);
+            OpenPanel();
             TerminalPanel.NewTerminal(directory: directory);
         };
         // "View logs" on a site: the Logs tab with that log.
         terminal.LogsRequested += (site, source) =>
         {
-            SetLogOpen(true);
+            OpenPanel();
             TerminalPanel.ShowLogs(site, source);
         };
         Closed += (_, _) =>
@@ -120,12 +124,14 @@ public partial class MainWindow : Window
         SetLogOpen(false);
         Tour.Ended += Tour_Ended;
         ThemeManager.Track(this);
+        // Animations on or off (Settings → General, Windows' animation effects) - for everything in the window.
+        Motion.Track(this);
 
         _runner.PropertyChanged += OnRunnerChanged;
         // A failed operation is said where it is seen - its steps are in the activity log, which may be closed.
         _runner.Failed += (title, error) => Toast.Show($"{title} failed: {error}", ToastKind.Error, "Show output", () =>
         {
-            SetLogOpen(true);
+            OpenPanel();
             TerminalPanel.ShowActivity();
         });
         // Running in the background, the window can't say so - Windows does; the toast waits in the window.
@@ -451,7 +457,7 @@ public partial class MainWindow : Window
             var missing = _pages.GetValueOrDefault("Projects") is ProjectsPage projects
                 ? await projects.RestoreAsync(state.Projects, state.Project, state.ProjectTab) : null;
             // The Logs tab's log, now that the sites are read.
-            if (logs.LogGroup == SiteLogCatalog.AppGroup)
+            if (SiteLogCatalog.IsAppLog(logs.LogGroup, logs.LogTitle))
                 TerminalPanel.ShowAppLog(logs.LogTitle, switchTo: false);
             else if (logs.LogSite is { } site && _store.Projects.FirstOrDefault(r => r.Name.Equals(site, StringComparison.OrdinalIgnoreCase)) is { } row)
                 TerminalPanel.ShowLog(row, logs.LogGroup, logs.LogTitle);
@@ -560,7 +566,7 @@ public partial class MainWindow : Window
     private void SlideSidebar(bool compact)
     {
         var width = compact ? CompactSidebarWidth : ExpandedSidebarWidth;
-        var slide = new DoubleAnimation(width, TimeSpan.FromMilliseconds(IsLoaded ? 180 : 0))
+        var slide = new DoubleAnimation(width, TimeSpan.FromMilliseconds(IsLoaded && Motion.Enabled ? 180 : 0))
         {
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
         };

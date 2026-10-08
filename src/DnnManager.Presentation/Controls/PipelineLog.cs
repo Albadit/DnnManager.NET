@@ -1,5 +1,6 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -195,6 +196,52 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
 
     private bool IsAtEnd() => VerticalOffset + ViewportHeight >= ExtentHeight - 4;
 
+    /// <summary>
+    /// Scrolls the log until <paramref name="stage"/>'s heading is at the top - a stage clicked in the Output tab's list.
+    /// False when the log hasn't got it: a stage still to come.
+    /// </summary>
+    internal bool ShowStage(OutputStage stage)
+    {
+        var title = _runs.Values.Select(r => r.HeadingOf(stage)).FirstOrDefault(h => h is not null);
+        if (title is null) return false;
+        var top = title.ContentStart.GetCharacterRect(LogicalDirection.Forward).Top;
+        if (double.IsNaN(top) || double.IsInfinity(top))
+        {
+            title.BringIntoView();
+            return true;
+        }
+        // A little room above it, as between two stages.
+        ScrollTo(Math.Clamp(VerticalOffset + top - 8, 0, Math.Max(0, ExtentHeight - ViewportHeight)));
+        return true;
+    }
+
+    private EventHandler? _scrolling;
+
+    // Glides there in 200 ms, easing out - at once while animations are off (Motion).
+    private void ScrollTo(double to)
+    {
+        if (_scrolling is not null) CompositionTarget.Rendering -= _scrolling;
+        _scrolling = null;
+        var from = VerticalOffset;
+        if (!Motion.Enabled || Math.Abs(to - from) < 1)
+        {
+            ScrollToVerticalOffset(to);
+            return;
+        }
+        var clock = Stopwatch.StartNew();
+        EventHandler? frame = null;
+        frame = (_, _) =>
+        {
+            var t = Math.Min(1, clock.Elapsed.TotalMilliseconds / 200);
+            ScrollToVerticalOffset(from + (to - from) * (1 - Math.Pow(1 - t, 3)));
+            if (t < 1) return;
+            CompositionTarget.Rendering -= frame;
+            if (_scrolling == frame) _scrolling = null;
+        };
+        _scrolling = frame;
+        CompositionTarget.Rendering += frame;
+    }
+
     // ─── A run ────────────────────────────────────────────────────────────
 
     /// <summary>A run in the document: its title (when it isn't first), its stages, its closing notes and its result.</summary>
@@ -209,6 +256,9 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
         private Block? _result;
 
         public Section Section { get; } = new();
+
+        /// <summary>The title of <paramref name="stage"/>'s heading when it is one of this run's and in the log; null otherwise.</summary>
+        public Run? HeadingOf(OutputStage stage) => _stages.TryGetValue(stage, out var view) && view.IsShown ? view.Title : null;
 
         public RunView(PipelineLog log, OutputRun run)
         {
@@ -356,6 +406,9 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
 
         /// <summary>It is in the document (it has run, or was skipped).</summary>
         public bool IsShown { get; set; }
+
+        /// <summary>The heading's title - where it is on screen is read from its text (the duration floats before it).</summary>
+        public Run Title => _title;
 
         public StageView(PipelineLog log, OutputStage stage)
         {

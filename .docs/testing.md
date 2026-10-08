@@ -18,8 +18,9 @@ They need nothing installed and take about 25 seconds:
 | File | What it checks |
 |---|---|
 | `InstallerUnitTests.cs` | DNN's install output and template, connection strings (never printing a password), account and password rules, DNN's password hash, the Credential Manager, settings validation, Troubleshoot's clean-up (never through a junction), undo on cancel, the log view's wrapping |
-| `SetupRejectionTests.cs` | New project refuses a bad host password, a missing account, a folder that is too deep or a database it can't reach - before it creates anything |
+| `SetupRejectionTests.cs` | New project refuses a bad host password, a missing account, a folder that is too deep, a database it can't reach or a host name another IIS site already answers - before it creates anything; which site already has a host name on a port |
 | `KeepWarmTests.cs` | Keep warm's intervals, back-off, what counts as an answer, never requesting DNN's installer, the sites kept warm and the service itself |
+| `HostsFileTests.cs` | Which host names go into the hosts file (custom domains too; not wildcards or `localhost`) and to which address, the block written into a hosts file of the test's own - every other byte kept, the user's own line winning - and the service following the sites, not writing before IIS has been read completely |
 | `SettingsRowsTests.cs` | The settings as rows in `dnnmanager.db`: a save keeps a newer version's rows and drops the list items that are gone |
 | `SettingsUserNameTests.cs` | The SQL container's login is `sqlServer.userName`, `sa` when empty; its password is saved encrypted |
 | `WorkspaceStateTests.cs` | The workspace kept between starts: saved as rows, a value that can't be read keeps its default, a factory reset leaves nothing, form drafts without passwords, a window place off the screens |
@@ -38,7 +39,7 @@ They need nothing installed and take about 25 seconds:
 | `DnnUpgradePathTests.cs` | DNN's suggested upgrade path: the chain from any version to any target - through every listed version, a version between two listed ones to the next one first, a target between or past them, manual steps before 7.4.2, the local upgrade from 10.2 on |
 | `DnnUpgradeAnalyserTests.cs` | The pre-upgrade analyser: an old SQL Server or .NET Framework, Telerik on the way to DNN 10, files and database out of step, a LocalDB file, too little space, a wrong app pool block; DNN 7 extensions, third-party extensions and custom settings warn; what couldn't be checked is said |
 | `DnnUpgradeStepTests.cs` | DNN's binding-redirect merge (what its local upgrade does for each assembly), and a failure read for its likely cause |
-| `AppLogTests.cs` | DNN Manager's own log on the Logs tab: its daily files newest first, its `[warning]` and `[error]` lines coloured |
+| `AppLogTests.cs` | DNN Manager's own log on the Logs tab: its daily files newest first, its `[warning]` and `[error]` lines coloured; the hosts file listed first in a section of its own, shown whole and anew when it is rewritten in the middle |
 | `InputAlignmentTests.cs` | In a search box the caret stands where the placeholder's text starts |
 
 ## The integration tests

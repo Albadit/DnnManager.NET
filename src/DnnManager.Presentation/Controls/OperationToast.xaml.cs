@@ -39,13 +39,14 @@ public partial class OperationToast : UserControl
     /// The bar moves while an operation runs - but not while the window is minimized (<see cref="EfficiencyMode"/>):
     /// nobody sees it then, and its animation alone keeps WPF drawing about 60 frames a second.
     /// </summary>
-    private void ShowProgress() => OperationProgress.IsIndeterminate = _runner.Current is not null && !EfficiencyMode.GetIsSaving(this);
+    private void ShowProgress() =>
+        OperationProgress.IsIndeterminate = _runner.Current is not null && !EfficiencyMode.GetIsSaving(this) && !Motion.GetOff(this);
 
     protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
         // Minimized or restored while an operation runs: the bar stops, or moves again.
-        if (e.Property == EfficiencyMode.IsSavingProperty && _runner is not null) ShowProgress();
+        if ((e.Property == EfficiencyMode.IsSavingProperty || e.Property == Motion.OffProperty) && _runner is not null) ShowProgress();
     }
 
     // Once: what is being cancelled is put back - pressed again, it would do nothing more.

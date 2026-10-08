@@ -232,6 +232,7 @@
                         <Binding Path="KeepWarmBusy" />
                         <Binding Path="IsVisible" RelativeSource="{RelativeSource Self}" />
                         <Binding Path="(s:EfficiencyMode.IsSaving)" RelativeSource="{RelativeSource Self}" />
+                        <Binding Path="(s:Motion.Off)" RelativeSource="{RelativeSource Self}" />
                     </MultiBinding>
                 </DataTrigger.Binding>
                 <DataTrigger.EnterActions>

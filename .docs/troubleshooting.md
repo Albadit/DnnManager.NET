@@ -120,6 +120,26 @@ each project was installed, the saved DNN versions - is one SQLite database,
 
 ## Sites
 
+### A site doesn't open without internet, or at its custom domain
+
+The browser says it can't find the server (`ERR_NAME_NOT_RESOLVED`), though the
+site runs in IIS.
+
+- **Cause:** the host name isn't in the hosts file, so it is asked of DNS -
+  which for `*.dnndev.me` only answers while the PC is online, and for a custom
+  domain doesn't point to this PC at all. DNN Manager writes the line when it
+  starts and when a site's host names change
+  ([Host names and working offline](user-guide.md#host-names-and-working-offline)).
+- **Investigate:** a warning *The hosts file … can't be written* (a toast, and
+  the log file); the hosts file - **Logs** tab → **DNN Manager** → **Hosts
+  file** - and its block between `# DNN Manager: local sites - begin` and
+  `- end`; in PowerShell,
+  `Resolve-DnsName <host name>` should answer `127.0.0.1` from the hosts file.
+- **Fix:** the file read-only - clear *Read-only* in its properties; security
+  software blocking it - allow DNN Manager to change the hosts file. Then start
+  DNN Manager again, or change any site's host names. A wildcard binding
+  (`*.shop.test`) can't be in the hosts file - bind the site to each name.
+
 ### SQL shows **Offline** for a site
 
 - **Cause:** the database server in the site's `web.config` doesn't answer, or

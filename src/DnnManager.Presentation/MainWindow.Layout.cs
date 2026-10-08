@@ -136,6 +136,30 @@ public partial class MainWindow
         FitSashes();
         ClipCard(PageHost);
         ClipCard(TerminalPanel);
+        // The page may have moved without changing size (the sidebar to the other side): once it is laid out.
+        Dispatcher.BeginInvoke(PlaceToasts, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    // How far toasts keep from the page's bottom-right corner.
+    private static readonly Thickness ToastGap = new(0, 0, 24, 16);
+
+    /// <summary>
+    /// The toasts at the page's bottom-right - above the bottom panel, so they don't cover its Output, and beside the
+    /// sidebar wherever it is. With the page hidden (the panel maximized) they are at the window's.
+    /// </summary>
+    private void PlaceToasts()
+    {
+        var below = 0d;
+        var beside = 0d;
+        if (PageCard.IsVisible && PageCard.ActualHeight > 0)
+        {
+            // The toasts lie over the same row as Body: its corner is theirs.
+            var corner = PageCard.TranslatePoint(new Point(PageCard.ActualWidth, PageCard.ActualHeight), Body);
+            below = Math.Max(0, Body.ActualHeight - corner.Y);
+            beside = Math.Max(0, Body.ActualWidth - corner.X);
+        }
+        var margin = new Thickness(0, 0, ToastGap.Right + beside, ToastGap.Bottom + below);
+        if (Toasts.Margin != margin) Toasts.Margin = margin;
     }
 
     // Under the cards, above the status bar: nothing - the status bar's own height keeps them apart; the gap without it.
@@ -327,6 +351,13 @@ public partial class MainWindow
         public void Run(double from, double to, Action<double> apply, Action? done = null)
         {
             Stop();
+            // Animations off: where it goes, at once.
+            if (!Motion.Enabled)
+            {
+                apply(to);
+                done?.Invoke();
+                return;
+            }
             var clock = Stopwatch.StartNew();
             _frame = (_, _) =>
             {
@@ -489,6 +520,15 @@ public partial class MainWindow
             SetLogOpen(false);
             _logHeight = height;
         });
+    }
+
+    /// <summary>
+    /// The panel opens as its button opens it - sliding - for what shows something in it: a toast's Show output, the
+    /// running operation, View logs, a terminal, a command. Open already, it stays as it is.
+    /// </summary>
+    private void OpenPanel(bool takeKeyboard = true)
+    {
+        if (!PanelOpening) SlidePanel(true, takeKeyboard);
     }
 
     /// <summary>The panel slides closed; the keyboard, if it was in it, goes back to the page.</summary>

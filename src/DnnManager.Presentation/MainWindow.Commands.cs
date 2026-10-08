@@ -70,12 +70,12 @@ public partial class MainWindow
         AddForProject("project.openFolder", "Open project folder", null, r => Directory.Exists(r.Path), r => Shell.Open(r.Path), "explorer files");
         AddForProject("project.logs", "Show project logs", null, _ => true, r =>
         {
-            SetLogOpen(true);
+            OpenPanel();
             TerminalPanel.ShowLogs(r, null);
         }, "dnn iis event log");
         AddForProject("project.terminal", "Open terminal in project folder", null, r => Directory.Exists(r.Path), r =>
         {
-            SetLogOpen(true);
+            OpenPanel();
             TerminalPanel.NewTerminal(directory: r.Path);
         }, "shell powershell command prompt");
         AddForProject("project.keepWarm", "Keep website warm", null, r => !r.KeepWarmOn && r.CanToggleKeepWarm, _store.ToggleKeepWarm, "ping alive flame");
@@ -142,19 +142,19 @@ public partial class MainWindow
         }, inTerminal: true);
         Add("panel.output", "Show Output", "Panel", "Ctrl+Shift+U", () =>
         {
-            SetLogOpen(true);
+            OpenPanel();
             TerminalPanel.ShowActivity();
         }, keywords: "activity operations", inTerminal: true);
         Add("panel.clearOutput", "Clear the output", "Panel", null, _log.Clear, () => !_runner.IsBusy, "clear logs activity");
         Add("panel.appLog", "Show DNN Manager's log", "Panel", null, () =>
         {
-            SetLogOpen(true);
+            OpenPanel();
             TerminalPanel.ShowAppLog(null, switchTo: true);
         }, keywords: "logs dnnmanager file warnings errors", inTerminal: true);
         Add("terminal.toggle", "Show the terminal", "Terminal", "Ctrl+`", ToggleTerminal, keywords: "shell", inTerminal: true);
         Add("terminal.new", "New terminal", "Terminal", "Ctrl+Shift+`", () =>
         {
-            SetLogOpen(true);
+            OpenPanel();
             TerminalPanel.NewTerminal();
         }, keywords: "shell powershell", inTerminal: true);
     }
@@ -425,7 +425,7 @@ public partial class MainWindow
             FocusPage();
             return;
         }
-        SetLogOpen(true);
+        OpenPanel();
         TerminalPanel.ShowTerminal();
     }
 
