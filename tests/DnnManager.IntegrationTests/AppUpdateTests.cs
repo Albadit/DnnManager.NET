@@ -125,6 +125,8 @@ public sealed class AppUpdateTests
             (ReleaseOf(version, bytes, sha256: new string('0', 64)), "SHA-256"),
             (ReleaseOf(new Version(version.Major + 1, 0, 0), bytes), "version"),
             (ReleaseOf(version, bytes) with { Assets = [new AppReleaseAsset("DnnManager-x-x64.exe", bytes.Length + 1, null, "https://example.test/file")] }, "bytes"),
+            // GitHub didn't say what it should be: it is run as administrator, so unchecked isn't good enough.
+            (ReleaseOf(version, bytes) with { Assets = [new AppReleaseAsset("DnnManager-x-x64.exe", bytes.Length, null, "https://example.test/file")] }, "no SHA-256"),
         };
         foreach (var (release, problem) in cases)
         {
@@ -162,9 +164,13 @@ public sealed class AppUpdateTests
 
     // ─── The helper ───────────────────────────────────────────────────────
 
+    // What the tests' packages hold: "new".
+    private static readonly byte[] NewPackage = "new"u8.ToArray();
+
     private UpdatePlan PortablePlan(int waitFor) => new()
     {
         Kind = UpdateKind.Portable, Package = Path.Combine(_dir, "new.exe"), AppExe = Path.Combine(_dir, "DnnManager-1.6.0-x64.exe"),
+        PackageSha256 = Convert.ToHexString(SHA256.HashData(NewPackage)).ToLowerInvariant(), PackageSize = NewPackage.Length,
         WaitForProcessId = waitFor, FromVersion = "1.6.0", ToVersion = "1.7.0",
         LogFile = Path.Combine(_dir, "update.log"), ResultFile = Path.Combine(_dir, "result.json")
     };
@@ -236,6 +242,7 @@ public sealed class AppUpdateTests
     public void Setup_failing_starts_the_old_version_again_and_says_why()
     {
         var plan = PortablePlan(ExitedProcessId()) with { Kind = UpdateKind.Installer, Package = Path.Combine(_dir, "DnnManagerSetup-1.7.0-x64.exe") };
+        File.WriteAllBytes(plan.Package, NewPackage);
         var started = new List<string>();
 
         var code = UpdateHelper.Run(plan, info =>
@@ -253,6 +260,7 @@ public sealed class AppUpdateTests
     public void Setup_succeeding_starts_the_installed_version()
     {
         var plan = PortablePlan(ExitedProcessId()) with { Kind = UpdateKind.Installer, Package = Path.Combine(_dir, "DnnManagerSetup-1.7.0-x64.exe") };
+        File.WriteAllBytes(plan.Package, NewPackage);
         var started = new List<string>();
 
         var code = UpdateHelper.Run(plan, info =>
@@ -264,6 +272,38 @@ public sealed class AppUpdateTests
         Assert.AreEqual(0, code);
         CollectionAssert.AreEqual(new[] { "DnnManagerSetup-1.7.0-x64.exe", "DnnManager-1.6.0-x64.exe" }, started);
         Assert.IsTrue(UpdateResult.TryRead(plan.ResultFile)?.Installed);
+    }
+
+    [TestMethod]
+    public void A_package_changed_after_its_download_is_refused_and_nothing_changes()
+    {
+        // Swapped between the check in DNN Manager and the helper - by anything that could write there.
+        var plan = PortablePlan(ExitedProcessId());
+        File.WriteAllText(plan.AppExe, "old");
+        File.WriteAllText(plan.Package, "bad");
+        var started = new List<string>();
+
+        var code = UpdateHelper.Run(plan, info => { started.Add(info.FileName); return null; }, TimeSpan.Zero, TimeSpan.FromSeconds(5));
+
+        Assert.AreEqual(1, code);
+        Assert.AreEqual("old", File.ReadAllText(plan.AppExe));
+        StringAssert.Contains(UpdateResult.TryRead(plan.ResultFile)?.Message, "SHA-256");
+        CollectionAssert.AreEqual(new[] { plan.AppExe }, started, "The old version is started again - nothing else.");
+    }
+
+    [TestMethod]
+    public void A_backup_left_by_an_earlier_update_is_never_put_back()
+    {
+        var plan = PortablePlan(ExitedProcessId());
+        File.WriteAllText(plan.AppExe, "old");
+        File.WriteAllText(plan.AppExe + ".old", "older");
+        File.WriteAllBytes(plan.Package, NewPackage);
+
+        // The new version closes with an error right after starting: the one it replaced goes back - not the older one.
+        var code = UpdateHelper.Run(plan, info => info.FileName == plan.AppExe ? Exit(3) : null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+
+        Assert.AreEqual(1, code);
+        Assert.AreEqual("old", File.ReadAllText(plan.AppExe));
     }
 
     // ─── The real release ─────────────────────────────────────────────────
@@ -290,7 +330,10 @@ public sealed class AppUpdateTests
         var package = await new UpdateDownloader(new HttpClient()).DownloadAsync(release, portable, Path.Combine(_dir, "download"), null, CancellationToken.None);
         Assert.IsNull(UpdateDownloader.Problem(package, release, portable));
 
-        var plan = PortablePlan(ExitedProcessId()) with { Package = package, ToVersion = release.Version.ToString() };
+        var plan = PortablePlan(ExitedProcessId()) with
+        {
+            Package = package, PackageSha256 = portable.Sha256!, PackageSize = portable.Size, ToVersion = release.Version.ToString()
+        };
         File.WriteAllText(plan.AppExe, "the old version");
         var code = UpdateHelper.Run(plan, _ => null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
 

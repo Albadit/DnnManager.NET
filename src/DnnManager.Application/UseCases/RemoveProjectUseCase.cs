@@ -26,8 +26,10 @@ public sealed class RemoveProjectUseCase(
     IProjectRecords records,
     IKeepWarmRecords keepWarm,
     ILogger<RemoveProjectUseCase> log,
-    OperationUndo undo)
+    OperationUndo undo,
+    SiteDatabases siteDatabases)
 {
+    private readonly SiteDatabases _siteDatabases = siteDatabases;
     private readonly AppOptions _opts = opts.Value;
     private readonly IProjectRepository _projects = projects;
     private readonly IIisManager _iis = iis;
@@ -67,6 +69,7 @@ public sealed class RemoveProjectUseCase(
             var kept = new List<string>();
             if (!deleteFiles) kept.Add($"Its files in {project.ProjectDirectory} are kept - they are outside the projects folder.");
             if (Elsewhere(project) is { } remote) kept.Add($"Its database [{remote.Database}] on {remote.Server} is kept - it is on another server.");
+            if (SharedDatabase(project, deleteFiles) is { } shared) kept.Add($"Its database [{shared.Database}] is kept - the IIS site '{shared.Site}' uses it too.");
             if (Directory.Exists(project.BackupDirectory)) kept.Add($"Its backups in {project.BackupDirectory} are kept.");
             question = $"Remove project '{project.Name}' permanently?{nl}{nl}Deleted: {Join(goes)}." +
                        (kept.Count > 0 ? $"{nl}{nl}{string.Join(" ", kept)}" : "");
@@ -80,6 +83,7 @@ public sealed class RemoveProjectUseCase(
                 if (DatabaseText(p, deleteFiles) is { } database) parts.Add($"database {database}");
                 if (!deleteFiles) parts.Add("its files outside the projects folder are kept");
                 if (Elsewhere(p) is { } remote) parts.Add($"its database [{remote.Database}] on {remote.Server} is kept - another server");
+                if (SharedDatabase(p, deleteFiles) is { } shared) parts.Add($"its database [{shared.Database}] is kept - '{shared.Site}' uses it too");
                 return parts.Count > 0 ? $"• {p.Name}  ({string.Join("; ", parts)})" : $"• {p.Name}";
             }));
             var keeps = projects.Any(p => Directory.Exists(p.BackupDirectory)) ? $"{nl}{nl}Their backups are kept." : "";
@@ -88,12 +92,27 @@ public sealed class RemoveProjectUseCase(
         if (!await _prompt.ConfirmDangerAsync(question, single ? "Remove project" : $"Remove {projects.Count} projects", "Cancel", ct))
             return Result.Aborted();
 
+        // Backups outlive the project unless asked otherwise: a copy of a site's data (a live one's, when it was cloned) is
+        // only kept as long as it is wanted. Kept is the answer that loses nothing.
+        var withBackups = projects.Where(p => Directory.Exists(p.BackupDirectory)).ToList();
+        var deleteBackups = withBackups.Count > 0 && await _prompt.ConfirmDangerAsync(
+            (single ? $"Also delete the backups of '{withBackups[0].Name}' in {withBackups[0].BackupDirectory}?"
+                    : $"Also delete the backups of {string.Join(", ", withBackups.Select(p => $"'{p.Name}'"))}?") +
+            $"{nl}{nl}Each holds a copy of the site and its database. Deleted, they can't be brought back.",
+            "Delete backups", "Keep backups", ct);
+
         var failed = new List<string>();
         foreach (var project in projects)
         {
             ct.ThrowIfCancellationRequested();
             if (!single) reporter.Step($"Removing '{project.Name}'");
             var result = await RemoveAsync(project, !keepsFiles.Contains(project.Name), reporter, ct);
+            if (result.Success && deleteBackups && Directory.Exists(project.BackupDirectory))
+            {
+                _undo.CannotUndo($"the backups of '{project.Name}' were deleted.");
+                if (await TryDeleteDirectoryAsync(project.BackupDirectory, ct)) reporter.Success($"Deleted its backups ({project.BackupDirectory}).");
+                else reporter.Warn($"Could not delete its backups in {project.BackupDirectory} - delete them yourself.");
+            }
             if (!result.Success)
             {
                 if (!single) reporter.Fail($"'{project.Name}': {result.Error}");
@@ -111,6 +130,7 @@ public sealed class RemoveProjectUseCase(
         var database = _container.DatabaseOf(project);
         if (database is { Kind: DatabaseKind.LocalDbFile }) return deleteFiles ? $@"(the file App_Data\{database.Database})" : null;
         if (database is { Kind: DatabaseKind.SqlServer } && !SqlServerAddress.IsOnThisMachine(database.Server)) return null;
+        if (SharedDatabase(project, deleteFiles) is not null) return null;
         if (database is not null) return $"[{database.Database}] on {database.Server}";
         return DatabaseNameOf(project, deleteFiles) is { } name ? $"[{name}] on the local SQL container" : null;
     }
@@ -122,6 +142,19 @@ public sealed class RemoveProjectUseCase(
     private DatabaseConnection? Elsewhere(DnnProject project) =>
         _container.DatabaseOf(project) is { Kind: DatabaseKind.SqlServer } database && !SqlServerAddress.IsOnThisMachine(database.Server)
             ? database : null;
+
+    /// <summary>
+    /// The database DNN Manager would drop with the project, and the other IIS site whose web.config names it too - then
+    /// it is that site's as well, and is kept. Null when no other site uses it.
+    /// </summary>
+    private (string Database, string Site)? SharedDatabase(DnnProject project, bool deleteFiles)
+    {
+        var database = _container.DatabaseOf(project);
+        if (database is { Kind: DatabaseKind.LocalDbFile }) return null;
+        var (server, name) = database is not null ? (database.Server, database.Database) : (_container.Server, DatabaseNameOf(project, deleteFiles));
+        if (name is null) return null;
+        return _siteDatabases.OtherSiteUsing(project.Name, server, name) is { } other ? (name, other) : null;
+    }
 
     /// <summary>
     /// The database to drop on the local container when web.config names none of its own: the one its web.config's
@@ -164,7 +197,9 @@ public sealed class RemoveProjectUseCase(
             else
                 reporter.Info($"App pool profile cleanup skipped: {profile.Error}");
 
-            // The database goes with the project, always.
+            // The database goes with the project - unless another site uses it too. One that couldn't be dropped is named
+            // in the result: the project's folder (and web.config, which says which database it was) goes all the same.
+            string? leftover = null;
             {
                 reporter.Step("Step 3: Drop project database");
                 // Drop the database the site uses (web.config SiteSqlServer) where it is, falling back - for a project of
@@ -182,6 +217,10 @@ public sealed class RemoveProjectUseCase(
                 {
                     reporter.Info($"Database [{database.Database}] is on {database.Server}, another server - it is kept. Drop it there if it should go.");
                 }
+                else if (SharedDatabase(project, deleteFiles) is { } shared)
+                {
+                    reporter.Info($"Database [{shared.Database}] is kept - the IIS site '{shared.Site}' uses it too.");
+                }
                 else if (database is { Kind: DatabaseKind.SqlServer })
                 {
                     // Not on the container but on this PC: dropped on its own server, signed in as the site does (or as
@@ -193,7 +232,10 @@ public sealed class RemoveProjectUseCase(
                         reporter.Success($"Database [{database.Database}] dropped on {database.Server} (if it existed).");
                     }
                     else
+                    {
                         reporter.Fail(drop.Error!);
+                        leftover = $"[{database.Database}] on {database.Server} couldn't be dropped ({drop.Error}) - drop it yourself.";
+                    }
                 }
                 else if (dbName is null)
                 {
@@ -206,9 +248,19 @@ public sealed class RemoveProjectUseCase(
                     {
                         _undo.CannotUndo($"database [{dbName}] was dropped.");
                         reporter.Success($"Database [{dbName}] dropped (if it existed).");
+                        // The site's own login on the container goes with its database - never the container's own user.
+                        if (database?.User is { Length: > 0 } login && login.Equals(LocalSqlContainer.SiteLoginFor(projectName), StringComparison.OrdinalIgnoreCase))
+                        {
+                            var dropped = await _sql.DropLoginAsync(login, ct);
+                            if (dropped.Success) reporter.Success($"Its login {login} dropped.");
+                            else reporter.Warn($"Could not drop its login {login}: {dropped.Error}");
+                        }
                     }
                     else
+                    {
                         reporter.Fail($"Could not drop database [{dbName}]: {drop.Error}");
+                        leftover = $"[{dbName}] on {_container.Server} couldn't be dropped ({drop.Error}) - drop it yourself.";
+                    }
                 }
             }
 
@@ -218,7 +270,7 @@ public sealed class RemoveProjectUseCase(
             {
                 reporter.Info($"{project.ProjectDirectory} is outside the projects folder - its files are kept.");
                 reporter.Step("Removal complete");
-                return Result.Ok();
+                return leftover is null ? Result.Ok() : Result.Fail($"'{projectName}' is removed, but its database {leftover}");
             }
 
             reporter.Step("Step 4: Delete project directory");
@@ -227,7 +279,7 @@ public sealed class RemoveProjectUseCase(
             if (!deleted.Success) return deleted;
 
             reporter.Step("Removal complete");
-            return Result.Ok();
+            return leftover is null ? Result.Ok() : Result.Fail($"'{projectName}' is removed, but its database {leftover}");
         }
         catch (Exception ex)
         {

@@ -53,15 +53,15 @@ public sealed class KeepWarmTests
     [TestMethod]
     public void AWarmUpWaitsForTheServerTheSitesWebConfigNames()
     {
-        Assert.AreEqual(("localhost", 1433), KeepWarmService.SqlEndpoint("localhost,1433"));
-        Assert.AreEqual(("127.0.0.1", 1444), KeepWarmService.SqlEndpoint("tcp:127.0.0.1, 1444"));
-        Assert.AreEqual(("sql.example.com", 1433), KeepWarmService.SqlEndpoint("sql.example.com"));
-        Assert.AreEqual(("127.0.0.1", 1433), KeepWarmService.SqlEndpoint("(local)"));
+        Assert.AreEqual(("localhost", 1433), SqlServerAddress.Parse("localhost,1433").TcpEndpoint);
+        Assert.AreEqual(("127.0.0.1", 1444), SqlServerAddress.Parse("tcp:127.0.0.1, 1444").TcpEndpoint);
+        Assert.AreEqual(("sql.example.com", 1433), SqlServerAddress.Parse("sql.example.com").TcpEndpoint);
+        Assert.AreEqual(("127.0.0.1", 1433), SqlServerAddress.Parse("(local)").TcpEndpoint);
         // Not reached over a TCP port of its own: nothing to wait for.
-        Assert.IsNull(KeepWarmService.SqlEndpoint(@".\SQLEXPRESS"));
-        Assert.IsNull(KeepWarmService.SqlEndpoint(@"(localdb)\MSSQLLocalDB"));
-        Assert.IsNull(KeepWarmService.SqlEndpoint(@"np:\\.\pipe\sql\query"));
-        Assert.IsNull(KeepWarmService.SqlEndpoint(null));
+        Assert.IsNull(SqlServerAddress.Parse(@".\SQLEXPRESS").TcpEndpoint);
+        Assert.IsNull(SqlServerAddress.Parse(@"(localdb)\MSSQLLocalDB").TcpEndpoint);
+        Assert.IsNull(SqlServerAddress.Parse(@"np:\\.\pipe\sql\query").TcpEndpoint);
+        Assert.IsNull(SqlServerAddress.Parse(null).TcpEndpoint);
     }
 
     [TestMethod]

@@ -15,16 +15,16 @@
             </Grid.ColumnDefinitions>
             <StackPanel>
                 <TextBlock Style="{StaticResource FieldLabel}" Text=".NET CLR version" />
-                <ComboBox x:Name="RuntimeBox" SelectionChanged="Setting_Changed" />
+                <ComboBox AutomationProperties.Name=".NET CLR version" x:Name="RuntimeBox" SelectionChanged="Setting_Changed" />
             </StackPanel>
             <StackPanel Grid.Column="2">
                 <TextBlock Style="{StaticResource FieldLabel}" Text="Pipeline mode" />
-                <ComboBox x:Name="PipelineBox" SelectionChanged="Setting_Changed" />
+                <ComboBox AutomationProperties.Name="Pipeline mode" x:Name="PipelineBox" SelectionChanged="Setting_Changed" />
             </StackPanel>
         </Grid>
         <CheckBox x:Name="Enable32BitBox" Content="Enable 32-bit applications" Margin="0,12,0,0" Click="Setting_Changed" />
         <TextBlock Style="{StaticResource FieldLabel}" Text="Identity" Margin="0,12,0,4" />
-        <ComboBox x:Name="IdentityBox" SelectionChanged="Setting_Changed" />
+        <ComboBox AutomationProperties.Name="Identity" x:Name="IdentityBox" SelectionChanged="Setting_Changed" />
         <TextBlock x:Name="IdentityHint" Style="{StaticResource Hint}" />
         <Grid Margin="0,4,0,0">
             <Grid.ColumnDefinitions>
@@ -34,11 +34,11 @@
             </Grid.ColumnDefinitions>
             <StackPanel>
                 <TextBlock Style="{StaticResource FieldLabel}" Text="Idle time-out (minutes)" />
-                <TextBox x:Name="IdleBox" TextChanged="Setting_Changed" />
+                <TextBox AutomationProperties.Name="Idle time-out (minutes)" x:Name="IdleBox" TextChanged="Setting_Changed" />
             </StackPanel>
             <StackPanel Grid.Column="2">
                 <TextBlock Style="{StaticResource FieldLabel}" Text="Start mode" />
-                <ComboBox x:Name="StartModeBox" SelectionChanged="Setting_Changed" />
+                <ComboBox AutomationProperties.Name="Start mode" x:Name="StartModeBox" SelectionChanged="Setting_Changed" />
             </StackPanel>
         </Grid>
         <TextBlock Style="{StaticResource Hint}" Text="An idle time-out of 0 never shuts the pool down for being idle." />

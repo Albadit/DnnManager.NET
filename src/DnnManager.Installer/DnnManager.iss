@@ -466,6 +466,8 @@ begin
   if P > 0 then Json := Copy(Json, 1, P);
   Digest := JsonString(Json, 'digest');
   if CompareText(Copy(Digest, 1, 7), 'sha256:') = 0 then Sha256 := Lowercase(Copy(Digest, 8, 64));
+  // It is run with administrator rights: a download that can't be checked isn't run.
+  if Length(Sha256) <> 64 then RaiseException('GitHub lists no SHA-256 for ' + AssetName + ', so the download can''t be checked.');
 
   DownloadPage.Clear;
   DownloadPage.Add('{#AppUrl}/releases/download/v' + Version + '/' + AssetName, AssetName, Sha256);

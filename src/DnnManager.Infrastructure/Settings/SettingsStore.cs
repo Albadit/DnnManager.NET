@@ -110,7 +110,7 @@ public sealed class SettingsStore(AppDataPaths paths)
         return settings;
     }
 
-    /// <summary>Replaces the settings with the defaults - the current ones aren't kept.</summary>
+    /// <summary>Replaces the settings with the defaults - the current ones aren't kept, but for the container's sa password.</summary>
     public void ResetToDefaults()
     {
         _paths.EnsureCreated();
@@ -120,8 +120,12 @@ public sealed class SettingsStore(AppDataPaths paths)
             _database.RecoverIfDamaged();
             using var connection = _database.Open();
             AppDatabase.Execute(connection, "BEGIN IMMEDIATE");
+            // The container was made with its sa password: a reset doesn't take it away (a new default wouldn't sign in).
+            var sa = AppDatabase.KeyValues(connection, "SELECT key, value FROM settings WHERE key = $key", ("$key", SaPasswordKey));
             AppDatabase.Execute(connection, "DELETE FROM settings");
             AppDatabase.InsertAll(connection, "INSERT INTO settings (key, value) VALUES ($key, $value)", Rows(new UserSettings()));
+            if (sa.TryGetValue(SaPasswordKey, out var kept))
+                AppDatabase.Execute(connection, "UPDATE settings SET value = $value WHERE key = $key", ("$value", kept), ("$key", SaPasswordKey));
             AppDatabase.Execute(connection, "COMMIT");
         }
         catch (SqliteException ex) { throw new IOException(ex.Message, ex); }

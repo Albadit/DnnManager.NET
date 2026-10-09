@@ -67,6 +67,12 @@ public sealed class DnnSiteInspector(IIisManager iis, AppDataPaths paths, ILogge
             var server = await ReadAsync(conn, "SELECT CAST(SERVERPROPERTY('ProductVersion') AS nvarchar(64)), CAST(SERVERPROPERTY('Edition') AS nvarchar(128)), " +
                                                "CAST(DATABASEPROPERTYEX(DB_NAME(), 'Status') AS nvarchar(64))", ct, r => (r.GetString(0), r.GetString(1), r.GetString(2)));
             facts = facts with { SqlServerVersion = server.Item1, SqlServerEdition = server.Item2, DatabaseState = server.Item3 };
+            // Its data files' size, for the room the backups need.
+            facts = facts with
+            {
+                DatabaseBytes = await ReadAsync(conn, "SELECT CAST(ISNULL(SUM(CAST(size AS bigint)), 0) * 8192 AS bigint) FROM sys.database_files WHERE type = 0",
+                    ct, r => r.GetInt64(0))
+            };
             var q = await DnnTables.QualifierAsync(conn, "Version", ct);
             if (q is null) return facts with { DatabaseProblem = "The database has no DNN tables." };
             var version = await ReadAsync(conn, $"SELECT TOP 1 CONCAT(Major, '.', Minor, '.', Build) FROM {DnnTables.Name(q, "Version")} ORDER BY Major DESC, Minor DESC, Build DESC",

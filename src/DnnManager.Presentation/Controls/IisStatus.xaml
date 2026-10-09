@@ -19,11 +19,11 @@
             Padding="0,0,1,0" Height="{DynamicResource StatusBarHeight}" TextElement.FontSize="{DynamicResource TextCaption}">
         <DockPanel Margin="14,0,6,0">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
-                <Button x:Name="StartButton" Style="{StaticResource IisButton}" Content="{StaticResource GlyphPlay}" ToolTip="Start IIS, the web server, so your websites can be opened"
+                <Button AutomationProperties.Name="Start IIS" x:Name="StartButton" Style="{StaticResource IisButton}" Content="{StaticResource GlyphPlay}" ToolTip="Start IIS, the web server, so your websites can be opened"
                         Click="Start_Click" Visibility="Collapsed" />
-                <Button x:Name="RestartButton" Style="{StaticResource IisButton}" Content="{StaticResource GlyphRefresh}"
+                <Button AutomationProperties.Name="Restart IIS" x:Name="RestartButton" Style="{StaticResource IisButton}" Content="{StaticResource GlyphRefresh}"
                         ToolTip="Restart IIS - every website on this computer is unavailable for a few seconds; asks first" Click="Restart_Click" Visibility="Collapsed" />
-                <Button x:Name="StopButton" Style="{StaticResource IisButton}" Content="{StaticResource GlyphStop}" ToolTip="Stop IIS - every website on this computer stops until you start it again; asks first"
+                <Button AutomationProperties.Name="Stop IIS" x:Name="StopButton" Style="{StaticResource IisButton}" Content="{StaticResource GlyphStop}" ToolTip="Stop IIS - every website on this computer stops until you start it again; asks first"
                         Click="Stop_Click" Visibility="Collapsed" />
             </StackPanel>
             <StackPanel x:Name="State" Orientation="Horizontal" VerticalAlignment="Center" Background="Transparent">

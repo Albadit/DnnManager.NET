@@ -170,7 +170,7 @@ public sealed partial class DatabaseProvisioner(ILogger<DatabaseProvisioner> log
         // With Windows authentication the site signs in as its app pool's identity, which needs a login of its own.
         if (options.SiteLogin is { } siteLogin && c.UsesWindowsAuthentication && !azure)
         {
-            if (!IsThisMachine(c.Server))
+            if (!SqlServerAddress.IsOnThisMachine(c.Server))
             {
                 checks.Add(new DatabaseCheck("Site login", CheckOutcome.Warning,
                     $"On another server the site signs in as this computer's account ({Environment.UserDomainName}\\{Environment.MachineName}$) - give it db_owner on [{c.Database}] there."));
@@ -244,8 +244,10 @@ public sealed partial class DatabaseProvisioner(ILogger<DatabaseProvisioner> log
         try
         {
             await using var conn = await OpenAsync(connection, "master", ct);
+            // Creating can take a while on a busy server (or Azure's provisioning): more than SqlClient's 30 seconds.
             using var cmd = new SqlCommand(
-                "DECLARE @sql nvarchar(max) = N'CREATE DATABASE ' + QUOTENAME(@db) + COALESCE(N' COLLATE ' + @collation, N''); EXEC (@sql);", conn);
+                "DECLARE @sql nvarchar(max) = N'CREATE DATABASE ' + QUOTENAME(@db) + COALESCE(N' COLLATE ' + @collation, N''); EXEC (@sql);", conn)
+            { CommandTimeout = 120 };
             cmd.Parameters.AddWithValue("@db", connection.Database);
             cmd.Parameters.AddWithValue("@collation", (object?)collation ?? DBNull.Value);
             await cmd.ExecuteNonQueryAsync(ct);
@@ -295,10 +297,15 @@ public sealed partial class DatabaseProvisioner(ILogger<DatabaseProvisioner> log
             // Pooled connections of this process would keep the database in use.
             SqlConnection.ClearAllPools();
             await using var conn = await OpenAsync(connection, "master", ct);
+            // Azure SQL Database (EngineEdition 5) has no single-user mode: dropped as it is there. A drop that fails puts
+            // the database back to everyone - left single-user, the site's next connection would take it.
             using var cmd = new SqlCommand(
                 "IF DB_ID(@db) IS NOT NULL BEGIN " +
-                "DECLARE @single nvarchar(max) = N'ALTER DATABASE ' + QUOTENAME(@db) + N' SET SINGLE_USER WITH ROLLBACK IMMEDIATE'; EXEC (@single); " +
-                "DECLARE @drop nvarchar(max) = N'DROP DATABASE ' + QUOTENAME(@db); EXEC (@drop); END", conn);
+                "DECLARE @azure bit = CASE WHEN CAST(SERVERPROPERTY('EngineEdition') AS int) = 5 THEN 1 ELSE 0 END; " +
+                "IF @azure = 0 BEGIN DECLARE @single nvarchar(max) = N'ALTER DATABASE ' + QUOTENAME(@db) + N' SET SINGLE_USER WITH ROLLBACK IMMEDIATE'; EXEC (@single); END " +
+                "BEGIN TRY DECLARE @drop nvarchar(max) = N'DROP DATABASE ' + QUOTENAME(@db); EXEC (@drop); END TRY " +
+                "BEGIN CATCH IF @azure = 0 AND DB_ID(@db) IS NOT NULL BEGIN DECLARE @multi nvarchar(max) = N'ALTER DATABASE ' + QUOTENAME(@db) + N' SET MULTI_USER'; EXEC (@multi); END; THROW; END CATCH " +
+                "END", conn) { CommandTimeout = 120 };
             cmd.Parameters.AddWithValue("@db", connection.Database);
             await cmd.ExecuteNonQueryAsync(ct);
             return Result.Ok();
@@ -367,15 +374,6 @@ public sealed partial class DatabaseProvisioner(ILogger<DatabaseProvisioner> log
 
     // Login failed, untrusted domain, account disabled, password expired / must change.
     private static bool IsLoginFailure(SqlException ex) => ex.Number is 18456 or 18452 or 18470 or 18487 or 18488;
-
-    private static bool IsThisMachine(string server)
-    {
-        var host = server.Split(',', '\\')[0].Trim();
-        if (host.StartsWith("tcp:", StringComparison.OrdinalIgnoreCase)) host = host[4..];
-        return host is "." or "(local)" || host.StartsWith("(localdb)", StringComparison.OrdinalIgnoreCase) ||
-               host.Equals("localhost", StringComparison.OrdinalIgnoreCase) || host == "127.0.0.1" || host == "::1" ||
-               host.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase);
-    }
 
     internal static string ProductName(int major) => major switch
     {

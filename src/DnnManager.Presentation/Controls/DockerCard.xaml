@@ -92,11 +92,11 @@
             </WrapPanel>
             <StackPanel x:Name="YamlPanel" Visibility="Collapsed" Margin="0,10,0,0">
                 <Grid>
-                    <TextBox x:Name="YamlBox" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                    <TextBox x:Name="YamlBox" AutomationProperties.Name="docker-compose.yml" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
                              FontFamily="Cascadia Mono, Consolas" FontSize="{DynamicResource TextCaption}" MaxHeight="380" Padding="8,8,8,8"
                              VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" />
                     <!-- Over the top-right corner of the box, clear of its vertical scrollbar. -->
-                    <Button x:Name="CopyYamlButton" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,24,0"
+                    <Button AutomationProperties.Name="Copy" x:Name="CopyYamlButton" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,24,0"
                             Padding="10,3" ToolTip="Copy" Click="CopyYaml_Click">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{StaticResource GlyphCopy}" FontFamily="{StaticResource IconFont}" FontSize="12"

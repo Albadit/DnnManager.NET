@@ -16,12 +16,26 @@ public sealed class ProcessRunner
 {
     /// <param name="onOutput">Called with each stdout / stderr line as it arrives, e.g. to show progress.</param>
     /// <param name="stdin">Written to the process's standard input, which is then closed (e.g. <c>docker compose -f -</c>).</param>
+    /// <param name="timeout">
+    /// How long it may run - then it is ended, with its child processes, and the run fails (exit code -1). None: until it
+    /// ends or is cancelled. For a quick question to a program that can hang (docker while Docker Desktop is half started).
+    /// </param>
     public async Task<ProcessResult> RunAsync(string fileName, IReadOnlyList<string> args, CancellationToken ct = default,
-        IDictionary<string, string?>? env = null, Action<string>? onOutput = null, string? stdin = null)
+        IDictionary<string, string?>? env = null, Action<string>? onOutput = null, string? stdin = null, TimeSpan? timeout = null)
     {
+        // Run as Administrator: only a copy of the program that nobody else can change.
+        if (TrustedPrograms.Find(fileName, out var refused) is not { } program)
+            return new ProcessResult
+            {
+                ExitCode = -1,
+                StdErr = refused is null
+                    ? $"Could not start '{fileName}': it isn't installed (or not on PATH)."
+                    : $"Didn't start {refused}: programs without administrator rights could change it, and DNN Manager runs it as " +
+                      "Administrator. Install it for all users (in Program Files) - DNN Manager uses that copy."
+            };
         var psi = new ProcessStartInfo
         {
-            FileName = fileName,
+            FileName = program,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             RedirectStandardInput = stdin is not null,
@@ -51,14 +65,28 @@ public sealed class ProcessRunner
         }
         p.BeginOutputReadLine();
         p.BeginErrorReadLine();
+        using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        if (timeout is { } after) limit.CancelAfter(after);
         try
         {
             if (stdin is not null)
             {
-                await p.StandardInput.WriteAsync(stdin.AsMemory(), ct);
+                await p.StandardInput.WriteAsync(stdin.AsMemory(), limit.Token);
                 p.StandardInput.Close();
             }
-            await p.WaitForExitAsync(ct);
+            await p.WaitForExitAsync(limit.Token);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            // Its time is up: ended like a cancelled one, and said as a failed run.
+            try
+            {
+                if (!p.HasExited) p.Kill(entireProcessTree: true);
+                using var grace = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                await p.WaitForExitAsync(grace.Token);
+            }
+            catch { /* already gone, or not ours to kill */ }
+            return new ProcessResult { ExitCode = -1, StdOut = stdout.ToString(), StdErr = $"'{fileName}' didn't finish within {timeout!.Value.TotalSeconds:0} seconds." };
         }
         catch (OperationCanceledException)
         {

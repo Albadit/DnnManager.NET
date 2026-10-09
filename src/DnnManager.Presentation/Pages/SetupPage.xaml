@@ -13,7 +13,7 @@
                 <StackPanel>
                     <TextBlock Style="{StaticResource CardTitle}" Text="Project" />
                     <TextBlock Style="{StaticResource FieldLabel}" Text="Project name" Margin="0,0,0,4" />
-                    <TextBox x:Name="NameBox" TextChanged="NameBox_TextChanged" />
+                    <TextBox AutomationProperties.Name="Project name" x:Name="NameBox" TextChanged="NameBox_TextChanged" />
                     <TextBlock x:Name="NameError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
                     <TextBlock x:Name="NameHint" Style="{StaticResource Hint}" />
                 </StackPanel>
@@ -39,8 +39,8 @@
                                 <ColumnDefinition Width="12" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <ComboBox x:Name="BackupProjectCombo" SelectionChanged="BackupProject_Changed" />
-                            <ComboBox x:Name="ProjectBackupCombo" Grid.Column="2" DisplayMemberPath="Label" IsEnabled="False" SelectionChanged="ProjectBackup_Changed" />
+                            <ComboBox x:Name="BackupProjectCombo" AutomationProperties.Name="Project with backups" SelectionChanged="BackupProject_Changed" />
+                            <ComboBox x:Name="ProjectBackupCombo" Grid.Column="2" AutomationProperties.Name="Backup" DisplayMemberPath="Label" IsEnabled="False" SelectionChanged="ProjectBackup_Changed" />
                         </Grid>
                         <TextBlock Style="{StaticResource Hint}"
                                    Text="A project and one of its backups (Documents\DnnManager\backups) - or choose the files anywhere on this PC below." />
@@ -48,14 +48,14 @@
                     <TextBlock Style="{StaticResource FieldLabel}" Text="Site .zip" />
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="BrowseZip_Click" ToolTip="Browse" />
-                        <TextBox x:Name="ZipBox" TextChanged="ImportField_Changed" />
+                        <TextBox AutomationProperties.Name="Site .zip" x:Name="ZipBox" TextChanged="ImportField_Changed" />
                     </DockPanel>
                     <TextBlock Style="{StaticResource Hint}"
                                Text="The site's files - web.config at the top of the zip or in one folder inside it." />
                     <TextBlock Style="{StaticResource FieldLabel}" Text="Database .bacpac" />
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="BrowseBackup_Click" ToolTip="Browse" />
-                        <TextBox x:Name="BackupBox" TextChanged="ImportField_Changed" />
+                        <TextBox AutomationProperties.Name="Database .bacpac" x:Name="BackupBox" TextChanged="ImportField_Changed" />
                     </DockPanel>
                     <TextBlock Style="{StaticResource Hint}"
                                Text="The site's database - restored into the project's database. A .bak works too." />
@@ -74,11 +74,11 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel>
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Repository" Margin="0,0,0,4" />
-                            <ComboBox x:Name="SourceCombo" DisplayMemberPath="Label" SelectionChanged="SourceCombo_SelectionChanged" />
+                            <ComboBox AutomationProperties.Name="Repository" x:Name="SourceCombo" DisplayMemberPath="Label" SelectionChanged="SourceCombo_SelectionChanged" />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Version" Margin="0,0,0,4" />
-                            <ComboBox x:Name="VersionCombo" DisplayMemberPath="Label" SelectionChanged="VersionCombo_SelectionChanged" />
+                            <ComboBox AutomationProperties.Name="Version" x:Name="VersionCombo" DisplayMemberPath="Label" SelectionChanged="VersionCombo_SelectionChanged" />
                         </StackPanel>
                     </Grid>
                     <TextBlock x:Name="VersionHint" Style="{StaticResource Hint}"
@@ -97,11 +97,11 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel>
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Host name" Margin="0,0,0,4" />
-                            <TextBox x:Name="HostNameBox" TextChanged="HostName_TextChanged" />
+                            <TextBox AutomationProperties.Name="Host name" x:Name="HostNameBox" TextChanged="HostName_TextChanged" />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Port" Margin="0,0,0,4" />
-                            <TextBox x:Name="PortBox" TextChanged="Field_Changed" />
+                            <TextBox AutomationProperties.Name="Port" x:Name="PortBox" TextChanged="Field_Changed" />
                         </StackPanel>
                     </Grid>
                     <TextBlock x:Name="IisHint" Style="{StaticResource Hint}" />
@@ -144,7 +144,7 @@
                         </Grid.RowDefinitions>
                         <StackPanel>
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Host username" Margin="0,0,0,4" />
-                            <TextBox x:Name="HostUserBox" TextChanged="Field_Changed" />
+                            <TextBox AutomationProperties.Name="Host username" x:Name="HostUserBox" TextChanged="Field_Changed" />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <DockPanel Margin="0,0,0,4">
@@ -152,23 +152,23 @@
                                         ToolTip="Generate password" Click="GeneratePassword_Click" />
                                 <TextBlock Style="{StaticResource FieldLabel}" Text="Host password" Margin="0" />
                             </DockPanel>
-                            <c:PasswordInput x:Name="HostPasswordBox" PasswordChanged="Password_Changed" />
+                            <c:PasswordInput AutomationProperties.Name="Host password" x:Name="HostPasswordBox" PasswordChanged="Password_Changed" />
                         </StackPanel>
                         <StackPanel Grid.Row="1">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Host e-mail" />
-                            <TextBox x:Name="HostEmailBox" TextChanged="Field_Changed" />
+                            <TextBox AutomationProperties.Name="Host e-mail" x:Name="HostEmailBox" TextChanged="Field_Changed" />
                         </StackPanel>
                         <StackPanel Grid.Row="1" Grid.Column="2">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Website name" />
-                            <TextBox x:Name="WebsiteNameBox" TextChanged="WebsiteName_TextChanged" />
+                            <TextBox AutomationProperties.Name="Website name" x:Name="WebsiteNameBox" TextChanged="WebsiteName_TextChanged" />
                         </StackPanel>
                         <StackPanel Grid.Row="2">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Language" />
-                            <ComboBox x:Name="LanguageCombo" SelectionChanged="Selection_Changed" />
+                            <ComboBox AutomationProperties.Name="Language" x:Name="LanguageCombo" SelectionChanged="Selection_Changed" />
                         </StackPanel>
                         <StackPanel Grid.Row="2" Grid.Column="2">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Site template" />
-                            <ComboBox x:Name="TemplateCombo" SelectionChanged="Selection_Changed" />
+                            <ComboBox AutomationProperties.Name="Site template" x:Name="TemplateCombo" SelectionChanged="Selection_Changed" />
                         </StackPanel>
                     </Grid>
                     <TextBlock x:Name="AccountError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
@@ -204,11 +204,11 @@
                         </Grid.RowDefinitions>
                         <StackPanel>
                             <TextBlock x:Name="DbServerLabel" Style="{StaticResource FieldLabel}" Text="Server" />
-                            <TextBox x:Name="DbServerBox" TextChanged="DbField_Changed" />
+                            <TextBox AutomationProperties.Name="Server" x:Name="DbServerBox" TextChanged="DbField_Changed" />
                         </StackPanel>
                         <StackPanel x:Name="DbNamePanel" Grid.Column="2">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Database name" />
-                            <TextBox x:Name="DbNameBox" TextChanged="DbName_Changed" />
+                            <TextBox AutomationProperties.Name="Database name" x:Name="DbNameBox" TextChanged="DbName_Changed" />
                         </StackPanel>
                         <StackPanel x:Name="DbAuthPanel" Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,10,0,0">
                             <RadioButton x:Name="DbWindowsAuth" GroupName="DbAuth" Content="Windows authentication" Margin="0,0,20,0" Checked="DbAuth_Checked" />
@@ -216,11 +216,11 @@
                         </StackPanel>
                         <StackPanel x:Name="DbUserPanel" Grid.Row="2">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Username" />
-                            <TextBox x:Name="DbUserBox" TextChanged="DbField_Changed" />
+                            <TextBox AutomationProperties.Name="Username" x:Name="DbUserBox" TextChanged="DbField_Changed" />
                         </StackPanel>
                         <StackPanel x:Name="DbPasswordPanel" Grid.Row="2" Grid.Column="2">
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Password" />
-                            <c:PasswordInput x:Name="DbPasswordBox" PasswordChanged="DbPassword_Changed" />
+                            <c:PasswordInput AutomationProperties.Name="Password" x:Name="DbPasswordBox" PasswordChanged="DbPassword_Changed" />
                         </StackPanel>
                     </Grid>
                     <TextBlock x:Name="DatabaseError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
@@ -231,6 +231,9 @@
             <StackPanel Orientation="Horizontal">
                 <Button x:Name="RunButton" Style="{StaticResource Primary}" Content="Create project" IsEnabled="False" Click="Run_Click"
                         ToolTip="Create the website with these choices - the panel at the bottom shows each step, Cancel undoes it" />
+                <!-- Why the button can't be clicked yet: a disabled button says nothing, and can't even show its tooltip. -->
+                <TextBlock x:Name="StillNeeded" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="12,0,0,0"
+                           TextWrapping="Wrap" MaxWidth="520" />
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

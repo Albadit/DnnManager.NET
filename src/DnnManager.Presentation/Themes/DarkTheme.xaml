@@ -9,7 +9,7 @@
     <SolidColorBrush x:Key="CardBg"           Color="#181818" />  <!-- panel.background -->
     <SolidColorBrush x:Key="CardBorder"       Color="#2B2B2B" />  <!-- panel.border -->
     <SolidColorBrush x:Key="InputBg"          Color="#313131" />  <!-- input.background -->
-    <SolidColorBrush x:Key="InputBorder"      Color="#3C3C3C" />  <!-- input.border -->
+    <SolidColorBrush x:Key="InputBorder"      Color="#6B6B6B" />  <!-- input.border -->
     <SolidColorBrush x:Key="HoverBg"          Color="#2A2D2E" />  <!-- list.hoverBackground -->
     <SolidColorBrush x:Key="SelectionBg"      Color="#04395E" />  <!-- list.activeSelectionBackground -->
     <SolidColorBrush x:Key="HeaderBg"         Color="#181818" />  <!-- sideBarSectionHeader.background -->
@@ -19,12 +19,16 @@
 
     <SolidColorBrush x:Key="TextPrimary"      Color="#CCCCCC" />  <!-- foreground -->
     <SolidColorBrush x:Key="TextMuted"        Color="#9D9D9D" />  <!-- descriptionForeground -->
-    <SolidColorBrush x:Key="ErrorText"        Color="#F85149" />  <!-- errorForeground -->
+    <SolidColorBrush x:Key="ErrorText"        Color="#FF6B61" />  <!-- errorForeground -->
     <SolidColorBrush x:Key="SuccessText"      Color="#73C991" />  <!-- testing.iconPassed -->
     <!-- Keep warm's flame while a site is kept warm. -->
     <SolidColorBrush x:Key="KeepWarmFg"       Color="#FF8A3D" />
 
     <SolidColorBrush x:Key="Accent"           Color="#0078D4" />  <!-- button.background, focusBorder -->
+    <!-- The border of a field or check box under the mouse or with the focus: 3:1 against the field (WCAG 1.4.11). -->
+    <SolidColorBrush x:Key="FocusBorder"      Color="#3794FF" />  <!-- a focusBorder with 3:1 against the fields -->
+    <!-- Text and marks on an accent fill: a primary button, a ticked check box, a switch that is on. -->
+    <SolidColorBrush x:Key="OnAccent"         Color="#FFFFFF" />
     <SolidColorBrush x:Key="AccentHover"      Color="#026EC1" />  <!-- button.hoverBackground -->
     <SolidColorBrush x:Key="DangerBrush"      Color="#C72E0F" />  <!-- statusBarItem.errorBackground -->
     <SolidColorBrush x:Key="DangerHoverBrush" Color="#A8270D" />
@@ -79,8 +83,8 @@
     <SolidColorBrush x:Key="OutHeadingTime"     Color="#9D9D9D" />  <!-- descriptionForeground -->
     <SolidColorBrush x:Key="OutTime"            Color="#9D9D9D" />  <!-- descriptionForeground -->
     <SolidColorBrush x:Key="OutMuted"           Color="#9D9D9D" />  <!-- descriptionForeground -->
-    <SolidColorBrush x:Key="OutDim"             Color="#6E7681" />  <!-- editorLineNumber.foreground -->
-    <SolidColorBrush x:Key="OutSkippedIcon"     Color="#3C3C3C" />  <!-- input.border -->
+    <SolidColorBrush x:Key="OutDim"             Color="#8B949E" />  <!-- editorLineNumber.foreground -->
+    <SolidColorBrush x:Key="OutSkippedIcon"     Color="#6B6B6B" />  <!-- input.border -->
     <SolidColorBrush x:Key="OutValue"           Color="#4DAAFC" />  <!-- textLink.foreground -->
     <SolidColorBrush x:Key="OutActive"          Color="#59A4F9" />  <!-- editorInfo.foreground -->
     <SolidColorBrush x:Key="OutSuccessText"     Color="#73C991" />  <!-- testing.iconPassed -->

@@ -1,7 +1,6 @@
-using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Controls;
-using DnnManager.Presentation.Themes;
+using DnnManager.IntegrationTests.Support;
 
 namespace DnnManager.IntegrationTests;
 
@@ -28,19 +27,8 @@ public sealed class InputAlignmentTests
         Assert.AreEqual(placeholderX, box.GetRectFromCharacterIndex(0).X, 0.5);
     });
 
-    // The app's control styles - those the search box uses - as the app has them: in the application's resources.
-    private static ResourceDictionary Styles()
-    {
-        var resources = System.Windows.Application.Current!.Resources;
-        if (resources.MergedDictionaries.Count > 0) return resources;
-        // One after the other, as App.xaml has them: each looks up what the ones before it define while it loads.
-        resources.MergedDictionaries.Add(new Tokens());
-        resources.MergedDictionaries.Add(new Icons());
-        resources.MergedDictionaries.Add(new LayoutStyles());
-        resources.MergedDictionaries.Add(new ButtonStyles());
-        resources.MergedDictionaries.Add(new InputStyles());
-        return resources;
-    }
+    // The app's control styles, as the app has them: in the application's resources (WpfUi).
+    private static ResourceDictionary Styles() => System.Windows.Application.Current!.Resources;
 
     private static void Layout(FrameworkElement element)
     {
@@ -50,22 +38,5 @@ public sealed class InputAlignmentTests
         element.UpdateLayout();
     }
 
-    private static void Sta(Action body)
-    {
-        Exception? failure = null;
-        var thread = new Thread(() =>
-        {
-            try
-            {
-                // The styles' pack URIs need WPF's application parts.
-                if (System.Windows.Application.Current is null) _ = new System.Windows.Application();
-                body();
-            }
-            catch (Exception ex) { failure = ex; }
-        });
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        thread.Join();
-        if (failure is not null) ExceptionDispatchInfo.Capture(failure).Throw();
-    }
+    private static void Sta(Action body) => WpfUi.Run(body);
 }

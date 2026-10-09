@@ -104,7 +104,8 @@ public sealed class OutputStage(string name, string title) : OutputItem
         StageStatus.Pending => "-",
         StageStatus.Skipped => "skipped",
         StageStatus.Cancelled => "cancelled",
-        _ => Duration is { } d ? OutputFormat.Short(d) : ""
+        // Running: whole seconds, which change once a second; done: to the hundredth.
+        _ => Duration is { } d ? _status == StageStatus.Running ? OutputFormat.Long(d) : OutputFormat.Short(d) : ""
     };
 
     public void Start(DateTime at)
@@ -209,8 +210,18 @@ public sealed class OutputRun(string title, DateTime startedAt) : OutputItem
     /// <summary>The message it ended with - why it failed, or that it was cancelled.</summary>
     public string? Outcome { get; private set; }
 
-    public int Warnings => AllLines.Count(l => l.Level == LineLevel.Warn);
-    public int Errors => AllLines.Count(l => l.Level == LineLevel.Error);
+    // Its warnings and errors, counted once after each change - not once for every property that shows them.
+    private (int Warnings, int Errors)? _issues;
+
+    private (int Warnings, int Errors) Issues => _issues ??= AllLines.Aggregate((Warnings: 0, Errors: 0), (n, l) => l.Level switch
+    {
+        LineLevel.Warn => (n.Warnings + 1, n.Errors),
+        LineLevel.Error => (n.Warnings, n.Errors + 1),
+        _ => n
+    });
+
+    public int Warnings => Issues.Warnings;
+    public int Errors => Issues.Errors;
 
     /// <summary>"1 error", "2 warnings" - errors only when there are any; null when there is nothing to say.</summary>
     public string? IssueText => Errors > 0 ? Count(Errors, "error") : Warnings > 0 ? Count(Warnings, "warning") : null;
@@ -274,8 +285,11 @@ public sealed class OutputRun(string title, DateTime startedAt) : OutputItem
     }
 
     /// <summary>A stage or line changed: the counts read differently.</summary>
-    public void Changed() => Raise(nameof(Warnings), nameof(Errors), nameof(IssueText), nameof(HasErrors), nameof(Done), nameof(Total),
-        nameof(Skipped), nameof(StoppedAt));
+    public void Changed()
+    {
+        _issues = null;
+        Raise(nameof(Warnings), nameof(Errors), nameof(IssueText), nameof(HasErrors), nameof(Done), nameof(Total), nameof(Skipped), nameof(StoppedAt));
+    }
 
     /// <summary>Time went on: a running run's duration (and its running stage's) reads differently.</summary>
     public void Tick()

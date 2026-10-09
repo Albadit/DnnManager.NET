@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using DnnManager.Application.Abstractions;
+using DnnManager.Infrastructure.Processes;
 
 namespace DnnManager.Presentation.Services;
 
@@ -86,15 +87,25 @@ internal static class IdeLocator
         return Process.Start(psi);
     }
 
-    /// <summary>Opens <paramref name="projectDirectory"/> (or its only solution file) in <paramref name="ide"/>.</summary>
+    /// <summary>
+    /// Opens <paramref name="projectDirectory"/> (or its only solution file) in <paramref name="ide"/> - as the signed-in
+    /// user, not with DNN Manager's Administrator rights: an editor has no need of them, and one installed in the user's
+    /// own folders (VS Code's user installer) could have been changed by any program of theirs. Only when the desktop's
+    /// shell can't start it, and only administrators can change it, it is started directly.
+    /// </summary>
     public static void Open(Ide ide, string projectDirectory)
     {
+        var target = ide.OpensSolution && SolutionFor(projectDirectory) is { } sln ? sln : projectDirectory;
+        if (Unelevated.Start(ide.ExePath, [target], projectDirectory)) return;
+        if (!TrustedPrograms.MayRun(ide.ExePath))
+            throw new InvalidOperationException($"{ide.Name} couldn't be started as you, and DNN Manager doesn't start it as Administrator: " +
+                                                $"programs without administrator rights could change {ide.ExePath}.");
         var psi = new ProcessStartInfo(ide.ExePath)
         {
             UseShellExecute = false,
             WorkingDirectory = projectDirectory
         };
-        psi.ArgumentList.Add(ide.OpensSolution && SolutionFor(projectDirectory) is { } sln ? sln : projectDirectory);
+        psi.ArgumentList.Add(target);
         Process.Start(psi);
     }
 

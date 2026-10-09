@@ -2,6 +2,7 @@ using System.Security;
 using System.Security.Principal;
 using System.Text;
 using DnnManager.Domain;
+using DnnManager.Infrastructure.Files;
 using DnnManager.Infrastructure.Processes;
 
 namespace DnnManager.Infrastructure.Startup;
@@ -71,7 +72,9 @@ public sealed class StartupTask(ProcessRunner process)
             </Task>
             """;
 
-        var file = Path.Combine(Path.GetTempPath(), $"dnnmanager-startup-{Guid.NewGuid():N}.xml");
+        // Not %TEMP%: schtasks reads it back, and the task it makes runs with the highest rights at every sign-in - the
+        // file mustn't be somewhere a program without administrator rights could change it in between.
+        var file = Path.Combine(PrivateTemp.Path, $"dnnmanager-startup-{Guid.NewGuid():N}.xml");
         try
         {
             await File.WriteAllTextAsync(file, xml, Encoding.Unicode, ct);

@@ -434,20 +434,31 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
 
         public void SetTopSpace(double space) => _heading.Margin = new Thickness(0, space, 0, 0);
 
-        /// <summary>The heading's colours and duration, as the stage stands now.</summary>
+        // The status the heading's colours are for - set again only when it changes.
+        private StageStatus? _shownStatus;
+
+        /// <summary>
+        /// The heading's colours and duration, as the stage stands now - each set only when it changed: every change to
+        /// the document lays its paragraph out again, and is raised to UI Automation listeners.
+        /// </summary>
         public void UpdateHeading()
         {
-            _title.Text = _stage.Title;
-            var (title, time) = _stage.Status switch
+            if (_title.Text != _stage.Title) _title.Text = _stage.Title;
+            if (_shownStatus != _stage.Status)
             {
-                StageStatus.Warning => ("OutWarnText", "OutWarn"),
-                StageStatus.Failed => ("OutErrorText", "OutErrorSoft"),
-                StageStatus.Skipped or StageStatus.Cancelled => ("OutDim", "OutDim"),
-                _ => ("OutHeading", "OutHeadingTime")
-            };
-            _title.SetResourceReference(TextElement.ForegroundProperty, title);
-            _duration.SetResourceReference(TextElement.ForegroundProperty, time);
-            _duration.Text = _stage.Status == StageStatus.Failed ? $"{_stage.DurationText} · failed" : _stage.DurationText;
+                _shownStatus = _stage.Status;
+                var (title, time) = _stage.Status switch
+                {
+                    StageStatus.Warning => ("OutWarnText", "OutWarn"),
+                    StageStatus.Failed => ("OutErrorText", "OutErrorSoft"),
+                    StageStatus.Skipped or StageStatus.Cancelled => ("OutDim", "OutDim"),
+                    _ => ("OutHeading", "OutHeadingTime")
+                };
+                _title.SetResourceReference(TextElement.ForegroundProperty, title);
+                _duration.SetResourceReference(TextElement.ForegroundProperty, time);
+            }
+            var duration = _stage.Status == StageStatus.Failed ? $"{_stage.DurationText} · failed" : _stage.DurationText;
+            if (_duration.Text != duration) _duration.Text = duration;
         }
 
         private void OnLinesChanged(object? sender, NotifyCollectionChangedEventArgs e) => _log.Change(() =>

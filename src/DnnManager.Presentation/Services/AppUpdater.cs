@@ -1,7 +1,10 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Reflection;
+using DnnManager.Application.Configuration;
+using DnnManager.Infrastructure.Files;
 using DnnManager.Infrastructure.Updates;
+using Microsoft.Extensions.Options;
 
 namespace DnnManager.Presentation.Services;
 
@@ -29,15 +32,23 @@ public sealed class AppUpdater : INotifyPropertyChanged
     private DateTime _checkedAt = DateTime.MinValue;
     private bool _checking, _updating;
 
-    public AppUpdater(WorkspaceService workspace, OperationRunner runner, ActivityLog log)
+    private readonly AppOptions _options;
+
+    public AppUpdater(WorkspaceService workspace, OperationRunner runner, ActivityLog log, IOptions<AppOptions> options)
     {
-        _workspace = workspace; _runner = runner; _log = log;
+        _workspace = workspace; _runner = runner; _log = log; _options = options.Value;
         var version = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
         Current = new Version(version.Major, version.Minor, Math.Max(version.Build, 0));
     }
 
-    /// <summary>Where the downloads and the helper go - one folder per version, removed a while after the next start.</summary>
-    public static string WorkFolder => Path.Combine(Path.GetTempPath(), "DnnManager-update");
+    /// <summary>
+    /// Where the downloads and the helper go - one folder per version, removed a while after the next start. Only
+    /// administrators may change it: the helper runs from it, and runs the package, with their rights.
+    /// </summary>
+    public static string WorkFolder => Path.Combine(PrivateTemp.Path, "update");
+
+    /// <summary>Where DNN Manager 1.8.0 and older put them: %TEMP%, which every program of the user can change.</summary>
+    private static string LegacyWorkFolder => Path.Combine(Path.GetTempPath(), "DnnManager-update");
 
     public Version Current { get; }
     public UpdateState State { get; private set; } = UpdateState.Checking;
@@ -80,6 +91,8 @@ public sealed class AppUpdater : INotifyPropertyChanged
         if (_started) return;
         _started = true;
         _ = CleanupLaterAsync();
+        // Switched off in the settings: GitHub is asked only when the user asks (About).
+        if (!_options.CheckForUpdatesAtStart) return;
         await Task.Delay(FirstCheck);
         await CheckAsync();
     }
@@ -143,7 +156,8 @@ public sealed class AppUpdater : INotifyPropertyChanged
             File.Delete(resultFile);
             var plan = new UpdatePlan
             {
-                Kind = target.Kind, Package = package, AppExe = target.AppExe, AllUsers = target.AllUsers,
+                Kind = target.Kind, Package = package, PackageSha256 = asset.Sha256 ?? "", PackageSize = asset.Size,
+                AppExe = target.AppExe, AllUsers = target.AllUsers,
                 WaitForProcessId = Environment.ProcessId, FromVersion = Current.ToString(), ToVersion = release.Version.ToString(),
                 LogFile = Path.Combine(folder, "update.log"), ResultFile = resultFile
             };
@@ -202,11 +216,11 @@ public sealed class AppUpdater : INotifyPropertyChanged
     /// <summary>
     /// The update that started this version when DNN Manager 1.7.2 or older made it (from 1.7.3 on, an update is noted in the database): those note it in a file this
     /// version doesn't read (<c>state\update.json</c>), but their helper's plan for this version is still in
-    /// <see cref="WorkFolder"/> for a couple of minutes. Null when there is none, or it is older than an update takes.
+    /// <see cref="LegacyWorkFolder"/> for a couple of minutes. Null when there is none, or it is older than an update takes.
     /// </summary>
     public UpdateRecord? HandedOver()
     {
-        var plan = Path.Combine(WorkFolder, Current.ToString(), "plan.json");
+        var plan = Path.Combine(LegacyWorkFolder, Current.ToString(), "plan.json");
         try
         {
             if (!File.Exists(plan)) return null;
@@ -227,10 +241,11 @@ public sealed class AppUpdater : INotifyPropertyChanged
     private async Task CleanupLaterAsync()
     {
         await Task.Delay(CleanupAfter);
-        if (_updating || IsUpdating || !Directory.Exists(WorkFolder)) return;
+        if (_updating || IsUpdating) return;
         await Task.Run(() =>
         {
-            foreach (var dir in Directory.EnumerateDirectories(WorkFolder))
+            foreach (var folder in new[] { WorkFolder, LegacyWorkFolder }.Where(Directory.Exists))
+            foreach (var dir in Directory.EnumerateDirectories(folder))
             {
                 try { Directory.Delete(dir, recursive: true); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* in use - next time */ }

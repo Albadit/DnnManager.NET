@@ -6,6 +6,10 @@ namespace DnnManager.Infrastructure.Files;
 
 public sealed class ProjectFileCopier : IProjectFileCopier
 {
+    // The times a zip entry can have (DOS date and time).
+    private static readonly DateTime ZipFirstTime = new(1980, 1, 1, 0, 0, 0, DateTimeKind.Local);
+    private static readonly DateTime ZipLastTime = new(2107, 12, 31, 23, 59, 58, DateTimeKind.Local);
+
     public Task<Result> CopyAsync(string sourceDirectory, string destinationDirectory,
         IProgressReporter reporter, CancellationToken ct)
     {
@@ -24,21 +28,29 @@ public sealed class ProjectFileCopier : IProjectFileCopier
         var files = new DirectoryInfo(src).EnumerateFiles("*", SearchOption.AllDirectories).ToList();
         var total = files.Count;
         var progress = new ProgressThrottle();
-        // One CreateDirectory per distinct destination folder instead of one per file.
-        var createdDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // Every destination folder first, once each - then the files, a few at a time: a DNN site is tens of thousands
+        // of small files, and copying them one after the other waits on each file's own round trip, not the disk.
+        foreach (var folder in files.Select(f => Path.GetDirectoryName(Path.Combine(dest, Path.GetRelativePath(src, f.FullName)))!)
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+            Directory.CreateDirectory(folder);
         var fileCount = 0;
         var byteCount = 0L;
-        foreach (var file in files)
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            var rel = Path.GetRelativePath(src, file.FullName);
-            var destFile = Path.Combine(dest, rel);
-            var destDir = Path.GetDirectoryName(destFile)!;
-            if (createdDirs.Add(destDir)) Directory.CreateDirectory(destDir);
-            file.CopyTo(destFile, overwrite: true);
-            fileCount++;
-            byteCount += file.Length;
-            if (progress.Due()) reporter.Progress($"{fileCount}/{total}  {rel}");
+            Parallel.ForEach(files, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = ct }, file =>
+            {
+                var rel = Path.GetRelativePath(src, file.FullName);
+                file.CopyTo(Path.Combine(dest, rel), overwrite: true);
+                var copied = Interlocked.Increment(ref fileCount);
+                Interlocked.Add(ref byteCount, file.Length);
+                lock (progress)
+                    if (progress.Due()) reporter.Progress($"{copied}/{total}  {rel}");
+            });
+        }
+        catch (AggregateException ex) when (ex.InnerExceptions.Count > 0)
+        {
+            // What went wrong with the first file that failed - as a copy one at a time would have said it.
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ex.InnerExceptions[0]).Throw();
         }
         reporter.Success($"Copied {fileCount:N0} files ({byteCount / 1024d / 1024d:N1} MB).");
         reporter.Fact("Files copied", $"{fileCount:N0} · {byteCount / 1024d / 1024d:N1} MB");
@@ -192,8 +204,11 @@ public sealed class ProjectFileCopier : IProjectFileCopier
                         // Shared read: the running site keeps some files (logs, caches) open.
                         using var input = new FileStream(file.FullName, FileMode.Open, FileAccess.Read,
                             FileShare.ReadWrite | FileShare.Delete);
-                        var entry = zip.CreateEntry(rel.Replace('\\', '/'), CompressionLevel.Optimal);
-                        entry.LastWriteTime = file.LastWriteTime;
+                        // Fastest: a site's DLLs, images and packages hardly get smaller - Optimal only takes longer.
+                        var entry = zip.CreateEntry(rel.Replace('\\', '/'), CompressionLevel.Fastest);
+                        // A zip keeps times from 1980 to 2107 only: one outside is kept at that end, rather than failing the export.
+                        entry.LastWriteTime = file.LastWriteTime < ZipFirstTime ? ZipFirstTime
+                            : file.LastWriteTime > ZipLastTime ? ZipLastTime : file.LastWriteTime;
                         using var output = entry.Open();
                         input.CopyTo(output);
                     }
@@ -258,7 +273,9 @@ public sealed class ProjectFileCopier : IProjectFileCopier
     /// </summary>
     private sealed class ProgressThrottle
     {
-        private const long IntervalMs = 100;
+        // Four times a second: the line is rewritten in the Output tab's document each time (laid out again, and said to
+        // UI Automation listeners) - more often only costs, and nobody reads it faster.
+        private const long IntervalMs = 250;
         private long _nextTicks;
 
         public bool Due()

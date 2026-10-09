@@ -19,6 +19,8 @@ public partial class MessageDialog : Window
         InitializeComponent();
         ThemeManager.Track(this);
         Message.Text = message;
+        // A screen reader says the message with the dialog, not only its title and buttons.
+        System.Windows.Automation.AutomationProperties.SetHelpText(this, message);
         Glyph.SetResourceReference(TextBlock.TextProperty, kind == Kind.Question ? "GlyphQuestion" : "GlyphWarning");
         Glyph.SetResourceReference(TextBlock.ForegroundProperty, kind switch { Kind.Question => "Accent", Kind.Danger => "ErrorText", _ => "LogWarn" });
     }

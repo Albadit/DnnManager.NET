@@ -71,6 +71,9 @@
                             <CheckBox x:Name="CleanProjectBackups" Margin="0,6,0,0" Click="Selection_Changed" />
                             <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
                                        Text="Each project's saved site .zip and database .bacpac - Export makes them, Import and New project restore them. They can't be brought back." />
+                            <CheckBox x:Name="CleanDeployments" Margin="0,6,0,0" Click="Selection_Changed" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
+                                       Text="What Export for deployment made: each holds a whole database, and a web.config with the live server's connection string when you gave one. Delete them once they are deployed." />
                         </StackPanel>
                     </StackPanel>
                 </Border>

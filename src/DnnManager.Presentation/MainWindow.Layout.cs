@@ -284,6 +284,29 @@ public partial class MainWindow
         _workspace.Changed();
     }
 
+    // How much a keyboard resize changes the sidebar or the panel.
+    private const double KeyboardResizeStep = 40;
+
+    /// <summary>The sidebar wider (or narrower) by <paramref name="by"/> - its sash, from the keyboard - within its least and greatest width.</summary>
+    private void ResizeSidebarBy(double by)
+    {
+        if (!_sidebarVisible) return;
+        var max = Math.Clamp(Body.ActualWidth - SidebarCardExtra - MinPageWidth, MinSidebarWidth, MaxSidebarWidth);
+        var width = Math.Clamp((double)GetValue(SidebarWidthProperty) + by, MinSidebarWidth, max);
+        _sidebarWidth = width;
+        SetSidebarWidth(width);
+        _workspace.Changed();
+    }
+
+    /// <summary>The panel taller (or shorter) by <paramref name="by"/> - its sash, from the keyboard - within its least height and what the page leaves it.</summary>
+    private void ResizePanelBy(double by)
+    {
+        if (!LogOpen) return;
+        FitPanel();
+        LogRow.Height = new GridLength(Math.Clamp(LogRow.ActualHeight + by, MinPanelHeight, LogRow.MaxHeight));
+        _workspace.Changed();
+    }
+
     /// <summary>The sidebar dragged <paramref name="dragged"/> toward the page since the drag started: it follows, from nothing up to its greatest width.</summary>
     private void ResizeSidebar(double dragged)
     {

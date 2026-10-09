@@ -70,7 +70,7 @@ public sealed class RenameProjectUseCase(
         var database = _sql.DatabaseOf(_projects.Build(oldName, oldDirectory));
         var renameDatabase = req.RenameDatabase && database is { Kind: not DatabaseKind.LocalDbFile } &&
                              !database.Database.Equals(newName, StringComparison.OrdinalIgnoreCase);
-        var wasRunning = site.State.Equals("Started", StringComparison.OrdinalIgnoreCase);
+        var wasRunning = IisStates.IsStarted(site.State);
 
         reporter.Plan("IIS site", "Folder", "Host name", "Database", "Records", "Start");
         reporter.Context($"{oldName} → {newName}");

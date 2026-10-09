@@ -165,7 +165,7 @@ public sealed class UpgradeDnnUseCase(
         reporter.Success($"Backup of DNN {Short(step.From)}: {folder}");
 
         // From here on the site changes: a failure or a cancel puts this backup back - and a site that was stopped stays so.
-        var wasRunning = site.State.Equals("Started", StringComparison.OrdinalIgnoreCase);
+        var wasRunning = IisStates.IsStarted(site.State);
         _undo.Add($"Put '{req.SiteName}' back as DNN {Short(step.From)} (the step's backup)", async () =>
         {
             var restored = await _restore.ExecuteAsync(backup, reporter, CancellationToken.None);
@@ -173,7 +173,22 @@ public sealed class UpgradeDnnUseCase(
             return restored;
         });
         var startedUtc = DateTime.UtcNow;
+        try
+        {
+            return await ChangeAndCheckAsync(req, address, database, step, release, number, folder, appPool, wasRunning, before, startedUtc, reporter, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Whatever it was (an address the checks can't read, a folder they may not write): the site is put back.
+            return await FailAsync(step, $"Unexpected error: {ex.Message}", folder, req.Directory, appPool, startedUtc, [], reporter);
+        }
+    }
 
+    /// <summary>The step's changes - the new files, DNN's upgrade, the restart - and its checks; a failure puts the backup back.</summary>
+    private async Task<StepResult> ChangeAndCheckAsync(UpgradeDnnRequest req, DnnSiteAddress address, DatabaseConnection database,
+        DnnUpgradeStep step, DnnRelease release, int number, string folder, string appPool, bool wasRunning, DnnSiteState before, DateTime startedUtc,
+        IProgressReporter reporter, CancellationToken ct)
+    {
         // ─── The new files ───
         reporter.Step($"Step {number}: putting in DNN {Short(step.To)}'s files" +
                       (step.Method == DnnUpgradeMethod.LocalUpgrade ? " (DNN's local upgrade, from its install package)" : " (its upgrade package)"));
@@ -229,19 +244,29 @@ public sealed class UpgradeDnnUseCase(
     {
         reporter.Fail(error);
         var kept = Path.Combine(folder, "failed-upgrade");
-        var diagnostics = (await _checks.CollectDiagnosticsAsync(directory, appPool, sinceUtc, kept, CancellationToken.None)).ToList();
-        // Where DNN's own output ended - its last lines say what it was doing when it stopped.
-        var output = Path.Combine(folder, $"dnn-upgrade-output-{Short(step.To)}.html");
-        if (File.Exists(output)) diagnostics.AddRange(LastLines(await File.ReadAllTextAsync(output, CancellationToken.None), 8).Select(l => $"DNN's output: {l}"));
-        foreach (var line in diagnostics) reporter.Info(line);
-        var diagnosis = DnnUpgradeDiagnosis.Explain(error, diagnostics.Concat(evidence));
-        reporter.Warn($"Likely cause: {diagnosis.Cause}");
-        foreach (var fix in diagnosis.Fixes) reporter.Info($"→ {fix}");
-        await File.WriteAllTextAsync(Path.Combine(kept, "what-happened.txt"),
-            $"Step {step} failed at {DateTime.Now:yyyy-MM-dd HH:mm:ss}.{Environment.NewLine}{Environment.NewLine}{error}{Environment.NewLine}{Environment.NewLine}" +
-            $"Likely cause: {diagnosis.Cause}{Environment.NewLine}{string.Concat(diagnosis.Fixes.Select(f => $"- {f}{Environment.NewLine}"))}{Environment.NewLine}" +
-            string.Join(Environment.NewLine, diagnostics.Concat(evidence)), CancellationToken.None);
-        reporter.Info($"Kept to see why: {kept}");
+        var diagnosis = DnnUpgradeDiagnosis.Explain(error, evidence);
+        try
+        {
+            // What tells why is a help, not a must: whatever goes wrong collecting it, the site is still put back below.
+            var diagnostics = (await _checks.CollectDiagnosticsAsync(directory, appPool, sinceUtc, kept, CancellationToken.None)).ToList();
+            // Where DNN's own output ended - its last lines say what it was doing when it stopped.
+            var output = Path.Combine(folder, $"dnn-upgrade-output-{Short(step.To)}.html");
+            if (File.Exists(output)) diagnostics.AddRange(LastLines(await File.ReadAllTextAsync(output, CancellationToken.None), 8).Select(l => $"DNN's output: {l}"));
+            foreach (var line in diagnostics) reporter.Info(line);
+            diagnosis = DnnUpgradeDiagnosis.Explain(error, diagnostics.Concat(evidence));
+            reporter.Warn($"Likely cause: {diagnosis.Cause}");
+            foreach (var fix in diagnosis.Fixes) reporter.Info($"→ {fix}");
+            Directory.CreateDirectory(kept);
+            await File.WriteAllTextAsync(Path.Combine(kept, "what-happened.txt"),
+                $"Step {step} failed at {DateTime.Now:yyyy-MM-dd HH:mm:ss}.{Environment.NewLine}{Environment.NewLine}{error}{Environment.NewLine}{Environment.NewLine}" +
+                $"Likely cause: {diagnosis.Cause}{Environment.NewLine}{string.Concat(diagnosis.Fixes.Select(f => $"- {f}{Environment.NewLine}"))}{Environment.NewLine}" +
+                string.Join(Environment.NewLine, diagnostics.Concat(evidence)), CancellationToken.None);
+            reporter.Info($"Kept to see why: {kept}");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            reporter.Warn($"Could not keep what tells why the step failed: {ex.Message}");
+        }
 
         reporter.Step($"Putting the site back as DNN {Short(step.From)} (the step's backup)");
         var back = await _undo.RunAsync(reporter);

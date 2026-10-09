@@ -1,5 +1,6 @@
 using System.Windows.Media;
 using DnnManager.Application.Configuration;
+using DnnManager.Infrastructure.Processes;
 using DnnManager.Infrastructure.SiteLogs;
 using DnnManager.Presentation.Pages.Projects;
 using Microsoft.Extensions.Options;
@@ -87,15 +88,17 @@ public sealed class TerminalService
         var windowsPowerShell = Path.Combine(Environment.SystemDirectory, @"WindowsPowerShell\v1.0\powershell.exe");
         if (File.Exists(windowsPowerShell)) shells.Add(new("powershell", "PowerShell", windowsPowerShell));
 
+        // A terminal runs with DNN Manager's Administrator rights: only a shell nobody else can change (one in the user's
+        // own folders, or on their PATH there, could be swapped by any program of theirs).
         var pwsh = OnPath("pwsh.exe") ?? FirstExisting(
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"PowerShell\7\pwsh.exe"));
         if (pwsh is not null) shells.Add(new("pwsh", "PowerShell 7", pwsh));
 
-        var cmd = Environment.GetEnvironmentVariable("ComSpec") is { Length: > 0 } comSpec && File.Exists(comSpec)
+        var cmd = Environment.GetEnvironmentVariable("ComSpec") is { Length: > 0 } comSpec && File.Exists(comSpec) && TrustedPrograms.MayRun(comSpec)
             ? comSpec : Path.Combine(Environment.SystemDirectory, "cmd.exe");
         shells.Add(new("cmd", "Command Prompt", cmd));
 
-        // Git for Windows: for all users, the 32-bit one, or installed for this user only.
+        // Git for Windows: for all users, the 32-bit one, or installed for this user only (when only administrators can change it).
         var bash = FirstExisting(
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Git\bin\bash.exe"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Git\bin\bash.exe"),
@@ -105,10 +108,10 @@ public sealed class TerminalService
     }
 
 
-    private static string? FirstExisting(params string[] paths) => paths.FirstOrDefault(File.Exists);
+    private static string? FirstExisting(params string[] paths) => paths.FirstOrDefault(p => File.Exists(p) && TrustedPrograms.MayRun(p));
 
     private static string? OnPath(string exe) => (Environment.GetEnvironmentVariable("PATH") ?? "")
         .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
         .Select(folder => { try { return Path.Combine(folder, exe); } catch (ArgumentException) { return null; } })
-        .FirstOrDefault(path => path is not null && File.Exists(path));
+        .FirstOrDefault(path => path is not null && File.Exists(path) && TrustedPrograms.MayRun(path));
 }

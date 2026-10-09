@@ -455,6 +455,13 @@ public partial class ProjectsPage : UserControl
     // Left hides them - as its chevron does, like a tree.
     private void Grid_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // Ctrl+A ticks every row shown - or none when all are: the header check box, from the keyboard.
+        if (e.Key == Key.A && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            SelectAll_Click(sender, e);
+            e.Handled = true;
+            return;
+        }
         if (ProjectsGrid.SelectedItem is not ProjectRow row || Keyboard.Modifiers != ModifierKeys.None) return;
         if (e.Key == Key.Space) row.IsChecked = !row.IsChecked;
         else if (e.Key == Key.Right) row.IsExpanded = true;
@@ -699,6 +706,27 @@ public partial class ProjectsPage : UserControl
             _view.SortDescriptions.Clear();
             _view.SortDescriptions.Add(new SortDescription(property, direction));
         }
+    }
+
+    /// <summary>
+    /// Sorts the list by the column of <paramref name="property"/> (its SortMemberPath) - the other way round when it is
+    /// sorted by it already: the column header, from the keyboard (the command palette).
+    /// </summary>
+    public void SortBy(string property)
+    {
+        var column = ProjectsGrid.Columns.FirstOrDefault(c => c.CanUserSort && c.SortMemberPath == property);
+        Sort(property, column?.SortDirection == ListSortDirection.Ascending);
+        WorkspaceChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Opens the column chooser with the keyboard in it - the Columns button, from the keyboard.</summary>
+    public void ChooseColumns()
+    {
+        ColumnsPopup.IsOpen = true;
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (ColumnsPopup.Child is FrameworkElement content) content.MoveFocus(new TraversalRequest(FocusNavigationDirection.First));
+        }, DispatcherPriority.Input);
     }
 
     private void Grid_Sorting(object sender, DataGridSortingEventArgs e) =>

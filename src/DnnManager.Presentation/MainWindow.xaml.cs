@@ -895,7 +895,13 @@ public partial class MainWindow : Window
         }
         if (_quittingForSetup)
         {
-            if (_runner.IsBusy) _runner.Cancel();
+            // Setup waits for DNN Manager to close - not for ever: an operation gets a while to stop and undo itself.
+            if (_runner.IsBusy && !_stoppingToQuit)
+            {
+                e.Cancel = true;
+                QuitOnceStopped(TimeSpan.FromSeconds(20));
+                return;
+            }
             _workspace.SaveNow(last: true);
             return;
         }
@@ -909,15 +915,37 @@ public partial class MainWindow : Window
         }
         if (_runner.IsBusy)
         {
-            if (!Dialogs.Confirm($"'{_runner.Current}' is still running. Quit anyway?", "Quit anyway", "Keep running"))
-            {
-                e.Cancel = true;
+            e.Cancel = true;
+            if (_stoppingToQuit) return;
+            if (!Dialogs.Confirm($"'{_runner.Current}' is still running. Quit anyway? It is cancelled first, and what it did is " +
+                                 "put back - DNN Manager closes once that is done.", "Quit anyway", "Keep running"))
                 return;
-            }
-            _runner.Cancel();
+            QuitOnceStopped(null);
+            return;
         }
         // The workspace as it is now - before the panel goes with the window. Nothing is saved after this.
         _workspace.SaveNow(last: true);
+    }
+
+    // Quitting, once the running operation has stopped.
+    private bool _stoppingToQuit;
+
+    /// <summary>
+    /// Cancels the running operation and closes the window once it has stopped and undone what it did - never cut off
+    /// half-way, which would leave a site, a database or files half made. With <paramref name="limit"/>, closes after that
+    /// long whatever it is doing (Setup is waiting).
+    /// </summary>
+    private async void QuitOnceStopped(TimeSpan? limit)
+    {
+        if (_stoppingToQuit) return;
+        _stoppingToQuit = true;
+        Toast.Show($"Quitting once '{_runner.Current}' has stopped and put back what it did…");
+        _runner.Cancel();
+        var idle = _runner.WhenIdleAsync();
+        if (limit is { } wait) await Task.WhenAny(idle, Task.Delay(wait));
+        else await idle;
+        _quitting = true;
+        Close();
     }
 }
 

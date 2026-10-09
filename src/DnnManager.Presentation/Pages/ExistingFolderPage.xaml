@@ -39,7 +39,7 @@
             <Border Style="{StaticResource Card}" Padding="0" Margin="0">
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="14,8,10,4">
-                        <Button DockPanel.Dock="Right" x:Name="RefreshButton" Padding="10,0" VerticalAlignment="Center"
+                        <Button AutomationProperties.Name="Look at the folders again" DockPanel.Dock="Right" x:Name="RefreshButton" Padding="10,0" VerticalAlignment="Center"
                                 ToolTip="Look at the folders again" Click="Refresh_Click">
                             <TextBlock Text="{StaticResource GlyphRefresh}" FontFamily="{StaticResource IconFont}" FontSize="13" VerticalAlignment="Center" />
                         </Button>

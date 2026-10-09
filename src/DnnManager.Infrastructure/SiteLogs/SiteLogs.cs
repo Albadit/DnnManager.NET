@@ -278,8 +278,16 @@ internal sealed class FileLogTail(string path) : ILogTail
         }
     }
 
+    // How many lines the view keeps - what is read when much more came meanwhile.
+    private int _keepLines = 1000;
+
+    // More than this written since the last read (a busy log while the window was minimized): only its last lines are
+    // read - the rest would be read, split and handed on only for the view to drop it.
+    private const long MaxCatchUp = 4 * 1024 * 1024;
+
     public void Start(int lines) => Task.Run(() =>
     {
+        _keepLines = Math.Max(1, lines);
         Interlocked.Exchange(ref _busy, 1);
         try
         {
@@ -337,6 +345,13 @@ internal sealed class FileLogTail(string path) : ILogTail
                 _partial.Clear();
                 Lines?.Invoke(["--- the file was emptied or replaced; reading it from the start ---"]);
                 ReadFrom(stream, 0);
+            }
+            else if (stream.Length - _position > MaxCatchUp)
+            {
+                var from = StartOfLastLines(stream, _keepLines);
+                _partial.Clear();
+                Lines?.Invoke([$"--- {(from - _position) / 1048576d:N1} MB written meanwhile skipped; its last lines follow ---"]);
+                ReadFrom(stream, from);
             }
             else if (stream.Length > _position)
             {

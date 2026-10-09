@@ -1,3 +1,4 @@
+using DnnManager.Application.Configuration;
 using DnnManager.Infrastructure.Data;
 using DnnManager.Infrastructure.Settings;
 
@@ -64,5 +65,39 @@ public sealed class SettingsRowsTests
         {
             try { Directory.Delete(root, recursive: true); } catch (IOException) { }
         }
+    }
+
+    [TestMethod]
+    public void A_new_installation_gets_an_sa_password_of_its_own_which_a_reset_keeps()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "DnnManagerTests", "sa-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var store = new SettingsStore(new AppDataPaths(root));
+            var first = store.Load().Settings.SqlServer.SaPassword;
+            Assert.AreNotEqual("Admin@123", first, "The password everybody knows.");
+            Assert.AreEqual(first, store.Read().SqlServer.SaPassword, "Saved at the first start, not made up again.");
+
+            // The container was made with it: resetting the settings doesn't lock DNN Manager out of it.
+            store.ResetToDefaults();
+            Assert.AreEqual(first, store.Read().SqlServer.SaPassword);
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch (IOException) { }
+        }
+    }
+
+    [TestMethod]
+    public void A_made_up_sql_password_meets_sql_servers_policy_and_needs_no_quoting()
+    {
+        for (var i = 0; i < 200; i++)
+        {
+            var password = SqlPasswords.New();
+            Assert.AreEqual(24, password.Length);
+            Assert.IsTrue(password.Any(char.IsUpper) && password.Any(char.IsLower) && password.Any(char.IsDigit) && password.Any(c => !char.IsLetterOrDigit(c)), password);
+            Assert.IsFalse(password.Any(c => c is ';' or '=' or '\'' or '"' or '$' or ' '), password);
+        }
+        Assert.AreNotEqual(SqlPasswords.New(), SqlPasswords.New());
     }
 }

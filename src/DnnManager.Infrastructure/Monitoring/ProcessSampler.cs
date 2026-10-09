@@ -53,17 +53,21 @@ public sealed class ProcessSampler : IDisposable
         lock (_lock)
         {
             var wanted = new HashSet<int>();
+            // Each process read once a sample: sites that share an app pool share its worker - read again for the second
+            // site, no time would have passed since the first read, and its CPU couldn't be told.
+            var samples = new Dictionary<int, (double? CpuPercent, long Memory, long Read, long Write, DateTime Started)?>();
             foreach (var (key, pids) in groups)
             {
                 wanted.UnionWith(pids);
-                if (SampleGroup(pids, totalMemory) is { } stats) result[key] = stats;
+                if (SampleGroup(pids, totalMemory, samples) is { } stats) result[key] = stats;
             }
             foreach (var gone in _tracked.Keys.Where(pid => !wanted.Contains(pid)).ToList()) Forget(gone);
         }
         return result;
     }
 
-    private ProcessGroupStats? SampleGroup(IReadOnlyList<int> pids, ulong totalMemory)
+    private ProcessGroupStats? SampleGroup(IReadOnlyList<int> pids, ulong totalMemory,
+        Dictionary<int, (double? CpuPercent, long Memory, long Read, long Write, DateTime Started)?> samples)
     {
         var found = false;
         var cpuKnown = true;
@@ -73,7 +77,8 @@ public sealed class ProcessSampler : IDisposable
 
         foreach (var pid in pids)
         {
-            if (Read(pid) is not { } sample) continue;
+            if (!samples.TryGetValue(pid, out var once)) samples[pid] = once = Read(pid);
+            if (once is not { } sample) continue;
             found = true;
             memory += sample.Memory;
             read += sample.Read;

@@ -75,6 +75,9 @@ public sealed record DnnSiteFacts
     /// <summary>The site has an http binding with a host name - DNN's upgrade is run through it.</summary>
     public bool HasHostBinding { get; init; }
     public long SiteBytes { get; init; }
+
+    /// <summary>The size of the database's data files; null when it couldn't be read.</summary>
+    public long? DatabaseBytes { get; init; }
     /// <summary>Free space on the drive the backups are written to.</summary>
     public long? BackupFreeBytes { get; init; }
 

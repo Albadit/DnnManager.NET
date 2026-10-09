@@ -36,7 +36,7 @@ public sealed class UpdateDownloader(HttpClient http)
                 var buffer = new byte[81920];
                 long done = 0;
                 int read;
-                while ((read = await source.ReadAsync(buffer, ct)) > 0)
+                while ((read = await Files.StalledRead.ReadAsync(source, buffer, ct)) > 0)
                 {
                     await target.WriteAsync(buffer.AsMemory(0, read), ct);
                     done += read;
@@ -64,9 +64,10 @@ public sealed class UpdateDownloader(HttpClient http)
     {
         var length = new FileInfo(path).Length;
         if (length != asset.Size) return $"it is {length:N0} bytes, GitHub lists {asset.Size:N0}";
-        if (asset.Sha256 is { } expected)
+        // It is run with administrator rights: without GitHub's SHA-256 there is nothing to check it against.
+        if (asset.Sha256 is not { } expected) return "GitHub lists no SHA-256 for it, so it can't be checked";
+        using (var stream = File.OpenRead(path))
         {
-            using var stream = File.OpenRead(path);
             var actual = Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
             if (actual != expected) return "its SHA-256 isn't the one GitHub lists";
         }

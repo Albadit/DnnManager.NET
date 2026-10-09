@@ -103,7 +103,7 @@ public partial class TerminalPanel : UserControl
         AppOptions options)
     {
         _log = log; _service = service; _efficiency = efficiency;
-        Pipeline.Attach(log, store.Projects, options);
+        Pipeline.Attach(log, options);
         // An operation failed: a red dot on Output, also while another tab is shown - until Output is opened, or the
         // next operation starts.
         log.RunEnded += run =>
@@ -726,6 +726,7 @@ public partial class TerminalPanel : UserControl
             if (target is not null) target.ContentChanged += Target_ContentChanged;
         }
         _query = Query();
+        _query.BeginPass();
         _matchCount = target?.Find(_query) ?? 0;
         _matchIndex = _matchCount - 1;
         if (_matchIndex >= 0) target!.ShowMatch(_matchIndex, reveal);
@@ -744,7 +745,11 @@ public partial class TerminalPanel : UserControl
         _searchAgain.Stop();
         if (_searched is null || SearchBar.Visibility != Visibility.Visible) return;
         var index = _matchIndex;
+        var took = System.Diagnostics.Stopwatch.StartNew();
+        _query.BeginPass();
         _matchCount = _searched.Find(_query);
+        // A search that takes long waits longer before it runs again: a busy log mustn't keep the UI thread searching.
+        _searchAgain.Interval = took.Elapsed > TimeSpan.FromMilliseconds(50) ? TimeSpan.FromSeconds(2) : TimeSpan.FromMilliseconds(300);
         _matchIndex = _matchCount == 0 ? -1 : Math.Clamp(index < 0 ? _matchCount - 1 : index, 0, _matchCount - 1);
         if (_matchIndex >= 0) _searched.ShowMatch(_matchIndex, reveal: false);
         ShowCount();
@@ -765,9 +770,11 @@ public partial class TerminalPanel : UserControl
     {
         // A regular expression that isn't one: said, in red, with what is wrong with it.
         SearchCount.Text = _query.Error is not null ? "Invalid regular expression" : SearchBox.Text.Length == 0 ? ""
-            : _matchCount == 0 ? "No results" : $"{_matchIndex + 1} / {_matchCount}";
+            : (_matchCount == 0 ? "No results" : $"{_matchIndex + 1} / {_matchCount}") + (_query.Stopped ? " (stopped)" : "");
         SearchCount.SetResourceReference(TextBlock.ForegroundProperty, _query.Error is null ? "TextMuted" : "ErrorText");
-        SearchCount.ToolTip = _query.Error;
+        SearchCount.ToolTip = _query.Error ?? (_query.Stopped
+            ? "The search took too long and stopped - the matches after where it stopped aren't counted. A simpler pattern finds them all."
+            : null);
     }
 
     // ─── Scrolling ────────────────────────────────────────────────────────

@@ -1,13 +1,16 @@
-# CI: when a version tag is pushed (or by hand: Actions -> CI -> Run workflow), DNN Manager is
-# built in Release and the whole test suite runs. Nothing is published - releases are made from VS Code with the task
-# "release (GitHub)" (.github/scripts/publish-release.ps1, see docs/releasing.md).
+# CI: on every push to main, every pull request, and when a version tag is pushed (or by hand: Actions -> CI -> Run
+# workflow), DNN Manager is built in Release and the whole test suite runs. Nothing is published - releases are made
+# from VS Code with the task "release (GitHub)" (.github/scripts/publish-release.ps1, see .docs/releasing.md), which
+# keeps the release a draft until this workflow has passed on its tag.
 name: CI
 
 on:
   push:
+    branches: [main]
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -33,19 +36,22 @@ jobs:
     timeout-minutes: 60
 
     steps:
+      # Actions pinned to a commit, not a tag that can be moved: what runs is what was reviewed. Dependabot proposes updates.
       - name: Check out
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           # The tags too: the build takes its version from the newest version tag (DnnManager.csproj, VersionFromGitTag).
           fetch-depth: 0
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
-          dotnet-version: '10.0.x'
+          # The SDK global.json names - the one releases are built with.
+          global-json-file: global.json
 
       - name: Restore
-        run: dotnet restore tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj
+        # Exactly the packages packages.lock.json names, with their hashes - a change to them fails here, not unnoticed.
+        run: dotnet restore tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj --locked-mode
 
       - name: Build (Release)
         run: >-

@@ -9,16 +9,23 @@ namespace DnnManager.Infrastructure.Files;
 /// A file deleted while it is written to (Troubleshoot → Clean
 /// up data, or by hand) is started again with the next line - writing on would go into the deleted file, which
 /// nobody sees. Logging is best effort: a write that fails is tried again a minute later, without disturbing the app.
+/// The old files go at the start and at each new day (DNN Manager may run for weeks); a day's file stops at
+/// <see cref="MaxBytes"/>, saying so - a message repeated without end mustn't fill the disk.
 /// </summary>
 public sealed class DailyLogFile : IDisposable
 {
     private const int DaysKept = 30;
+
+    /// <summary>How large a day's file may get.</summary>
+    public const long MaxBytes = 50L * 1024 * 1024;
 
     private readonly string _directory;
     private readonly object _gate = new();
     private StreamWriter? _writer;
     private string? _path;
     private DateOnly _day;
+    // The day's file reached MaxBytes: nothing more is written to it.
+    private bool _full;
     // After a write failed: nothing is written before this.
     private DateTime _retryAt;
 
@@ -41,7 +48,15 @@ public sealed class DailyLogFile : IDisposable
             if (DateTime.UtcNow < _retryAt) return;
             try
             {
-                Writer(DateOnly.FromDateTime(time)).WriteLine(text);
+                var writer = Writer(DateOnly.FromDateTime(time));
+                if (_full) return;
+                if (writer.BaseStream.Length >= MaxBytes)
+                {
+                    _full = true;
+                    writer.WriteLine($"{time:HH:mm:ss} --- the log reached {MaxBytes / 1048576} MB today: the rest of today's lines aren't kept ---");
+                    return;
+                }
+                writer.WriteLine(text);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -61,6 +76,9 @@ public sealed class DailyLogFile : IDisposable
     {
         // The same day's file - unless it was deleted meanwhile: then a new one.
         if (_writer is not null && day == _day && File.Exists(_path)) return _writer;
+        // A new day: the files too old to keep go, as at the start.
+        if (_writer is not null && day != _day) DeleteOldFiles();
+        if (day != _day) _full = false;
         _writer?.Dispose();
         Directory.CreateDirectory(_directory);
         _path = Path.Combine(_directory, FileName(day));

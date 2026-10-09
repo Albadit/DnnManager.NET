@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 namespace DnnManager.Presentation.Controls;
@@ -9,8 +10,13 @@ namespace DnnManager.Presentation.Controls;
 public sealed class SearchQuery
 {
     // A pattern that takes this long on one line ("(a+)+b"…) stops that line's search rather than the window.
-    private static readonly TimeSpan Timeout = TimeSpan.FromMilliseconds(200);
+    private static readonly TimeSpan Timeout = TimeSpan.FromMilliseconds(50);
+    // A whole search - every line of a 50 000-line log - stops after this long: it runs on the UI thread, which mustn't
+    // freeze, whatever the pattern.
+    private static readonly TimeSpan PassBudget = TimeSpan.FromMilliseconds(250);
+    private static readonly IReadOnlyList<(int Start, int Length)> None = [];
     private readonly Regex? _regex;
+    private readonly Stopwatch _pass = new();
 
     public SearchQuery(string text, bool matchCase = false, bool wholeWord = false, bool useRegex = false)
     {
@@ -34,21 +40,40 @@ public sealed class SearchQuery
     /// <summary>Nothing to look for: no text, or a regular expression that isn't one.</summary>
     public bool IsEmpty => _regex is null;
 
-    /// <summary>Where it is in <paramref name="line"/>: (start, length) of each match, empty ones left out.</summary>
-    public List<(int Start, int Length)> Matches(string line)
+    /// <summary>The last search took too long and stopped before the end: the matches after where it stopped aren't counted.</summary>
+    public bool Stopped { get; private set; }
+
+    /// <summary>A search through every line starts: its time is counted from now (see <see cref="Stopped"/>).</summary>
+    public void BeginPass()
     {
-        var found = new List<(int, int)>();
-        if (_regex is null) return found;
+        Stopped = false;
+        _pass.Restart();
+    }
+
+    /// <summary>
+    /// Where it is in <paramref name="line"/>: (start, length) of each match, empty ones left out. Nothing once the search
+    /// has taken its time (<see cref="Stopped"/>).
+    /// </summary>
+    public IReadOnlyList<(int Start, int Length)> Matches(string line)
+    {
+        if (_regex is null) return None;
+        if (_pass.IsRunning && _pass.Elapsed > PassBudget)
+        {
+            Stopped = true;
+            return None;
+        }
+        // Most lines have no match: no list for them.
+        List<(int, int)>? found = null;
         try
         {
             for (var match = _regex.Match(line); match.Success; match = match.NextMatch())
-                if (match.Length > 0) found.Add((match.Index, match.Length));
+                if (match.Length > 0) (found ??= []).Add((match.Index, match.Length));
         }
         catch (RegexMatchTimeoutException)
         {
             // What was found so far on this line stays.
         }
-        return found;
+        return found ?? None;
     }
 }
 

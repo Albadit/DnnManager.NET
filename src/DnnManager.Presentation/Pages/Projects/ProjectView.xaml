@@ -79,7 +79,7 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock x:Name="Label" Text="{Binding Label}" Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap" Margin="0,0,12,0" />
                 <!-- Read-only text box so a value (a path, a database name…) can be selected and copied. -->
-                <TextBox x:Name="Value" Grid.Column="2" Text="{Binding Value, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
+                <TextBox x:Name="Value" Grid.Column="2" AutomationProperties.Name="{Binding Label}" Text="{Binding Value, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
                          BorderThickness="0" Background="Transparent" Padding="0" MinHeight="0" VerticalContentAlignment="Top" />
             </Grid>
             <DataTemplate.Triggers>
@@ -126,30 +126,30 @@
             <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}" Content="{StaticResource GlyphBack}" Width="32" Height="32" Margin="0,2,10,0"
                     VerticalAlignment="Top" ToolTip="Back (Esc)" Click="Back_Click" />
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,4,0,0">
-                <Button Style="{StaticResource HeaderButton}" Click="Start_Click" IsEnabled="{Binding CanStart}"
+                <Button AutomationProperties.Name="Start" Style="{StaticResource HeaderButton}" Click="Start_Click" IsEnabled="{Binding CanStart}"
                         ToolTip="Start - turn the website on so it can be opened" s:CommandTip.Command="project.start"
                         Visibility="{Binding ShowStart, Converter={StaticResource Visible}}">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphPlay}" /><TextBlock Text="Start" /></StackPanel>
                 </Button>
-                <Button Style="{StaticResource HeaderButton}" Click="Stop_Click" IsEnabled="{Binding CanStop}"
+                <Button AutomationProperties.Name="Stop" Style="{StaticResource HeaderButton}" Click="Stop_Click" IsEnabled="{Binding CanStop}"
                         ToolTip="Stop - turn the website off until you start it again; nothing is deleted" s:CommandTip.Command="project.stop"
                         Visibility="{Binding ShowStop, Converter={StaticResource Visible}}">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphStop}" /><TextBlock Text="Stop" /></StackPanel>
                 </Button>
-                <Button Style="{StaticResource HeaderButton}" Click="Restart_Click" IsEnabled="{Binding CanRestart}"
+                <Button AutomationProperties.Name="Restart the website's background process" Style="{StaticResource HeaderButton}" Click="Restart_Click" IsEnabled="{Binding CanRestart}"
                         Visibility="{Binding ShowStop, Converter={StaticResource Visible}}" ToolTip="Restart the website's background process - can fix problems; it is unavailable for a few seconds"
                         s:CommandTip.Command="project.restart">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphRefresh}" /><TextBlock Text="Restart" /></StackPanel>
                 </Button>
-                <Button Style="{StaticResource HeaderButton}" Click="OpenSite_Click" IsEnabled="{Binding HasUrl}"
+                <Button AutomationProperties.Name="Open the website in your browser" Style="{StaticResource HeaderButton}" Click="OpenSite_Click" IsEnabled="{Binding HasUrl}"
                         ToolTip="Open the website in your browser" s:CommandTip.Command="project.openWebsite">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphGlobe}" /><TextBlock Text="Open site" /></StackPanel>
                 </Button>
-                <Button Style="{StaticResource HeaderButton}" Click="OpenFolder_Click" ToolTip="Open the website's files in File Explorer"
+                <Button AutomationProperties.Name="Open the website's files in File Explorer" Style="{StaticResource HeaderButton}" Click="OpenFolder_Click" ToolTip="Open the website's files in File Explorer"
                         s:CommandTip.Command="project.openFolder">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphFolderOpen}" /><TextBlock Text="Open folder" /></StackPanel>
                 </Button>
-                <Button x:Name="MoreButton" Style="{StaticResource HeaderButton}" Click="More_Click" ToolTip="More actions: logs, clear cache, export, backups, upgrade">
+                <Button AutomationProperties.Name="More actions" x:Name="MoreButton" Style="{StaticResource HeaderButton}" Click="More_Click" ToolTip="More actions: logs, clear cache, export, backups, upgrade">
                     <TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphMore}" Margin="0" RenderTransformOrigin="0.5,0.5">
                         <TextBlock.RenderTransform>
                             <RotateTransform Angle="90" />
@@ -164,7 +164,7 @@
                     <TextBlock Text="{Binding StateText}" Foreground="{DynamicResource TextPrimary}" Margin="8,0,0,0" VerticalAlignment="Center" />
                     <TextBlock Text="·" Foreground="{DynamicResource TextMuted}" Margin="8,0" VerticalAlignment="Center"
                                Visibility="{Binding HasUrl, Converter={StaticResource Visible}}" />
-                    <Button Style="{StaticResource LinkButton}" Content="{Binding Url}" Tag="{Binding Url}" Click="Link_Click" VerticalAlignment="Center"
+                    <Button AutomationProperties.Name="Open site" Style="{StaticResource LinkButton}" Content="{Binding Url}" Tag="{Binding Url}" Click="Link_Click" VerticalAlignment="Center"
                             ToolTip="Open site" s:CommandTip.Command="project.openWebsite"
                             Visibility="{Binding HasUrl, Converter={StaticResource Visible}}" />
                     <ProgressBar Style="{StaticResource SiteProgress}" Width="60" Height="3" Margin="12,0,0,0" VerticalAlignment="Center"

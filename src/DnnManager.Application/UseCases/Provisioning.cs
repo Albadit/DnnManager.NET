@@ -23,9 +23,46 @@ public sealed class IisSiteProvisioner(IOptions<AppOptions> opts, IIisManager ii
     public bool TryCreateSite(DnnProject project, IProgressReporter reporter) =>
         TryCreateSite(project, _opts.HostnameFor(project.Name), _opts.SitePort, reporter);
 
+    /// <summary>
+    /// The folder of the IIS site named <paramref name="siteName"/> when that site serves another folder than
+    /// <paramref name="directory"/> - a site this project must not take over, since making the project's site would
+    /// replace it. Null when there is no such site, or it serves that folder.
+    /// </summary>
+    public string? SiteServingAnotherFolder(string siteName, string directory)
+    {
+        var sites = _iis.GetSiteRuntimes();
+        if (sites is null) return null;
+        var site = sites.FirstOrDefault(s => s.Key.Equals(siteName, StringComparison.OrdinalIgnoreCase)).Value;
+        if (site is null) return null;
+        return SameFolder(site.PhysicalPath, directory) ? null : site.PhysicalPath;
+    }
+
+    /// <summary>Why <paramref name="siteName"/> can't be this project's site, for a message; null when it can.</summary>
+    public string? SiteNameTaken(string siteName, string directory) =>
+        SiteServingAnotherFolder(siteName, directory) is { } other
+            ? $"IIS already has a site named '{siteName}', serving {(other.Length > 0 ? other : "another folder")} - choose another name."
+            : null;
+
+    private static bool SameFolder(string a, string b)
+    {
+        static string Normal(string path)
+        {
+            try { return Path.GetFullPath(Environment.ExpandEnvironmentVariables(path)).TrimEnd('\\', '/'); }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException) { return path.TrimEnd('\\', '/'); }
+        }
+        return a.Length > 0 && b.Length > 0 && Normal(a).Equals(Normal(b), StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>The same, bound to <paramref name="hostName"/> on <paramref name="port"/>.</summary>
     public bool TryCreateSite(DnnProject project, string hostName, int port, IProgressReporter reporter)
     {
+        // Never another site's: one of this name serving another folder stays as it is.
+        if (SiteNameTaken(project.Name, project.ProjectDirectory) is { } taken)
+        {
+            reporter.Fail(taken);
+            return false;
+        }
+
         // A cancel takes a new site away again; one that was there is replaced, and can't be brought back as it was.
         if (_iis.GetSiteStates().ContainsKey(project.Name))
             _undo.CannotUndo($"the IIS site '{project.Name}' that was there before was replaced by a new one.");
@@ -209,6 +246,26 @@ public sealed class LocalSqlContainer(IOptions<AppOptions> opts, ISqlServerServi
     private Task<Result<string>> TestAsync(CancellationToken ct) =>
         _tester.TestAsync(new SiteSqlConnection(Server, "master", _opts.Docker.SqlUser, _opts.Docker.SaPassword), ct, ConnectTimeoutSeconds);
 
+    /// <summary>
+    /// The SQL login a project's site signs in to the container with: one of its own (<c>dnn_shop</c>), owner of its
+    /// database only - never the container's sa, which could reach every project's database.
+    /// </summary>
+    public static string SiteLoginFor(string projectName) => $"dnn_{projectName}";
+
+    /// <summary>
+    /// Makes <paramref name="project"/>'s own login on the container, owner of <paramref name="database"/>, with a new
+    /// password - and returns how the site signs in with it, for its web.config.
+    /// </summary>
+    public async Task<Result<SiteSqlConnection>> GrantSiteLoginAsync(DnnProject project, DatabaseConfig database, CancellationToken ct)
+    {
+        var login = SiteLoginFor(project.Name);
+        var password = SqlPasswords.New();
+        var granted = await _sql.GrantSiteLoginAsync(database.DatabaseName, login, password, ct);
+        return granted.Success
+            ? Result<SiteSqlConnection>.Ok(new SiteSqlConnection(database.Server, database.DatabaseName, login, password))
+            : Result<SiteSqlConnection>.Fail($"Could not make the site's login {login}: {granted.Error}");
+    }
+
     /// <summary>A database in the shared container for <paramref name="project"/>.</summary>
     public DatabaseConfig DatabaseFor(DnnProject project, string databaseName, int port) =>
         new(
@@ -219,46 +276,20 @@ public sealed class LocalSqlContainer(IOptions<AppOptions> opts, ISqlServerServi
             BackupDirectory: project.BackupDirectory);
 
     /// <summary>
-    /// True when <paramref name="server"/> (<c>host[,port]</c>) is this machine - the local container, whose
-    /// certificate is self-signed - on whatever port.
+    /// True when <paramref name="server"/> is the local container's host - whose certificate is self-signed - on whatever port.
     /// </summary>
-    public bool IsOnThisMachine(string server)
-    {
-        var commaIdx = server.IndexOf(',');
-        var host = (commaIdx > 0 ? server[..commaIdx] : server).Trim();
-        return IsLocalContainer(host, _opts.Docker.DefaultPort);
-    }
+    public bool IsContainerHost(string server) => SqlServerAddress.Parse(server).IsContainerHost(_opts.Docker.ContainerIp);
 
     /// <summary>
-    /// True when a connection string's <paramref name="server"/> (<c>host[,port]</c>) is this machine's
-    /// shared container, given the port the container currently publishes.
+    /// True when a connection string's <paramref name="server"/> is this machine's shared container, given the port the
+    /// container currently publishes.
     /// </summary>
     public bool IsLocalContainer(string server, int publishedPort) => IsContainerServer(server, _opts.Docker.ContainerIp, publishedPort);
 
     /// <summary>
-    /// True when <paramref name="server"/> (<c>host[,port]</c>) is this machine's shared container at
-    /// <paramref name="containerHost"/>, given the port the container publishes.
+    /// True when <paramref name="server"/> is the shared container at <paramref name="containerHost"/> publishing
+    /// <paramref name="publishedPort"/> - see <see cref="SqlServerAddress.IsContainer"/>.
     /// </summary>
-    public static bool IsContainerServer(string server, string containerHost, int publishedPort)
-    {
-        var host = server.Trim();
-        int? port = null;
-        var commaIdx = host.IndexOf(',');
-        if (commaIdx > 0)
-        {
-            if (int.TryParse(host[(commaIdx + 1)..].Trim(), out var p)) port = p;
-            host = host[..commaIdx].Trim();
-        }
-
-        var isLocalHost =
-            string.Equals(host, containerHost, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(host, "127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(host, "(local)",   StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(host, ".",         StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(host, Environment.MachineName, StringComparison.OrdinalIgnoreCase);
-
-        // If the connection names an explicit port, it must be the container's.
-        return isLocalHost && (port is null || port.Value == publishedPort);
-    }
+    public static bool IsContainerServer(string server, string containerHost, int publishedPort) =>
+        SqlServerAddress.Parse(server).IsContainer(containerHost, publishedPort);
 }

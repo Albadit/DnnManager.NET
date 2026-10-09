@@ -138,7 +138,7 @@ public partial class SettingsPage : UserControl
         foreach (var language in DnnAccountRules.Languages) DnnLanguage.Items.Add(new ComboBoxItem { Content = Languages.Name(language), Tag = language });
         foreach (var template in DnnAccountRules.Templates) DnnTemplate.Items.Add(new ComboBoxItem { Content = template, Tag = template });
         foreach (var minutes in KeepWarmSettings.PingIntervals) KeepWarmInterval.Items.Add(KeepWarmIntervalItem(minutes));
-        foreach (var box in new[] { SsmsRememberPassword, KeepDnnPackages, KeepRunningWhenClosed })
+        foreach (var box in new[] { SsmsRememberPassword, KeepDnnPackages, KeepRunningWhenClosed, CheckForUpdatesAtStart })
         {
             box.Checked += (_, _) => Edited();
             box.Unchecked += (_, _) => Edited();
@@ -452,6 +452,7 @@ public partial class SettingsPage : UserControl
         Collation.Text = docker.Collation;
         SsmsRememberPassword.IsChecked = saved.Ssms.RememberPassword;
         KeepRunningWhenClosed.IsChecked = saved.Window.KeepRunningWhenClosed;
+        CheckForUpdatesAtStart.IsChecked = saved.Updates.CheckAtStart;
         var dnn = p.DnnDefaults;
         InstallAutomatic.IsChecked = dnn.Automatic;
         InstallManual.IsChecked = !dnn.Automatic;
@@ -488,7 +489,7 @@ public partial class SettingsPage : UserControl
             KeepDnnPackages.IsChecked == true, ServerSnapshot(),
             ContainerName.Text.Trim(), VolumeName.Text.Trim(), MssqlPid.Text.Trim(), Collation.Text.Trim(),
             SsmsRememberPassword.IsChecked == true, ChosenUiScale, ChosenFontSize, Animations.IsChecked == true,
-            KeepRunningWhenClosed.IsChecked == true, terminal.DefaultShell, terminal.FontFamily, terminal.FontSize,
+            KeepRunningWhenClosed.IsChecked == true, CheckForUpdatesAtStart.IsChecked == true, terminal.DefaultShell, terminal.FontFamily, terminal.FontSize,
             InstallAutomatic.IsChecked == true, HostUsername.Text.Trim(), HostPassword.Password, HostEmail.Text.Trim(), WebsiteName.Text.Trim(),
             (DnnLanguage.SelectedItem as ComboBoxItem)?.Tag, (DnnTemplate.SelectedItem as ComboBoxItem)?.Tag,
             (KeepWarmInterval.SelectedItem as ComboBoxItem)?.Tag, KeepWarmSettings.NormalizePath(KeepWarmPingPath.Text),
@@ -726,6 +727,7 @@ public partial class SettingsPage : UserControl
         settings.Appearance.FontSize = ChosenFontSize;
         settings.Appearance.Animations = Animations.IsChecked == true;
         settings.Window.KeepRunningWhenClosed = KeepRunningWhenClosed.IsChecked == true;
+        settings.Updates.CheckAtStart = CheckForUpdatesAtStart.IsChecked == true;
         settings.Terminal = ChosenTerminal;
         return (null, null);
     }
@@ -895,7 +897,7 @@ public partial class SettingsPage : UserControl
         var suffix = HostnameSuffix.Text.Trim().Trim('.');
         var language = (DnnLanguage.SelectedItem as ComboBoxItem)?.Tag as string ?? "en-US";
         DnnDefaultsHint.Text = $"An empty e-mail is host@{suffix}; an empty website name is the project's name. The password is kept in the " +
-                               $"Windows Credential Manager of your account, not with the other settings (empty: {DnnDefaultsSettings.DefaultHostPassword})." +
+                               "Windows Credential Manager of your account, not with the other settings - empty: New project asks for one." +
                                (language == "en-US" ? "" : $" {Languages.Name(language)}: DNN downloads its language pack while installing (needs internet).");
     }
 

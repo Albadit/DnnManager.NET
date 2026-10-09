@@ -22,6 +22,12 @@ public sealed class CloneProjectRequest
     public bool SeedDatabase { get; init; } = true;
 }
 
+/// <summary>
+/// "Clone…": a copy of a project - its files, its database copied into one of its own on the local SQL Server, and an IIS
+/// website of its own. Everything that can be checked is checked before a file is copied: the name, the source's
+/// database, the local SQL Server, and - with a yes - a database of the clone's name that is already there. That one is
+/// only replaced once the copy is in: the copy is seeded under a name of its own and swapped in at the end.
+/// </summary>
 public sealed class CloneProjectUseCase(
     IOptions<AppOptions> opts,
     IProjectRepository projects,
@@ -32,8 +38,12 @@ public sealed class CloneProjectUseCase(
     IBacpacService bacpac,
     LocalSqlContainer sqlContainer,
     ISqlServerService sql,
+    IDatabaseProvisioner databases,
     IIisManager iis,
     IisSiteProvisioner site,
+    SiteDatabases siteDatabases,
+    IPrivateTemp temp,
+    IUserPrompt prompt,
     ILogger<CloneProjectUseCase> log,
     OperationUndo undo)
 {
@@ -54,8 +64,12 @@ public sealed class CloneProjectUseCase(
     private readonly IBacpacService _bacpac = bacpac;
     private readonly LocalSqlContainer _sqlContainer = sqlContainer;
     private readonly ISqlServerService _sql = sql;
+    private readonly IDatabaseProvisioner _databases = databases;
     private readonly IIisManager _iis = iis;
     private readonly IisSiteProvisioner _site = site;
+    private readonly SiteDatabases _siteDatabases = siteDatabases;
+    private readonly IPrivateTemp _temp = temp;
+    private readonly IUserPrompt _prompt = prompt;
     private readonly ILogger<CloneProjectUseCase> _log = log;
     private readonly OperationUndo _undo = undo;
 
@@ -68,15 +82,30 @@ public sealed class CloneProjectUseCase(
         {
             var project = _projects.Build(req.TargetProjectName);
             var hostname = _opts.HostnameFor(req.TargetProjectName);
+            // A site of this name that serves another folder is another project's: making the clone's would replace it.
+            if (req.CreateIisSite && _site.SiteNameTaken(req.TargetProjectName, project.ProjectDirectory) is { } taken)
+                return Result.Fail(taken);
 
             // The stages, up front: the Output tab shows those still to come - and as skipped those it never gets to.
-            var plan = new List<string> { Stage.Prepare, req.CopyFiles ? Stage.Copy : Stage.Keep };
-            if (req.SeedDatabase) plan.AddRange([Stage.CheckSql, Stage.ReadConnection, Stage.Backup, Stage.Seed, Stage.Alias, Stage.WebConfig]);
+            var plan = new List<string> { Stage.Prepare };
+            if (req.SeedDatabase) plan.AddRange([Stage.ReadConnection, Stage.CheckSql]);
+            plan.Add(req.CopyFiles ? Stage.Copy : Stage.Keep);
+            if (req.SeedDatabase) plan.AddRange([Stage.Backup, Stage.Seed, Stage.Alias, Stage.WebConfig]);
             if (req.CreateIisSite) plan.Add(Stage.Iis);
             reporter.Plan([.. plan]);
 
             reporter.Step($"Prepare target project '{req.TargetProjectName}'", Stage.Prepare);
-            // A cancel takes a new target folder away again; files copied over an existing one can't be taken back.
+
+            // Before a file is copied: the source's database, the local SQL Server, and the clone's own database.
+            DatabasePlan? database = null;
+            if (req.SeedDatabase)
+            {
+                var prepared = await PrepareDatabaseAsync(req, project, reporter, ct);
+                if (!prepared.Success) return prepared.Error is { } error ? Result.Fail(error) : Result.Aborted();
+                database = prepared.Value!;
+            }
+
+            // A cancel or a failure takes a new target folder away again; files copied over an existing one can't be.
             var newFolder = !Directory.Exists(project.ProjectDirectory);
             _undo.DeleteFolderOnUndo(project.ProjectDirectory);
             Directory.CreateDirectory(project.ProjectDirectory);
@@ -97,11 +126,11 @@ public sealed class CloneProjectUseCase(
             // Strip the IIS URL Rewrite section. Those rules (HTTPS redirect, request blocking)
             // are production-only and need the URL Rewrite module, which is usually absent locally
             // - otherwise IIS returns HTTP 500.19. DNN doesn't need them for local dev.
-            var siteWebConfig = Path.Combine(project.ProjectDirectory, "web.config");
-            if (File.Exists(siteWebConfig))
+            var webConfigPath = Path.Combine(project.ProjectDirectory, "web.config");
+            if (File.Exists(webConfigPath))
             {
-                _undo.RestoreFileOnUndo(siteWebConfig);
-                var stripped = _webConfig.RemoveRewriteRules(siteWebConfig);
+                _undo.RestoreFileOnUndo(webConfigPath);
+                var stripped = _webConfig.RemoveRewriteRules(webConfigPath);
                 if (stripped.Success) reporter.Info("Removed URL Rewrite rules (not needed locally).");
             }
 
@@ -114,144 +143,27 @@ public sealed class CloneProjectUseCase(
             else
                 reporter.Info($"Could not write .gitignore: {gitignore.Error}");
 
-            // Seeding restores the source DB into the local SQL Server, so it needs that server to be
-            // reachable. If it isn't we skip seeding (like a files-only clone) instead of hard-failing.
-            var port = _opts.Docker.DefaultPort;
-            var sqlAvailable = false;
-            if (req.SeedDatabase)
+            if (database is null)
             {
-                reporter.Step("Check local SQL Server", Stage.CheckSql);
-                var ready = await _sqlContainer.CheckAsync(reporter, ct);
-                sqlAvailable = ready.Success;
-                if (ready.Success)
-                {
-                    port = ready.Value;
-                    reporter.Context(_opts.ServerFor(port));
-                }
-            }
-
-            if (!req.SeedDatabase || !sqlAvailable)
-            {
-                if (!req.SeedDatabase)
-                    reporter.Info("Skipping database - website files only.");
-                else
-                    reporter.Info("SQL Server not reachable - skipping database seeding. The cloned files are kept; " +
-                                  "start the SQL Server container and clone again, or point the site's " +
-                                  "web.config at a database yourself.");
+                reporter.Info("Skipping database - website files only.");
+                // Its web.config is the source's: the copy would work in the source's database, which may be a live one.
+                var conn = File.Exists(webConfigPath) ? _webConfig.ReadSiteSqlServer(webConfigPath) : null;
+                if (conn is { Success: true, Value: { Database.Length: > 0 } c })
+                    reporter.Warn($"web.config still connects to [{c.Database}] on {c.Server} - the source's database. " +
+                                  "The copy changes that database's data; point it at a database of its own (Details → Database) before using it.");
             }
             else
             {
-                reporter.Step("Read SiteSqlServer from web.config", Stage.ReadConnection);
-                var webConfigPath = Path.Combine(project.ProjectDirectory, "web.config");
-                var srcConn = _webConfig.ReadSiteSqlServer(webConfigPath);
-                if (!srcConn.Success || srcConn.Value is null)
-                    return Result.Fail(srcConn.Error ?? "Could not read the SiteSqlServer connection from the source's web.config.");
-                var src = srcConn.Value;
-                reporter.Success($"Source DB: [{src.Database}] on {src.Server} (user: {src.User})");
-
-                // Azure SQL Database can't produce a .bak, so it is cloned via a BACPAC
-                // (SqlPackage export+import) instead of BACKUP/RESTORE. Detect it up front and
-                // provision SqlPackage now - failing fast before any local database work if it can't be installed.
-                var sourceIsAzure = src.Server.Contains("database.windows.net", StringComparison.OrdinalIgnoreCase);
-                if (sourceIsAzure)
-                {
-                    var ensuredEarly = await _bacpac.EnsureAvailableAsync(reporter, ct);
-                    if (!ensuredEarly.Success) return ensuredEarly;
-                }
-
-                // The local database, by name only - the site connects as the container sa.
-                var db = _sqlContainer.DatabaseFor(project, _opts.DatabaseNameFor(req.TargetProjectName), port);
-
-                // If the local DB already exists, drop it first (the chosen action already
-                // authorized overwriting the database).
-                var exists = await _sql.DatabaseExistsAsync(db.DatabaseName, ct);
-                if (exists.Success && exists.Value)
-                {
-                    reporter.Info($"Local database [{db.DatabaseName}] exists - dropping and recreating.");
-                    var drop = await _sql.DropDatabaseAsync(db.DatabaseName, ct);
-                    if (!drop.Success) return drop;
-                    _undo.CannotUndo($"local database [{db.DatabaseName}] that was there before was dropped - what was in it is gone.");
-                }
-                // The clone's database, made below (or by the BACPAC import) - dropped again by a cancel.
-                _undo.Add($"Drop database [{db.DatabaseName}]", () => _sql.DropDatabaseAsync(db.DatabaseName, CancellationToken.None));
-
-                var backupFolder = ProjectBackups.NewFolder(project, DateTime.Now);
-                _undo.DeleteFolderOnUndo(backupFolder);
-                Directory.CreateDirectory(backupFolder);
-                var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-
-                if (sourceIsAzure)
-                {
-                    // SqlPackage was already provisioned up front (see the sourceIsAzure check above).
-                    reporter.Step("Export the source database (BACPAC)", Stage.Backup);
-                    var bacpacTmp = Path.Combine(Path.GetTempPath(), $"dnnmanager_clone_{req.TargetProjectName}_{stamp}.bacpac");
-                    _undo.RestoreFileOnUndo(bacpacTmp);
-                    var export = await _bacpac.ExportAsync(src, bacpacTmp, reporter, ct);
-                    if (!export.Success) return export;
-
-                    // Keep a copy in the project's backups for traceability.
-                    var cached = Path.Combine(backupFolder, ProjectBackups.DatabaseName(project, ".bacpac"));
-                    try { File.Copy(bacpacTmp, cached, overwrite: true); reporter.Info($"Cached BACPAC at {cached}"); } catch { }
-
-                    reporter.Step($"Seed [{db.DatabaseName}] from the BACPAC", Stage.Seed);
-                    var import = await _bacpac.ImportAsync(db.Server, _opts.Docker.SqlUser, _opts.Docker.SaPassword,
-                        db.DatabaseName, bacpacTmp, reporter, ct);
-                    if (!import.Success) return import;
-
-                    // The BACPAC import already created the database; the site connects as the container
-                    // sa, so there is no login/user to provision afterwards.
-                    try { File.Delete(bacpacTmp); } catch { /* best effort */ }
-                    reporter.Success($"Local database [{db.DatabaseName}] ready (from BACPAC).");
-                }
-                else
-                {
-                    var create = await _sql.CreateDatabaseAsync(db, ct);
-                    if (!create.Success) return create;
-                    reporter.Success($"Local database [{db.DatabaseName}] ready.");
-
-                    // If the source is our local SQL container, route the backup through the container
-                    // instead of a Windows path it can't see.
-                    reporter.Step("Back up source database", Stage.Backup);
-                    string srcBakHostPath;
-                    if (_sqlContainer.IsLocalContainer(src.Server, port))
-                    {
-                        reporter.Info("Source DB is on the local SQL container - using container backup path.");
-                        var fileName = Path.GetFileName(req.SourceBackupServerPath);
-                        var localBak = await _sql.BackupDatabaseLocalAsync(src.Database, fileName, ct);
-                        if (!localBak.Success || localBak.Value is null)
-                            return Result.Fail(localBak.Error ?? "Source backup on the local SQL container failed.");
-                        srcBakHostPath = localBak.Value;
-                        reporter.Success($"Source backup written to {srcBakHostPath}");
-                    }
-                    else
-                    {
-                        var bak = await _remoteBackup.BackupAsync(src, req.SourceBackupServerPath, reporter, ct);
-                        if (!bak.Success || bak.Value is null) return Result.Fail(bak.Error ?? "Source backup failed.");
-                        srcBakHostPath = bak.Value!;
-                    }
-
-                    var projectBak = Path.Combine(backupFolder, ProjectBackups.DatabaseName(project, ".bak"));
-                    File.Copy(srcBakHostPath, projectBak, overwrite: true);
-                    reporter.Info($"Cached backup at {projectBak}");
-                    try { File.Delete(srcBakHostPath); } catch { /* best effort */ }
-
-                    reporter.Step($"Seed [{db.DatabaseName}] from clone backup", Stage.Seed);
-                    var restore = await _sql.RestoreDatabaseLocalAsync(db, projectBak, ct);
-                    if (!restore.Success) return restore;
-                    reporter.Success("Database seeded.");
-                }
-
-                // So the cloned site responds at its own hostname instead of the source's.
-                reporter.Step("Update PortalAlias to match new hostname", Stage.Alias);
-                var alias = await _sql.RemapPortalAliasesAsync(db.DatabaseName, _opts.HostnameSuffix, hostname, ct);
-                if (!alias.Success) return alias;
-                reporter.Success($"PortalAlias set to {hostname}.");
-                await HostExistingProjectUseCase.DisableSslAsync(_sql, db.DatabaseName, reporter, ct);
+                var seeded = await SeedAsync(req, project, database, reporter, ct);
+                if (!seeded.Success) return seeded;
 
                 reporter.Step("Rewrite web.config to use local database", Stage.WebConfig);
+                // The copy signs in with a login of its own, owner of its database only - not the container's sa.
+                var login = await _sqlContainer.GrantSiteLoginAsync(project, database.Target, ct);
+                if (!login.Success) return login.WithoutValue();
+                _undo.Add($"Drop the login {login.Value!.User}", () => _sql.DropLoginAsync(login.Value.User, CancellationToken.None));
                 _undo.RestoreFileOnUndo(webConfigPath);
-                var newConn = new SiteSqlConnection(db.Server, db.DatabaseName, _opts.Docker.SqlUser, _opts.Docker.SaPassword);
-                var write = _webConfig.WriteSiteSqlServer(webConfigPath, newConn);
+                var write = _webConfig.WriteSiteSqlServer(webConfigPath, login.Value);
                 if (!write.Success) return write;
                 reporter.Success("web.config updated.");
             }
@@ -278,10 +190,205 @@ public sealed class CloneProjectUseCase(
                                  "Point a web server (and database) at them to use the site.");
             return Result.Ok();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _log.LogError(ex, "Clone failed");
             return Result.Fail(ex.Message);
         }
+    }
+
+    /// <param name="Source">The source's database, as the source's web.config has it.</param>
+    /// <param name="Target">The clone's database on the local SQL Server, by its final name.</param>
+    /// <param name="Replaces">A database of that name is there already: the copy goes in beside it and replaces it at the end.</param>
+    private sealed record DatabasePlan(SiteSqlConnection Source, DatabaseConfig Target, bool Replaces, bool SourceIsAzure);
+
+    /// <summary>
+    /// Everything about the database that can be known before a file is copied: the source's connection (from the
+    /// source's own web.config), that SqlPackage is there for an Azure source, that the local SQL Server answers, and
+    /// whether a database of the clone's name may be replaced - asked, and refused when another site uses it. A failure
+    /// comes back with its error; a no comes back without one (the clone doesn't happen).
+    /// </summary>
+    private async Task<Result<DatabasePlan>> PrepareDatabaseAsync(CloneProjectRequest req, DnnProject project, IProgressReporter reporter,
+        CancellationToken ct)
+    {
+        reporter.Step("Read SiteSqlServer from the source's web.config", Stage.ReadConnection);
+        var sourceConfig = Path.Combine(req.SourceDirectory, "web.config");
+        var srcConn = File.Exists(sourceConfig)
+            ? _webConfig.ReadSiteSqlServer(sourceConfig)
+            : Result<SiteSqlConnection>.Fail($"The source has no web.config ({sourceConfig}).");
+        if (!srcConn.Success || srcConn.Value is not { Database.Length: > 0 } src)
+            return Result<DatabasePlan>.Fail(srcConn.Error ?? "Could not read the SiteSqlServer connection from the source's web.config.");
+        reporter.Success($"Source DB: [{src.Database}] on {src.Server} ({(src.User.Length > 0 ? $"user: {src.User}" : "Windows authentication")})");
+
+        // Azure SQL Database can't produce a .bak, so it is cloned via a BACPAC (SqlPackage export+import) instead of
+        // BACKUP/RESTORE - SqlPackage is provisioned now, before anything else.
+        var sourceIsAzure = src.Server.Contains("database.windows.net", StringComparison.OrdinalIgnoreCase);
+        if (sourceIsAzure)
+        {
+            var ensured = await _bacpac.EnsureAvailableAsync(reporter, ct);
+            if (!ensured.Success) return Result<DatabasePlan>.Fail(ensured.Error!);
+        }
+
+        reporter.Step("Check local SQL Server", Stage.CheckSql);
+        var ready = await _sqlContainer.CheckAsync(reporter, ct);
+        if (!ready.Success)
+            return Result<DatabasePlan>.Fail($"{ready.Error} Nothing was copied - or clone the website files only.");
+        var port = ready.Value;
+        reporter.Context(_opts.ServerFor(port));
+
+        var target = _sqlContainer.DatabaseFor(project, _opts.DatabaseNameFor(req.TargetProjectName), port);
+        if (_sqlContainer.IsLocalContainer(src.Server, port) && src.Database.Equals(target.DatabaseName, StringComparison.OrdinalIgnoreCase))
+            return Result<DatabasePlan>.Fail($"The source already uses [{target.DatabaseName}] - the clone needs a name of its own.");
+        var exists = await _sql.DatabaseExistsAsync(target.DatabaseName, ct);
+        if (!exists.Success) return Result<DatabasePlan>.Fail($"Could not check for database [{target.DatabaseName}]: {exists.Error}");
+        if (exists.Value)
+        {
+            if (_siteDatabases.OtherSiteUsing(req.TargetProjectName, target.Server, target.DatabaseName) is { } other)
+                return Result<DatabasePlan>.Fail($"[{target.DatabaseName}] is the database of the IIS site '{other}' - choose another name for the clone.");
+            if (!await _prompt.ConfirmDangerAsync(
+                    $"Database [{target.DatabaseName}] already exists on {target.Server}. Replace it with a copy of [{src.Database}]? " +
+                    "Everything in it now is lost.", "Replace database", "Keep it", ct))
+                return new Result<DatabasePlan>(false, null);
+        }
+        return Result<DatabasePlan>.Ok(new DatabasePlan(src, target, exists.Value, sourceIsAzure));
+    }
+
+    /// <summary>
+    /// Copies the source's database into the clone's: a BACPAC export and import from Azure, a backup and restore from
+    /// anywhere else - seeded under a name of its own when a database of the clone's name is there, and swapped in only
+    /// once it is complete, with its portal aliases and SSL set for the local site. A failure leaves that database as it was.
+    /// </summary>
+    private async Task<Result> SeedAsync(CloneProjectRequest req, DnnProject project, DatabasePlan plan, IProgressReporter reporter,
+        CancellationToken ct)
+    {
+        var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var name = plan.Target.DatabaseName;
+        var incoming = plan.Replaces ? plan.Target with { DatabaseName = $"{name}_clone_{stamp}" } : plan.Target;
+        // The copy, made below - dropped again by a cancel or a failure; the database it replaces is untouched until the end.
+        _undo.Add($"Drop database [{incoming.DatabaseName}]", () => _sql.DropDatabaseAsync(incoming.DatabaseName, CancellationToken.None));
+
+        var backupFolder = ProjectBackups.NewFolder(project, DateTime.Now);
+        _undo.DeleteFolderOnUndo(backupFolder);
+        Directory.CreateDirectory(backupFolder);
+
+        if (plan.SourceIsAzure)
+        {
+            reporter.Step("Export the source database (BACPAC)", Stage.Backup);
+            var bacpacTmp = Path.Combine(_temp.Folder, $"dnnmanager_clone_{req.TargetProjectName}_{stamp}.bacpac");
+            try
+            {
+                var export = await _bacpac.ExportAsync(plan.Source, bacpacTmp, reporter, ct);
+                if (!export.Success) return export;
+
+                // Kept with the project's backups, so the copy can be made again from the same data.
+                var cached = Path.Combine(backupFolder, ProjectBackups.DatabaseName(project, ".bacpac"));
+                try
+                {
+                    File.Copy(bacpacTmp, cached, overwrite: true);
+                    reporter.Info($"Cached BACPAC at {cached}");
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    reporter.Info($"Could not keep a copy of the BACPAC in the project's backups: {ex.Message}");
+                }
+
+                reporter.Step($"Seed [{name}] from the BACPAC", Stage.Seed);
+                var import = await _bacpac.ImportAsync(incoming.Server, _opts.Docker.SqlUser, _opts.Docker.SaPassword,
+                    incoming.DatabaseName, bacpacTmp, reporter, ct);
+                if (!import.Success) return import;
+            }
+            finally
+            {
+                // The source's whole database - never left behind, whatever happened.
+                TryDelete(bacpacTmp);
+            }
+        }
+        else
+        {
+            var create = await _sql.CreateDatabaseAsync(incoming, ct);
+            if (!create.Success) return create;
+
+            // If the source is our local SQL container, route the backup through the container
+            // instead of a Windows path it can't see.
+            reporter.Step("Back up source database", Stage.Backup);
+            string srcBakHostPath;
+            if (_sqlContainer.IsLocalContainer(plan.Source.Server, plan.Target.Port))
+            {
+                reporter.Info("Source DB is on the local SQL container - using container backup path.");
+                var fileName = Path.GetFileName(req.SourceBackupServerPath);
+                var localBak = await _sql.BackupDatabaseLocalAsync(plan.Source.Database, fileName, ct);
+                if (!localBak.Success || localBak.Value is null)
+                    return Result.Fail(localBak.Error ?? "Source backup on the local SQL container failed.");
+                srcBakHostPath = localBak.Value;
+                reporter.Success($"Source backup written to {srcBakHostPath}");
+            }
+            else
+            {
+                var bak = await _remoteBackup.BackupAsync(plan.Source, req.SourceBackupServerPath, reporter, ct);
+                if (!bak.Success || bak.Value is null) return Result.Fail(bak.Error ?? "Source backup failed.");
+                srcBakHostPath = bak.Value;
+            }
+
+            var projectBak = Path.Combine(backupFolder, ProjectBackups.DatabaseName(project, ".bak"));
+            try
+            {
+                File.Copy(srcBakHostPath, projectBak, overwrite: true);
+            }
+            finally
+            {
+                TryDelete(srcBakHostPath);
+            }
+            reporter.Info($"Cached backup at {projectBak}");
+
+            reporter.Step($"Seed [{name}] from clone backup", Stage.Seed);
+            var restore = await _sql.RestoreDatabaseLocalAsync(incoming, projectBak, ct);
+            if (!restore.Success) return restore;
+        }
+        reporter.Success($"Database copied into [{incoming.DatabaseName}].");
+
+        // So the cloned site responds at its own address instead of the source's.
+        reporter.Step("Update PortalAlias to match new hostname", Stage.Alias);
+        var alias = DnnSiteAddress.AliasFor(_opts.HostnameFor(req.TargetProjectName), _opts.SitePort);
+        var remapped = await _sql.RemapPortalAliasesAsync(incoming.DatabaseName, _opts.HostnameSuffix, alias, ct);
+        if (!remapped.Success) return remapped;
+        reporter.Success($"PortalAlias set to {alias}.");
+        await HostExistingProjectUseCase.DisableSslAsync(_sql, incoming.DatabaseName, reporter, ct);
+
+        if (plan.Replaces) return await SwapInAsync(name, incoming.DatabaseName, stamp, reporter, ct);
+        reporter.Success($"Local database [{name}] ready.");
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// The copy in place of the database it replaces: that one renamed aside, the copy given its name, the one aside dropped.
+    /// A rename that fails puts the old one back - it is only gone once the copy has its name.
+    /// </summary>
+    private async Task<Result> SwapInAsync(string name, string incoming, string stamp, IProgressReporter reporter, CancellationToken ct)
+    {
+        var aside = $"{name}_before_clone_{stamp}";
+        var old = _sqlContainer.Connection(name);
+        var renamed = await _databases.RenameDatabaseAsync(old, aside, ct);
+        if (!renamed.Success)
+            return Result.Fail($"Could not set [{name}] aside to put the copy in: {renamed.Error} The database is left as it was.");
+        var named = await _databases.RenameDatabaseAsync(_sqlContainer.Connection(incoming), name, ct);
+        if (!named.Success)
+        {
+            var back = await _databases.RenameDatabaseAsync(old with { Database = aside }, name, CancellationToken.None);
+            return Result.Fail(back.Success
+                ? $"The copy couldn't be named [{name}]: {named.Error} The database is left as it was."
+                : $"The copy couldn't be named [{name}]: {named.Error} - and the database it replaces couldn't be put back from [{aside}]: {back.Error}");
+        }
+        _undo.CannotUndo($"database [{name}] that was there before was replaced by the copy, as you chose.");
+        var dropped = await _sql.DropDatabaseAsync(aside, CancellationToken.None);
+        if (!dropped.Success)
+            reporter.Warn($"The database it replaced is still there as [{aside}] - drop it once you no longer need it ({dropped.Error}).");
+        reporter.Success($"Local database [{name}] ready - it replaced the one that was there.");
+        return Result.Ok();
+    }
+
+    private void TryDelete(string path)
+    {
+        try { if (File.Exists(path)) File.Delete(path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { _log.LogWarning(ex, "Could not delete {Path}", path); }
     }
 }

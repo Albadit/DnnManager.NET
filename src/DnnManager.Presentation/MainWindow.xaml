@@ -51,7 +51,7 @@
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Bd" Property="Background" Value="#C42B1C" />
-                                <Setter Property="Foreground" Value="White" />
+                                <Setter Property="Foreground" Value="{DynamicResource OnAccent}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -237,17 +237,17 @@
                     <Button x:Name="UpdateButton" Style="{StaticResource TitleBarUpdate}" Content="Update" Visibility="Collapsed"
                             s:CommandTip.Command="app.installUpdate" Click="Update_Click" />
                     <!-- Help: this page's help, the getting started guide, the tour (MainWindow.Help). -->
-                    <Button x:Name="HelpButton" Style="{StaticResource LayoutButton}" Content="{StaticResource GlyphQuestion}"
+                    <Button AutomationProperties.Name="Help" x:Name="HelpButton" Style="{StaticResource LayoutButton}" Content="{StaticResource GlyphQuestion}"
                             ToolTip="Help - what this page is for, the getting started guide and the tour" s:CommandTip.Command="help.page"
                             Click="Help_Click" />
                     <!-- The layout, as VS Code's: Customize Layout, the sidebar and the panel shown or hidden - each drawn
                          filled in while it is shown (UpdateLayoutButtons). The icons are in Themes\Icons.xaml. -->
-                    <Button Style="{StaticResource LayoutButton}" ToolTip="Customize Layout…" s:CommandTip.Command="layout.customize"
+                    <Button AutomationProperties.Name="Customize Layout" Style="{StaticResource LayoutButton}" ToolTip="Customize Layout…" s:CommandTip.Command="layout.customize"
                             Click="CustomizeLayout_Click">
                         <Path Style="{StaticResource IconStroke}" Data="{StaticResource LayoutDefault}"
                               Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                     </Button>
-                    <Button x:Name="SidebarToggle" Style="{StaticResource LayoutButton}" s:CommandTip.Command="view.toggleSidebar" Click="ToggleSidebar_Click">
+                    <Button x:Name="SidebarToggle" AutomationProperties.Name="Show or hide the sidebar" Style="{StaticResource LayoutButton}" s:CommandTip.Command="view.toggleSidebar" Click="ToggleSidebar_Click">
                         <Grid x:Name="SidebarIcon" Width="16" Height="16" RenderTransformOrigin="0.5,0.5">
                             <Path x:Name="SidebarIconFill" Data="{StaticResource LayoutSidebarLeftFill}"
                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
@@ -255,7 +255,7 @@
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                         </Grid>
                     </Button>
-                    <Button x:Name="PanelToggle" Style="{StaticResource LayoutButton}" s:CommandTip.Command="panel.toggle" Click="TogglePanel_Click">
+                    <Button x:Name="PanelToggle" AutomationProperties.Name="Show or hide the panel" Style="{StaticResource LayoutButton}" s:CommandTip.Command="panel.toggle" Click="TogglePanel_Click">
                         <Grid Width="16" Height="16">
                             <Path x:Name="PanelIconFill" Data="{StaticResource LayoutPanelFill}"
                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
@@ -264,10 +264,10 @@
                         </Grid>
                     </Button>
                     <Border Width="1" Height="16" Margin="6,0" Background="{DynamicResource SidebarDivider}" />
-                    <Button Style="{StaticResource CaptionButton}" Content="{StaticResource GlyphMinimize}" ToolTip="Minimize" Click="Minimize_Click" />
-                    <Button x:Name="MaximizeButton" Style="{StaticResource CaptionButton}" Content="{StaticResource GlyphMaximize}" ToolTip="Maximize"
+                    <Button AutomationProperties.Name="Minimize" Style="{StaticResource CaptionButton}" Content="{StaticResource GlyphMinimize}" ToolTip="Minimize" Click="Minimize_Click" />
+                    <Button AutomationProperties.Name="Maximize" x:Name="MaximizeButton" Style="{StaticResource CaptionButton}" Content="{StaticResource GlyphMaximize}" ToolTip="Maximize"
                             Click="Maximize_Click" />
-                    <Button Style="{StaticResource CloseCaptionButton}" Content="{StaticResource GlyphClose}" ToolTip="Close" Click="Close_Click" />
+                    <Button AutomationProperties.Name="Close" Style="{StaticResource CloseCaptionButton}" Content="{StaticResource GlyphClose}" ToolTip="Close" Click="Close_Click" />
                 </StackPanel>
                 <!-- The app's icon, and its name - the menu bar, hidden from Customize Layout. -->
                 <StackPanel x:Name="TitleLeft" Orientation="Horizontal" Margin="12,0,0,0" HorizontalAlignment="Left"

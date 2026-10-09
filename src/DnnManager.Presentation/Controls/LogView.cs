@@ -173,6 +173,20 @@ internal sealed class LogView : FrameworkElement, IScrollInfo
         return finalSize;
     }
 
+    // A screen reader finds a document named Log, its value the lines on screen - read only when asked (TextViewPeer).
+    protected override System.Windows.Automation.Peers.AutomationPeer OnCreateAutomationPeer() => new TextViewPeer(this, "Log", VisibleText);
+
+    /// <summary>The lines on screen, whole, one per line.</summary>
+    private string VisibleText()
+    {
+        if (_lines.Count == 0 || _rows == 0) return "";
+        var first = LineOfRow(Math.Max(0, RowAt(_offset.Y)));
+        var last = LineOfRow(Math.Clamp(RowAt(_offset.Y + _viewport.Height), 0, _rows - 1));
+        var text = new StringBuilder();
+        for (var index = first; index <= last && index < _lines.Count; index++) text.AppendLine(_lines[index].Text);
+        return text.ToString();
+    }
+
     protected override void OnRender(DrawingContext dc)
     {
         // Transparent but there, so the mouse finds it everywhere.

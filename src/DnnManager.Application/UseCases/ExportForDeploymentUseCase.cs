@@ -22,7 +22,8 @@ public sealed class ExportForDeploymentUseCase(
     IDatabaseProvisioner databases,
     IWebConfigService webConfig,
     ILogger<ExportForDeploymentUseCase> log,
-    OperationUndo undo)
+    OperationUndo undo,
+    IPrivateTemp temp)
 {
     /// <summary>What the live site doesn't need: made on this PC, or made again by DNN.</summary>
     private static readonly string[] LocalOnly =
@@ -50,6 +51,8 @@ public sealed class ExportForDeploymentUseCase(
     private readonly IWebConfigService _webConfig = webConfig;
     private readonly ILogger<ExportForDeploymentUseCase> _log = log;
     private readonly OperationUndo _undo = undo;
+    // Not %TEMP%: the copy of the site and its database, read back to make the package.
+    private readonly IPrivateTemp _temp = temp;
 
     public async Task<Result> ExecuteAsync(ExportForDeploymentRequest req, IProgressReporter reporter, CancellationToken ct)
     {
@@ -92,6 +95,12 @@ public sealed class ExportForDeploymentUseCase(
             await File.WriteAllTextAsync(instructions, Instructions(project.Name, req), ct);
             // In the log - not the summary under the stages, which is too narrow for a path; the toast opens the folder.
             reporter.Success($"Package: {folder}");
+            // What it holds is the live site's: said, so it doesn't stay around forgotten.
+            if (req.IncludeDatabase || req.ConnectionString is { Length: > 0 })
+                reporter.Warn("The package holds " + (req.IncludeDatabase ? "the whole database (its users too)" : "") +
+                              (req.IncludeDatabase && req.ConnectionString is { Length: > 0 } ? " and " : "") +
+                              (req.ConnectionString is { Length: > 0 } ? "the live connection string, password included" : "") +
+                              " - delete it once it is deployed (Troubleshoot → Clean up data → Deployment packages).");
             return Result.Ok();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -107,18 +116,19 @@ public sealed class ExportForDeploymentUseCase(
     /// </summary>
     private Result PrepareWebConfig(string zipPath, ExportForDeploymentRequest req, IProgressReporter reporter)
     {
-        var temp = Path.Combine(Path.GetTempPath(), $"dnnmanager-deploy-{Guid.NewGuid():N}");
+        var temp = Path.Combine(_temp.Folder, $"dnnmanager-deploy-{Guid.NewGuid():N}");
         try
         {
             using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Update);
-            if (zip.GetEntry("web.config") is not { } entry) return Result.Fail("The site has no web.config.");
+            // Web.config or web.config: Windows doesn't mind its capitals, and neither does the zip's reader here.
+            if (Entry(zip, "web.config") is not { } entry) return Result.Fail("The site has no web.config.");
             Directory.CreateDirectory(temp);
             var webConfigPath = Path.Combine(temp, "web.config");
             entry.ExtractToFile(webConfigPath);
             var entries = new List<string> { "web.config" };
             foreach (var source in ConfigSources(webConfigPath))
             {
-                if (zip.GetEntry(source) is not { } external) continue;
+                if (Entry(zip, source) is not { } external) continue;
                 var path = Path.Combine(temp, source.Replace('/', '\\'));
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
                 external.ExtractToFile(path);
@@ -148,6 +158,10 @@ public sealed class ExportForDeploymentUseCase(
         }
     }
 
+    /// <summary>The zip's entry <paramref name="name"/>, whatever its capitals - as Windows finds a file; null when there is none.</summary>
+    private static ZipArchiveEntry? Entry(ZipArchive zip, string name) =>
+        zip.GetEntry(name) ?? zip.Entries.FirstOrDefault(e => e.FullName.Replace('\\', '/').Equals(name.Replace('\\', '/'), StringComparison.OrdinalIgnoreCase));
+
     /// <summary>The files web.config's connectionStrings and appSettings are read from, as zip entry names.</summary>
     private static IEnumerable<string> ConfigSources(string webConfigPath)
     {
@@ -176,7 +190,7 @@ public sealed class ExportForDeploymentUseCase(
         var copyName = $"{source.Database}_deploy_{DateTime.Now:yyyyMMddHHmmss}";
         var copy = new DatabaseConnection(DatabaseKind.SqlServer, source.Server, copyName,
             source.User.Length == 0 ? SqlAuthentication.Windows : SqlAuthentication.Sql, source.User, source.Password);
-        var tempBacpac = Path.Combine(Path.GetTempPath(), $"{copyName}.bacpac");
+        var tempBacpac = Path.Combine(_temp.Folder, $"{copyName}.bacpac");
         _undo.Add($"Drop the temporary database [{copyName}]", () => _databases.DropDatabaseAsync(copy, CancellationToken.None));
         try
         {

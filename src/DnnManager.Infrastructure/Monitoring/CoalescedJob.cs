@@ -74,7 +74,12 @@ internal sealed class CoalescedJob(Func<CancellationToken, Task> work, TimeSpan 
                 if (!_stop.IsCancellationRequested) await _work(_stop);
             }
             catch (OperationCanceledException) { }
-            catch (Exception ex) { _failed(ex); }
+            catch (Exception ex)
+            {
+                // Saying it failed mustn't fail too: that would leave the job marked running - never run again.
+                try { _failed(ex); }
+                catch (Exception) { /* nowhere else to say it */ }
+            }
             foreach (var waiter in waiters) waiter.TrySetResult();
 
             lock (_lock)

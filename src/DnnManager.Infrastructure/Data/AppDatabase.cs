@@ -130,6 +130,7 @@ public sealed class AppDatabase
             var version = Scalar<long>(connection, "PRAGMA user_version");
             if (version > Steps.Length) throw new NewerDatabaseException(Path, version, Steps.Length);
             if (version < Steps.Length) Upgrade(connection, version);
+            else if (BackupIsOld()) Backup(connection);
             return connection;
         }
         catch
@@ -164,6 +165,22 @@ public sealed class AppDatabase
             catch (SqliteException) { /* already rolled back by the error */ }
             throw;
         }
+    }
+
+    // When the copy was last looked at by this process: once a day is enough to ask.
+    private long _backupCheckedAt = long.MinValue;
+
+    /// <summary>
+    /// The copy is more than a day old (or there is none): made anew, so a damaged file is brought back as it was
+    /// yesterday - not as it was at the last update, which may be months ago. Asked at most once a minute.
+    /// </summary>
+    private bool BackupIsOld()
+    {
+        var now = Environment.TickCount64;
+        if (now - Interlocked.Read(ref _backupCheckedAt) < 60_000) return false;
+        Interlocked.Exchange(ref _backupCheckedAt, now);
+        try { return !File.Exists(BackupPath) || DateTime.UtcNow - File.GetLastWriteTimeUtc(BackupPath) > TimeSpan.FromDays(1); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return false; }
     }
 
     /// <summary>

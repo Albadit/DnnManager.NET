@@ -27,8 +27,7 @@ public enum KeepWarmState
 
 /// <summary>A site's keep warm for people: its state and one line about it.</summary>
 /// <param name="Text">e.g. "Warm - answered in 12 ms at 14:02".</param>
-/// <param name="LastAnswer">How long the site took to answer its last request; null before it has answered.</param>
-public sealed record KeepWarmStatus(KeepWarmState State, string Text, TimeSpan? LastAnswer = null)
+public sealed record KeepWarmStatus(KeepWarmState State, string Text)
 {
     public static readonly KeepWarmStatus Off = new(KeepWarmState.Off, "Off");
 

@@ -18,7 +18,7 @@
             </Grid.ColumnDefinitions>
             <TextBlock x:Name="Glyph" FontFamily="{StaticResource IconFont}" FontSize="26" VerticalAlignment="Top" />
             <!-- Read-only text box so the message (a path, an error…) can be selected and copied. -->
-            <TextBox x:Name="Message" Grid.Column="2" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0"
+            <TextBox x:Name="Message" Grid.Column="2" AutomationProperties.Name="Message" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0"
                      Background="Transparent" Padding="0" MinHeight="0" VerticalAlignment="Center"
                      VerticalContentAlignment="Top" MaxHeight="360" VerticalScrollBarVisibility="Auto" Focusable="True" />
         </Grid>

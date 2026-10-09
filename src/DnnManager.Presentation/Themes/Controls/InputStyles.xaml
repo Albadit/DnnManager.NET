@@ -29,10 +29,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource FocusBorder}" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource FocusBorder}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
@@ -65,10 +65,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource FocusBorder}" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource FocusBorder}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
@@ -107,10 +107,10 @@
                             <Setter TargetName="Placeholder" Property="Visibility" Value="Visible" />
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource FocusBorder}" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource FocusBorder}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -142,11 +142,11 @@
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource FocusBorder}" />
                                         </Trigger>
                                         <!-- The box shows focus for the ComboBox around it (the toggle itself can't take focus). -->
                                         <DataTrigger Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=ComboBox}}" Value="True">
-                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource FocusBorder}" />
                                         </DataTrigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>

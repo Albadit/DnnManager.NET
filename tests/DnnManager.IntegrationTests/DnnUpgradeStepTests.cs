@@ -47,6 +47,47 @@ public sealed class DnnUpgradeStepTests
     }
 
     [TestMethod]
+    public void A_codeBase_and_the_culture_stay_when_the_redirect_is_set()
+    {
+        // Side by side: an older version loaded from its own folder - the redirect changes, the codeBase is still needed.
+        var config = Config(
+            "<dependentAssembly><assemblyIdentity name=\"Imageflow.Net\" publicKeyToken=\"b4b1e5a3b9d5e5a1\" culture=\"neutral\" />" +
+            "<codeBase version=\"0.10.0.0\" href=\"bin/Imageflow/0.10/Imageflow.Net.dll\" /></dependentAssembly>");
+        Assert.IsTrue(DnnPackageInstaller.SetBindingRedirect(config, "Imageflow.Net", "b4b1e5a3b9d5e5a1", new Version(0, 13, 0, 0)));
+        XNamespace ab = Asm;
+        var dependent = config.Descendants(ab + "dependentAssembly").Single();
+        Assert.AreEqual("neutral", (string?)dependent.Element(ab + "assemblyIdentity")!.Attribute("culture"));
+        Assert.IsNotNull(dependent.Element(ab + "codeBase"), "The codeBase went.");
+        Assert.AreEqual("0.13.0.0", (string?)dependent.Element(ab + "bindingRedirect")!.Attribute("newVersion"));
+    }
+
+    [TestMethod]
+    public void A_redirect_in_a_later_assemblyBinding_is_set_there_not_added_again()
+    {
+        var config = XDocument.Parse(
+            $"<configuration><runtime><assemblyBinding xmlns=\"{Asm}\" /><assemblyBinding xmlns=\"{Asm}\">" +
+            "<dependentAssembly><assemblyIdentity name=\"MailKit\" publicKeyToken=\"4e064fe7c44a8f1b\" />" +
+            "<bindingRedirect oldVersion=\"0.0.0.0-4.0.0.0\" newVersion=\"4.0.0.0\" /></dependentAssembly></assemblyBinding></runtime></configuration>");
+        Assert.IsTrue(DnnPackageInstaller.SetBindingRedirect(config, "MailKit", "4e064fe7c44a8f1b", new Version(4, 8, 0, 0)));
+        XNamespace ab = Asm;
+        var redirects = config.Descendants(ab + "bindingRedirect").ToList();
+        Assert.AreEqual(1, redirects.Count, config.ToString());
+        Assert.AreEqual("4.8.0.0", (string?)redirects[0].Attribute("newVersion"));
+    }
+
+    [TestMethod]
+    public void GitHubs_next_page_is_read_from_its_Link_header()
+    {
+        using var response = new HttpResponseMessage();
+        response.Headers.Add("Link", "<https://api.github.com/repositories/1/releases?per_page=100&page=2>; rel=\"next\", " +
+                                     "<https://api.github.com/repositories/1/releases?per_page=100&page=3>; rel=\"last\"");
+        Assert.AreEqual("https://api.github.com/repositories/1/releases?per_page=100&page=2", GitHubDnnReleaseService.NextPage(response));
+        using var last = new HttpResponseMessage();
+        last.Headers.Add("Link", "<https://api.github.com/repositories/1/releases?per_page=100&page=1>; rel=\"prev\"");
+        Assert.IsNull(GitHubDnnReleaseService.NextPage(last));
+    }
+
+    [TestMethod]
     public void A_web_config_without_runtime_gets_one()
     {
         var config = XDocument.Parse("<configuration><appSettings /></configuration>");

@@ -13,8 +13,8 @@ folder, so updating, reinstalling or uninstalling the app never touches it:
 ```text
 Documents\DnnManager\
 ├── dnnmanager.db        DNN Manager's own data, one SQLite database (below)
-├── dnnmanager.backup.db the database as it was before its tables last changed (an update) - what a damaged one
-│                        comes back from; only there after such an update
+├── dnnmanager.backup.db a copy of the database - made before its tables change (an update) and once a day -
+│                        what a damaged one comes back from
 ├── backups\             project backups (user guide: Backups)
 ├── deployments\         packages made by Export for deployment: <project>_<date>\ with .zip, .bacpac and DEPLOY.txt
 ├── logs\                one file per day, kept 30 days: every operation's messages, one line each after its
@@ -26,6 +26,20 @@ Documents\DnnManager\
 ```
 
 The folders are made at the first start, empty until something goes in them.
+
+Besides them, DNN Manager - which runs as Administrator - keeps what it writes and
+later reads back or runs in a folder only administrators can change
+([security.md](security.md#administrator-rights)); none of it is yours to keep:
+
+```text
+%ProgramData%\DnnManager\
+├── temp\                updates being installed (update\<version>\), database exports and .bak copies of a clone,
+│                        deployment packages being made, downloaded DNN packages - removed when done
+└── tools\               SqlPackage, installed there by DNN Manager the first time it needs it
+```
+
+And beside Windows' hosts file, `hosts.dnnmanager.bak`: the hosts file as it was
+before DNN Manager last changed it.
 
 `dnnmanager.db` holds five tables. Every value is in a column or a row of its
 own - there is no JSON in it:
@@ -58,7 +72,7 @@ is put aside at the start as `dnnmanager.damaged-<date>-<time>.db`, to look
 into, and DNN Manager goes on with `dnnmanager.backup.db` when there is a sound
 one, otherwise with the defaults. The Output tab says which.
 
-An [update](user-guide.md#update) downloads into `%TEMP%\DnnManager-update\<version>\`,
+An [update](user-guide.md#update) downloads into `%ProgramData%\DnnManager\temp\update\<version>\`,
 with its log (`update.log`, and `update.setup.log` for Setup) - removed a couple of
 minutes after the next start.
 
@@ -127,10 +141,10 @@ another place.
 | `projects.sitePort`, `projects.hostnameSuffix` | Sites answer at `http://<project>.<hostnameSuffix>[:sitePort]`. |
 | `projects.dnnReleaseSources` | GitHub releases API URLs - the repositories **New project** offers, with their versions. |
 | `projects.keepDnnPackages` | `false` by default. When `true`, each downloaded DNN install package is kept in `Documents\DnnManager\packages\<owner>.<repo>\` and used again when a new project picks the same version - no download. Each repository's version list is saved at every start (in `dnnmanager.db`, `dnn_releases`), so New project works without internet for the kept versions. When `false`, the package is downloaded into the project and deleted after installing. |
-| `projects.dnnDefaults.*` | What **New project** starts with for a new site: `installMode` (`automatic` or `manual`), `hostUsername` (`host`), `hostEmail` (`admin@admin.com`; empty: `host@<hostnameSuffix>`), `websiteName` (`My Website`; empty: the project's name), `language` (`en-US`, `de-DE`, `es-ES`, `fr-FR`, `it-IT` or `nl-NL`) and `template` (`Default Website` or `Blank Website`). The host password is not in the settings: it is in the Windows Credential Manager of your account (`DnnManager/dnn-defaults/host-password`); while none is saved there it is `Admin@123`. Set in **Settings → Projects**. |
+| `projects.dnnDefaults.*` | What **New project** starts with for a new site: `installMode` (`automatic` or `manual`), `hostUsername` (`host`), `hostEmail` (`admin@admin.com`; empty: `host@<hostnameSuffix>`), `websiteName` (`My Website`; empty: the project's name), `language` (`en-US`, `de-DE`, `es-ES`, `fr-FR`, `it-IT` or `nl-NL`) and `template` (`Default Website` or `Blank Website`). The host password is not in the settings: it is in the Windows Credential Manager of your account (`DnnManager/dnn-defaults/host-password`); while none is saved there, New project asks for one. Set in **Settings → Projects**. |
 | `projects.keepWarm.*` | How the sites switched to [keep warm](user-guide.md#keep-warm) are kept warm: `pingMinutes` (`5`, 1 to 60) - the longest wait between two requests, shortened for a site whose app pool idles out sooner; `pingPath` (`/KeepAlive.aspx`) - the page requested to keep a running site warm (`/` keeps the home page's caches warm too, as Azure's *Always On* does); `warmUpPath` (`/`) - the page requested to warm up a site without a worker process. Pages are on the site itself (a leading `/` is added), never one of DNN's installer (`/Install/…`, `mode=`). Set in **Settings → Projects → Keep warm**. Which sites are kept warm is not in the settings: it is in `dnnmanager.db` (`keep_warm`). |
 | `sqlServer.type` | Where a new project's database goes: `container` (the local SQL container - the default), `sqlServer` (SQL Server / SQL Server Express at `server`, with `authentication` `windows` or `sql` and, for `sql`, the login `userName` - its password is in the Windows Credential Manager, `DnnManager/database-server/password`) or `localDbFile` (the site's own `App_Data\Database.mdf` on the LocalDB instance `server`, e.g. `(LocalDB)\MSSQLLocalDB`). Set in **Settings → Database server**; a project keeps the database it was made with. |
-| `sqlServer.host`, `port`, `userName`, `saPassword` | The local SQL container DNN Manager connects to: `host` (`localhost` by default), `port`, `userName` (the login it signs in with - `sa` when empty; another one has to exist on the container already - the same setting as the SQL Server login of `sqlServer.type` `sqlServer`) and `saPassword` (that login's password - and the `sa` password **Set up docker-compose** creates the container with). The password is stored encrypted for your Windows account (Windows DPAPI, `dpapi:…`) - not hashed, since DNN Manager needs it to sign in. Set in **Settings → Database server**. A new project's database is named like the project. The Docker container publishes SQL Server on this port with this password - on this PC only (`127.0.0.1`) when `host` is `localhost` or `127.0.0.1`, on every network interface for any other host (this PC's address on the network, for a VM). An existing data volume keeps the sa password it was created with. |
+| `sqlServer.host`, `port`, `userName`, `saPassword` | The local SQL container DNN Manager connects to: `host` (`localhost` by default), `port`, `userName` (the login it signs in with - `sa` when empty; another one has to exist on the container already - the same setting as the SQL Server login of `sqlServer.type` `sqlServer`) and `saPassword` (that login's password - and the `sa` password **Set up docker-compose** creates the container with; a new installation makes up its own, 24 random characters, which Troubleshoot's resets keep - the container was made with it). The password is stored encrypted for your Windows account (Windows DPAPI, `dpapi:…`) - not hashed, since DNN Manager needs it to sign in. Set in **Settings → Database server**. A new project's database is named like the project, and its site signs in with a login of its own, `dnn_<project>` - not with this one. The Docker container publishes SQL Server on this port with this password - on this PC only (`127.0.0.1`) when `host` is `localhost` or `127.0.0.1`, on every network interface for any other host (this PC's address on the network, for a VM). An existing data volume keeps the sa password it was created with. |
 | `docker.*` | The SQL Server container: `containerName`, `volumeName`, `edition` (`MSSQL_PID`) and `collation`. **Settings → Docker container → Set up docker-compose** makes the container from these (and `sqlServer.port` / `saPassword`); **Show docker-compose.yml** shows the file to copy. |
 | `ssms.rememberPassword` | `false` by default. When `true`, signing SSMS in from the project menu ticks its *Remember Password*, so SSMS keeps the password. On the Settings page under **Database server**. |
 | `iis.requiredFeatures` | The Windows features **Settings → IIS → Test** checks and **Set up IIS** enables, each a `name` (as `dism /online /get-features` lists it) and a `label`. Set with **Settings → IIS → Edit…**: a row each, how it is shown and its Windows feature name, e.g. *ASP.NET 4.8* and `IIS-ASPNET45` (left empty, it is shown by its name). |
@@ -142,6 +156,7 @@ another place.
 | `terminal.*` | The terminal panel, set in **Settings → General** and applied at once: `defaultShell` (`powershell`, `pwsh`, `cmd` or `gitbash` - the first installed one when that one isn't), `fontFamily` (empty for Cascadia Mono, or Consolas) and `fontSize` (8 to 32) - also the font of the Output and Logs tabs. |
 | `keyboard.shortcuts` | The keyboard shortcuts changed from their defaults, one row per command: `keyboard.shortcuts{project.start}` = `Ctrl+F5`, `keyboard.shortcuts{view.close}` = (empty) - an empty one takes the command's shortcut away; a command not listed has its default. Written as VS Code writes them (`Ctrl+Shift+P`, `Ctrl+,`, ``Ctrl+` ``, `Shift+F5`); a shortcut needs Ctrl or Alt, or a function key. Set in **Settings → Keyboard shortcuts**, applied and saved at once - see [Keyboard](user-guide.md#keyboard). |
 | `layout.*` | How the window is laid out, as VS Code's **Customize Layout** sets it - applied and saved at once (see [Layout](user-guide.md#layout)): `sidebarPosition` (`left` or `right`), `panelAlignment` (`center` - under the page only; `justify` - the window's width; `left` / `right` - to that edge of the window, under the sidebar when it is on that side), `menuBarVisible` (`true` - for now the app's name in the title bar), `statusBarVisible` (`true`), `quickInputPosition` (where the command palette opens: `top` or `center`) and `density` (`default` - the sidebar, page and panel as rounded cards with a gap between them; or `compact` - flush, divided by lines, with a narrower sidebar (190 pixels, 40 with icons only), tighter entries and narrower title bar buttons). Whether the sidebar and the panel are shown is not here: it is the workspace's (`state`, area `window`). |
+| `updates.checkAtStart` | `true` by default: a moment after DNN Manager starts, GitHub is asked once whether there is a newer DNN Manager (it gets this PC's address and the name `DnnManager`, nothing else). `false`: only **Settings → About → Check for updates** asks. Set in **Settings → General**. |
 | `window.keepRunningWhenClosed` | `true` by default: closing the window hides it and DNN Manager keeps running, with an icon in the notification area to open it again or quit - see [Running in the background](user-guide.md#running-in-the-background). `false`: closing the window quits DNN Manager. Set in **Settings → General**, applied at once. |
 
 ### How the settings are saved

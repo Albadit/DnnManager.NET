@@ -1,0 +1,13 @@
+version: 2
+# Updates for the GitHub Actions the workflow pins to commits, and for the NuGet packages - proposed as pull requests,
+# which CI builds and tests.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5

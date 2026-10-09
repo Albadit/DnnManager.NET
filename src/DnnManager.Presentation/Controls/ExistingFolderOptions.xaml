@@ -13,7 +13,7 @@
             <DockPanel>
                 <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="Browse_Click"
                         ToolTip="Browse" />
-                <ComboBox x:Name="BackupCombo" DisplayMemberPath="Label" />
+                <ComboBox AutomationProperties.Name="Restore a .bacpac / .bak into the database" x:Name="BackupCombo" DisplayMemberPath="Label" />
             </DockPanel>
             <TextBlock Style="{StaticResource Hint}" Text="Backups are looked up in the project's backups (Documents\DnnManager\backups\&lt;project&gt;) and the project folder's root, newest first." />
         </StackPanel>

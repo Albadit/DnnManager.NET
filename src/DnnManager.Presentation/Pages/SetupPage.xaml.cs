@@ -341,6 +341,20 @@ public partial class SetupPage : UserControl, IRefreshable
         return null;
     }
 
+    /// <summary>
+    /// The folder of the IIS site named <paramref name="name"/> - from the sites the window shows; the setup asks IIS itself
+    /// again. A new project's folder doesn't exist yet, so a site of that name serves another one. Null when there is none.
+    /// </summary>
+    private string? SiteServingAnotherFolder(string name)
+    {
+        if (!_store.IsLoaded) return null;
+        var row = _store.Projects.FirstOrDefault(r => r.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        if (row is null) return null;
+        var folder = _repo.Build(name).ProjectDirectory;
+        return string.Equals(row.Path.TrimEnd('\\'), folder.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase) ? null
+            : row.Path.Length > 0 ? row.Path : "another folder";
+    }
+
     private void OnSitesChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdateState();
 
     private DnnAccount ChosenAccount => new(
@@ -592,11 +606,14 @@ public partial class SetupPage : UserControl, IRefreshable
 
         // A new project needs a folder of its own - an existing one is set up on Host project.
         var exists = valid && _repo.ProjectExists(name);
+        // Nor an IIS site of that name serving another folder: making the project's site would replace it.
+        var siteElsewhere = valid && !exists ? SiteServingAnotherFolder(name) : null;
         NameError.Text = name.Length > 0 && !valid ? check.Error ?? ""
             : exists ? $"A project named '{name}' already exists. Choose another name, or set it up on Host project."
+            : siteElsewhere is not null ? $"IIS already has a site named '{name}', serving {siteElsewhere} - choose another name."
             : "";
         NameError.Visibility = NameError.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-        valid = valid && !exists;
+        valid = valid && !exists && siteElsewhere is null;
 
         var importing = Importing;
         var problem = importing ? ImportProblem() : null;
@@ -643,9 +660,19 @@ public partial class SetupPage : UserControl, IRefreshable
                         (importing ? $", on the local SQL container ({ContainerServer})." : " (see Database below).");
 
         RunButton.Content = importing ? "Import project" : "Create project";
+        var versionReady = SourceCombo.SelectedItem is SourceOption && VersionCombo.SelectedItem is VersionOption { Ready: true };
         RunButton.IsEnabled = valid && (importing ? problem is null
-            : SourceCombo.SelectedItem is SourceOption && VersionCombo.SelectedItem is VersionOption { Ready: true } &&
-              iisProblem is null && databaseProblem is null && DatabaseFree && accountProblems.Count == 0);
+            : versionReady && iisProblem is null && databaseProblem is null && DatabaseFree && accountProblems.Count == 0);
+
+        // What is still missing, next to the button - in the order of the cards above.
+        var needed = new List<string>();
+        if (!valid) needed.Add("a project name");
+        if (importing && problem is not null) needed.Add("the site's .zip and its database backup");
+        if (!importing && !versionReady) needed.Add("a DNN version");
+        if (!importing && iisProblem is not null) needed.Add("a host name and port");
+        if (!importing && (databaseProblem is not null || !DatabaseFree)) needed.Add("a database");
+        if (!importing && accountProblems.Count > 0) needed.Add("the host account");
+        StillNeeded.Text = RunButton.IsEnabled || needed.Count == 0 ? "" : "Still needed: " + string.Join(", ", needed) + ".";
     }
 
     private async void Run_Click(object sender, RoutedEventArgs e)

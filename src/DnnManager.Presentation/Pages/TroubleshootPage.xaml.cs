@@ -89,7 +89,8 @@ public partial class TroubleshootPage : UserControl
         (CleanLogs, AppDataKind.Logs, "Logs"),
         (CleanPackages, AppDataKind.DnnPackages, "Kept DNN packages"),
 
-        (CleanProjectBackups, AppDataKind.ProjectBackups, "Project backups")
+        (CleanProjectBackups, AppDataKind.ProjectBackups, "Project backups"),
+        (CleanDeployments, AppDataKind.Deployments, "Deployment packages")
     ];
 
     /// <summary>Shows each kind of data with what it takes now - measured off the UI thread (backups can be large).</summary>
@@ -104,7 +105,8 @@ public partial class TroubleshootPage : UserControl
             "the activity log, one file per day",
             "downloaded DNN install packages, kept to install the same version again without downloading",
 
-            "every project's backups"
+            "every project's backups",
+            "the packages made for a live server"
         };
         for (var i = 0; i < sizes.Length; i++)
             Choices[i].Box.Content = $"{Choices[i].Name} - {details[i]} ({ByteSize.Format(sizes[i])})";
@@ -120,8 +122,8 @@ public partial class TroubleshootPage : UserControl
         var chosen = Choices.Where(c => c.Box.IsChecked == true).ToList();
         if (chosen.Count == 0) return;
         var list = string.Join(Environment.NewLine, chosen.Select(c => $"• {c.Name}"));
-        var backups = chosen.Any(c => c.Kind == AppDataKind.ProjectBackups)
-            ? $"{Environment.NewLine}{Environment.NewLine}Project backups can't be brought back."
+        var backups = chosen.Any(c => c.Kind is AppDataKind.ProjectBackups or AppDataKind.Deployments)
+            ? $"{Environment.NewLine}{Environment.NewLine}Backups and deployment packages can't be brought back."
             : "";
         if (!Dialogs.ConfirmDanger($"Delete this data from {_paths.Root}?{Environment.NewLine}{Environment.NewLine}{list}{backups}",
                 "Clean up data", "Cancel"))

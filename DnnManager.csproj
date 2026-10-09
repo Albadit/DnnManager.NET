@@ -19,6 +19,14 @@
     <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
     <!-- Program.Main builds the DI host before starting WPF, so App.xaml is a plain Page. -->
     <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+    <!-- The packages restored are the ones in packages.lock.json, with their hashes - CI restores in locked mode. The
+         runtime the release is published for is in it too. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <!-- The single-file analyzer always: a single-file publish (the portable exe) turns it on, and with it the SDK adds
+         Microsoft.NET.ILLink.Tasks to the restore - on for every restore, a build and a publish agree on
+         packages.lock.json, and single-file problems show while building. -->
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
   </PropertyGroup>
 
   <ItemGroup>
@@ -45,9 +53,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.12" />
     <PackageReference Include="Microsoft.Web.Administration" Version="11.1.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
     <!-- DNN Manager's own data - settings, workspace, project records, keep warm - in Documents\DnnManager\dnnmanager.db. -->
@@ -55,7 +63,7 @@
          brought 2.1.11, which DNN Manager pinned over until then. Upgrading it upgrades SQLite. -->
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <!-- The state of the IIS service (W3SVC) for the status bar. -->
-    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.12" />
   </ItemGroup>
 
   <!-- The version of a local build: the newest version tag (v1.7.1 -> 1.7.1) reachable from the commit built - the

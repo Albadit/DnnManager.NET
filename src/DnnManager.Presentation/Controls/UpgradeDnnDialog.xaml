@@ -11,10 +11,10 @@
             <TextBlock x:Name="Intro" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimary}" />
             <StackPanel x:Name="RepositoryPanel" Visibility="Collapsed">
                 <TextBlock Style="{StaticResource FieldLabel}" Text="Repository" Margin="0,12,0,4" />
-                <ComboBox x:Name="RepositoryBox" DisplayMemberPath="Label" SelectionChanged="Repository_Changed" />
+                <ComboBox AutomationProperties.Name="Repository" x:Name="RepositoryBox" DisplayMemberPath="Label" SelectionChanged="Repository_Changed" />
             </StackPanel>
             <TextBlock Style="{StaticResource FieldLabel}" Text="Upgrade to" Margin="0,12,0,4" />
-            <ComboBox x:Name="VersionBox" DisplayMemberPath="Label" SelectionChanged="Version_Changed" />
+            <ComboBox AutomationProperties.Name="Upgrade to" x:Name="VersionBox" DisplayMemberPath="Label" SelectionChanged="Version_Changed" />
             <TextBlock x:Name="VersionHint" Style="{StaticResource Hint}" TextWrapping="Wrap" />
         </StackPanel>
 

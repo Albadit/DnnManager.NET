@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -10,6 +11,10 @@ public sealed record UpdatePlan
     public required UpdateKind Kind { get; init; }
     /// <summary>The downloaded, checked Setup or portable exe.</summary>
     public required string Package { get; init; }
+    /// <summary>The package's SHA-256 as GitHub lists it - checked again by the helper right before it uses the file.</summary>
+    public required string PackageSha256 { get; init; }
+    /// <summary>The package's size as GitHub lists it.</summary>
+    public required long PackageSize { get; init; }
     /// <summary>The exe that is replaced (portable) or installed over (Setup) - and started again afterwards.</summary>
     public required string AppExe { get; init; }
     /// <summary>Setup: the installation is for all users (<c>/ALLUSERS</c>), not only this one (<c>/CURRENTUSER</c>).</summary>
@@ -94,7 +99,29 @@ public static class UpdateHelper
             }
             log.Write("DNN Manager has closed.");
 
-            var failure = plan.Kind == UpdateKind.Portable ? ReplacePortable(plan, log) : RunSetup(plan, start, log);
+            // A backup left by an earlier update isn't this one's: deleted before anything changes, so only the backup
+            // this update makes is ever put back in place of the exe.
+            if (plan.Kind == UpdateKind.Portable && File.Exists(BackupOf(plan)))
+            {
+                try { File.Delete(BackupOf(plan)); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Finish(plan, log, false, $"{BackupOf(plan)}, left by an earlier update, can't be deleted ({ex.Message}) - nothing was changed.");
+                    Launch(plan, start, log);
+                    return 1;
+                }
+            }
+
+            // The package is checked again now, and held open so it can't be changed while it is copied or run: it is
+            // used with administrator rights.
+            using var package = OpenChecked(plan, out var problem);
+            if (package is null)
+            {
+                Finish(plan, log, false, $"The downloaded update can't be used: {problem} - nothing was changed.");
+                Launch(plan, start, log);
+                return 1;
+            }
+            var failure = plan.Kind == UpdateKind.Portable ? ReplacePortable(plan, package, log) : RunSetup(plan, start, log);
             if (failure is not null)
             {
                 Finish(plan, log, false, failure);
@@ -129,6 +156,35 @@ public static class UpdateHelper
         }
     }
 
+    /// <summary>
+    /// The package opened so that nobody can write to it, as long as it is open - once its size and SHA-256 are the
+    /// release's; null when they aren't (<paramref name="problem"/> says why).
+    /// </summary>
+    internal static FileStream? OpenChecked(UpdatePlan plan, out string? problem)
+    {
+        problem = null;
+        FileStream? stream = null;
+        try
+        {
+            stream = new FileStream(plan.Package, FileMode.Open, FileAccess.Read, FileShare.Read);
+            if (stream.Length != plan.PackageSize) problem = $"it is {stream.Length:N0} bytes, GitHub lists {plan.PackageSize:N0}";
+            else if (plan.PackageSha256.Length == 0) problem = "GitHub lists no SHA-256 for it";
+            else if (!Convert.ToHexString(SHA256.HashData(stream)).Equals(plan.PackageSha256, StringComparison.OrdinalIgnoreCase))
+                problem = "its SHA-256 isn't the one GitHub lists";
+            if (problem is null)
+            {
+                stream.Position = 0;
+                return stream;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            problem = ex.Message;
+        }
+        stream?.Dispose();
+        return null;
+    }
+
     private static bool WaitForExit(int processId, TimeSpan timeout)
     {
         try
@@ -149,12 +205,13 @@ public static class UpdateHelper
     /// Puts the new exe in the old one's place, under the old one's name (shortcuts and the sign-in task keep working),
     /// keeping the old one as a backup. Null when it worked, else why not - the old exe is then in place.
     /// </summary>
-    private static string? ReplacePortable(UpdatePlan plan, HelperLog log)
+    private static string? ReplacePortable(UpdatePlan plan, Stream package, HelperLog log)
     {
         var staged = StagedOf(plan);
         var backup = BackupOf(plan);
-        // Next to the exe, so the swap is a rename on one volume.
-        File.Copy(plan.Package, staged, overwrite: true);
+        // Next to the exe, so the swap is a rename on one volume - copied from the checked file, still held open.
+        using (var target = new FileStream(staged, FileMode.Create, FileAccess.Write, FileShare.None))
+            package.CopyTo(target);
         Exception? last = null;
         // The closed process's file, or an antivirus scan, can hold it for a moment.
         for (var attempt = 0; attempt < 20; attempt++)
@@ -177,7 +234,10 @@ public static class UpdateHelper
         return $"{plan.AppExe} couldn't be replaced: {last?.Message}";
     }
 
-    /// <summary>The old exe back in its place, when the swap didn't finish or the new one didn't run.</summary>
+    /// <summary>
+    /// The old exe back in its place, when the swap didn't finish or the new one didn't run - the backup this update made:
+    /// one an earlier update left behind was deleted before anything was changed.
+    /// </summary>
     private static void RestorePortable(UpdatePlan plan, HelperLog log)
     {
         var backup = BackupOf(plan);

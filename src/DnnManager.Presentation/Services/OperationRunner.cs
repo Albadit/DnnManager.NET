@@ -11,7 +11,7 @@ namespace DnnManager.Presentation.Services;
 /// <summary>
 /// Runs one use case at a time on the thread pool (IIS, file copies and SqlPackage block), in its own
 /// DI scope, with its output going to the activity log. Only one runs at a time - starting another
-/// while one is running is refused - and <see cref="Cancel"/> backs the log's Cancel button. A cancelled
+/// while one is running is refused - and <see cref="Cancel"/> backs the log's Cancel button. A cancelled or failed
 /// operation is taken back: what it noted in its <see cref="OperationUndo"/> is undone, the last first.
 /// </summary>
 public sealed class OperationRunner : INotifyPropertyChanged
@@ -24,6 +24,15 @@ public sealed class OperationRunner : INotifyPropertyChanged
     private string? _current;
     // The operation going on - from its start, also while it only asks whether to go ahead (Current waits for more).
     private string? _title;
+    // Done when no operation runs - what quitting waits for, so an operation is never cut off half-way.
+    private TaskCompletionSource _idle = Done();
+
+    private static TaskCompletionSource Done()
+    {
+        var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        done.SetResult();
+        return done;
+    }
 
     public OperationRunner(IServiceProvider services, ActivityLog log, IProgressReporter reporter, ILogger<OperationRunner> logger)
     {
@@ -52,6 +61,12 @@ public sealed class OperationRunner : INotifyPropertyChanged
     public event Action<string, string>? Failed;
 
     /// <summary>
+    /// Completes when no operation runs any more - at once when none does; otherwise once the running one has finished,
+    /// including what it undoes after a cancel or a failure.
+    /// </summary>
+    public Task WhenIdleAsync() => _idle.Task;
+
+    /// <summary>
     /// Runs <paramref name="operation"/> and reports its outcome in the log.
     /// Returns true when it succeeded; false when it failed, was cancelled or another one is running.
     /// </summary>
@@ -68,6 +83,7 @@ public sealed class OperationRunner : INotifyPropertyChanged
         using var cts = new CancellationTokenSource();
         _cts = cts;
         _title = title;
+        _idle = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         OnPropertyChanged(nameof(IsBusy));
         _log.BeginRun(title);
         // Outside the operation, so what it noted to undo is still there when it was cancelled.
@@ -77,7 +93,7 @@ public sealed class OperationRunner : INotifyPropertyChanged
             var result = await Task.Run(() => operation(scope.ServiceProvider, _reporter, cts.Token));
 
             // Cancelled - also when the operation turned the cancel into an ordinary failure.
-            if (!result.Success && cts.IsCancellationRequested) return await UndoAsync(scope, title);
+            if (!result.Success && cts.IsCancellationRequested) return await UndoAsync(scope, title, null);
             if (result.Success)
             {
                 _log.EndRun(RunStatus.Finished, null);
@@ -89,53 +105,76 @@ public sealed class OperationRunner : INotifyPropertyChanged
                 _log.DropRun();
                 return false;
             }
-            var error = result.Error ?? $"{title} failed.";
-            _log.EndRun(RunStatus.Failed, error);
-            Failed?.Invoke(title, error);
-            return false;
+            return await UndoAsync(scope, title, result.Error ?? $"{title} failed.");
         }
         catch (OperationCanceledException)
         {
-            return await UndoAsync(scope, title);
+            return await UndoAsync(scope, title, null);
         }
         catch (Exception ex) when (cts.IsCancellationRequested)
         {
             _logger.LogInformation(ex, "{Title} ended with an error after it was cancelled", title);
-            return await UndoAsync(scope, title);
+            return await UndoAsync(scope, title, null);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Action failed");
-            _log.EndRun(RunStatus.Failed, $"Unexpected error: {ex.Message}");
-            Failed?.Invoke(title, ex.Message);
-            return false;
+            return await UndoAsync(scope, title, $"Unexpected error: {ex.Message}");
         }
         finally
         {
             _cts = null;
             _title = null;
             Current = null;
+            _idle.TrySetResult();
         }
     }
 
     /// <summary>
-    /// After a cancel: takes back what the operation did (<see cref="OperationUndo"/>), each step in the log, so the PC is
-    /// as it was before it started. Always false - the operation didn't happen.
+    /// After a cancel, or a failure (<paramref name="error"/>): takes back what the operation did
+    /// (<see cref="OperationUndo"/>), each step in the log, so the PC is as it was before it started - nothing half made
+    /// is left behind to get in the way of trying again. Always false - the operation didn't happen.
     /// </summary>
-    private async Task<bool> UndoAsync(IServiceScope scope, string title)
+    private async Task<bool> UndoAsync(IServiceScope scope, string title, string? error)
     {
         var undo = scope.ServiceProvider.GetRequiredService<OperationUndo>();
         if (undo.IsEmpty)
         {
-            _log.EndRun(RunStatus.Cancelled, $"{title} - cancelled. Nothing had been changed yet.");
+            if (error is null)
+            {
+                _log.EndRun(RunStatus.Cancelled, $"{title} - cancelled. Nothing had been changed yet.");
+            }
+            else
+            {
+                _log.EndRun(RunStatus.Failed, error);
+                Failed?.Invoke(title, error);
+            }
             return false;
         }
         Current = $"Undoing '{title}'";
-        _reporter.Step("Cancelled - putting everything back as it was", "Undo");
-        var allUndone = await Task.Run(() => undo.RunAsync(_reporter));
-        _log.EndRun(RunStatus.Cancelled, allUndone
-            ? $"{title} - cancelled. Everything it had done is undone."
-            : $"{title} - cancelled. Not everything could be undone - see above.");
+        _reporter.Step(error is null ? "Cancelled - putting everything back as it was" : "Failed - putting back what it had done", "Undo");
+        bool allUndone;
+        try
+        {
+            allUndone = await Task.Run(() => undo.RunAsync(_reporter));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Undoing {Title} failed", title);
+            allUndone = false;
+        }
+        if (error is null)
+        {
+            _log.EndRun(RunStatus.Cancelled, allUndone
+                ? $"{title} - cancelled. Everything it had done is undone."
+                : $"{title} - cancelled. Not everything could be undone - see above.");
+            return false;
+        }
+        var failed = allUndone
+            ? $"{error} What it had done is undone - you can try again."
+            : $"{error} Not everything it had done could be undone - see the Output tab.";
+        _log.EndRun(RunStatus.Failed, failed);
+        Failed?.Invoke(title, failed);
         return false;
     }
 

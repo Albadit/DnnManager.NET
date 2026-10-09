@@ -130,8 +130,46 @@ public sealed class HostsFileTests
             Assert.IsTrue(HostsFile.Write(path, []));
             CollectionAssert.AreEqual(original, File.ReadAllBytes(path));
         }
-        finally { File.Delete(path); }
+        finally
+        {
+            File.Delete(path);
+            File.Delete(HostsFile.BackupPath(path));
+        }
     }
+
+    [TestMethod]
+    public void Write_KeepsTheFileAsItWasBeforeBesideIt()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"dnnmanager-hosts-{Guid.NewGuid():N}");
+        try
+        {
+            File.WriteAllText(path, WindowsHosts);
+            Assert.IsTrue(HostsFile.Write(path, [Local("shop.dnndev.me")]));
+            Assert.AreEqual(WindowsHosts, File.ReadAllText(HostsFile.BackupPath(path)));
+            Assert.IsTrue(HostsFile.Write(path, [Local("blog.dnndev.me")]));
+            StringAssert.Contains(File.ReadAllText(HostsFile.BackupPath(path)), "shop.dnndev.me", "The copy is of the file as it was just before.");
+        }
+        finally
+        {
+            File.Delete(path);
+            File.Delete(HostsFile.BackupPath(path));
+        }
+    }
+
+    [TestMethod]
+    public void WithEntries_FindsItsBlockAfterAByteOrderMark()
+    {
+        // An editor saved the file as UTF-8 with a BOM - the block on line 1 is still DNN Manager's, not the user's lines.
+        var bom = Encoding.Latin1.GetString(Encoding.UTF8.GetPreamble());
+        var text = bom + HostsFile.Begin + "\r\n127.0.0.1       old.dnndev.me\r\n" + HostsFile.End + "\r\n";
+        var next = HostsFile.WithEntries(text, [Local("shop.dnndev.me")]);
+        Assert.IsFalse(next.Contains("old.dnndev.me", StringComparison.Ordinal), next);
+        Assert.AreEqual(1, next.Split(HostsFile.End).Length - 1, "One block: " + next);
+    }
+
+    [TestMethod]
+    public void EntriesFor_WritesAnInternationalNameInPunycode() =>
+        CollectionAssert.AreEqual(new[] { Local("xn--caf-dma.test") }, HostsFile.EntriesFor([Site(Http("café.test"))]).ToArray());
 
     // ─── Following the sites ──────────────────────────────────────────────
 
@@ -173,7 +211,11 @@ public sealed class HostsFileTests
                     ("Hosts file: store.dnndev.me removed.", false),
                 }, notices);
         }
-        finally { File.Delete(path); }
+        finally
+        {
+            File.Delete(path);
+            File.Delete(HostsFile.BackupPath(path));
+        }
     }
 
     [TestMethod]
@@ -210,6 +252,7 @@ public sealed class HostsFileTests
         {
             File.SetAttributes(path, FileAttributes.Normal);
             File.Delete(path);
+            File.Delete(HostsFile.BackupPath(path));
         }
     }
 

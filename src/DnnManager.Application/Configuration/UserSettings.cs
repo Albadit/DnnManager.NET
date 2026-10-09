@@ -25,6 +25,7 @@ public sealed class UserSettings
     public AppearanceSettings Appearance { get; set; } = new();
     public TerminalSettings Terminal { get; set; } = new();
     public WindowSettings Window { get; set; } = new();
+    public UpdateSettings Updates { get; set; } = new();
     public KeyboardSettings Keyboard { get; set; } = new();
     public LayoutSettings Layout { get; set; } = new();
 
@@ -160,6 +161,7 @@ public sealed class UserSettings
         },
         SsmsRememberPassword = Ssms.RememberPassword,
         KeepRunningWhenClosed = Window.KeepRunningWhenClosed,
+        CheckForUpdatesAtStart = Updates.CheckAtStart,
         Docker = new DockerOptions
         {
             ContainerName = Docker.ContainerName,
@@ -300,8 +302,11 @@ public sealed class DnnDefaultsSettings
 {
     public static readonly string[] InstallModes = ["automatic", "manual"];
 
-    /// <summary>The host password a new project starts with while none is saved in the Windows Credential Manager.</summary>
-    public const string DefaultHostPassword = "Admin@123";
+    /// <summary>
+    /// The host password a new project starts with while none is saved in the Windows Credential Manager: none - one
+    /// everybody knows would open every new site's superuser account.
+    /// </summary>
+    public const string DefaultHostPassword = "";
 
     /// <summary>"automatic" (DNN Manager installs DNN) or "manual" (DNN's installation wizard on the first visit).</summary>
     public string InstallMode { get; set; } = "automatic";
@@ -338,12 +343,13 @@ public sealed class SqlServerSettings
     /// </summary>
     public string Type { get; set; } = ContainerType;
     public string Host { get; set; } = "localhost";
-    public int Port { get; set; } = 1433;
+    public int Port { get; set; } = Abstractions.SqlServerAddress.DefaultPort;
     /// <summary>
     /// The password of <see cref="UserName"/> on the container - and the sa password Set up docker-compose creates
-    /// the container with.
+    /// the container with. A new one of its own for each new installation (<see cref="SqlPasswords.New"/>) - never one
+    /// everybody knows.
     /// </summary>
-    public string SaPassword { get; set; } = "Admin@123";
+    public string SaPassword { get; set; } = SqlPasswords.New();
     /// <summary>For "sqlServer" and "localDbFile": e.g. <c>.\SQLEXPRESS</c>, <c>localhost,1433</c> or <c>(LocalDB)\MSSQLLocalDB</c>.</summary>
     public string Server { get; set; } = @".\SQLEXPRESS";
     /// <summary>For "sqlServer": "windows" or "sql".</summary>
@@ -471,6 +477,16 @@ public sealed class WindowSettings
     /// opens it again or quits it, as Docker Desktop's does. On by default. Off: closing the window quits DNN Manager.
     /// </summary>
     public bool KeepRunningWhenClosed { get; set; } = true;
+}
+
+/// <summary>Asking GitHub for a newer DNN Manager. Set on the Settings page (General).</summary>
+public sealed class UpdateSettings
+{
+    /// <summary>
+    /// A moment after the start, GitHub is asked once whether there is a newer DNN Manager - what it is sent is this
+    /// PC's address and "DnnManager", nothing else. Off: only Settings → About (Check for updates) asks.
+    /// </summary>
+    public bool CheckAtStart { get; set; } = true;
 }
 
 public sealed class KeyboardSettings

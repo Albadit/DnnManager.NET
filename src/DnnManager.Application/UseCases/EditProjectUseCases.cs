@@ -48,7 +48,7 @@ public sealed class EditBindingsUseCase(IIisManager iis, IProjectRepository proj
             return Result.Ok();
         }
         var localFile = database.Kind == DatabaseKind.LocalDbFile;
-        var wasRunning = site.State.Equals("Started", StringComparison.OrdinalIgnoreCase);
+        var wasRunning = IisStates.IsStarted(site.State);
         if (localFile && wasRunning)
         {
             reporter.Info("Stopping the site for a moment - its database file can only be opened while the site doesn't use it…");

@@ -8,6 +8,8 @@ using DnnManager.Infrastructure.Sql;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 
+using static DnnManager.Infrastructure.Dnn.DnnLogFiles;
+
 namespace DnnManager.Infrastructure.Dnn;
 
 /// <summary>
@@ -319,11 +321,8 @@ public sealed class DnnUpgradeChecks(IDnnSiteInspector inspector, ILogger<DnnUpg
                     yield return Short(message);
                 }
             }
-        var scripts = Path.Combine(siteDirectory, "Providers", "DataProviders", "SqlDataProvider");
-        if (Directory.Exists(scripts))
-            foreach (var file in Directory.EnumerateFiles(scripts, "*.log.resources"))
-                if (File.GetLastWriteTimeUtc(file) >= sinceUtc && ReadShared(file).FirstOrDefault(l => l.Trim().Trim('﻿').Length > 0) is { } first)
-                    yield return $"Database script {Path.GetFileName(file)}: {Short(first)}";
+        foreach (var (file, first) in ScriptProblems(siteDirectory, sinceUtc))
+            yield return $"Database script {file}: {first}";
     }
 
     private sealed record EventEntry(DateTime Time, int Level, string LevelName, string Source, int Id, string Message);
@@ -367,21 +366,4 @@ public sealed class DnnUpgradeChecks(IDnnSiteInspector inspector, ILogger<DnnUpg
         return entries.OrderBy(e => e.Time);
     }
 
-    private static IReadOnlyList<string> ReadShared(string file)
-    {
-        try
-        {
-            using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            using var reader = new StreamReader(stream, Encoding.UTF8);
-            var lines = new List<string>();
-            while (reader.ReadLine() is { } line) lines.Add(line);
-            return lines;
-        }
-        catch (IOException)
-        {
-            return [];
-        }
-    }
-
-    private static string Short(string text) => text.Length > 300 ? text[..300] + "…" : text;
 }

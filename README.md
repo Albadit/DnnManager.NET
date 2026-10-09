@@ -103,15 +103,14 @@ A WPF app on .NET 10, laid out as Clean Architecture in a single project:
 | `DnnManager.Infrastructure` | IIS, Docker, SQL Server, GitHub releases, settings, keep warm, logs |
 | `DnnManager.Domain` | Plain records, no dependencies |
 
-Domain and Application don't depend on WPF or Infrastructure; use cases reach
-IIS, SQL Server and the file system through interfaces. The layers, how an
+Domain and Application don't depend on WPF or Infrastructure (a test,
+`LayeringTests`, keeps it so); use cases reach IIS, SQL Server and the file
+system through interfaces. The layers, how an
 operation runs, how the window stays current and a map from each feature to its
 code are in [.docs/architecture.md](.docs/architecture.md).
 
 ## Documentation
 
-| | |
-|---|---|
 | For | Document | What's in it |
 |---|---|---|
 | Users | [User guide](.docs/user-guide.md) | The window, every page and menu, automatic DNN setup, import / host / clone, keep warm, backups, limitations |
@@ -121,7 +120,7 @@ code are in [.docs/architecture.md](.docs/architecture.md).
 | | [Architecture](.docs/architecture.md) | Layers, how an operation runs, live updates, project layout, design decisions, component map |
 | | [Upgrading DNN](.docs/dnn-upgrades.md) | DNN's upgrade path, the analyser, backups, each step, the checks, rollback, the knowledge base, what was tested |
 | | [Testing](.docs/testing.md) | The fast and the integration tests, adding a test |
-| | [Releasing](.docs/releasing.md) | Version, changelog, portable exe, installer, GitHub release |
+| | [Releasing](.docs/releasing.md) | Version, changelog, portable exe, installer, GitHub release, CI and checksums, what to do about a bad release |
 | | [Security](.docs/security.md) | Administrator rights, secrets, what DNN Manager deletes, network exposure, open risks |
 | Everyone | [Changelog](CHANGELOG.md) | What changed in each version |
 | | [Release notes](.docs/release-notes/) | The notes of every GitHub release, one file per version |

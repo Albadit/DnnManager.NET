@@ -1,3 +1,5 @@
+using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 using DnnManager.Presentation.Controls;
 
 namespace DnnManager.Presentation.Services;
@@ -24,6 +26,24 @@ public static class Toast
             _ => TimeSpan.Zero
         };
         _view?.Show(message, kind, duration, actionText, action);
+        Announce(_view, message, kind is ToastKind.Error or ToastKind.Warning);
+    }
+
+    /// <summary>
+    /// Says <paramref name="message"/> to a screen reader (UI Automation's notification) - an error or a warning before
+    /// what it is reading. One event, and only while something listens: nothing is walked or raised otherwise.
+    /// </summary>
+    public static void Announce(System.Windows.UIElement? source, string message, bool important = false)
+    {
+        try
+        {
+            if (source is null || !AutomationPeer.ListenerExists(AutomationEvents.Notification)) return;
+            var peer = UIElementAutomationPeer.FromElement(source) ?? UIElementAutomationPeer.CreatePeerForElement(source);
+            peer?.RaiseNotificationEvent(AutomationNotificationKind.Other,
+                important ? AutomationNotificationProcessing.ImportantMostRecent : AutomationNotificationProcessing.MostRecent,
+                message, "DnnManager.Status");
+        }
+        catch (InvalidOperationException) { /* no window to say it from yet */ }
     }
 
     public static void Hide() => _view?.Hide();

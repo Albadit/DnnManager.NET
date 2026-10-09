@@ -1,5 +1,6 @@
 using DnnManager.Application.Abstractions;
 using DnnManager.Domain;
+using DnnManager.Infrastructure.Files;
 using DnnManager.Infrastructure.Processes;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -16,7 +17,7 @@ public sealed class SqlPackageService(ProcessRunner proc, ILogger<SqlPackageServ
     private readonly ProcessRunner _proc = proc;
     private readonly ILogger<SqlPackageService> _log = log;
     private const string InstallHint =
-        "SqlPackage was not found. Install it with:  dotnet tool install -g microsoft.sqlpackage";
+        "SqlPackage was not found. Install the .NET SDK for all users and try again - DNN Manager then installs SqlPackage itself.";
 
     // The .NET (Core) build of SqlPackage throws "4096 (0x1000) is an invalid culture
     // identifier" because ICU can't resolve that custom-locale LCID a SQL collation maps to.
@@ -31,14 +32,15 @@ public sealed class SqlPackageService(ProcessRunner proc, ILogger<SqlPackageServ
     {
         if (ResolveExe() is not null) return Result.Ok();
 
-        // Not installed - provision it as a .NET global tool. After this, ResolveExe() finds it
-        // under ~/.dotnet/tools. Requires the .NET SDK; we surface a manual hint if that's missing.
+        // Not installed - provisioned as a .NET tool in DNN Manager's own tools folder, which only administrators can
+        // change: it runs as Administrator. (A global tool in ~/.dotnet/tools is the user's to change - never run from
+        // there.) Requires the .NET SDK; we surface a manual hint if that's missing.
         reporter.Info("SqlPackage not found - installing it (one-time)…");
-        reporter.Info("Running: dotnet tool install --global Microsoft.SqlPackage");
+        reporter.Info($"Running: dotnet tool install Microsoft.SqlPackage --tool-path {PrivateTemp.ToolsPath}");
         try
         {
             var r = await _proc.RunAsync("dotnet",
-                new[] { "tool", "install", "--global", "Microsoft.SqlPackage" }, ct);
+                new[] { "tool", "install", "Microsoft.SqlPackage", "--tool-path", PrivateTemp.ToolsPath }, ct);
 
             // `install` exits non-zero when the tool is already present, so don't trust the exit
             // code alone - the real test is whether we can now resolve the executable.
@@ -50,44 +52,26 @@ public sealed class SqlPackageService(ProcessRunner proc, ILogger<SqlPackageServ
 
             _log.LogError("SqlPackage auto-install failed: {Err}\n{Out}", r.StdErr, r.StdOut);
             return Result.Fail($"Automatic SqlPackage install did not succeed: {Tail(r.StdErr, r.StdOut)}. " +
-                               "Install it manually with:  dotnet tool install -g microsoft.sqlpackage");
+                               "Install the .NET SDK for all users (dotnet in Program Files), then retry.");
         }
         catch (Exception ex)
         {
             _log.LogError(ex, "Could not run 'dotnet tool install' for SqlPackage");
             return Result.Fail($"Could not run 'dotnet' to install SqlPackage ({ex.Message}). " +
-                               "Install the .NET SDK (so 'dotnet' is on PATH), then retry - or install it " +
-                               "manually with:  dotnet tool install -g microsoft.sqlpackage");
+                               "Install the .NET SDK for all users (so 'dotnet' is on PATH), then retry.");
         }
     }
 
-    /// <summary>Finds the SqlPackage executable: the dotnet global tool location, then PATH.</summary>
+    /// <summary>
+    /// Finds the SqlPackage executable: DNN Manager's own tools folder, then a copy on PATH that only administrators can
+    /// change (e.g. one installed with SQL Server in Program Files). It runs as Administrator: never one of the user's own
+    /// (a global .NET tool in ~/.dotnet/tools).
+    /// </summary>
     private static string? ResolveExe()
     {
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var toolPath = Path.Combine(home, ".dotnet", "tools", "sqlpackage.exe");
+        var toolPath = Path.Combine(PrivateTemp.ToolsPath, "sqlpackage.exe");
         if (File.Exists(toolPath)) return toolPath;
-
-        try
-        {
-            var psi = new System.Diagnostics.ProcessStartInfo("where", "sqlpackage")
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            using var p = System.Diagnostics.Process.Start(psi);
-            if (p is null) return null;
-            var outp = p.StandardOutput.ReadToEnd();
-            p.WaitForExit(3000);
-            var first = outp.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0);
-            return string.IsNullOrEmpty(first) ? null : first;
-        }
-        catch
-        {
-            return null;
-        }
+        return TrustedPrograms.Find("sqlpackage.exe", out _) is { } trusted && Path.IsPathRooted(trusted) ? trusted : null;
     }
 
     public async Task<Result> ExportAsync(SiteSqlConnection source, string bacpacPath, IProgressReporter reporter, CancellationToken ct)
@@ -110,9 +94,11 @@ public sealed class SqlPackageService(ProcessRunner proc, ILogger<SqlPackageServ
         var r = await _proc.RunAsync(exe, args, ct, SqlPackageEnv);
         if (!r.Success)
         {
-            _log.LogError("SqlPackage export failed: {Err}\n{Out}", r.StdErr, r.StdOut);
+            // SqlPackage may repeat its connection string: the password never goes into the log or a message.
+            var (err, outp) = (Hide(r.StdErr, source.Password), Hide(r.StdOut, source.Password));
+            _log.LogError("SqlPackage export failed: {Err}\n{Out}", err, outp);
             TryDelete(bacpacPath); // don't leave a partial/zero-byte .bacpac behind for a later import to pick.
-            return Result.Fail($"BACPAC export failed: {Tail(r.StdErr, r.StdOut)}");
+            return Result.Fail($"BACPAC export failed: {Tail(err, outp)}");
         }
         if (!File.Exists(bacpacPath) || new FileInfo(bacpacPath).Length == 0)
         {
@@ -143,8 +129,9 @@ public sealed class SqlPackageService(ProcessRunner proc, ILogger<SqlPackageServ
         var r = await _proc.RunAsync(exe, args, ct, SqlPackageEnv);
         if (!r.Success)
         {
-            _log.LogError("SqlPackage import failed: {Err}\n{Out}", r.StdErr, r.StdOut);
-            return Result.Fail($"BACPAC import failed: {Tail(r.StdErr, r.StdOut)}");
+            var (err, outp) = (Hide(r.StdErr, saPassword), Hide(r.StdOut, saPassword));
+            _log.LogError("SqlPackage import failed: {Err}\n{Out}", err, outp);
+            return Result.Fail($"BACPAC import failed: {Tail(err, outp)}");
         }
         reporter.Success("BACPAC imported.");
         return Result.Ok();
@@ -181,6 +168,10 @@ public sealed class SqlPackageService(ProcessRunner proc, ILogger<SqlPackageServ
     {
         try { if (File.Exists(path)) File.Delete(path); } catch { /* best-effort */ }
     }
+
+    /// <summary><paramref name="text"/> with <paramref name="password"/> blanked out - for what goes into the log or a message.</summary>
+    internal static string Hide(string text, string? password) =>
+        string.IsNullOrEmpty(password) ? text : text.Replace(password, "********", StringComparison.Ordinal);
 
     private static string Tail(string err, string outp)
     {

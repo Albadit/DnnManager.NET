@@ -39,6 +39,7 @@ public sealed class AppOptions
         Layout = other.Layout;
         Terminal = other.Terminal;
         KeepRunningWhenClosed = other.KeepRunningWhenClosed;
+        CheckForUpdatesAtStart = other.CheckForUpdatesAtStart;
         Changed?.Invoke();
     }
 
@@ -80,6 +81,9 @@ public sealed class AppOptions
     /// (the presentation's TrayIcon). On by default; set in Settings - General.
     /// </summary>
     public bool KeepRunningWhenClosed { get; set; } = true;
+
+    /// <summary>GitHub is asked for a newer DNN Manager a moment after the start; set in Settings - General.</summary>
+    public bool CheckForUpdatesAtStart { get; set; } = true;
 
     /// <summary>The host header a project's IIS site is bound to: <c>{project}.{HostnameSuffix}</c>.</summary>
     public string HostnameFor(string projectName) => $"{projectName}.{HostnameSuffix}";
@@ -124,8 +128,8 @@ public sealed class DockerOptions
     /// <summary>The login DNN Manager signs in to the container with (Settings → Database server → User) - sa by default.</summary>
     public string SqlUser { get; set; } = "sa";
     /// <summary>The password of <see cref="SqlUser"/>, and the sa password the container is created with.</summary>
-    public string SaPassword { get; set; } = "Admin@123";
-    public int DefaultPort { get; set; } = 1433;
+    public string SaPassword { get; set; } = "";
+    public int DefaultPort { get; set; } = Abstractions.SqlServerAddress.DefaultPort;
     public string Collation { get; set; } = "Latin1_General_CI_AS";
     public string MssqlPid { get; set; } = "Developer";
 }

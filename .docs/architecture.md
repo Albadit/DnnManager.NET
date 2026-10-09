@@ -27,7 +27,7 @@ flowchart TD
     I["Infrastructure<br/>IIS, SQL, Docker, GitHub, files,<br/>monitor, keep warm, diagnostics"]
     D["Domain<br/>records and rules - no dependencies"]
     P -->|runs use cases| A
-    P -.->|monitor, keep warm, Details diagnostics| I
+    P -.->|the app's own parts: monitor, keep warm,<br/>settings, updates, logs, diagnostics| I
     I -->|implements interfaces| A
     A --> D
     I --> D
@@ -40,11 +40,19 @@ flowchart TD
   with stand-ins.
 - **Infrastructure** implements those interfaces; it is registered in
   `Infrastructure/DependencyInjection.cs`.
-- **Presentation** runs use cases through `OperationRunner`, and uses three
-  Infrastructure parts directly (the dotted arrow), because a use case would
-  only pass them through: the live monitor (`ServerStateMonitor`), keep warm
-  (`KeepWarmService`) and what a site's Details read (`Infrastructure/Diagnostics`).
-- Nothing enforces this in the build - keep to it when adding code.
+- **Presentation** runs use cases through `OperationRunner` for everything that
+  changes a project. It is also the composition root, and uses Infrastructure
+  directly (the dotted arrow) for what is the app's own rather than a project's,
+  where a use case would only pass things through: the live monitor
+  (`ServerStateMonitor`), keep warm (`KeepWarmService`), what a site's Details
+  read (`Infrastructure/Diagnostics`), the settings store and data cleaner
+  (`Infrastructure/Settings`), the workspace (`State`), updates (`Updates`), a
+  site's logs (`SiteLogs`), the terminal (`Terminal`), the sign-in task
+  (`Startup`) and the trusted-program check (`Processes`).
+- The rule is checked by a test: [`LayeringTests`](../tests/DnnManager.IntegrationTests/LayeringTests.cs)
+  fails when Domain uses anything of DnnManager's, Application uses
+  Infrastructure or Presentation, or Infrastructure uses Presentation
+  ([ADR 0002](adr/0002-layering-rule.md)).
 
 ## How an operation runs
 
@@ -79,18 +87,26 @@ sequenceDiagram
   steps that led to it are in the Output tab and the log file.
 - A second operation while one runs is refused with a message.
 
-An operation that is cancelled is **undone**: before each step a use case notes
-how to take back what it is about to make in the scope's
+An operation that is cancelled **or fails** is **undone**: before each step a use
+case notes how to take back what it is about to make in the scope's
 [`OperationUndo`](../src/DnnManager.Application/UseCases/OperationUndo.cs), and
-what can't be taken back (a dropped database) is noted as such.
+what can't be taken back (a dropped database) is noted as such. Nothing half made
+is left behind to get in the way of trying again - unless the use case keeps it on
+purpose (`OperationUndo.Keep`), as New project does with a DNN installation that
+failed, to look into ([ADR 0001](adr/0001-undo-on-failure.md)). Quitting while an
+operation runs cancels it and closes the window once it has stopped and undone what
+it did (`OperationRunner.WhenIdleAsync`); Setup, which is waiting to replace the
+files, gives it 20 seconds.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Running : RunAsync
     Running --> Finished : Result.Ok
-    Running --> Failed : Result.Fail or an exception
-    Running --> Undoing : Cancel (status bar)
-    Undoing --> Cancelled : OperationUndo has run, last step first
+    Running --> Undoing : Cancel (status bar, or quitting)
+    Running --> Undoing : Result.Fail or an exception
+    Undoing --> Cancelled : cancelled - OperationUndo has run, last step first
+    Undoing --> Failed : failed - OperationUndo has run, last step first
+    Running --> Failed : failed, with nothing to undo (or kept to look into)
     Finished --> [*]
     Failed --> [*]
     Cancelled --> [*]
@@ -286,8 +302,8 @@ DNN Manager's own data is one SQLite file, `Documents\DnnManager\dnnmanager.db`
   `projects`, `keep_warm` and `dnn_releases` are plain columns. The only JSON
   left in the app is what other programs speak: GitHub's API, `vswhere`'s
   output, and the update's hand-off files `plan.json` / `result.json` in
-  `%TEMP%\DnnManager-update\<version>\` (between the old version's helper and
-  the new version).
+  `%ProgramData%\DnnManager\temp\update\<version>\` (between the old version's
+  helper and the new version).
 - **Nothing from earlier versions is read**: the `settings.json`, `state\` and
   `projects\` of 1.7.1 and older stay on disk untouched, and the first start
   of this version begins with the defaults
@@ -317,24 +333,24 @@ DnnManager.NET/
     │   ├── ProjectName.cs       ← project name validation
     │   └── Result.cs            ← Result / Result<T> (no exceptions across layers)
     ├── DnnManager.Application/
-    │   ├── Abstractions/        ← all interfaces consumed by use cases
+    │   ├── Abstractions/        ← the interfaces use cases consume (one file each), SqlServerAddress, the records they exchange
     │   ├── Configuration/       ← UserSettings (the settings' layout, defaults, validation), AppOptions
-    │   ├── UseCases/            ← one class per top-level action
+    │   ├── UseCases/            ← one class per top-level action; OperationUndo, Provisioning (IIS site, local container, site logins), SiteDatabases
     │   └── DependencyInjection.cs
     ├── DnnManager.Infrastructure/
     │   ├── Iis/                 ← IIS via Microsoft.Web.Administration
     │   ├── Docker/              ← docker-compose.yml for the shared SQL container, from the settings, and running it
     │   ├── Sql/                 ← sqlcmd in the container, remote backup, SqlPackage, connection test, SiteDatabaseChecks (is a site's database live - the Projects table and Host project); DatabaseProvisioner (Test connection, create, the site's login), LocalDB files, connection strings
-    │   ├── Dnn/                 ← DNN's unattended install (Install.aspx), its template and output, the host password's hash
+    │   ├── Dnn/                 ← DNN's unattended install (Install.aspx), its template and output, the host password's hash; DnnLogFiles (reading DNN's logs)
     │   ├── Github/              ← GitHub API + DNN package downloader
     │   ├── Data/                ← AppDatabase (dnnmanager.db, its tables and their steps), ValueRows (an object as key / value rows)
     │   ├── Settings/            ← AppDataPaths (Documents\DnnManager), SettingsStore, AppDataCleaner, WindowsCredentialStore
     │   ├── State/               ← StateStore (the workspace, by area)
-    │   ├── Files/               ← file copy, site .zip import / export, daily log file
+    │   ├── Files/               ← file copy, site .zip import / export, daily log file; PrivateTemp (the admin-only temporary and tools folders), ProjectsFolderGuard, StalledRead
     │   ├── Projects/            ← file-system project repository; ProjectRecords (how each project was installed), KeepWarmRecords
     │   ├── Prereq/              ← IIS feature checks
     │   ├── WebConfigs/          ← web.config SiteSqlServer read / write
-    │   ├── Processes/           ← shared ProcessRunner; the app's own power throttling (EcoQoS)
+    │   ├── Processes/           ← shared ProcessRunner (with TrustedPrograms: only admin-only programs run elevated); the app's own power throttling (EcoQoS)
     │   ├── Terminal/            ← a shell in a Windows pseudo console (ConPTY)
     │   ├── Startup/             ← the "start at sign-in" scheduled task
     │   ├── Monitoring/          ← ServerStateMonitor: the live state of the projects, IIS and this PC - what tells it to look (ChangeSources) and what it measures with
@@ -352,6 +368,7 @@ DnnManager.NET/
         ├── AdminElevation.cs    ← relaunches elevated when needed
         ├── AppRestart.cs        ← Troubleshoot → Restart, and restarting after a reset
         ├── Shell.cs             ← opens an address, folder or file through Explorer - as the user, not as Administrator
+        ├── Unelevated.cs        ← starts a program (an IDE) with arguments as the user, through the desktop's shell
         ├── RunningMarker.cs     ← named mutex while the app runs - the installer checks it before replacing the app
         ├── SingleInstance.cs    ← a second start hands over to the running app, which shows its window; Setup asks it to quit
         ├── App.xaml             ← merges the palette, tokens, icons and control styles; the sidebar's own styles
@@ -363,14 +380,14 @@ DnnManager.NET/
         ├── Terminal/            ← the terminal itself: screen buffer + VT parser, the view that draws it, the shell session
         ├── Themes/              ← LightTheme / DarkTheme colour palettes, Tokens (radii, heights, padding), Icons (every icon)
         │   └── Controls/        ← the reusable control styles, one dictionary per kind (see Control styles)
-        └── Services/            ← ActivityLog + OutputModel (the Output tab's runs, stages and lines), OperationRunner, ServerStore, EfficiencyMode + WindowOcclusion, TrayIcon (the notification area's icon), LiveSettings, DnnReleaseCatalog, ReleaseNotes (the notes built into the exe), TerminalService, ThemeManager, Toast, IdeLocator, SsmsConnectDialog, SettingsStartup, ByteSize, GUI adapters
+        └── Services/            ← ActivityLog + OutputModel (the Output tab's runs, stages and lines), OperationRunner, ServerStore, EfficiencyMode + WindowOcclusion, TrayIcon (the notification area's icon), LiveSettings, DnnReleaseCatalog, ReleaseNotes (the notes built into the exe), TerminalService, ThemeManager (with Windows' Contrast themes), Toast (and screen-reader announcements), AccessibleName, SecretClipboard, IdeLocator, SsmsConnectDialog, SettingsStartup, ByteSize, GUI adapters
 ```
 
 ## Key design decisions
 
 | Decision | Why |
 |---|---|
-| **Clean Architecture (single project, layered folders)** | Use cases are testable without IIS/Docker; the UI was swapped from a terminal UI to WPF without touching business logic. The layers are a convention (folders and namespaces) - nothing in the build enforces them. Keep Domain and Application free of WPF and of Infrastructure (they are today). Presentation uses Infrastructure directly where a use case would only pass things through: the live monitor (`ServerStateMonitor`), keep warm and the Details diagnostics. |
+| **Clean Architecture (single project, layered folders)** | Use cases are testable without IIS/Docker; the UI was swapped from a terminal UI to WPF without touching business logic. The layers are folders and namespaces of one assembly, kept apart by a test (`LayeringTests`) rather than by the build - see [Layers](#layers) and [ADR 0002](adr/0002-layering-rule.md). |
 | **All side-effects behind interfaces** | `IIisManager`, `ISqlServerService`, `IDnnReleaseService`, `IPrerequisiteChecker`, `IWebConfigService`, `ISqlConnectionTester`, `IUserPrompt`, `IProgressReporter`, … Easy to mock in tests. |
 | **`Result` / `Result<T>` instead of exceptions across layers** | Use-case outcomes are explicit; unexpected exceptions are still logged and surfaced centrally. |
 | **`Microsoft.Extensions.Hosting` + `IOptions<AppOptions>`** | Standard DI, and `ILogger` for the app's own warnings and errors: they go to the daily log file with their stack trace ([`DailyLogFileLoggerProvider`](../src/DnnManager.Infrastructure/Files/DailyLogFileLogger.cs) - Warning and up; the same message at most once in 10 minutes, so a failing background read doesn't fill the file). What the *user* reads goes through `IProgressReporter` (the Output tab and the same file) and toasts or dialogs - never a stack trace. `AppOptions` is made from the settings at startup, with `DNNMANAGER_*` env vars on top. There is one instance, shared: saving on the Settings page puts the new values into it (`LiveSettings`), so they apply without a restart; what caches something made from a setting follows its `Changed` event. |
@@ -378,7 +395,10 @@ DnnManager.NET/
 | **One SQLite database for the app's own data** | Settings, workspace, project records, keep warm and the saved DNN versions in one file (`dnnmanager.db`) instead of folders of JSON files: every write is whole or not at all, and there is one file to back up or delete. Every value is a column or a row of its own, so a SQLite browser shows each setting by itself. See [DNN Manager's database](#dnn-managers-database). |
 | **WPF, code-behind pages** | One `UserControl` per sidebar item, made on its first visit and kept, so its lists load once (Settings is made anew each time). |
 | **Live state instead of Refresh** | One monitor reads the system and one store holds what the window shows. Windows' own notifications say when to look; timers cover what has none. See [Live updates](#live-updates). |
-| **Use cases off the UI thread** | `OperationRunner` runs one use case at a time on the thread pool in its own DI scope, refuses a second one while it runs, and backs the status bar's **Cancel** button. A cancelled operation is undone through the scope's [`OperationUndo`](../src/DnnManager.Application/UseCases/OperationUndo.cs): each step notes how to take back what it is about to make, before it starts. |
+| **Use cases off the UI thread** | `OperationRunner` runs one use case at a time on the thread pool in its own DI scope, refuses a second one while it runs, and backs the status bar's **Cancel** button. A cancelled or failed operation is undone through the scope's [`OperationUndo`](../src/DnnManager.Application/UseCases/OperationUndo.cs): each step notes how to take back what it is about to make, before it starts ([ADR 0001](adr/0001-undo-on-failure.md)). |
+| **Nothing elevated from where the user can write** | DNN Manager runs as Administrator: a program it starts, or a file it writes and reads back, in a folder any program of the user's could change would hand those programs Administrator rights. Programs are looked up through `TrustedPrograms`, temporary files go to `PrivateTemp` (`%ProgramData%\DnnManager\temp`), the projects folder is kept to administrators and you (`ProjectsFolderGuard`), and editors start as the user (`Unelevated`). See [security.md](security.md#administrator-rights). |
+| **Updates checked twice** | An update is checked against GitHub's SHA-256 when it is downloaded and again by the elevated helper right before it runs it, from a folder only administrators can change; releases are published only once CI passed on their tag. See [ADR 0003](adr/0003-update-trust.md). |
+| **One reading of a SQL Server address** | Whether a database is the local container, on this PC or somewhere else decides what DNN Manager may drop. [`SqlServerAddress`](../src/DnnManager.Application/Abstractions/SqlServerAddress.cs) is the only place that reads an address (`tcp:`, ports, named instances, `[::1]`, LocalDB); [`SiteDatabases`](../src/DnnManager.Application/UseCases/SiteDatabases.cs) says which other IIS site uses a database, before one is dropped, replaced or taken over. |
 | **Adapters for GUI → app layer** | `GuiProgressReporter` (writes to the activity log) and `GuiUserPrompt` (modal dialogs) implement application interfaces, so use cases never know what drives them. |
 | **Runtime theming** | Colours live in `LightTheme` / `DarkTheme`; everything references them with `DynamicResource`, and `ThemeManager` swaps the dictionary (and the title bar's dark mode) live. |
 | **Reusable control styles** | Every control's look is a style in `Themes/Controls`, not set per page: a plain `<TextBox />` or `<Button />` is already styled, and sizes come from `Tokens.xaml`, so all controls stay alike. See [Control styles](#control-styles). |

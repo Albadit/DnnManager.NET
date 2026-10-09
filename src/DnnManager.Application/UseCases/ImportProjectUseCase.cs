@@ -25,9 +25,11 @@ public sealed class ImportProjectUseCase(
     IProjectFileCopier copier,
     IProjectScaffolder scaffolder,
     HostExistingProjectUseCase host,
+    IisSiteProvisioner site,
     ILogger<ImportProjectUseCase> log,
     OperationUndo undo)
 {
+    private readonly IisSiteProvisioner _site = site;
     private readonly IProjectRepository _projects = projects;
     private readonly IProjectFileCopier _copier = copier;
     private readonly IProjectScaffolder _scaffolder = scaffolder;
@@ -47,6 +49,8 @@ public sealed class ImportProjectUseCase(
         if (Directory.Exists(project.ProjectDirectory))
             return Result.Fail($"The folder {project.ProjectDirectory} already exists - choose another name, " +
                                "or use 'Host project' for a folder that's already there.");
+        // Before the zip is extracted: an IIS site of this name serving another folder isn't replaced.
+        if (_site.SiteNameTaken(req.ProjectName, project.ProjectDirectory) is { } taken) return Result.Fail(taken);
 
         reporter.Step($"Extracting {Path.GetFileName(req.ZipPath)}");
         // A cancel later on (the IIS site, the database) takes the new folder away too - after the rest.
@@ -82,7 +86,9 @@ public sealed class ImportProjectUseCase(
             ProjectName = req.ProjectName,
             SetupIis = true,
             SetupDatabase = true,
-            BackupFilePath = req.BackupFilePath
+            BackupFilePath = req.BackupFilePath,
+            // The zip's web.config names the database of the site it was exported from - never this project's.
+            OwnDatabase = true
         }, reporter, ct);
     }
 

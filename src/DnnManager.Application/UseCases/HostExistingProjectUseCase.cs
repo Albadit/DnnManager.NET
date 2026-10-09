@@ -22,6 +22,12 @@ public sealed class HostExistingProjectRequest
     /// it is and creates a missing one empty.
     /// </summary>
     public string? BackupFilePath { get; init; }
+
+    /// <summary>
+    /// A new project made from a copy of another one (Import): its database is always its own - named after the
+    /// project - and web.config is always pointed at it, whatever database the copy's web.config names.
+    /// </summary>
+    public bool OwnDatabase { get; init; }
 }
 
 /// <summary>
@@ -41,7 +47,8 @@ public sealed class HostExistingProjectUseCase(
     IPrerequisiteChecker prereq,
     IUserPrompt prompt,
     ILogger<HostExistingProjectUseCase> log,
-    OperationUndo undo)
+    OperationUndo undo,
+    SiteDatabases siteDatabases)
 {
     private readonly AppOptions _opts = opts.Value;
     private readonly IProjectRepository _projects = projects;
@@ -55,6 +62,7 @@ public sealed class HostExistingProjectUseCase(
     private readonly IUserPrompt _prompt = prompt;
     private readonly ILogger<HostExistingProjectUseCase> _log = log;
     private readonly OperationUndo _undo = undo;
+    private readonly SiteDatabases _siteDatabases = siteDatabases;
 
     public async Task<Result> ExecuteAsync(HostExistingProjectRequest req, IProgressReporter reporter, CancellationToken ct)
     {
@@ -68,6 +76,10 @@ public sealed class HostExistingProjectUseCase(
             var project = _projects.Build(req.ProjectName);
             if (!Directory.Exists(project.ProjectDirectory))
                 return Result.Fail($"Project folder not found: {project.ProjectDirectory}");
+
+            // A site of this name that serves another folder is another project's - never replaced from here.
+            if (req.SetupIis && _site.SiteNameTaken(req.ProjectName, project.ProjectDirectory) is { } taken)
+                return Result.Fail(taken);
 
             var webConfigPath = Path.Combine(project.ProjectDirectory, "web.config");
             var hasWebConfig = File.Exists(webConfigPath);
@@ -99,11 +111,12 @@ public sealed class HostExistingProjectUseCase(
             if (req.SetupDatabase)
             {
                 reporter.Step($"Step {++step}: Database");
-                var db = await SetupDatabaseAsync(project, webConfigPath, hasWebConfig, req.BackupFilePath, reporter, ct);
+                var db = await SetupDatabaseAsync(project, webConfigPath, hasWebConfig, req.BackupFilePath, req.OwnDatabase, reporter, ct);
                 if (!db.Success)
                 {
-                    // Alongside a website the database is a best-effort extra; on its own it is the whole job.
-                    if (!req.SetupIis) return db;
+                    // Alongside a website the database is a best-effort extra - unless its data was asked for (a backup to
+                    // restore, Import): a site without it isn't what was asked for. On its own it is the whole job.
+                    if (!req.SetupIis || req.BackupFilePath is not null || req.OwnDatabase) return db;
                     reporter.Fail($"{db.Error} Skipping database setup.");
                 }
             }
@@ -181,7 +194,7 @@ public sealed class HostExistingProjectUseCase(
     // failed web.config update is reported but not a failure: the database itself is ready and its
     // connection details are shown.
     private async Task<Result> SetupDatabaseAsync(DnnProject project, string webConfigPath, bool hasWebConfig,
-        string? backupFile, IProgressReporter reporter, CancellationToken ct)
+        string? backupFile, bool ownDatabase, IProgressReporter reporter, CancellationToken ct)
     {
         if (backupFile is not null)
         {
@@ -194,13 +207,19 @@ public sealed class HostExistingProjectUseCase(
         if (!ready.Success) return Result.Fail(ready.Error ?? "The local SQL Server is not reachable.");
         var port = ready.Value;
 
-        // When web.config already points at the local container, keep the database it names (creating it
-        // if it's gone) and leave web.config alone. Otherwise - a production connection string, the DNN
-        // package's LocalDB placeholder, or no web.config - use this project's conventional database, so
-        // two sites copied from the same source never end up sharing one database.
+        // When web.config already points at a database of its own in the local container, keep it (creating it if
+        // it's gone) and leave web.config alone. Otherwise - a production connection string, the DNN package's LocalDB
+        // placeholder, no web.config, a copy that must have its own (Import), or a database another IIS site uses -
+        // use this project's conventional database, so two sites copied from the same source never share one.
         var current = hasWebConfig ? _webConfig.ReadSiteSqlServer(webConfigPath) : null;
         var currentConn = current is { Success: true } ? current.Value : null;
-        var alreadyLocal = currentConn is not null && _sqlContainer.IsLocalContainer(currentConn.Server, port);
+        var alreadyLocal = !ownDatabase && currentConn is { Database.Length: > 0 } && _sqlContainer.IsLocalContainer(currentConn.Server, port);
+        if (alreadyLocal && _siteDatabases.OtherSiteUsing(project.Name, currentConn!.Server, currentConn.Database) is { } other)
+        {
+            reporter.Info($"web.config names [{currentConn.Database}], the database of the IIS site '{other}' - " +
+                          $"this project gets a database of its own, [{_opts.DatabaseNameFor(project.Name)}].");
+            alreadyLocal = false;
+        }
         var db = _sqlContainer.DatabaseFor(project,
             alreadyLocal ? currentConn!.Database : _opts.DatabaseNameFor(project.Name), port);
 
@@ -235,7 +254,8 @@ public sealed class HostExistingProjectUseCase(
                 // A backup from another environment carries that site's portal aliases; without one for this
                 // hostname DNN can't match the request and the site fails to load. Not fatal - it can be
                 // added by hand - but the site won't answer at its local address until it is.
-                var hostname = _opts.HostnameFor(project.Name);
+                // The address the site is bound to - with its port when that isn't 80, or DNN doesn't match the request.
+                var hostname = DnnSiteAddress.AliasFor(_opts.HostnameFor(project.Name), _opts.SitePort);
                 var alias = await _sql.RemapPortalAliasesAsync(db.DatabaseName, _opts.HostnameSuffix, hostname, ct);
                 if (alias.Success)
                     reporter.Success($"PortalAlias set to {hostname}.");
@@ -270,21 +290,27 @@ public sealed class HostExistingProjectUseCase(
                 ? $"web.config currently connects to [{currentConn.Database}] on {currentConn.Server}."
                 : "web.config has no usable SiteSqlServer connection yet.");
 
-            if (await _prompt.ConfirmAsync($"Point web.config at [{db.DatabaseName}] on {db.Server}?",
+            // A copy that must have a database of its own isn't asked: left as it is, it would use the other one.
+            if (ownDatabase || await _prompt.ConfirmAsync($"Point web.config at [{db.DatabaseName}] on {db.Server}?",
                     "Update web.config", "Leave as is", true, ct))
             {
+                // The site signs in with a login of its own, owner of its database only - not the container's sa.
+                var login = await _sqlContainer.GrantSiteLoginAsync(project, db, ct);
+                if (!login.Success) return login.WithoutValue();
+                _undo.Add($"Drop the login {login.Value!.User}", () => _sql.DropLoginAsync(login.Value.User, CancellationToken.None));
                 _undo.RestoreFileOnUndo(webConfigPath);
-                var write = _webConfig.WriteSiteSqlServer(webConfigPath,
-                    new SiteSqlConnection(db.Server, db.DatabaseName, _opts.Docker.SqlUser, _opts.Docker.SaPassword));
+                var write = _webConfig.WriteSiteSqlServer(webConfigPath, login.Value);
                 if (write.Success)
                     reporter.Success("web.config updated.");
+                else if (ownDatabase)
+                    return Result.Fail($"Could not point web.config at [{db.DatabaseName}]: {write.Error}");
                 else
                     reporter.Fail($"Could not update web.config: {write.Error}");
             }
             else
             {
                 reporter.Info($"web.config left unchanged. Connect with: server '{db.Server}', " +
-                              $"database '{db.DatabaseName}', user 'sa' and the SA password from Settings → Database server.");
+                              $"database '{db.DatabaseName}', user '{_opts.Docker.SqlUser}' and its password from Settings → Database server.");
             }
         }
 

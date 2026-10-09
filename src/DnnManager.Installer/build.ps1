@@ -6,12 +6,12 @@
     1. Publishes the app self-contained for win-x64 as a single file into src\DnnManager.Installer\bin\app.
     2. Draws the wizard images from the app icon into src\DnnManager.Installer\bin\images.
     3. Compiles src\DnnManager.Installer\DnnManager.iss with Inno Setup's ISCC.exe - an installed Inno Setup 6
-       when there is one, otherwise a pinned copy from nuget.org (Tools.InnoSetup) cached in
-       src\DnnManager.Installer\bin\tools.
+       when there is one, otherwise (and always with -PinnedInno, as releases do) a pinned copy from nuget.org
+       (Tools.InnoSetup), checked against its SHA-512 and cached in src\DnnManager.Installer\bin\tools.
 
     Everything the build makes along the way is in src\DnnManager.Installer\bin; the finished Setup is in
     publish\ (next to DnnManager.csproj). The version is the newest version tag in git (v1.7.1 -> 1.7.1), as for
-    every local build, unless -Version is given (the release workflow passes the tag's version).
+    every local build, unless -Version is given (the release script, publish-release.ps1, passes the tag's version).
 
 .EXAMPLE
     .\src\DnnManager.Installer\build.ps1
@@ -25,6 +25,8 @@ param(
     [string]$Configuration = 'Release',
     # ISCC.exe to use; found automatically when omitted.
     [string]$Iscc,
+    # Always the pinned Inno Setup from nuget.org, never one installed here - the same compiler for every release.
+    [switch]$PinnedInno,
     # Reuse bin\app from an earlier run.
     [switch]$SkipPublish,
     # The version to build (1.7.0, or 1.7.0-rc.1 for a pre-release) instead of the newest version tag.
@@ -45,6 +47,8 @@ $publishDir = Join-Path $binDir 'app'
 $imagesDir = Join-Path $binDir 'images'
 $outputDir = Join-Path $root 'publish'
 $innoVersion = '6.7.3'
+# nuget.org's SHA-512 of Tools.InnoSetup $innoVersion (its catalog's packageHash): a download that isn't it isn't run.
+$innoSha512 = 'rdSE25v0Im6KKD2sH275qceul818uExubvAWG4BbHHuEAwnknapphEuwqOV77F3JunurFXF9vSfZJp7wkuBUxA=='
 
 # The version a local build gets: the newest version tag (the project's VersionFromGitTag target).
 function Get-AppVersion {
@@ -117,28 +121,44 @@ function Find-Iscc {
         if (-not (Test-Path $Iscc)) { throw "ISCC.exe not found at $Iscc." }
         return $Iscc
     }
-    $onPath = Get-Command 'ISCC.exe' -ErrorAction SilentlyContinue
-    if ($onPath) { return $onPath.Source }
-    $installed = @(
-        (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
-        (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe'),
-        (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe')
-    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-    if ($installed) { return $installed }
+    if (-not $PinnedInno) {
+        $onPath = Get-Command 'ISCC.exe' -ErrorAction SilentlyContinue
+        if ($onPath) { return $onPath.Source }
+        $installed = @(
+            (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
+            (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe'),
+            (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe')
+        ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($installed) { return $installed }
+    }
 
-    # No Inno Setup on this PC: use the NuGet package's copy (no install, no admin rights).
+    # The NuGet package's copy (no install, no admin rights) - kept with its package, which is checked each time: a
+    # cached copy that isn't the pinned one is made again.
     $toolDir = Join-Path $binDir "tools\innosetup-$innoVersion"
     $cached = Join-Path $toolDir 'tools\ISCC.exe'
-    if (-not (Test-Path $cached)) {
-        Write-Host "Inno Setup not found - downloading Tools.InnoSetup $innoVersion from nuget.org..."
+    $package = Join-Path $toolDir 'package.zip'
+    $sound = (Test-Path $cached) -and (Test-Path $package) -and (Get-Sha512 $package) -eq $innoSha512
+    if (-not $sound) {
+        Write-Host "Downloading Tools.InnoSetup $innoVersion from nuget.org..."
+        if (Test-Path $toolDir) { Remove-Item $toolDir -Recurse -Force }
         New-Item -ItemType Directory -Force $toolDir | Out-Null
-        $package = Join-Path $toolDir 'package.zip'
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         Invoke-WebRequest -UseBasicParsing "https://www.nuget.org/api/v2/package/Tools.InnoSetup/$innoVersion" -OutFile $package
+        if ((Get-Sha512 $package) -ne $innoSha512) {
+            Remove-Item $toolDir -Recurse -Force
+            throw "Tools.InnoSetup $innoVersion from nuget.org isn't the package it should be (its SHA-512 differs) - not used."
+        }
         Expand-Archive $package -DestinationPath $toolDir -Force
-        Remove-Item $package
     }
     return $cached
+}
+
+# A file's SHA-512 as nuget.org writes it: base64.
+function Get-Sha512([string]$path) {
+    $sha = [Security.Cryptography.SHA512]::Create()
+    $stream = [IO.File]::OpenRead($path)
+    try { return [Convert]::ToBase64String($sha.ComputeHash($stream)) }
+    finally { $stream.Dispose(); $sha.Dispose() }
 }
 
 $version = if ($Version) { $Version.TrimStart('v') } else { Get-AppVersion }

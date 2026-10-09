@@ -59,6 +59,12 @@ public partial class MainWindow
         Add("projects.quickOpen", "Go to project…", "Projects", "Ctrl+P", () => ShowPalette(commands: false),
             keywords: "open find quick", inTerminal: true);
         Add("projects.search", "Search projects", "Projects", "Ctrl+Shift+F", SearchProjects, keywords: "find filter table");
+        // What the Columns button and the column headers do with the mouse - from the keyboard.
+        Add("projects.columns", "Choose columns…", "Projects", null, () => OnProjectsPage(p => p.ChooseColumns()), keywords: "show hide table");
+        foreach (var (property, header) in new[] { ("Name", "name"), ("State", "status"), ("Url", "site"), ("CpuSort", "CPU"),
+                     ("MemorySort", "memory"), ("LastStartedSort", "last started"), ("SizeBytes", "size") })
+            Add($"projects.sortBy{property}", $"Sort projects by {header}", "Projects", null, () => OnProjectsPage(p => p.SortBy(property)),
+                keywords: "order column table");
 
         // ── Project (the selected one, or the one chosen) ──
         AddForProject("project.open", "Open project details", null, _ => true, OpenDetails, "overview inspect show");
@@ -126,6 +132,9 @@ public partial class MainWindow
         // ── Layout ──
         Add("view.toggleSidebar", "Show or hide the sidebar", "Layout", "Ctrl+B", ToggleSidebar, keywords: "primary side bar pages",
             inTerminal: true);
+        // What dragging the sashes does - from the keyboard.
+        Add("view.sidebarWider", "Make the sidebar wider", "Layout", null, () => ResizeSidebarBy(KeyboardResizeStep), keywords: "size width sash");
+        Add("view.sidebarNarrower", "Make the sidebar narrower", "Layout", null, () => ResizeSidebarBy(-KeyboardResizeStep), keywords: "size width sash");
         Add("view.toggleMenuBar", "Show or hide the menu bar", "Layout", null,
             () => ChangeLayout(l => l.MenuBarVisible = !l.MenuBarVisible), keywords: "title name");
         Add("view.toggleStatusBar", "Show or hide the status bar", "Layout", null,
@@ -135,6 +144,8 @@ public partial class MainWindow
 
         // ── Panel and terminal ──
         Add("panel.toggle", "Show or hide the panel", "Panel", "Ctrl+J", TogglePanel, keywords: "output logs terminal bottom", inTerminal: true);
+        Add("panel.taller", "Make the panel taller", "Panel", null, () => ResizePanelBy(KeyboardResizeStep), keywords: "size height sash", inTerminal: true);
+        Add("panel.shorter", "Make the panel shorter", "Panel", null, () => ResizePanelBy(-KeyboardResizeStep), keywords: "size height sash", inTerminal: true);
         Add("panel.maximize", "Maximize or restore the panel", "Panel", "Ctrl+Shift+M", () =>
         {
             if (!LogOpen) SetLogOpen(true);
@@ -338,6 +349,14 @@ public partial class MainWindow
     {
         ShowModal("Settings");
         if (_modal is SettingsPage settings) settings.ShowCategory(category);
+    }
+
+    /// <summary>Goes to the Projects page and does <paramref name="action"/> on it.</summary>
+    private void OnProjectsPage(Action<ProjectsPage> action)
+    {
+        if (!CloseModal(focusPage: false)) return;
+        NavProjects.IsChecked = true;
+        if (PageHost.Content is ProjectsPage page) action(page);
     }
 
     private void SearchProjects()

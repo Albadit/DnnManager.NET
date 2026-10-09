@@ -9,6 +9,9 @@ public partial class App : System.Windows.Application
     /// <summary>Where unexpected errors are written (the daily log file) - set once the host is built.</summary>
     internal static ILogger? Log { get; set; }
 
+    /// <summary>Where the log is written - said in an error message, so what happened can be found.</summary>
+    internal static string? LogsDirectory { get; set; }
+
     public App()
     {
         // Last line of defence: an exception escaping a click handler shows a message instead of killing the app (use
@@ -28,7 +31,8 @@ public partial class App : System.Windows.Application
     private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         Log?.LogError(e.Exception, "Unhandled exception on the UI thread");
-        Dialogs.Error($"Unexpected error: {e.Exception.Message}");
+        Dialogs.Error($"Something went wrong that DNN Manager didn't expect: {e.Exception.Message}\n\n" +
+                      $"It goes on as before. What happened is in the log{(LogsDirectory is { } logs ? $", in {logs}" : "")}.");
         e.Handled = true;
     }
 }

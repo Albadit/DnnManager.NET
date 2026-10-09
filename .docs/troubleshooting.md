@@ -78,9 +78,11 @@ places tell you most of what went wrong:
 - **The download or its check failed** (*Update failed* on About, and in the Update
   button's tooltip): nothing was changed - DNN Manager kept running. Click **Update**
   to try again; a download that isn't the file
-  GitHub published (another size, SHA-256 or version) is never used.
+  GitHub published (another size, SHA-256 or version) is never used, and neither is
+  a release GitHub lists no SHA-256 for. A download that stops getting anything for
+  a minute counts as failed.
 - **It closed and the old version came back** with *The update to vX wasn't
-  installed*: **Show log** opens `%TEMP%\DnnManager-update\<version>\update.log`
+  installed*: **Show log** opens `%ProgramData%\DnnManager\temp\update\<version>\update.log`
   (and `update.setup.log` for Setup). For a portable exe in a folder you can't
   write to, move it somewhere you can. You can always install the release by hand
   from GitHub - your settings are in `Documents\DnnManager` either way.
@@ -178,8 +180,7 @@ site runs in IIS.
 - **Cause:** red - requests fail (the site errors, or its database doesn't
   answer); grey - it is paused on purpose: the site or IIS is stopped, an
   operation runs on it, or a debugger is attached to its worker process.
-- **Investigate:** the site's **Keep warm** card on its Details page, and the
-  **Background** list in the Output tab.
+- **Investigate:** the site's **Keep warm** card on its Details page.
 - **Fix:** fix what the site's own error says; then **Check now**. A failing
   site is tried again after 1, 2 and 5 minutes, then left alone until you press
   it.
@@ -195,9 +196,11 @@ site runs in IIS.
 ### Automatic DNN setup failed
 
 - **Cause:** shown in the Output tab, with DNN's own messages.
-- **Fix:** the project is left as it is so you can look into it; then remove it
-  (**Remove…**) and create it again - DNN can't install twice into the same
-  files and database.
+- **Fix:** when DNN's own installation failed, the project is left as it is so you
+  can look into it; then remove it (**Remove…**) and create it again - DNN can't
+  install twice into the same files and database. When the setup failed before
+  that (the download, the IIS site, the database), what it had made is taken away
+  again: correct the cause and create it again under the same name.
 
 ### "The database '…\APP_DATA\DATABASE.MDF' cannot be opened because it is version 998"
 
@@ -236,6 +239,32 @@ site runs in IIS.
 - **Fix:** DNN Manager lists the programs and closes them after you confirm.
   Windows itself, services and Explorer are never closed: what they still hold
   is deleted at the next Windows restart.
+
+### "Didn't start …: programs without administrator rights could change it"
+
+DNN Manager runs as Administrator, and runs a program with those rights only
+when nobody but administrators can change it - a copy in your own folders, or on
+your own PATH, could be swapped by any program you run
+([security.md](security.md#administrator-rights)). The message names the copy it
+found. Install that program **for all users** (into Program Files):
+
+- **docker**: Docker Desktop installs for all users by default.
+- **dotnet** (to install SqlPackage): the .NET SDK installer, not a user-only
+  `dotnet-install` script.
+- **winget**: comes with Windows' App Installer; if it is refused, install Docker
+  Desktop from its website instead.
+- **A terminal shell** missing from the terminal's list: PowerShell 7 and Git for
+  Windows installed *for all users* are offered; per-user installs aren't.
+
+Editors (VS Code's user installer, Rider…) are not affected: DNN Manager opens
+them as you, without its rights.
+
+### The hosts file got damaged
+
+DNN Manager copies the hosts file to `hosts.dnnmanager.bak`, beside it in
+`C:\Windows\System32\drivers\etc`, before each change. Should the file be cut off
+(a crash or a power cut while it was written), copy that file over `hosts` - from
+an elevated prompt: `copy /y %SystemRoot%\System32\drivers\etc\hosts.dnnmanager.bak %SystemRoot%\System32\drivers\etc\hosts`.
 
 ### IIS features missing, or a site gives HTTP errors right after setup
 

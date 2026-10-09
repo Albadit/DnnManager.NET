@@ -90,6 +90,17 @@ public sealed class SetupRejectionTests
     }
 
     [TestMethod]
+    public async Task IisSiteOfTheSameNameServingAnotherFolder_NothingIsCreated()
+    {
+        // Hosted from C:\work, or made in IIS Manager: making the new project's site would remove it.
+        var outcome = await SetUpAsync(Path.Combine(_run, "p"), Account(), iis: iis =>
+            iis.Sites[Name] = new IisSiteRuntime(1, "Started", Name, "Started", [], [], $@"C:\work\{Name}"));
+        StringAssert.Contains(outcome.Result.Error!, $"IIS already has a site named '{Name}'");
+        Assert.IsFalse(outcome.Reporter.Text.Contains("Downloading DNN", StringComparison.Ordinal), outcome.Reporter.Text);
+        outcome.AssertNothingCreated();
+    }
+
+    [TestMethod]
     public void HostNames_TheSiteAlreadyAnsweringIt()
     {
         var sites = new Dictionary<string, IisSiteRuntime>

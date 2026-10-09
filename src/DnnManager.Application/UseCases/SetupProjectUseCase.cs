@@ -41,6 +41,7 @@ public sealed class SetupProjectUseCase(
     IIisManager iis,
     IisSiteProvisioner site,
     LocalSqlContainer sqlContainer,
+    ISqlServerService sql,
     IDatabaseProvisioner databases,
     IDnnInstaller dnn,
     IWebConfigService webConfig,
@@ -59,6 +60,7 @@ public sealed class SetupProjectUseCase(
     private readonly IIisManager _iis = iis;
     private readonly IisSiteProvisioner _site = site;
     private readonly LocalSqlContainer _sqlContainer = sqlContainer;
+    private readonly ISqlServerService _sql = sql;
     private readonly IDatabaseProvisioner _databases = databases;
     private readonly IDnnInstaller _dnn = dnn;
     private readonly IWebConfigService _webConfig = webConfig;
@@ -106,6 +108,9 @@ public sealed class SetupProjectUseCase(
             if (Directory.Exists(siteDirectory))
                 return Result.Fail($"A project named '{req.ProjectName}' already exists ({siteDirectory}). " +
                                    "Choose another name, or set it up on Host project.");
+            // Nor does it take over an IIS site of that name serving another folder: making its site would replace that one.
+            if (_site.SiteNameTaken(req.ProjectName, siteDirectory) is { } taken)
+                return Result.Fail(taken);
             if (automatic && siteDirectory.Length > DnnAccountRules.MaxSitePathLength)
                 return Result.Fail($"The project's folder is too deep for DNN's installer ({siteDirectory.Length} characters, at most " +
                                    $"{DnnAccountRules.MaxSitePathLength}) - use a shorter projects folder (Settings → Projects).");
@@ -216,6 +221,14 @@ public sealed class SetupProjectUseCase(
 
             var account = req.Account!;
             reporter.Step("Step 8: Configuring DNN", Stage.Configure);
+            // On the local container the site signs in with a login of its own, owner of its database only - not sa.
+            if (database.Kind == DatabaseKind.Container && createDatabase)
+            {
+                var login = await _sqlContainer.GrantSiteLoginAsync(project, _sqlContainer.DatabaseFor(project, database.Database, _opts.Docker.DefaultPort), ct);
+                if (!login.Success) return login.WithoutValue();
+                _undo.Add($"Drop the login {login.Value!.User}", () => _sql.DropLoginAsync(login.Value.User, CancellationToken.None));
+                database = database with { User = login.Value.User, Password = login.Value.Password };
+            }
             var configured = _webConfig.WriteDatabaseConnection(Path.Combine(siteDirectory, "web.config"), database);
             if (!configured.Success) return Result.Fail($"Could not write the site's connection string: {configured.Error}");
             reporter.Success($"web.config connects to {database.Describe()}.");
@@ -227,6 +240,8 @@ public sealed class SetupProjectUseCase(
             if (!installed.Success)
             {
                 _dnn.CleanUp(siteDirectory, installed: false);
+                // Left to look into: the folder, the site and the database stay, as the message says.
+                _undo.Keep();
                 return Result.Fail($"DNN's installation failed: {installed.Error} The project is left as it is to look into - " +
                                    "remove it and set it up again (DNN can't install twice into the same files and database).");
             }
@@ -234,13 +249,23 @@ public sealed class SetupProjectUseCase(
             reporter.Step("Step 10: Creating host account", Stage.Host);
             // A LocalDB file database is only opened by DNN Manager while the site doesn't use it.
             if (database.Kind == DatabaseKind.LocalDbFile) _iis.StopSite(project.Name);
-            var completed = await _dnn.CompleteAsync(site, account, database, ct);
-            if (database.Kind == DatabaseKind.LocalDbFile) _iis.StartSite(project.Name);
-            else _iis.RecycleAppPool(project.Name); // DNN caches its users - it reads the host account again
+            Result completed;
+            try
+            {
+                completed = await _dnn.CompleteAsync(site, account, database, ct);
+            }
+            finally
+            {
+                // Started again whatever happened: a site left stopped looks broken.
+                if (database.Kind == DatabaseKind.LocalDbFile) _iis.StartSite(project.Name);
+                else _iis.RecycleAppPool(project.Name); // DNN caches its users - it reads the host account again
+            }
             if (!completed.Success)
             {
                 _dnn.CleanUp(siteDirectory, installed: false);
-                return Result.Fail($"DNN's installation didn't finish: {completed.Error}");
+                _undo.Keep();
+                return Result.Fail($"DNN's installation didn't finish: {completed.Error} The project is left as it is to look into - " +
+                                   "remove it and set it up again.");
             }
             reporter.Success($"Host account '{account.UserName}' ready - it signs in without being asked to change its password.");
 
@@ -248,6 +273,8 @@ public sealed class SetupProjectUseCase(
             var warmUp = await _dnn.WarmUpAsync(site, installStarted, reporter, ct);
             _dnn.CleanUp(siteDirectory, installed: true);
             _records.Save(new ProjectRecord(project.Name, DnnInstallMode.Automatic, DateTime.UtcNow, release.Version, account.UserName));
+            // Installed: a site that is slow to answer is still the project.
+            _undo.Keep();
             if (!warmUp.Success) return Result.Fail($"DNN is installed, but {Lower(warmUp.Error)}");
 
             reporter.Step("Setup complete");

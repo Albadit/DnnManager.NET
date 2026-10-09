@@ -145,9 +145,12 @@ internal sealed class ProjectMenu(IServiceProvider services, OperationRunner run
     private async void Clone(ProjectRow row)
     {
         var projects = _services.GetRequiredService<IProjectRepository>();
+        var store = _services.GetRequiredService<ServerStore>();
         string? Problem(string name) =>
             ProjectName.Validate(name) is { Success: false } invalid ? invalid.Error
             : projects.ProjectExists(name) ? $"A project named '{name}' already exists."
+            // From the sites the window shows: the clone's IIS site would replace one of that name.
+            : store.Projects.Any(r => r.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) ? $"IIS already has a site named '{name}'."
             : null;
         // "shop_copy", or "shop_copy2"… when that is taken.
         var suggested = $"{row.Name}_copy";
@@ -372,7 +375,7 @@ internal sealed class ProjectMenu(IServiceProvider services, OperationRunner run
                         $"'{row.Name}' has no database to open: {row.DatabaseTip ?? "its web.config names none"}.");
                     return;
                 }
-                onThisMachine = sql.IsOnThisMachine(database.Server);
+                onThisMachine = sql.IsContainerHost(database.Server);
             }
 
             // SQL Server reports a missing database as the same "Login failed for user" as a wrong password, so
@@ -443,8 +446,12 @@ internal sealed class ProjectMenu(IServiceProvider services, OperationRunner run
 
     private static void LeavePasswordOnClipboard(Ide ssms, SiteSqlConnection database, ActivityLog log)
     {
-        Clipboard.SetText(database.Password);
-        log.Info($"Connect in {ssms.Name} to {database.Server} as '{database.User}' - the password is on the clipboard " +
-                 "(tick 'Remember Password').");
+        if (!SecretClipboard.Set(database.Password))
+        {
+            log.Warn($"Connect in {ssms.Name} to {database.Server} as '{database.User}' - the clipboard was busy, so the password isn't on it.");
+            return;
+        }
+        log.Info($"Connect in {ssms.Name} to {database.Server} as '{database.User}' - the password is on the clipboard for " +
+                 $"{SecretClipboard.ClearAfter.TotalSeconds:0} seconds, kept out of the clipboard history (tick 'Remember Password').");
     }
 }

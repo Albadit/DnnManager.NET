@@ -17,15 +17,17 @@ public sealed partial class DatabaseProvisioner
             // Pooled connections of this process would keep the database in use.
             SqlConnection.ClearAllPools();
             await using var conn = await OpenAsync(connection, "master", ct);
+            // Azure SQL Database (EngineEdition 5) has no single-user mode: renamed as it is there.
             using var cmd = new SqlCommand(
                 "IF DB_ID(@new) IS NOT NULL THROW 50000, N'A database of that name exists already.', 1; " +
-                "DECLARE @single nvarchar(max) = N'ALTER DATABASE ' + QUOTENAME(@db) + N' SET SINGLE_USER WITH ROLLBACK IMMEDIATE'; EXEC (@single); " +
+                "DECLARE @azure bit = CASE WHEN CAST(SERVERPROPERTY('EngineEdition') AS int) = 5 THEN 1 ELSE 0 END; " +
+                "IF @azure = 0 BEGIN DECLARE @single nvarchar(max) = N'ALTER DATABASE ' + QUOTENAME(@db) + N' SET SINGLE_USER WITH ROLLBACK IMMEDIATE'; EXEC (@single); END " +
                 "BEGIN TRY " +
                 "  DECLARE @rename nvarchar(max) = N'ALTER DATABASE ' + QUOTENAME(@db) + N' MODIFY NAME = ' + QUOTENAME(@new); EXEC (@rename); " +
-                "  DECLARE @multi nvarchar(max) = N'ALTER DATABASE ' + QUOTENAME(@new) + N' SET MULTI_USER'; EXEC (@multi); " +
+                "  IF @azure = 0 BEGIN DECLARE @multi nvarchar(max) = N'ALTER DATABASE ' + QUOTENAME(@new) + N' SET MULTI_USER'; EXEC (@multi); END " +
                 "END TRY BEGIN CATCH " +
-                "  DECLARE @back nvarchar(max) = N'ALTER DATABASE ' + QUOTENAME(@db) + N' SET MULTI_USER'; EXEC (@back); THROW; " +
-                "END CATCH", conn);
+                "  IF @azure = 0 BEGIN DECLARE @back nvarchar(max) = N'ALTER DATABASE ' + QUOTENAME(@db) + N' SET MULTI_USER'; EXEC (@back); END; THROW; " +
+                "END CATCH", conn) { CommandTimeout = 120 };
             cmd.Parameters.AddWithValue("@db", connection.Database);
             cmd.Parameters.AddWithValue("@new", newName);
             await cmd.ExecuteNonQueryAsync(ct);

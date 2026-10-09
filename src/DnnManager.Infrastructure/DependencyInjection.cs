@@ -38,6 +38,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IProjectFileCopier, ProjectFileCopier>();
         services.AddSingleton<IProjectScaffolder, ProjectScaffolder>();
         services.AddSingleton<IFileLockService, FileLockService>();
+        services.AddSingleton<IPrivateTemp, PrivateTemp>();
         services.AddSingleton<IWebConfigService, WebConfigService>();
         services.AddSingleton<IRemoteSqlBackupService, RemoteSqlBackupService>();
         services.AddSingleton<ISqlConnectionTester, SqlConnectionTester>();
@@ -69,6 +70,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<KeepWarm.KeepWarmService>();
         // Keeps the sites' host names in the hosts file, so they open without internet - it follows the monitor.
         services.AddSingleton<Hosts.HostsFileService>();
+        services.AddSingleton<ProjectsFolderGuard>();
         services.AddSingleton<SiteLogs.SiteLogCatalog>();
         services.AddSingleton<Application.Upgrades.IDnnSiteInspector, Dnn.DnnSiteInspector>();
         services.AddSingleton<Application.Upgrades.IDnnUpgradeChecks, Dnn.DnnUpgradeChecks>();

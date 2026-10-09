@@ -224,25 +224,25 @@
             <Border x:Name="BulkActions" DockPanel.Dock="Right" Visibility="Collapsed" VerticalAlignment="Center" Padding="2" CornerRadius="5"
                     Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource InputBorder}" BorderThickness="1">
                 <StackPanel Orientation="Horizontal">
-                    <Button x:Name="BulkStartButton" Style="{StaticResource GroupButton}" Content="{StaticResource GlyphPlay}" Click="BulkStart_Click" />
-                    <Button x:Name="BulkStopButton" Style="{StaticResource GroupButton}" Content="{StaticResource GlyphStop}" Click="BulkStop_Click" />
-                    <Button x:Name="BulkRestartButton" Style="{StaticResource GroupButton}" Content="{StaticResource GlyphRefresh}" Click="BulkRestart_Click" />
+                    <Button x:Name="BulkStartButton" AutomationProperties.Name="Start the selected projects" Style="{StaticResource GroupButton}" Content="{StaticResource GlyphPlay}" Click="BulkStart_Click" />
+                    <Button x:Name="BulkStopButton" AutomationProperties.Name="Stop the selected projects" Style="{StaticResource GroupButton}" Content="{StaticResource GlyphStop}" Click="BulkStop_Click" />
+                    <Button x:Name="BulkRestartButton" AutomationProperties.Name="Restart the selected projects" Style="{StaticResource GroupButton}" Content="{StaticResource GlyphRefresh}" Click="BulkRestart_Click" />
                     <!-- The flame, as in the rows: outlined - keep them warm; filled - they all are, stop it (UpdateSelection). -->
-                    <Button x:Name="BulkKeepWarmButton" Style="{StaticResource GroupButton}" Click="BulkKeepWarm_Click">
+                    <Button x:Name="BulkKeepWarmButton" AutomationProperties.Name="Keep the selected projects warm" Style="{StaticResource GroupButton}" Click="BulkKeepWarm_Click">
                         <Path x:Name="BulkKeepWarmIcon" Data="{StaticResource FlameOutline}" Fill="{DynamicResource TextPrimary}"
                               Stretch="Uniform" Width="14" Height="14" />
                     </Button>
                     <Border Style="{StaticResource GroupDivider}" />
-                    <Button x:Name="BulkRemoveButton" Style="{StaticResource GroupButton}" Content="{StaticResource GlyphDelete}"
+                    <Button x:Name="BulkRemoveButton" AutomationProperties.Name="Remove the selected projects" Style="{StaticResource GroupButton}" Content="{StaticResource GlyphDelete}"
                             Foreground="{DynamicResource ErrorText}" Click="BulkRemove_Click" />
                 </StackPanel>
             </Border>
             <StackPanel Orientation="Horizontal">
-                <TextBox x:Name="SearchBox" Style="{StaticResource SearchBox}" Tag="Search projects" Width="280"
+                <TextBox x:Name="SearchBox" Style="{StaticResource SearchBox}" Tag="Search projects" AutomationProperties.Name="Search projects" Width="280"
                          TextChanged="Search_TextChanged" PreviewKeyDown="Search_PreviewKeyDown"
                          ToolTip="Search projects"
                          s:CommandTip.Command="projects.search" />
-                <ToggleButton x:Name="ColumnsButton" Style="{StaticResource IconToggleButton}" Margin="8,0,0,0" ToolTip="Choose which columns the list shows"
+                <ToggleButton AutomationProperties.Name="Choose which columns the list shows" x:Name="ColumnsButton" Style="{StaticResource IconToggleButton}" Focusable="True" Margin="8,0,0,0" ToolTip="Choose which columns the list shows"
                               IsChecked="{Binding IsOpen, ElementName=ColumnsPopup, Mode=TwoWay}">
                     <!-- Three columns, like a table header. -->
                     <Path Style="{StaticResource IconStroke}" Data="{StaticResource Columns}" StrokeThickness="1.5"
@@ -331,7 +331,7 @@
                         <DataGridTemplateColumn Width="32" MinWidth="32" CanUserResize="False" CanUserSort="False" CellStyle="{StaticResource IconCell}">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <ToggleButton Style="{StaticResource ExpandToggle}" ToolTip="Show a few facts under the row"
+                                    <ToggleButton AutomationProperties.Name="Show a few facts under the row" Style="{StaticResource ExpandToggle}" ToolTip="Show a few facts under the row"
                                                   IsChecked="{Binding IsExpanded, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -349,7 +349,7 @@
                         <DataGridTemplateColumn Header="Name" SortMemberPath="Name" Width="Auto" MinWidth="150">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button Style="{StaticResource LinkButton}" Content="{Binding Name}" FontWeight="SemiBold" HorizontalAlignment="Left"
+                                    <Button AutomationProperties.Name="Show everything about this website" Style="{StaticResource LinkButton}" Content="{Binding Name}" FontWeight="SemiBold" HorizontalAlignment="Left"
                                             VerticalAlignment="Center" Focusable="False" Click="RowOpen_Click" ToolTip="Show everything about this website" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -362,7 +362,7 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <Grid VerticalAlignment="Center">
-                                        <Button Style="{StaticResource LinkButton}" Content="{Binding Url}" HorizontalAlignment="Left" Focusable="False"
+                                        <Button AutomationProperties.Name="Open the website in your browser" Style="{StaticResource LinkButton}" Content="{Binding Url}" HorizontalAlignment="Left" Focusable="False"
                                                 Click="OpenSite_Click" ToolTip="Open the website in your browser" s:CommandTip.Command="project.openWebsite"
                                                 Visibility="{Binding HasUrl, Converter={StaticResource BoolToVis}}" />
                                         <TextBlock Text="{Binding Url}" Foreground="{DynamicResource TextMuted}">
@@ -417,7 +417,7 @@
                         <DataGridTemplateColumn x:Name="PathColumn" Header="Path" SortMemberPath="Path" Width="Auto" MinWidth="200">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button Style="{StaticResource LinkButton}" Content="{Binding Path}" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                    <Button AutomationProperties.Name="Open the website's files in File Explorer" Style="{StaticResource LinkButton}" Content="{Binding Path}" HorizontalAlignment="Left" VerticalAlignment="Center"
                                             Focusable="False" Click="OpenFolder_Click" ToolTip="Open the website's files in File Explorer" s:CommandTip.Command="project.openFolder" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -434,11 +434,11 @@
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <Grid Width="56">
                                             <StackPanel Orientation="Horizontal">
-                                                <Button Style="{StaticResource RowAction}" Content="{StaticResource GlyphPlay}" ToolTip="Start - turn the website on so it can be opened" s:CommandTip.Command="project.start" Click="RowStart_Click"
+                                                <Button AutomationProperties.Name="Start" Style="{StaticResource RowAction}" Content="{StaticResource GlyphPlay}" ToolTip="Start - turn the website on so it can be opened" s:CommandTip.Command="project.start" Click="RowStart_Click"
                                                         IsEnabled="{Binding CanStart}" Visibility="{Binding ShowStart, Converter={StaticResource BoolToVis}}" />
-                                                <Button Style="{StaticResource RowAction}" Content="{StaticResource GlyphStop}" ToolTip="Stop - turn the website off until you start it again; nothing is deleted" s:CommandTip.Command="project.stop" Click="RowStop_Click"
+                                                <Button AutomationProperties.Name="Stop" Style="{StaticResource RowAction}" Content="{StaticResource GlyphStop}" ToolTip="Stop - turn the website off until you start it again; nothing is deleted" s:CommandTip.Command="project.stop" Click="RowStop_Click"
                                                         IsEnabled="{Binding CanStop}" Visibility="{Binding ShowStop, Converter={StaticResource BoolToVis}}" />
-                                                <Button Style="{StaticResource RowAction}" Content="{StaticResource GlyphRefresh}" ToolTip="Restart the website's background process - can fix problems; it is unavailable for a few seconds" s:CommandTip.Command="project.restart" Click="RowRestart_Click"
+                                                <Button AutomationProperties.Name="Restart the website's background process" Style="{StaticResource RowAction}" Content="{StaticResource GlyphRefresh}" ToolTip="Restart the website's background process - can fix problems; it is unavailable for a few seconds" s:CommandTip.Command="project.restart" Click="RowRestart_Click"
                                                         IsEnabled="{Binding CanRestart}" Visibility="{Binding ShowStop, Converter={StaticResource BoolToVis}}" />
                                             </StackPanel>
 
@@ -448,7 +448,7 @@
                                                          ToolTip="{Binding StateText}" Visibility="{Binding ShowProgress, Converter={StaticResource BoolToVis}}" />
                                         </Grid>
                                         <!-- Keep warm: the flame switches it; its look and tooltip say how it is going (ProjectRow.KeepWarmLook). -->
-                                        <Button Style="{StaticResource RowAction}" Click="RowKeepWarm_Click" IsEnabled="{Binding CanToggleKeepWarm}"
+                                        <Button Style="{StaticResource RowAction}" AutomationProperties.Name="Keep warm" Click="RowKeepWarm_Click" IsEnabled="{Binding CanToggleKeepWarm}"
                                                 ToolTip="{Binding KeepWarmTip}" ToolTipService.ShowOnDisabled="True">
                                             <ContentControl Style="{StaticResource KeepWarmFlame}" />
                                         </Button>

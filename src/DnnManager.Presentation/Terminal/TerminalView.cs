@@ -125,6 +125,24 @@ internal sealed class TerminalView : FrameworkElement, Controls.ISearchTarget
 
     private int ViewTop => Math.Clamp(_viewTop ?? Buffer.Scrollback.Count, 0, Buffer.Scrollback.Count);
 
+    // A screen reader finds a document named Terminal, its value the rows on screen - read only when asked (TextViewPeer).
+    protected override System.Windows.Automation.Peers.AutomationPeer OnCreateAutomationPeer() =>
+        new Controls.TextViewPeer(this, "Terminal", VisibleText);
+
+    /// <summary>The rows on screen, without their trailing blanks, one per line.</summary>
+    private string VisibleText()
+    {
+        var text = new StringBuilder();
+        var top = ViewTop;
+        for (var index = top; index < Math.Min(top + Buffer.Rows, Buffer.TotalLines); index++)
+        {
+            var row = new StringBuilder();
+            foreach (var cell in Buffer.Line(index)) row.Append(cell.Char == '\0' ? ' ' : cell.Char);
+            text.AppendLine(row.ToString().TrimEnd());
+        }
+        return text.ToString();
+    }
+
     protected override void OnRender(DrawingContext dc)
     {
         var background = (Brush)FindResource("LogBg");

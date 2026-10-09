@@ -108,8 +108,8 @@ public sealed class ExportProjectUseCase(
             if (zipPath is not null && bacpacPath is not null)
                 reporter.Info("Import both with New project → An existing site.");
             if (zipPath is not null)
-                reporter.Warn("The zip's web.config still holds this machine's connection string, sa password included - " +
-                              "importing rewrites it, but keep it in mind before sharing the zip.");
+                reporter.Warn("The zip's web.config still holds this machine's connection string, password included - " +
+                              "Import points it at the new project's own database, but keep it in mind before sharing the zip.");
             return Result.Ok();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

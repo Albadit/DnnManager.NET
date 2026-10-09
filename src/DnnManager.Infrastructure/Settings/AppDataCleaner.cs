@@ -13,6 +13,12 @@ public enum AppDataKind
     /// <summary>Project backups - each project's site .zip and database .bacpac (<c>backups\&lt;project&gt;\</c>).</summary>
     ProjectBackups,
 
+    /// <summary>
+    /// Packages made for a live server (<c>deployments\</c>): each a whole database and a web.config that may hold the
+    /// live server's connection string - nothing anyone needs once deployed.
+    /// </summary>
+    Deployments,
+
     /// <summary>Which sites are kept warm (the database's <c>keep_warm</c>) - for a factory reset.</summary>
     KeepWarmChoices
 }
@@ -92,6 +98,9 @@ public sealed class AppDataCleaner(AppDataPaths paths)
         AppDataKind.ProjectBackups => Directory.Exists(_paths.BackupsDirectory)
             ? Directory.EnumerateDirectories(_paths.BackupsDirectory).Where(d => !IsLink(d)).SelectMany(AllFiles)
             : [],
+        AppDataKind.Deployments => Directory.Exists(_paths.DeploymentsDirectory)
+            ? Directory.EnumerateDirectories(_paths.DeploymentsDirectory).Where(d => !IsLink(d)).SelectMany(AllFiles)
+            : [],
         _ => []
     };
 
@@ -111,6 +120,8 @@ public sealed class AppDataCleaner(AppDataPaths paths)
     {
         AppDataKind.DnnPackages => [_paths.PackagesDirectory],
         AppDataKind.ProjectBackups when Directory.Exists(_paths.BackupsDirectory) => Directory.GetDirectories(_paths.BackupsDirectory).Where(d => !IsLink(d)),
+        AppDataKind.Deployments when Directory.Exists(_paths.DeploymentsDirectory) =>
+            Directory.GetDirectories(_paths.DeploymentsDirectory).Where(d => !IsLink(d)),
         _ => []
     };
 

@@ -151,24 +151,24 @@
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- Terminal: a new one with the default shell, or with another shell. -->
                     <StackPanel x:Name="TerminalTools" Orientation="Horizontal" Visibility="Collapsed">
-                        <Button x:Name="NewButton" Style="{StaticResource PanelButton}" Content="{StaticResource GlyphAdd}" s:CommandTip.Command="terminal.new" Click="New_Click" />
-                        <Button x:Name="ShellsButton" Style="{StaticResource PanelButton}" Width="18" FontSize="9" Content="{StaticResource GlyphChevronDown}"
+                        <Button x:Name="NewButton" AutomationProperties.Name="New terminal" Style="{StaticResource PanelButton}" Content="{StaticResource GlyphAdd}" s:CommandTip.Command="terminal.new" Click="New_Click" />
+                        <Button AutomationProperties.Name="Choose shell" x:Name="ShellsButton" Style="{StaticResource PanelButton}" Width="18" FontSize="9" Content="{StaticResource GlyphChevronDown}"
                                 ToolTip="Choose shell" Click="Shells_Click" />
                     </StackPanel>
                     <!-- Output: empty it. Copy and paste are Ctrl+C / Ctrl+V and the right-click menu on every tab. -->
-                    <Button x:Name="ClearButton" Style="{StaticResource PanelButton}" Content="{StaticResource GlyphDelete}" ToolTip="Clear output"
+                    <Button AutomationProperties.Name="Clear output" x:Name="ClearButton" Style="{StaticResource PanelButton}" Content="{StaticResource GlyphDelete}" ToolTip="Clear output"
                             s:CommandTip.Command="panel.clearOutput" Click="Clear_Click" />
-                    <Button Style="{StaticResource PanelButton}" Content="{StaticResource GlyphSearch}" ToolTip="Find" s:CommandTip.Command="view.search"
+                    <Button AutomationProperties.Name="Find" Style="{StaticResource PanelButton}" Content="{StaticResource GlyphSearch}" ToolTip="Find" s:CommandTip.Command="view.search"
                             Click="Search_Click" />
                     <Border Width="1" Height="16" Margin="6,0" Background="{DynamicResource CardBorder}" />
                     <!-- Corners outward: maximize; inward: restore (MaximizeIcon's data is swapped in code). -->
-                    <Button x:Name="MaximizeButton" Style="{StaticResource PanelButton}" ToolTip="Maximize panel"
+                    <Button AutomationProperties.Name="Maximize panel" x:Name="MaximizeButton" Style="{StaticResource PanelButton}" ToolTip="Maximize panel"
                             s:CommandTip.Command="panel.maximize" Click="Maximize_Click">
                         <Path x:Name="MaximizeIcon" Data="{StaticResource PanelMaximize}" StrokeThickness="1.3"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                               Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                     </Button>
-                    <Button Style="{StaticResource PanelButton}" FontSize="11" Content="{StaticResource GlyphClose}" ToolTip="Hide panel" s:CommandTip.Command="panel.toggle"
+                    <Button AutomationProperties.Name="Hide panel" Style="{StaticResource PanelButton}" FontSize="11" Content="{StaticResource GlyphClose}" ToolTip="Hide panel" s:CommandTip.Command="panel.toggle"
                             Click="Close_Click" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal">
@@ -235,7 +235,7 @@
                                 </ContextMenu>
                             </DockPanel.ContextMenu>
                             <!-- Only while the mouse is on the terminal (Hidden, not Collapsed: the name doesn't move). -->
-                            <Button DockPanel.Dock="Right" Width="22" Height="22" FontSize="11"
+                            <Button AutomationProperties.Name="Close terminal" DockPanel.Dock="Right" Width="22" Height="22" FontSize="11"
                                     Content="{StaticResource GlyphDelete}" ToolTip="Close terminal (Del)" Click="CloseTab_Click">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource PanelButton}">
@@ -254,7 +254,7 @@
                             <Grid>
                                 <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                            Visibility="{Binding IsNotRenaming, Converter={StaticResource BoolToVis}}" />
-                                <TextBox Text="{Binding EditTitle, UpdateSourceTrigger=PropertyChanged}" MinHeight="22" Padding="3,1" Margin="-4,0,2,0"
+                                <TextBox Text="{Binding EditTitle, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Terminal name" MinHeight="22" Padding="3,1" Margin="-4,0,2,0"
                                          FontWeight="Normal" MaxLength="60"
                                          Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVis}}"
                                          IsVisibleChanged="Rename_IsVisibleChanged" KeyDown="Rename_KeyDown" LostKeyboardFocus="Rename_LostFocus" />
@@ -312,18 +312,18 @@
                 <StackPanel Orientation="Horizontal">
                     <!-- The text, with the three options inside the box on its right, as in VS Code. -->
                     <Grid>
-                        <TextBox x:Name="SearchBox" Width="260" MinHeight="{StaticResource SearchHeight}" Padding="6,2,78,2" TextChanged="SearchBox_TextChanged"
+                        <TextBox x:Name="SearchBox" AutomationProperties.Name="Find" Width="260" MinHeight="{StaticResource SearchHeight}" Padding="6,2,78,2" TextChanged="SearchBox_TextChanged"
                                  PreviewKeyDown="SearchBox_PreviewKeyDown" ToolTip="Find" />
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,3,0">
-                            <ToggleButton x:Name="MatchCase" Style="{StaticResource SearchOption}" ToolTip="Match Case (Alt+C)"
+                            <ToggleButton AutomationProperties.Name="Match Case" x:Name="MatchCase" Style="{StaticResource SearchOption}" ToolTip="Match Case (Alt+C)"
                                           Click="SearchOption_Click">
                                 <TextBlock Text="Aa" />
                             </ToggleButton>
-                            <ToggleButton x:Name="WholeWord" Style="{StaticResource SearchOption}" ToolTip="Match Whole Word (Alt+W)"
+                            <ToggleButton AutomationProperties.Name="Match Whole Word" x:Name="WholeWord" Style="{StaticResource SearchOption}" ToolTip="Match Whole Word (Alt+W)"
                                           Click="SearchOption_Click">
                                 <TextBlock Text="ab" TextDecorations="Underline" />
                             </ToggleButton>
-                            <ToggleButton x:Name="UseRegex" Style="{StaticResource SearchOption}" ToolTip="Use Regular Expression (Alt+R)"
+                            <ToggleButton AutomationProperties.Name="Use Regular Expression" x:Name="UseRegex" Style="{StaticResource SearchOption}" ToolTip="Use Regular Expression (Alt+R)"
                                           Click="SearchOption_Click">
                                 <TextBlock Text=".*" FontWeight="Bold" />
                             </ToggleButton>
@@ -331,9 +331,9 @@
                     </Grid>
                     <TextBlock x:Name="SearchCount" MinWidth="70" Margin="8,0,4,0" VerticalAlignment="Center" FontSize="{DynamicResource TextCaption}"
                                Foreground="{DynamicResource TextMuted}" Text="No results" />
-                    <Button Style="{StaticResource PanelButton}" Content="{StaticResource GlyphChevronUp}" ToolTip="Previous match (Shift+Enter)" Click="SearchPrevious_Click" />
-                    <Button Style="{StaticResource PanelButton}" Content="{StaticResource GlyphChevronDown}" ToolTip="Next match (Enter)" Click="SearchNext_Click" />
-                    <Button Style="{StaticResource PanelButton}" FontSize="10" Content="{StaticResource GlyphClose}" ToolTip="Close (Esc)" Click="SearchClose_Click" />
+                    <Button AutomationProperties.Name="Previous match" Style="{StaticResource PanelButton}" Content="{StaticResource GlyphChevronUp}" ToolTip="Previous match (Shift+Enter)" Click="SearchPrevious_Click" />
+                    <Button AutomationProperties.Name="Next match" Style="{StaticResource PanelButton}" Content="{StaticResource GlyphChevronDown}" ToolTip="Next match (Enter)" Click="SearchNext_Click" />
+                    <Button AutomationProperties.Name="Close" Style="{StaticResource PanelButton}" FontSize="10" Content="{StaticResource GlyphClose}" ToolTip="Close (Esc)" Click="SearchClose_Click" />
                 </StackPanel>
             </Border>
         </Grid>

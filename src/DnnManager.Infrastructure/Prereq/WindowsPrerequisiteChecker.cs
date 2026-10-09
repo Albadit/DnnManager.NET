@@ -92,7 +92,9 @@ public sealed class WindowsPrerequisiteChecker(ProcessRunner proc, IOptions<AppO
     public async Task<DockerStatus> GetDockerStatusAsync(string containerName, CancellationToken ct)
     {
         // One call answers both "CLI there?" and "engine up?": the client version prints even when the engine is down.
-        var v = await _proc.RunAsync("docker", new[] { "version", "--format", "{{.Client.Version}}|{{.Server.Version}}" }, ct);
+        // Docker Desktop half started can leave the CLI waiting for ever: a question gets half a minute.
+        var v = await _proc.RunAsync("docker", new[] { "version", "--format", "{{.Client.Version}}|{{.Server.Version}}" }, ct,
+            timeout: TimeSpan.FromSeconds(30));
         var parts = v.StdOut.Trim().Split('|');
         var client = parts[0].Trim();
         var server = parts.Length > 1 ? parts[1].Trim() : "";
@@ -102,7 +104,8 @@ public sealed class WindowsPrerequisiteChecker(ProcessRunner proc, IOptions<AppO
             return new DockerStatus(installed, client.Length > 0 ? client : null, false, null, null, null);
 
         var c = await _proc.RunAsync("docker",
-            new[] { "ps", "-a", "--filter", $"name=^{containerName}$", "--format", "{{.State}}|{{.Status}}" }, ct);
+            new[] { "ps", "-a", "--filter", $"name=^{containerName}$", "--format", "{{.State}}|{{.Status}}" }, ct,
+            timeout: TimeSpan.FromSeconds(30));
         var line = c.Success ? c.StdOut.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0) : null;
         var container = line?.Split('|');
         return new DockerStatus(true, client, true, server,
@@ -118,8 +121,7 @@ public sealed class WindowsPrerequisiteChecker(ProcessRunner proc, IOptions<AppO
                     "--accept-source-agreements", "--disable-interactivity" }, ct,
             onOutput: line => { var t = line.Trim(); if (t.Length > 0) reporter.Progress(t); });
         if (r.ExitCode == -1)
-            return Result.Fail("winget (App Installer) isn't available - install Docker Desktop from " +
-                               "https://www.docker.com/products/docker-desktop/ instead.");
+            return Result.Fail($"{r.StdErr.Trim()} Install Docker Desktop from https://www.docker.com/products/docker-desktop/ instead.");
         if (!r.Success)
         {
             var output = (r.StdOut + r.StdErr).Trim();

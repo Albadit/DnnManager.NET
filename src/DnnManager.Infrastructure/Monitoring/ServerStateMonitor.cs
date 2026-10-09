@@ -352,8 +352,9 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
         {
             foreach (var source in _sources) Attach(source);
             await SyncAsync();
-            // An IIS that didn't answer wasn't waited for: said with the snapshot, not a second after it.
-            CheckSitesRead(Now);
+            // An IIS that didn't answer wasn't waited for: said with the snapshot, not a second after it - and the snapshot
+            // isn't Live while the first read of the sites is still out (the hosts file is only written from a full one).
+            CheckSitesRead(Now, stillOut: true);
             lock (_gate)
             {
                 _snapshotTaken = true;
@@ -456,11 +457,14 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
         _projectsJob.Request();
     }
 
-    /// <summary>A read of IIS that doesn't come back: said, rather than the table quietly going stale.</summary>
-    private void CheckSitesRead(long now)
+    /// <summary>
+    /// A read of IIS that doesn't come back: said, rather than the table quietly going stale - once it has taken too long,
+    /// or with <paramref name="stillOut"/> as soon as it hasn't come back yet.
+    /// </summary>
+    private void CheckSitesRead(long now, bool stillOut = false)
     {
         var since = Volatile.Read(ref _sitesReadSince);
-        if (since == Never || now - since < StuckAfter.TotalMilliseconds) return;
+        if (since == Never || !stillOut && now - since < StuckAfter.TotalMilliseconds) return;
         lock (_gate)
         {
             // It may have come back just now - then it has said (or is about to say) how it went itself.
@@ -613,6 +617,19 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
             Volatile.Write(ref _sitesReadSince, Never);
         }
 
+        // The folders of sites that are new or serve another folder now, read before the lock: each is a web.config and
+        // DNN's version to read, and what waits for the lock (the figures, the host's stats) mustn't wait for them.
+        var folders = new Dictionary<string, (string Path, Folder Folder)>(StringComparer.OrdinalIgnoreCase);
+        if (sites is not null)
+        {
+            List<(string Name, string Path)> toRead;
+            lock (_gate)
+                toRead = sites.Where(s => !_projects.TryGetValue(s.Key, out var known) ||
+                                          !string.Equals(s.Value.PhysicalPath, known.Directory, StringComparison.OrdinalIgnoreCase))
+                    .Select(s => (s.Key, s.Value.PhysicalPath)).ToList();
+            foreach (var (name, path) in toRead) folders[name] = (path, ReadFolder(name, path));
+        }
+
         bool retry = false, added = false;
         lock (_gate)
         {
@@ -634,7 +651,7 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
             {
                 // IIS is what there is: a row per site, gone with its site.
                 _sitesFailures = 0;
-                foreach (var (name, site) in sites) added |= ApplySite(name, site, events);
+                foreach (var (name, site) in sites) added |= ApplySite(name, site, events, folders);
                 foreach (var gone in _projects.Keys.Where(name => !sites.ContainsKey(name)).ToList())
                 {
                     _projects.Remove(gone);
@@ -662,12 +679,18 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
     /// that differs. What its folder holds (DNN version, database) is read when the site turns up or serves another
     /// folder; the timed read of the folders catches what changes inside one. True when it was new.
     /// </summary>
-    private bool ApplySite(string name, IisSiteRuntime site, List<MonitorEvent> events)
+    private bool ApplySite(string name, IisSiteRuntime site, List<MonitorEvent> events,
+        IReadOnlyDictionary<string, (string Path, Folder Folder)>? read = null)
     {
+        // Its folder as read before the lock - read here only when that was for another folder.
+        Folder FolderOf(string path) =>
+            read is not null && read.TryGetValue(name, out var r) && string.Equals(r.Path, path, StringComparison.OrdinalIgnoreCase)
+                ? r.Folder : ReadFolder(name, path);
+
         var url = site.BrowseUrl ?? "";
         if (!_projects.TryGetValue(name, out var known))
         {
-            var folder = ReadFolder(name, site.PhysicalPath);
+            var folder = FolderOf(site.PhysicalPath);
             ProjectState project = new()
             {
                 Name = name,
@@ -696,7 +719,7 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
         if (!string.Equals(site.PhysicalPath, known.Directory, StringComparison.OrdinalIgnoreCase))
         {
             // Another folder: another DNN, database and size.
-            var folder = ReadFolder(name, site.PhysicalPath);
+            var folder = FolderOf(site.PhysicalPath);
             next = next with
             {
                 Directory = site.PhysicalPath, InProjectsFolder = folder.InProjectsFolder, DnnVersion = folder.DnnVersion,
@@ -807,8 +830,9 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
                         isFile = c.Kind == DatabaseKind.LocalDbFile;
                         elsewhere = isFile || c.UsesWindowsAuthentication ||
                                     !LocalSqlContainer.IsContainerServer(c.Server, _options.Docker.ContainerIp, _options.Docker.DefaultPort);
-                        // Asked as the site connects: its login - or Windows authentication, as DNN Manager's user.
-                        if (!isFile)
+                        // Asked as the site connects: its login - or Windows authentication, as DNN Manager's user. Not a
+                        // LocalDB instance: connecting starts it, and asking every few seconds would keep it running for good.
+                        if (!isFile && !SqlServerAddress.Parse(c.Server).IsLocalDb)
                             connection = c.UsesWindowsAuthentication
                                 ? new SiteSqlConnection(c.Server, c.Database, "", "")
                                 : new SiteSqlConnection(c.Server, c.Database, c.User, c.Password);

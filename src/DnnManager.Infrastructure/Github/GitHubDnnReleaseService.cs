@@ -81,14 +81,39 @@ public sealed class GitHubDnnReleaseService : IDnnReleaseService
         }
     }
 
+    // Pages of 100 releases read at most - 2 000 releases, far more than any DNN source has.
+    private const int MaxReleasePages = 20;
+
+    /// <summary>The next page's address from GitHub's <c>Link</c> header (<c>&lt;…&gt;; rel="next"</c>); null on the last page.</summary>
+    internal static string? NextPage(HttpResponseMessage response)
+    {
+        if (!response.Headers.TryGetValues("Link", out var values)) return null;
+        foreach (var link in values.SelectMany(v => v.Split(',')))
+        {
+            var parts = link.Split(';');
+            if (parts.Length < 2 || !parts.Skip(1).Any(p => p.Trim().Equals("rel=\"next\"", StringComparison.OrdinalIgnoreCase))) continue;
+            var target = parts[0].Trim();
+            if (target.StartsWith('<') && target.EndsWith('>')) return target[1..^1];
+        }
+        return null;
+    }
+
     public async Task<Result<DnnReleaseList>> ListReleasesAsync(string apiUrl, CancellationToken ct)
     {
         try
         {
-            // GitHub returns 30 releases a page by default - 100 covers years of DNN releases.
-            var url = apiUrl + (apiUrl.Contains('?') ? "&" : "?") + "per_page=100";
-            var releases = await _http.GetFromJsonAsync<List<GhRelease>>(url, ct);
-            if (releases is null) return Result<DnnReleaseList>.Fail("Empty release list.");
+            // GitHub returns 30 releases a page by default, at most 100 - and DNN has more than 100 with its release
+            // candidates: every page is read (GitHub's Link header names the next), so the oldest versions are there too.
+            var releases = new List<GhRelease>();
+            string? url = apiUrl + (apiUrl.Contains('?') ? "&" : "?") + "per_page=100";
+            for (var page = 0; url is not null && page < MaxReleasePages; page++)
+            {
+                using var response = await _http.GetAsync(url, ct);
+                response.EnsureSuccessStatusCode();
+                releases.AddRange(await response.Content.ReadFromJsonAsync<List<GhRelease>>(ct) ?? []);
+                url = NextPage(response);
+            }
+            if (releases.Count == 0) return Result<DnnReleaseList>.Fail("Empty release list.");
             var usable = releases
                 .Where(r => !r.Draft)
                 .Select(r => (Release: r, Asset: FindAsset(r)))
@@ -215,7 +240,7 @@ public sealed class DnnPackageInstaller(HttpClient http, IOptions<AppOptions> op
         var keep = _opts.KeepDnnPackages;
         var zipPath = keep
             ? KeptPath(url, $"DNN_Platform_{release.Version}_Upgrade.zip")
-            : Path.Combine(Path.GetTempPath(), $"DnnManager-DNN_Platform_{release.Version}_Upgrade-{Guid.NewGuid():N}.zip");
+            : Path.Combine(Files.PrivateTemp.Path, $"DnnManager-DNN_Platform_{release.Version}_Upgrade-{Guid.NewGuid():N}.zip");
         try
         {
             if (keep && File.Exists(zipPath)) reporter.Info($"Using the kept upgrade package {zipPath} - no download needed.");
@@ -280,7 +305,7 @@ public sealed class DnnPackageInstaller(HttpClient http, IOptions<AppOptions> op
             System.IO.Compression.ZipFileExtensions.ExtractToFile(entry, target, overwrite: true);
             count++;
             if (Environment.TickCount64 < next) continue;
-            next = Environment.TickCount64 + 200;
+            next = Environment.TickCount64 + 250;
             reporter.Progress($"Putting the new files in: {count:N0} of {zip.Entries.Count:N0}");
         }
         return count;
@@ -300,7 +325,7 @@ public sealed class DnnPackageInstaller(HttpClient http, IOptions<AppOptions> op
         var keep = _opts.KeepDnnPackages;
         var zipPath = keep
             ? KeptPath(release.DownloadUrl, $"DNN_Platform_{release.Version}_Install.zip")
-            : Path.Combine(Path.GetTempPath(), $"DnnManager-DNN_Platform_{release.Version}_Install-{Guid.NewGuid():N}.zip");
+            : Path.Combine(Files.PrivateTemp.Path, $"DnnManager-DNN_Platform_{release.Version}_Install-{Guid.NewGuid():N}.zip");
         try
         {
             if (keep && File.Exists(zipPath)) reporter.Info($"Using the kept package {zipPath} - no download needed.");
@@ -351,8 +376,10 @@ public sealed class DnnPackageInstaller(HttpClient http, IOptions<AppOptions> op
         {
             using var stream = info.Open();
             using var json = JsonDocument.Parse(stream);
+            // The package's own list, with the site's web.config always on it: its machineKey and connection are the site's.
             if (json.RootElement.TryGetProperty("upgradeExclude", out var list))
-                exclude = list.EnumerateArray().Select(e => e.GetString() ?? "").Where(s => s.Length > 0).ToArray();
+                exclude = list.EnumerateArray().Select(e => e.GetString() ?? "").Where(s => s.Length > 0).Append("web.config")
+                    .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
             if (json.RootElement.TryGetProperty("minimumDnnVersion", out var min)) minimum = min.GetString();
         }
         if (minimum is not null && Version.TryParse(minimum, out var needs) && Application.UseCases.DnnInstall.Version(directory) is { } current &&
@@ -396,7 +423,7 @@ public sealed class DnnPackageInstaller(HttpClient http, IOptions<AppOptions> op
             System.IO.Compression.ZipFileExtensions.ExtractToFile(entry, target, overwrite: true);
             count++;
             if (Environment.TickCount64 < next) continue;
-            next = Environment.TickCount64 + 200;
+            next = Environment.TickCount64 + 250;
             reporter.Progress($"Putting the new files in: {count:N0} of {files.Count - dlls.Count:N0}");
         }
         return (dlls.Count, count);
@@ -418,9 +445,11 @@ public sealed class DnnPackageInstaller(HttpClient http, IOptions<AppOptions> op
     }
 
     /// <summary>
-    /// web.config's binding redirect for an assembly, as DNN's BindingRedirect.config merge sets it: the
-    /// <c>dependentAssembly</c> with its name and token (case doesn't matter) and a binding redirect replaced - or added
-    /// when there is none - redirecting every version to <paramref name="version"/>. True when it changed.
+    /// web.config's binding redirect for an assembly, as DNN's BindingRedirect.config merge sets it: in every
+    /// <c>dependentAssembly</c> with its name and token (case doesn't matter), in whichever <c>assemblyBinding</c> it is, the
+    /// binding redirect set - or added when it has none - to redirect every version to <paramref name="version"/>; what else
+    /// it holds (a <c>codeBase</c>, its <c>culture</c>) stays. A new <c>dependentAssembly</c> only when there is none. True
+    /// when it changed.
     /// </summary>
     internal static bool SetBindingRedirect(System.Xml.Linq.XDocument config, string name, string token, Version version)
     {
@@ -428,26 +457,42 @@ public sealed class DnnPackageInstaller(HttpClient http, IOptions<AppOptions> op
         var configuration = config.Root!;
         var runtime = configuration.Element("runtime") ?? new System.Xml.Linq.XElement("runtime");
         if (runtime.Parent is null) configuration.Add(runtime);
-        var binding = runtime.Element(ab + "assemblyBinding");
-        if (binding is null)
-        {
-            binding = new System.Xml.Linq.XElement(ab + "assemblyBinding");
-            runtime.Add(binding);
-        }
-        var existing = binding.Elements(ab + "dependentAssembly").FirstOrDefault(d =>
-            d.Element(ab + "bindingRedirect") is not null &&
-            string.Equals((string?)d.Element(ab + "assemblyIdentity")?.Attribute("name"), name, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals((string?)d.Element(ab + "assemblyIdentity")?.Attribute("publicKeyToken"), token, StringComparison.OrdinalIgnoreCase));
         var newVersion = version.ToString();
-        if (existing?.Element(ab + "bindingRedirect") is { } redirect &&
-            (string?)redirect.Attribute("newVersion") == newVersion && (string?)redirect.Attribute("oldVersion") == RedirectFrom)
-            return false;
-        var element = new System.Xml.Linq.XElement(ab + "dependentAssembly",
-            new System.Xml.Linq.XElement(ab + "assemblyIdentity", new System.Xml.Linq.XAttribute("name", name), new System.Xml.Linq.XAttribute("publicKeyToken", token)),
-            new System.Xml.Linq.XElement(ab + "bindingRedirect", new System.Xml.Linq.XAttribute("oldVersion", RedirectFrom), new System.Xml.Linq.XAttribute("newVersion", newVersion)));
-        if (existing is not null) existing.ReplaceWith(element);
-        else binding.Add(element);
-        return true;
+        var matching = runtime.Elements(ab + "assemblyBinding").SelectMany(b => b.Elements(ab + "dependentAssembly")).Where(d =>
+            string.Equals((string?)d.Element(ab + "assemblyIdentity")?.Attribute("name"), name, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals((string?)d.Element(ab + "assemblyIdentity")?.Attribute("publicKeyToken"), token, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (matching.Count == 0)
+        {
+            var binding = runtime.Element(ab + "assemblyBinding");
+            if (binding is null)
+            {
+                binding = new System.Xml.Linq.XElement(ab + "assemblyBinding");
+                runtime.Add(binding);
+            }
+            binding.Add(new System.Xml.Linq.XElement(ab + "dependentAssembly",
+                new System.Xml.Linq.XElement(ab + "assemblyIdentity", new System.Xml.Linq.XAttribute("name", name), new System.Xml.Linq.XAttribute("publicKeyToken", token)),
+                new System.Xml.Linq.XElement(ab + "bindingRedirect", new System.Xml.Linq.XAttribute("oldVersion", RedirectFrom), new System.Xml.Linq.XAttribute("newVersion", newVersion))));
+            return true;
+        }
+        var changed = false;
+        foreach (var dependent in matching)
+        {
+            if (dependent.Element(ab + "bindingRedirect") is { } redirect)
+            {
+                if ((string?)redirect.Attribute("newVersion") == newVersion && (string?)redirect.Attribute("oldVersion") == RedirectFrom) continue;
+                redirect.SetAttributeValue("oldVersion", RedirectFrom);
+                redirect.SetAttributeValue("newVersion", newVersion);
+            }
+            else
+            {
+                // Right after its identity, where a redirect goes.
+                var added = new System.Xml.Linq.XElement(ab + "bindingRedirect", new System.Xml.Linq.XAttribute("oldVersion", RedirectFrom), new System.Xml.Linq.XAttribute("newVersion", newVersion));
+                if (dependent.Element(ab + "assemblyIdentity") is { } identity) identity.AddAfterSelf(added);
+                else dependent.Add(added);
+            }
+            changed = true;
+        }
+        return changed;
     }
 
     public async Task<Result> DownloadAndExtractAsync(DnnRelease release, string projectDirectory,
@@ -517,12 +562,12 @@ public sealed class DnnPackageInstaller(HttpClient http, IOptions<AppOptions> op
                 long done = 0;
                 var next = 0L;
                 int read;
-                while ((read = await input.ReadAsync(buffer, ct)) > 0)
+                while ((read = await Files.StalledRead.ReadAsync(input, buffer, ct)) > 0)
                 {
                     await output.WriteAsync(buffer.AsMemory(0, read), ct);
                     done += read;
                     if (Environment.TickCount64 < next) continue;
-                    next = Environment.TickCount64 + 200;
+                    next = Environment.TickCount64 + 250;
                     reporter.Progress(total is > 0
                         ? $"Downloading {what}: {done * 100 / total.Value}% ({done / 1048576d:N1} of {total.Value / 1048576d:N1} MB)"
                         : $"Downloading {what}: {done / 1048576d:N1} MB");

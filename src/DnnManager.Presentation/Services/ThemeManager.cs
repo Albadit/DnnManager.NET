@@ -25,14 +25,25 @@ public static class ThemeManager
     public static event EventHandler? Changed;
 
     /// <param name="configured">"Light" or "Dark"; anything else (e.g. "System") follows the Windows app theme.</param>
-    public static void Initialize(string? configured) =>
+    public static void Initialize(string? configured)
+    {
         Apply(Enum.TryParse<AppTheme>(configured, ignoreCase: true, out var theme) ? theme : SystemTheme());
+        // A Contrast theme switched on or off in Windows: followed at once.
+        SystemParameters.StaticPropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SystemParameters.HighContrast)) Apply(Current);
+        };
+    }
+
+    /// <summary>A Windows Contrast theme is on: the palette is its colours.</summary>
+    public static bool HighContrast => SystemParameters.HighContrast;
 
 
     public static void Apply(AppTheme theme)
     {
         var merged = System.Windows.Application.Current.Resources.MergedDictionaries;
         ResourceDictionary palette = theme == AppTheme.Dark ? new DarkTheme() : new LightTheme();
+        if (SystemParameters.HighContrast) UseSystemColors(palette);
         var index = -1;
         for (var i = 0; i < merged.Count; i++)
             if (merged[i] is LightTheme or DarkTheme) { index = i; break; }
@@ -102,6 +113,30 @@ public static class ThemeManager
         {
             var height = (double)CaptionHeights.GetValue(chrome, c => c.CaptionHeight);
             chrome.CaptionHeight = height * Scale;
+        }
+    }
+
+    /// <summary>
+    /// Every colour of <paramref name="palette"/> as the Windows Contrast theme has it (WCAG 1.4.3, 1.4.11): backgrounds
+    /// the window colour, text and borders the window text colour, what is muted the disabled text colour, the accent and
+    /// a selection the highlight colour with the highlight text on it. Meaning carried by colour alone (an error's red)
+    /// is then carried by the words and icons that go with it, as everywhere.
+    /// </summary>
+    internal static void UseSystemColors(ResourceDictionary palette)
+    {
+        foreach (var key in palette.Keys.OfType<string>().ToList())
+        {
+            if (palette[key] is not SolidColorBrush) continue;
+            var name = key.ToLowerInvariant();
+            palette[key] =
+                name is "onaccent" or "outbadgetext" ? SystemColors.HighlightTextBrush
+                : name.Contains("selection") || name.Contains("selected") || name.Contains("searchcurrent") || name.Contains("searchmatch") ||
+                  name.StartsWith("accent") || name.StartsWith("danger") || name == "focusborder" ? SystemColors.HighlightBrush
+                : name.Contains("backdrop") ? new SolidColorBrush(Color.FromArgb(0x80, 0, 0, 0))
+                : name.EndsWith("bg") || name.Contains("track") ? SystemColors.WindowBrush
+                : name.Contains("muted") || name.Contains("dim") || name.Contains("time") || name.Contains("skipped") || name.Contains("scrollthumb")
+                    ? SystemColors.GrayTextBrush
+                : SystemColors.WindowTextBrush;
         }
     }
 

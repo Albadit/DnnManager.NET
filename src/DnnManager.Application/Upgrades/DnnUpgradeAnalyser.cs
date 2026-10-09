@@ -91,19 +91,22 @@ public static class DnnUpgradeAnalyser
         if (chain.Count == 0)
             site.Add(new(UpgradeFindingSeverity.Blocking, "DNN", $"DNN {DnnUpgradeStep.Name(target)} isn't newer than the site's DNN {DnnUpgradeStep.Name(current)}"));
 
-        SiteChecks(facts, current, site);
+        SiteChecks(facts, current, chain.Count, site);
         var steps = chain.Select(step => new PlannedStep(step, StepChecks(facts, step))).ToList();
         return new DnnUpgradePlan(current, DnnUpgradePath.Normalize(target), steps, site);
     }
 
     // ─── The site as a whole ─────────────────────────────────────────────
 
-    private static void SiteChecks(DnnSiteFacts f, Version current, List<UpgradeFinding> found)
+    private static void SiteChecks(DnnSiteFacts f, Version current, int steps, List<UpgradeFinding> found)
     {
         // DNN's version in its files and in its database must agree: otherwise an earlier upgrade didn't finish.
         if (f.DatabaseVersion is null)
             found.Add(new(UpgradeFindingSeverity.Unknown, "DNN", "The database's DNN version couldn't be read", f.DatabaseProblem));
-        else if (DnnInstallVersion(f.DatabaseVersion) is { } db && DnnUpgradePath.Normalize(db) != current)
+        else if (DnnInstallVersion(f.DatabaseVersion) is not { } db)
+            found.Add(new(UpgradeFindingSeverity.Unknown, "DNN", $"The database's DNN version ({f.DatabaseVersion}) isn't a version number",
+                "Whether files and database agree can't be told."));
+        else if (DnnUpgradePath.Normalize(db) != current)
             found.Add(new(UpgradeFindingSeverity.Blocking, "DNN", $"The files are at DNN {f.FilesVersion}, the database at {f.DatabaseVersion}",
                 "An earlier upgrade didn't run or didn't finish.", "Undo it first: Restore backup (the project's right-click menu) puts back the backup made before it (\"Before upgrading DNN …\"), then upgrade again."));
         else
@@ -145,9 +148,12 @@ public static class DnnUpgradeAnalyser
             found.Add(new(UpgradeFindingSeverity.Warning, "IIS", "The app pool uses the Classic pipeline", "DNN is made for the Integrated pipeline."));
         if (f.NetFrameworkRelease is null)
             found.Add(new(UpgradeFindingSeverity.Unknown, "This PC", ".NET Framework 4.x wasn't found"));
-        if (f.BackupFreeBytes is { } free && free < 2 * f.SiteBytes + 500L * 1024 * 1024)
-            found.Add(new(UpgradeFindingSeverity.Blocking, "Backups", $"Too little free space for the backups: {free / 1048576:N0} MB",
-                $"Every step backs up the site ({f.SiteBytes / 1048576:N0} MB) and its database first.", "Free some space on the drive of Documents\\DnnManager."));
+        // Every step keeps a backup of its own - the site and its database - and needs room to work besides.
+        var needed = Math.Max(steps, 1) * (f.SiteBytes + (f.DatabaseBytes ?? 0)) + 500L * 1024 * 1024;
+        if (f.BackupFreeBytes is { } free && free < needed)
+            found.Add(new(UpgradeFindingSeverity.Blocking, "Backups", $"Too little free space for the backups: {free / 1048576:N0} MB, about {needed / 1048576:N0} MB needed",
+                $"Each of the {Math.Max(steps, 1)} step(s) backs up the site ({f.SiteBytes / 1048576:N0} MB) and its database" +
+                (f.DatabaseBytes is { } d ? $" ({d / 1048576:N0} MB)" : "") + " first, and keeps it.", "Free some space on the drive of Documents\\DnnManager."));
 
         // web.config.
         if (f.HasMachineKey == false)

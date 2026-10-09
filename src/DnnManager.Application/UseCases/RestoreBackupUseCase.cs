@@ -21,9 +21,10 @@ public sealed class RestoreBackupRequest
 /// <summary>
 /// Puts a project back as a backup has it (<see cref="ProjectBackups"/>): its files - those added since are deleted, what
 /// the backup leaves out (<c>.git</c>, <c>_backup.filter</c>) isn't touched - and its database, on the server and with
-/// the login its web.config names. The database it replaces is set aside first and dropped only once the backup's is in,
-/// so a failed import leaves it as it was. The site is stopped meanwhile and started again if it ran. Once it has started
-/// it runs to the end: a half-restored site is worse than either.
+/// the login its web.config names. The backup's database is imported first, under a name of its own, before anything of
+/// the site is touched - a failed import leaves the project as it was. Then the files are put back and the imported
+/// database swapped in for the site's, which is dropped only then. The site is stopped meanwhile and started again if it
+/// ran. Once it has started it runs to the end: a half-restored site is worse than either.
 /// </summary>
 public sealed class RestoreBackupUseCase(
     IIisManager iis,
@@ -33,8 +34,10 @@ public sealed class RestoreBackupUseCase(
     IDatabaseProvisioner databases,
     IBacpacService bacpac,
     IFileLockService locks,
-    IProjectRecords records)
+    IProjectRecords records,
+    OperationUndo undo)
 {
+    private readonly OperationUndo _undo = undo;
     private readonly IFileLockService _locks = locks;
     private readonly IIisManager _iis = iis;
     private readonly IProjectRepository _projects = projects;
@@ -57,7 +60,27 @@ public sealed class RestoreBackupUseCase(
 
         // From here on it isn't cancelled: the files and the database belong together.
         var none = CancellationToken.None;
-        var wasRunning = _iis.GetSiteStates().TryGetValue(req.SiteName, out var state) && state.Equals("Started", StringComparison.OrdinalIgnoreCase);
+
+        // The backup's database first, beside the site's - the database the site's web.config names, as the site uses it.
+        DatabaseConnection? target = null;
+        string? incoming = null;
+        if (req.Database is { } bacpacPath)
+        {
+            var database = _sql.DatabaseOf(project);
+            if (database is null) reporter.Warn("The site's web.config names no database of its own - the database is left as it is.");
+            else if (database.Kind == DatabaseKind.LocalDbFile) reporter.Warn("The site uses a LocalDB file - the database is left as it is.");
+            else
+            {
+                target = database.Kind == DatabaseKind.Container ? _sql.Connection(database.Database) : database;
+                var imported = await ImportAsideAsync(target, bacpacPath, reporter, none);
+                if (!imported.Success) return imported.WithoutValue();
+                incoming = imported.Value;
+            }
+        }
+        // A cancel can't take a restore back once it changes the site - said, so nobody counts on it.
+        _undo.CannotUndo($"the files of '{req.SiteName}' were put back as the backup has them.");
+
+        var wasRunning = _iis.GetSiteStates().TryGetValue(req.SiteName, out var state) && IisStates.IsStarted(state);
         // Stopped even when it reads so: a worker process still ending holds the site's files (and DNN its lock).
         if (wasRunning) reporter.Info($"Stopping '{req.SiteName}' while it is put back…");
         var stopped = _iis.StopSiteAndWait(req.SiteName, TimeSpan.FromSeconds(60));
@@ -67,22 +90,19 @@ public sealed class RestoreBackupUseCase(
             reporter.Info("Putting the site's files back…");
             await StopSiteProgramsAsync(req.Directory, reporter);
             var extracted = await ExtractWithRetryAsync(req.SiteZip, req.Directory, reporter);
-            if (!extracted.Success) return Result.Fail($"Could not put the site's files back: {extracted.Error}");
+            if (!extracted.Success)
+            {
+                if (target is not null && incoming is not null) await _databases.DropDatabaseAsync(target with { Database = incoming }, none);
+                return Result.Fail($"Could not put the site's files back: {extracted.Error} The database is left as it was.");
+            }
             var removed = await _copier.RemoveFilesNotInZipAsync(req.SiteZip, req.Directory, [".git", .. filtered], reporter, none);
             if (removed is { Success: true, Value: > 0 }) reporter.Info($"Deleted {removed.Value:N0} file(s) added since the backup.");
             reporter.Success("The site's files are as the backup has them.");
 
-            if (req.Database is { } bacpacPath)
+            if (target is not null && incoming is not null)
             {
-                // The database the backup's own web.config names - as the site will use it.
-                var database = _sql.DatabaseOf(project);
-                if (database is null) reporter.Warn("The backup's web.config names no database of its own - the database is left as it is.");
-                else if (database.Kind == DatabaseKind.LocalDbFile) reporter.Warn("The site uses a LocalDB file - the database is left as it is.");
-                else
-                {
-                    var restored = await RestoreDatabaseAsync(database, bacpacPath, reporter, none);
-                    if (!restored.Success) return restored;
-                }
+                var swapped = await SwapInAsync(target, incoming, reporter, none);
+                if (!swapped.Success) return swapped;
             }
 
             if (_records.Find(req.SiteName) is { } record && DnnInstall.Version(req.Directory) is { } version)
@@ -125,35 +145,47 @@ public sealed class RestoreBackupUseCase(
     }
 
     /// <summary>
-    /// The backup's database in place of the site's: the backup is imported under a name of its own, then the site's is
-    /// renamed aside, the imported one given its name, and the one aside dropped. The import never meets the site's
-    /// database - nor its files: a database renamed keeps its file names, so one imported under the same name would
-    /// collide with them (<c>&lt;name&gt;_Primary.mdf</c>, from a backup put back before). A failed import leaves the
-    /// site's database untouched.
+    /// The backup's database imported beside the site's, under a name of its own (returned) - <paramref name="admin"/> is the
+    /// local container as its user, who may create databases, or any other server as the site signs in. The import never
+    /// meets the site's database - nor its files: a database renamed keeps its file names, so one imported under the same
+    /// name would collide with them (<c>&lt;name&gt;_Primary.mdf</c>, from a backup put back before). A failed import
+    /// leaves nothing behind.
     /// </summary>
-    private async Task<Result> RestoreDatabaseAsync(DatabaseConnection site, string bacpacPath, IProgressReporter reporter, CancellationToken ct)
+    private async Task<Result<string>> ImportAsideAsync(DatabaseConnection admin, string bacpacPath, IProgressReporter reporter, CancellationToken ct)
     {
-        // The local container as its user, who may create databases; any other server as the site signs in.
-        var admin = site.Kind == DatabaseKind.Container ? _sql.Connection(site.Database) : site;
         var name = admin.Database;
-        reporter.Info($"Putting database [{name}] back on {admin.Server}…");
+        reporter.Info($"Importing the backup's database beside [{name}] on {admin.Server}.");
         var ensured = await _bacpac.EnsureAvailableAsync(reporter, ct);
-        if (!ensured.Success) return ensured;
+        if (!ensured.Success) return Result<string>.Fail(ensured.Error!);
 
-        var exists = await _databases.DatabaseExistsAsync(admin, ct);
-        if (!exists.Success) return Result.Fail($"Could not reach [{name}] on {admin.Server}: {exists.Error}");
-        var stamp = DateTime.Now.ToString("yyyyMMddHHmmss");
-        var incoming = admin with { Database = $"{name}_restore_{stamp}" };
-        var aside = $"{name}_before_restore_{stamp}";
-
+        var incoming = admin with { Database = $"{name}_restore_{DateTime.Now:yyyyMMddHHmmss}" };
         var (user, password) = admin.UsesWindowsAuthentication ? ("", "") : (admin.User, admin.Password);
         var imported = await _bacpac.ImportAsync(admin.Server, user, password, incoming.Database, bacpacPath, reporter, ct);
         if (!imported.Success)
         {
             // What the import left half-made goes; the site's own database was never touched.
             if (await _databases.DatabaseExistsAsync(incoming, ct) is { Success: true, Value: true }) await _databases.DropDatabaseAsync(incoming, ct);
-            return Result.Fail($"Importing the backup's database failed: {imported.Error} The database is left as it was.");
+            return Result<string>.Fail($"Importing the backup's database failed: {imported.Error} Nothing was changed.");
         }
+        return Result<string>.Ok(incoming.Database);
+    }
+
+    /// <summary>
+    /// The imported database in place of the site's: the site's renamed aside, the imported one given its name, and the one
+    /// aside dropped. A rename that fails puts the site's back.
+    /// </summary>
+    private async Task<Result> SwapInAsync(DatabaseConnection admin, string incomingName, IProgressReporter reporter, CancellationToken ct)
+    {
+        var name = admin.Database;
+        var incoming = admin with { Database = incomingName };
+        reporter.Info($"Putting database [{name}] back on {admin.Server}…");
+        var exists = await _databases.DatabaseExistsAsync(admin, ct);
+        if (!exists.Success)
+        {
+            await _databases.DropDatabaseAsync(incoming, ct);
+            return Result.Fail($"Could not reach [{name}] on {admin.Server}: {exists.Error} The database is left as it was.");
+        }
+        var aside = $"{name}_before_restore_{DateTime.Now:yyyyMMddHHmmss}";
 
         if (exists.Value)
         {

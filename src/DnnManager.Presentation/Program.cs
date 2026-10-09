@@ -36,10 +36,13 @@ internal static class Program
 
         if (!AdminElevation.IsAdministrator())
         {
-            if (AdminElevation.TryRelaunchElevated(args)) return 0;
-            MessageBox.Show("DNN Manager needs Administrator rights to manage IIS.\n\n" +
-                            "Could not elevate - please run it as Administrator.",
-                "DNN Manager", MessageBoxButton.OK, MessageBoxImage.Error);
+            if (AdminElevation.TryRelaunchElevated(args, out var declined)) return 0;
+            MessageBox.Show(declined
+                    ? "DNN Manager needs Administrator rights to manage IIS - and Windows' prompt for them was answered No.\n\n" +
+                      "Start DNN Manager again and choose Yes."
+                    : "DNN Manager needs Administrator rights to manage IIS.\n\n" +
+                      "Could not elevate - please run it as Administrator.",
+                "DNN Manager", MessageBoxButton.OK, declined ? MessageBoxImage.Information : MessageBoxImage.Error);
             return 1;
         }
 
@@ -107,6 +110,7 @@ internal static class Program
         using var host = builder.Build();
 
         App.Log = host.Services.GetRequiredService<ILogger<App>>();
+        App.LogsDirectory = host.Services.GetRequiredService<AppDataPaths>().LogsDirectory;
         var log = host.Services.GetRequiredService<ActivityLog>();
         foreach (var notice in startupNotices)
         {
@@ -126,7 +130,10 @@ internal static class Program
         catch (Exception ex)
         {
             host.Services.GetRequiredService<ILogger<App>>().LogCritical(ex, "Unhandled fatal error");
-            MessageBox.Show($"Fatal: {ex.Message}", "DNN Manager", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"DNN Manager ran into an error it can't go on from: {ex.Message}\n\n" +
+                            $"What happened is in the log, in {host.Services.GetRequiredService<AppDataPaths>().LogsDirectory} - " +
+                            "start DNN Manager again; if it happens again, the log says why.",
+                "DNN Manager", MessageBoxButton.OK, MessageBoxImage.Error);
             return 2;
         }
     }

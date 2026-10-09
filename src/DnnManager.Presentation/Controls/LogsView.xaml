@@ -9,8 +9,8 @@
             <DockPanel>
                 <Button x:Name="FolderButton" DockPanel.Dock="Right" Style="{StaticResource IconButton}" Foreground="{DynamicResource Accent}"
                         Content="{StaticResource GlyphFolderOpen}" ToolTip="Open folder" Click="OpenFolder_Click" IsEnabled="False" />
-                <ComboBox x:Name="SiteBox" Width="190" ToolTip="Website" DisplayMemberPath="Name" SelectionChanged="Site_SelectionChanged" />
-                <ComboBox x:Name="LogBox" Width="300" Margin="8,0,0,0" ToolTip="Log" SelectionChanged="Log_SelectionChanged" />
+                <ComboBox x:Name="SiteBox" Width="190" ToolTip="Website" AutomationProperties.Name="Website" DisplayMemberPath="Name" SelectionChanged="Site_SelectionChanged" />
+                <ComboBox x:Name="LogBox" Width="300" Margin="8,0,0,0" ToolTip="Log" AutomationProperties.Name="Log" SelectionChanged="Log_SelectionChanged" />
                 <TextBlock x:Name="Description" Margin="12,0,8,0" Foreground="{DynamicResource LogMuted}" FontSize="{DynamicResource TextCaption}"
                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
             </DockPanel>

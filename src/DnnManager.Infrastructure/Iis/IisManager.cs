@@ -75,9 +75,13 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
             RemoveSite(siteName);
 
             using var sm = new ServerManager();
-            var pool = sm.ApplicationPools.Add(siteName);
-            pool.ManagedRuntimeVersion = "v4.0";
-            pool.ManagedPipelineMode = ManagedPipelineMode.Integrated;
+            // A pool of this name that other sites use too stays (RemoveSite leaves it): the new site joins it, as it is.
+            if (sm.ApplicationPools[siteName] is null)
+            {
+                var pool = sm.ApplicationPools.Add(siteName);
+                pool.ManagedRuntimeVersion = "v4.0";
+                pool.ManagedPipelineMode = ManagedPipelineMode.Integrated;
+            }
 
             var site = sm.Sites.Add(siteName, "http", $"*:{port}:{hostname}", physicalPath);
             site.ApplicationDefaults.ApplicationPoolName = siteName;
@@ -106,7 +110,7 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
             bool shared;
             using (var sm = new ServerManager())
             {
-                shared = PoolUsedByOthers(sm, siteName);
+                shared = PoolUsedByOthers(sm, siteName, siteName);
                 var site = sm.Sites[siteName];
                 if (site is not null && site.State != ObjectState.Stopped)
                     try { site.Stop(); } catch { /* already stopping/stopped */ }
@@ -153,11 +157,14 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
         }
     }
 
-    /// <summary>Whether an application of another site than <paramref name="siteName"/> runs in the pool of that name.</summary>
-    private static bool PoolUsedByOthers(ServerManager sm, string siteName) =>
+    /// <summary>
+    /// Whether an application of another site than <paramref name="siteName"/> - its root or any other - runs in the pool
+    /// <paramref name="poolName"/>: stopping or removing that pool would take it down too.
+    /// </summary>
+    private static bool PoolUsedByOthers(ServerManager sm, string siteName, string poolName) =>
         sm.Sites.Where(s => !s.Name.Equals(siteName, StringComparison.OrdinalIgnoreCase))
             .SelectMany(s => s.Applications)
-            .Any(a => a.ApplicationPoolName.Equals(siteName, StringComparison.OrdinalIgnoreCase));
+            .Any(a => a.ApplicationPoolName.Equals(poolName, StringComparison.OrdinalIgnoreCase));
 
     // Polls (with a fresh ServerManager each time so WAS state is re-read) until the pool is
     // Stopped with no live worker processes, i.e. its file handles are released. If the worker
@@ -178,7 +185,12 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
                     // -1 so a failed read does NOT look like "0 workers, safe to delete" - we
                     // only return once we've positively observed zero live workers.
                     var workers = -1;
-                    try { workers = pool.WorkerProcesses.Count; } catch { /* re-read next poll */ }
+                    try { workers = pool.WorkerProcesses.Count; }
+                    catch
+                    {
+                        // With the web service stopped there are no worker processes to read - nor any left.
+                        if (GetServerState() is IisServerState.Stopped or IisServerState.NotInstalled) return;
+                    }
                     if (workers == 0) return;
                 }
             }
@@ -216,15 +228,8 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
     {
         try
         {
-            // An app pool that is still stopping - its worker process is on its way out, as right after StopSite -
-            // can't be started: IIS refuses. Wait for it to have stopped.
-            var deadline = DateTime.UtcNow + PoolStopWait;
-            while (PoolState(siteName) == ObjectState.Stopping)
-            {
-                if (DateTime.UtcNow >= deadline)
-                    return Result.Fail("Its app pool is still stopping (the worker process hasn't ended yet) - try again in a moment.");
-                Thread.Sleep(250);
-            }
+            if (!WaitWhilePoolStopping(siteName))
+                return Result.Fail("Its app pool is still stopping (the worker process hasn't ended yet) - try again in a moment.");
 
             using var sm = new ServerManager();
             var site = sm.Sites[siteName];
@@ -235,6 +240,21 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
             return Result.Ok();
         }
         catch (Exception ex) { return Result.Fail(ex.Message); }
+    }
+
+    /// <summary>
+    /// An app pool that is still stopping - its worker process is on its way out, as right after StopSite - can't be
+    /// started: IIS refuses. Waits for it to have stopped; false when it still hasn't after a while.
+    /// </summary>
+    private static bool WaitWhilePoolStopping(string siteName)
+    {
+        var deadline = DateTime.UtcNow + PoolStopWait;
+        while (PoolState(siteName) == ObjectState.Stopping)
+        {
+            if (DateTime.UtcNow >= deadline) return false;
+            Thread.Sleep(250);
+        }
+        return true;
     }
 
     /// <summary>The state of the site's app pool, read afresh; null when it has none or it can't be told.</summary>
@@ -256,8 +276,7 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
 
             // Stopping the pool ends its worker process (and the memory it holds) - unless another site shares it.
             var pool = PoolOf(sm, site);
-            var shared = pool is not null && sm.Sites.Any(s => s.Name != site.Name &&
-                string.Equals(s.Applications["/"]?.ApplicationPoolName, pool.Name, StringComparison.OrdinalIgnoreCase));
+            var shared = pool is not null && PoolUsedByOthers(sm, site.Name, pool.Name);
             if (pool is not null && !shared && pool.State is not (ObjectState.Stopped or ObjectState.Stopping)) pool.Stop();
             return Result.Ok();
         }
@@ -275,8 +294,7 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
             if (sm.Sites[siteName] is not { } site) return Result.Fail($"Site '{siteName}' not found");
             poolName = PoolOf(sm, site)?.Name;
             // A pool another site shares keeps running (StopSite leaves it): its worker process isn't this site's to end.
-            if (poolName is null || sm.Sites.Any(s => s.Name != site.Name &&
-                    string.Equals(s.Applications["/"]?.ApplicationPoolName, poolName, StringComparison.OrdinalIgnoreCase))) return Result.Ok();
+            if (poolName is null || PoolUsedByOthers(sm, site.Name, poolName)) return Result.Ok();
         }
         catch (Exception ex) { return Result.Fail(ex.Message); }
 
@@ -304,6 +322,9 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
     {
         try
         {
+            // Right after a stop the pool may still be stopping: neither recycled nor started then - waited for.
+            if (!WaitWhilePoolStopping(siteName))
+                return Result.Fail("Its app pool is still stopping (the worker process hasn't ended yet) - try again in a moment.");
             using var sm = new ServerManager();
             var site = sm.Sites[siteName];
             if (site is null) return Result.Fail($"Site '{siteName}' not found");
@@ -401,10 +422,16 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
         {
             using var sm = new ServerManager();
             if (sm.Sites[siteName] is not { } site) return Result.Fail($"Site '{siteName}' not found");
+            // A binding that stays as it was keeps its IP address (127.0.0.2:80:shop, [::1]:80:shop); a new one listens on all.
+            var addresses = new Dictionary<(string, int), string>();
             foreach (var old in site.Bindings.Where(b => b.Protocol.Equals("http", StringComparison.OrdinalIgnoreCase)).ToList())
+            {
+                if (old.EndPoint is { } endPoint)
+                    addresses.TryAdd((old.Host.ToLowerInvariant(), endPoint.Port), BindingAddress(old.BindingInformation));
                 site.Bindings.Remove(old);
+            }
             foreach (var (host, port) in bindings)
-                site.Bindings.Add($"*:{port}:{host}", "http");
+                site.Bindings.Add($"{addresses.GetValueOrDefault((host.ToLowerInvariant(), port), "*")}:{port}:{host}", "http");
             sm.CommitChanges();
             return Result.Ok();
         }
@@ -413,6 +440,15 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
             _log.LogError(ex, "IIS ReplaceHttpBindings failed");
             return Result.Fail(ex.Message);
         }
+    }
+
+    /// <summary>The address part of IIS's binding information ("127.0.0.2", "[::1]", "*").</summary>
+    internal static string BindingAddress(string bindingInformation)
+    {
+        // address:port:host - the address may be an IPv6 address in brackets, full of colons.
+        var lastColon = bindingInformation.LastIndexOf(':');
+        var portColon = lastColon > 0 ? bindingInformation.LastIndexOf(':', lastColon - 1) : -1;
+        return portColon > 0 ? bindingInformation[..portColon] : "*";
     }
 
     public Result SetPoolSettings(string siteName, IisPoolSettings settings)
@@ -450,18 +486,23 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
             // Stopped first, its worker gone: the pool can't be renamed while a worker runs as its identity, and the
             // caller may move the folder the worker holds files in.
             bool renamePool;
+            string? stopPool;
             using (var sm = new ServerManager())
             {
                 if (sm.Sites[siteName] is not { } site) return Result.Fail($"Site '{siteName}' not found");
-                if (sm.Sites[newName] is not null) return Result.Fail($"IIS already has a site named '{newName}'.");
+                // Only capitals changed: the name IIS finds is this site's own.
+                var caseOnly = newName.Equals(siteName, StringComparison.OrdinalIgnoreCase);
+                if (!caseOnly && sm.Sites[newName] is not null) return Result.Fail($"IIS already has a site named '{newName}'.");
                 var pool = PoolOf(sm, site);
-                renamePool = pool is not null && pool.Name.Equals(siteName, StringComparison.OrdinalIgnoreCase) &&
-                             !PoolUsedByOthers(sm, siteName) && sm.ApplicationPools[newName] is null;
+                // Its own pool is stopped, whatever it is called: its worker holds files in the folder the caller moves.
+                stopPool = pool is not null && !PoolUsedByOthers(sm, site.Name, pool.Name) ? pool.Name : null;
+                renamePool = pool is not null && pool.Name.Equals(siteName, StringComparison.OrdinalIgnoreCase) && stopPool is not null &&
+                             (caseOnly || sm.ApplicationPools[newName] is null);
                 if (site.State != ObjectState.Stopped) try { site.Stop(); } catch { /* already stopping */ }
-                if (renamePool && pool!.State != ObjectState.Stopped) try { pool.Stop(); } catch { /* already stopping */ }
+                if (stopPool is not null && pool!.State != ObjectState.Stopped) try { pool.Stop(); } catch { /* already stopping */ }
                 sm.CommitChanges();
             }
-            if (renamePool) WaitForPoolToStop(siteName, TimeSpan.FromSeconds(30));
+            if (stopPool is not null) WaitForPoolToStop(stopPool, TimeSpan.FromSeconds(30));
 
             using (var sm = new ServerManager())
             {
@@ -578,15 +619,33 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
     }
 
     // IIS's "Web Service" performance counters have one instance per site, named like it.
+    // IIS's "Web Service" counters, as last read, and when: keep warm's request counts and the monitor's traffic come
+    // from one read - the category is read whole either way, and that is the cost.
+    private InstanceDataCollectionCollection? _webService;
+    private long _webServiceAt;
+    private readonly object _webServiceLock = new();
+
+    /// <summary>The "Web Service" category, read now - or as read less than a second ago; null when it isn't there.</summary>
+    private InstanceDataCollectionCollection? WebServiceCounters()
+    {
+        lock (_webServiceLock)
+        {
+            if (_webService is not null && Environment.TickCount64 - _webServiceAt < 1000) return _webService;
+            const string category = "Web Service";
+            if (!PerformanceCounterCategory.Exists(category)) return null;
+            _webService = new PerformanceCounterCategory(category).ReadCategory();
+            _webServiceAt = Environment.TickCount64;
+            return _webService;
+        }
+    }
+
     public IReadOnlyDictionary<string, long> GetRequestsServed()
     {
         var served = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            const string category = "Web Service";
-            if (!PerformanceCounterCategory.Exists(category)) return served;
             // Every kind of request (GET, HEAD, POST…) - not "Total Get Requests" alone.
-            if (new PerformanceCounterCategory(category).ReadCategory()["Total Method Requests"] is not { } requests) return served;
+            if (WebServiceCounters()?["Total Method Requests"] is not { } requests) return served;
             foreach (System.Collections.DictionaryEntry entry in requests)
                 served[(string)entry.Key] = ((InstanceData)entry.Value!).RawValue;
         }
@@ -603,9 +662,7 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
         var traffic = new Dictionary<string, SiteTraffic>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            const string category = "Web Service";
-            if (!PerformanceCounterCategory.Exists(category)) return traffic;
-            var data = new PerformanceCounterCategory(category).ReadCategory();
+            if (WebServiceCounters() is not { } data) return traffic;
             var received = data["Total Bytes Received"];
             var sent = data["Total Bytes Sent"];
             if (received is null || sent is null) return traffic;
@@ -669,7 +726,7 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
             var bindings = site.Bindings.Select(b =>
             {
                 var (port, host) = BindingParts(b.BindingInformation);
-                var address = b.BindingInformation.Split(':')[0];
+                var address = BindingAddress(b.BindingInformation);
                 var hash = b.CertificateHash is { Length: > 0 } bytes ? Convert.ToHexString(bytes) : null;
                 var store = hash is null ? null : string.IsNullOrEmpty(b.CertificateStoreName) ? "My" : b.CertificateStoreName;
                 var sslFlags = Attribute<object>(b, "sslFlags");
@@ -768,9 +825,12 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
             {
                 try
                 {
+                    // The site's own app pool may change its files (DNN writes Portals, App_Data, web.config); IIS's shared
+                    // groups only read them - IIS_IUSRS holds every site's app pool, which mustn't change this site.
+                    var shared = id.Equals("IIS_IUSRS", StringComparison.OrdinalIgnoreCase) || id.Equals("IUSR", StringComparison.OrdinalIgnoreCase);
                     var rule = new FileSystemAccessRule(
                         ResolveIdentity(id),
-                        FileSystemRights.FullControl,
+                        shared ? FileSystemRights.ReadAndExecute : FileSystemRights.Modify,
                         InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
                         PropagationFlags.None,
                         AccessControlType.Allow);

@@ -8,7 +8,9 @@ namespace DnnManager.Application.UseCases;
 /// operation (scoped): each step that is about to create something (a folder, an IIS site, a database, a file) adds how
 /// to remove it <b>before</b> it starts, so a step cut off half-way is taken back too; the removals don't mind what isn't
 /// there. What can't be taken back (a database that was replaced, a site that was removed) is said so with
-/// <see cref="CannotUndo"/>. The operation runner calls <see cref="RunAsync"/> when an operation was cancelled.
+/// <see cref="CannotUndo"/>. The operation runner calls <see cref="RunAsync"/> when an operation was cancelled, and when it
+/// failed: a failed operation leaves nothing half made behind, unless it called <see cref="Keep"/> to leave what it did
+/// to look into (a DNN installation that failed).
 /// </summary>
 public sealed class OperationUndo
 {
@@ -17,22 +19,31 @@ public sealed class OperationUndo
     private readonly HashSet<string> _keptFiles = new(StringComparer.OrdinalIgnoreCase);
     // A file is kept in memory to be put back - a configuration file, not a backup.
     private const long MaxKeptFile = 10 * 1024 * 1024;
+    // Undoing: what the undo steps themselves do (a backup put back) isn't one more thing to undo.
+    private bool _running;
 
     /// <summary>Nothing was changed yet - or nothing that could be taken back.</summary>
     public bool IsEmpty => _steps.Count == 0 && _lost.Count == 0;
 
     /// <summary>On undo: <paramref name="undo"/>, said as <paramref name="what"/> (e.g. "Remove the IIS site 'shop'").</summary>
-    public void Add(string what, Func<Task<Result>> undo) => _steps.Add((what, undo));
+    public void Add(string what, Func<Task<Result>> undo)
+    {
+        if (!_running) _steps.Add((what, undo));
+    }
 
     /// <summary>On undo: <paramref name="undo"/>, said as <paramref name="what"/>.</summary>
-    public void Add(string what, Func<Result> undo) => _steps.Add((what, () => Task.FromResult(undo())));
+    public void Add(string what, Func<Result> undo) => Add(what, () => Task.FromResult(undo()));
 
     /// <summary>Something the operation changed that can't be taken back - said when undoing, so nobody counts on it.</summary>
-    public void CannotUndo(string what) => _lost.Add(what);
+    public void CannotUndo(string what)
+    {
+        if (!_running) _lost.Add(what);
+    }
 
     /// <summary>
-    /// What was done so far stays, even when the operation is cancelled later: the steps added until now are forgotten -
-    /// e.g. a backup made before a change, which the change's own undo needs.
+    /// What was done so far stays, even when the operation is cancelled or fails later: the steps added until now are
+    /// forgotten - e.g. a backup made before a change, which the change's own undo needs, or a failed installation left
+    /// to look into.
     /// </summary>
     public void Keep()
     {
@@ -101,30 +112,40 @@ public sealed class OperationUndo
 
     /// <summary>
     /// Takes back everything added, the last first - each step said in <paramref name="reporter"/>, a failed one not
-    /// stopping the rest - then names what couldn't be. Not cancellable: it is what a cancel does. False when a step failed.
+    /// stopping the rest - then names what couldn't be. Not cancellable: it is what a cancel does. False when a step failed
+    /// or something couldn't be taken back.
     /// </summary>
     public async Task<bool> RunAsync(IProgressReporter reporter)
     {
         var allDone = true;
-        for (var i = _steps.Count - 1; i >= 0; i--)
+        _running = true;
+        try
         {
-            var (what, undo) = _steps[i];
-            Result result;
-            try { result = await undo(); }
-            catch (Exception ex) { result = Result.Fail(ex.Message); }
-            if (result.Success)
+            for (var i = _steps.Count - 1; i >= 0; i--)
             {
-                reporter.Success(what);
+                var (what, undo) = _steps[i];
+                Result result;
+                try { result = await undo(); }
+                catch (Exception ex) { result = Result.Fail(ex.Message); }
+                if (result.Success)
+                {
+                    reporter.Success(what);
+                }
+                else
+                {
+                    allDone = false;
+                    reporter.Fail($"{what}: {result.Error}");
+                }
             }
-            else
-            {
-                allDone = false;
-                reporter.Fail($"{what}: {result.Error}");
-            }
+            foreach (var lost in _lost) reporter.Warn($"Can't be put back: {lost}");
+            if (_lost.Count > 0) allDone = false;
         }
-        foreach (var lost in _lost) reporter.Warn($"Can't be put back: {lost}");
-        _steps.Clear();
-        _lost.Clear();
+        finally
+        {
+            _running = false;
+            _steps.Clear();
+            _lost.Clear();
+        }
         return allDone;
     }
 

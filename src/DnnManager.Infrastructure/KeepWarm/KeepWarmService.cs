@@ -268,6 +268,10 @@ public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKee
 
     // ─── What a site is ───────────────────────────────────────────────────
 
+    // Generations come from one counter for every site: a site removed and added again under its name never has a
+    // generation the old one had - an answer still on its way for the old one is told apart.
+    private int _generations;
+
     private sealed class Site(string name)
     {
         public string Name { get; } = name;
@@ -327,7 +331,7 @@ public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKee
 
     private Site GetOrAdd(string name)
     {
-        if (!_sites.TryGetValue(name, out var site)) _sites[name] = site = new Site(name);
+        if (!_sites.TryGetValue(name, out var site)) _sites[name] = site = new Site(name) { Generation = Interlocked.Increment(ref _generations) };
         return site;
     }
 
@@ -337,7 +341,7 @@ public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKee
 
     // Started, and its app pool not stopped: it can answer.
     private static bool Running(IisSiteRuntime site) =>
-        site.State == "Started" && site.AppPoolState is not ("Stopped" or "Stopping");
+        IisStates.IsStarted(site.State) && site.AppPoolState is not (IisStates.Stopped or IisStates.Stopping);
 
     private static void Rearm(Site site)
     {
@@ -387,7 +391,7 @@ public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKee
                 OnProject(changed.Project);
                 break;
             case ProjectRemoved removed:
-                if (_sites.Remove(removed.Name, out var gone)) gone.Generation++;
+                if (_sites.Remove(removed.Name, out var gone)) gone.Generation = Interlocked.Increment(ref _generations);
                 // Gone from IIS (removed or renamed there): a new site of the same name starts cold, so its record goes
                 // too - not when IIS itself isn't there (then every site reads as gone).
                 if (_records.TryRemove(removed.Name, out _) && _iisState is not IisServerState.NotInstalled)
@@ -411,7 +415,7 @@ public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKee
                 _iisState = runtime.State;
                 if (runtime.State != IisServerState.Running)
                 {
-                    foreach (var site in _sites.Values) site.Generation++;
+                    foreach (var site in _sites.Values) site.Generation = Interlocked.Increment(ref _generations);
                 }
                 else if (was is not null && was != IisServerState.Running)
                 {
@@ -441,7 +445,7 @@ public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKee
         if (wasRunning && !running)
         {
             // Stopped: what is on its way says nothing anymore; nothing is sent until it runs again.
-            site.Generation++;
+            site.Generation = Interlocked.Increment(ref _generations);
             site.ProbeWanted = site.WarmUpWanted = false;
         }
         else if (!wasRunning && running)
@@ -513,7 +517,7 @@ public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKee
         Save(record);
         var site = GetOrAdd(name);
         // Whatever is on its way was sent before.
-        site.Generation++;
+        site.Generation = Interlocked.Increment(ref _generations);
         site.WarmUpWanted = false;
         site.WasWarm = false;
         Recheck(site, rearm: true);
@@ -684,28 +688,8 @@ public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKee
             default: return "IIS is stopped";
         }
         var site = project.Site;
-        if (site.AppPoolState is "Stopped" or "Stopping") return "the site's app pool is stopped";
-        return site.State == "Started" ? null : "the site is stopped";
-    }
-
-    /// <summary>
-    /// Where a TCP connection reaches <paramref name="server"/> (as a connection string writes it): "localhost,1433",
-    /// "10.0.0.5" (1433), "tcp:sql,1444". Null for what isn't reached that way - a named instance (.\SQLEXPRESS),
-    /// LocalDB, a pipe.
-    /// </summary>
-    internal static (string Host, int Port)? SqlEndpoint(string? server)
-    {
-        if (string.IsNullOrWhiteSpace(server)) return null;
-        var s = server.Trim();
-        if (s.StartsWith("tcp:", StringComparison.OrdinalIgnoreCase)) s = s[4..];
-        if (s.Contains('\\') || s.StartsWith("np:", StringComparison.OrdinalIgnoreCase) || s.StartsWith("lpc:", StringComparison.OrdinalIgnoreCase) ||
-            s.StartsWith("(localdb)", StringComparison.OrdinalIgnoreCase)) return null;
-        var comma = s.IndexOf(',');
-        var host = (comma < 0 ? s : s[..comma]).Trim();
-        var port = 1433;
-        if (comma >= 0 && !int.TryParse(s[(comma + 1)..].Trim(), out port)) return null;
-        if (host is "." or "(local)") host = "127.0.0.1";
-        return host.Length == 0 ? null : (host, port);
+        if (site.AppPoolState is IisStates.Stopped or IisStates.Stopping) return "the site's app pool is stopped";
+        return IisStates.IsStarted(site.State) ? null : "the site is stopped";
     }
 
     private void Send(Site site, ProjectState project, KeepWarmRequestKind kind, bool cold, bool periodic, KeepWarmPlan plan,
@@ -716,7 +700,7 @@ public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKee
         var path = kind == KeepWarmRequestKind.WarmUp ? plan.WarmUpPath : plan.PingPath;
         // DNN can't start without its database: a warm-up waits for the SQL Server the site's web.config connects to
         // (when it is reached over TCP - host,port or a host on 1433).
-        (string, int)? sql = cold && project.DatabaseName is not null && !project.DatabaseIsFile ? SqlEndpoint(project.DatabaseServer) : null;
+        (string, int)? sql = cold && project.DatabaseName is not null && !project.DatabaseIsFile ? SqlServerAddress.Parse(project.DatabaseServer).TcpEndpoint : null;
         // Skipped while in use only when the next request still comes within the idle time-out.
         var checkInUse = periodic && !site.UserAsked && KeepWarmRules.MaySkipWhenInUse(site.Name, plan.Interval, plan.IdleTimeout);
         var request = new Request(site.Name, site.Generation, _pauseEpoch, kind, cold, target, path, sql, checkInUse, site.Baseline, site.Own);
@@ -776,16 +760,22 @@ public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKee
     /// <summary>Every site's request counter, read once for the sites whose request is due at about the same time.</summary>
     private IReadOnlyDictionary<string, long>? ReadCounters()
     {
-        lock (_countersLock)
-            if (_counters is not null && Now - _countersAt < Ms(CountersFreshFor)) return _counters.Count > 0 ? _counters : null;
-        var counters = _iis.GetRequestsServed();
-        lock (_countersLock)
+        // One read at a time: sites that fall due together wait for the first one's read, and use it.
+        lock (_countersRead)
         {
-            _counters = counters;
-            _countersAt = Now;
+            lock (_countersLock)
+                if (_counters is not null && Now - _countersAt < Ms(CountersFreshFor)) return _counters.Count > 0 ? _counters : null;
+            var counters = _iis.GetRequestsServed();
+            lock (_countersLock)
+            {
+                _counters = counters;
+                _countersAt = Now;
+            }
+            return counters.Count > 0 ? counters : null;
         }
-        return counters.Count > 0 ? counters : null;
     }
+
+    private readonly object _countersRead = new();
 
     // ─── Answers ──────────────────────────────────────────────────────────
 
@@ -949,7 +939,7 @@ public sealed class KeepWarmService(IServerStateFeed feed, IIisManager iis, IKee
         if (site.InUse) return new KeepWarmStatus(KeepWarmState.Warm, "Warm - the site is in use");
         if (site.LastOkLocal is not { } at) return new KeepWarmStatus(KeepWarmState.Warm, "Warm");
         var text = $"Warm - answered in {KeepWarmRules.Duration(site.LastElapsed)} at {at:HH:mm}";
-        return new KeepWarmStatus(KeepWarmState.Warm, site.LastNote is { } note ? $"{text} - {note}" : text, site.LastElapsed);
+        return new KeepWarmStatus(KeepWarmState.Warm, site.LastNote is { } note ? $"{text} - {note}" : text);
     }
 
     private void SetStatus(Site site, KeepWarmStatus status)

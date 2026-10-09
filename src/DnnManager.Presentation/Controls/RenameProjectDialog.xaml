@@ -8,7 +8,7 @@
     <StackPanel Margin="20">
         <TextBlock x:Name="Intro" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimary}" />
         <TextBlock Style="{StaticResource FieldLabel}" Text="New name" />
-        <TextBox x:Name="NameBox" TextChanged="NameBox_TextChanged" />
+        <TextBox AutomationProperties.Name="New name" x:Name="NameBox" TextChanged="NameBox_TextChanged" />
         <TextBlock x:Name="Problem" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
         <!-- Only for a project that has a host name, and one that has a database: the texts follow the typed name. -->
         <CheckBox x:Name="HostBox" IsChecked="True" Margin="0,12,0,0">

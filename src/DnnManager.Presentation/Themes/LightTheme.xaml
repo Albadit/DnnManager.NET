@@ -11,7 +11,7 @@
     <SolidColorBrush x:Key="CardBg"           Color="#F8F8F8" />  <!-- panel.background -->
     <SolidColorBrush x:Key="CardBorder"       Color="#E5E5E5" />  <!-- panel.border -->
     <SolidColorBrush x:Key="InputBg"          Color="#FFFFFF" />  <!-- input.background -->
-    <SolidColorBrush x:Key="InputBorder"      Color="#CECECE" />  <!-- input.border -->
+    <SolidColorBrush x:Key="InputBorder"      Color="#8A8A8A" />  <!-- input.border -->
     <SolidColorBrush x:Key="HoverBg"          Color="#F2F2F2" />  <!-- list.hoverBackground -->
     <SolidColorBrush x:Key="SelectionBg"      Color="#E8E8E8" />  <!-- list.activeSelectionBackground -->
     <SolidColorBrush x:Key="HeaderBg"         Color="#F8F8F8" />  <!-- sideBarSectionHeader.background -->
@@ -21,12 +21,16 @@
 
     <SolidColorBrush x:Key="TextPrimary"      Color="#3B3B3B" />  <!-- foreground -->
     <SolidColorBrush x:Key="TextMuted"        Color="#616161" />  <!-- tab.inactiveForeground -->
-    <SolidColorBrush x:Key="ErrorText"        Color="#F85149" />  <!-- errorForeground -->
-    <SolidColorBrush x:Key="SuccessText"      Color="#369432" />  <!-- ports.iconRunningProcessForeground -->
+    <SolidColorBrush x:Key="ErrorText"        Color="#B01011" />  <!-- errorForeground -->
+    <SolidColorBrush x:Key="SuccessText"      Color="#236B26" />  <!-- ports.iconRunningProcessForeground -->
     <!-- Keep warm's flame while a site is kept warm. -->
     <SolidColorBrush x:Key="KeepWarmFg"       Color="#D9480F" />
 
     <SolidColorBrush x:Key="Accent"           Color="#005FB8" />  <!-- button.background, focusBorder -->
+    <!-- The border of a field or check box under the mouse or with the focus: 3:1 against the field (WCAG 1.4.11). -->
+    <SolidColorBrush x:Key="FocusBorder"      Color="#005FB8" />  <!-- focusBorder -->
+    <!-- Text and marks on an accent fill: a primary button, a ticked check box, a switch that is on. -->
+    <SolidColorBrush x:Key="OnAccent"         Color="#FFFFFF" />
     <SolidColorBrush x:Key="AccentHover"      Color="#0258A8" />  <!-- button.hoverBackground -->
     <SolidColorBrush x:Key="DangerBrush"      Color="#C72E0F" />  <!-- statusBarItem.errorBackground -->
     <SolidColorBrush x:Key="DangerHoverBrush" Color="#A8270D" />
@@ -70,7 +74,7 @@
     <SolidColorBrush x:Key="LogFg"            Color="#3B3B3B" />  <!-- terminal.foreground -->
     <SolidColorBrush x:Key="LogMuted"         Color="#616161" />  <!-- tab.inactiveForeground -->
     <SolidColorBrush x:Key="LogFail"          Color="#CD3131" />  <!-- terminal.ansiRed -->
-    <SolidColorBrush x:Key="LogWarn"          Color="#BF8803" />  <!-- editorWarning.foreground -->
+    <SolidColorBrush x:Key="LogWarn"          Color="#855F00" />  <!-- editorWarning.foreground -->
     <SolidColorBrush x:Key="LogTrack"         Color="#E5E5E5" />  <!-- panel.border -->
     <!-- Output tab (Controls/PipelineView): the log, the stage icons and the status pills - its header and stage rail use
          the panel's Log* brushes. -->
@@ -81,13 +85,13 @@
     <SolidColorBrush x:Key="OutHeadingTime"     Color="#616161" />  <!-- tab.inactiveForeground -->
     <SolidColorBrush x:Key="OutTime"            Color="#616161" />  <!-- tab.inactiveForeground -->
     <SolidColorBrush x:Key="OutMuted"           Color="#616161" />  <!-- tab.inactiveForeground -->
-    <SolidColorBrush x:Key="OutDim"             Color="#8B949E" />  <!-- pickerGroup.foreground -->
-    <SolidColorBrush x:Key="OutSkippedIcon"     Color="#CECECE" />  <!-- input.border -->
+    <SolidColorBrush x:Key="OutDim"             Color="#6B6B6B" />  <!-- pickerGroup.foreground -->
+    <SolidColorBrush x:Key="OutSkippedIcon"     Color="#8A8A8A" />  <!-- input.border -->
     <SolidColorBrush x:Key="OutValue"           Color="#005FB8" />  <!-- textLink.foreground -->
     <SolidColorBrush x:Key="OutActive"          Color="#0063D3" />  <!-- editorInfo.foreground -->
-    <SolidColorBrush x:Key="OutSuccessText"     Color="#369432" />  <!-- ports.iconRunningProcessForeground -->
+    <SolidColorBrush x:Key="OutSuccessText"     Color="#236B26" />  <!-- ports.iconRunningProcessForeground -->
     <SolidColorBrush x:Key="OutOk"              Color="#369432" />  <!-- ports.iconRunningProcessForeground -->
-    <SolidColorBrush x:Key="OutWarn"            Color="#BF8803" />  <!-- editorWarning.foreground -->
+    <SolidColorBrush x:Key="OutWarn"            Color="#855F00" />  <!-- editorWarning.foreground -->
     <SolidColorBrush x:Key="OutWarnText"        Color="#855F00" />  <!-- list.warningForeground -->
     <SolidColorBrush x:Key="OutWarnRowBg"       Color="#F6F5D2" />  <!-- inputValidation.warningBackground -->
     <SolidColorBrush x:Key="OutError"           Color="#CD3131" />  <!-- terminal.ansiRed -->
@@ -99,7 +103,7 @@
     <SolidColorBrush x:Key="OutPillRunningBg"   Color="#D6ECF2" />  <!-- inputValidation.infoBackground -->
     <SolidColorBrush x:Key="OutPillRunningFg"   Color="#0063D3" />  <!-- editorInfo.foreground -->
     <SolidColorBrush x:Key="OutPillOkBg"        Color="#26369432" /> <!-- ports.iconRunningProcessForeground, faint -->
-    <SolidColorBrush x:Key="OutPillOkFg"        Color="#369432" />  <!-- ports.iconRunningProcessForeground -->
+    <SolidColorBrush x:Key="OutPillOkFg"        Color="#236B26" />  <!-- ports.iconRunningProcessForeground -->
     <SolidColorBrush x:Key="OutPillFailBg"      Color="#F2DEDE" />  <!-- inputValidation.errorBackground -->
     <SolidColorBrush x:Key="OutPillFailFg"      Color="#B01011" />  <!-- list.errorForeground -->
     <SolidColorBrush x:Key="OutPillNeutralBg"   Color="#E5E5E5" />  <!-- button.secondaryBackground -->

@@ -28,11 +28,11 @@
             <!-- Only for SQL Server: the container's server and the LocalDB instance are fixed. -->
             <StackPanel x:Name="DbServerPanel">
                 <TextBlock Style="{StaticResource FieldLabel}" Text="Server" />
-                <TextBox x:Name="DbServerBox" TextChanged="DbField_Changed" />
+                <TextBox AutomationProperties.Name="Server" x:Name="DbServerBox" TextChanged="DbField_Changed" />
             </StackPanel>
             <StackPanel x:Name="DbNamePanel" Grid.Column="2">
                 <TextBlock x:Name="DbNameLabel" Style="{StaticResource FieldLabel}" Text="Database name" />
-                <TextBox x:Name="DbNameBox" TextChanged="DbField_Changed" />
+                <TextBox AutomationProperties.Name="Database name" x:Name="DbNameBox" TextChanged="DbField_Changed" />
             </StackPanel>
             <StackPanel x:Name="DbAuthPanel" Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,10,0,0">
                 <RadioButton x:Name="DbWindowsAuth" GroupName="DbAuth" Content="Windows authentication" Margin="0,0,20,0" Checked="DbAuth_Checked" />
@@ -40,11 +40,11 @@
             </StackPanel>
             <StackPanel x:Name="DbUserPanel" Grid.Row="2">
                 <TextBlock Style="{StaticResource FieldLabel}" Text="Username" />
-                <TextBox x:Name="DbUserBox" TextChanged="DbField_Changed" />
+                <TextBox AutomationProperties.Name="Username" x:Name="DbUserBox" TextChanged="DbField_Changed" />
             </StackPanel>
             <StackPanel x:Name="DbPasswordPanel" Grid.Row="2" Grid.Column="2">
                 <TextBlock Style="{StaticResource FieldLabel}" Text="Password" />
-                <c:PasswordInput x:Name="DbPasswordBox" PasswordChanged="DbPassword_Changed" />
+                <c:PasswordInput AutomationProperties.Name="Password" x:Name="DbPasswordBox" PasswordChanged="DbPassword_Changed" />
             </StackPanel>
         </Grid>
         <TextBlock x:Name="DatabaseHint" Style="{StaticResource Hint}" />

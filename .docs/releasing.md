@@ -14,34 +14,35 @@ until 1.7.2 is tagged ([`DnnManager.csproj`](../DnnManager.csproj), target
 1. In [`CHANGELOG.md`](../CHANGELOG.md), turn **Unreleased** into
    `## vX.Y.Z` (with an *Upgrading* note when settings or behaviour change).
 2. Run the fast tests and the integration tests ([testing.md](testing.md)).
-3. Write the release notes as `docs/release-notes/vX.Y.Z.md` - the file's name is
+3. Write the release notes as `.docs/release-notes/vX.Y.Z.md` - the file's name is
    the release's tag and title. Every release uses the structure of
    [v1.6.0](release-notes/v1.6.0.md): a bold summary, *Highlights*, *Other changes*,
    *Upgrading*, *Tested*. With Claude Code, ask for "the release notes for X.Y.Z" -
    the `release-notes` skill (`.claude/skills/release-notes`) writes them from the
    changelog, the commits and the test results. By hand, start from the draft:
-   `.github\scripts\release-notes.ps1 -Version X.Y.Z -OutFile docs\release-notes\vX.Y.Z.md`.
+   `.github\scripts\release-notes.ps1 -Version X.Y.Z -OutFile .docs\release-notes\vX.Y.Z.md`.
    The notes are built into the exe (What's new after an update shows them), so
    they must be committed before the release is built.
 4. Commit and push, then run the task **release (GitHub)** (see
    [Release from VS Code](#release-from-vs-code)). The GitHub release gets
-   `DnnManager_Portable-X.Y.Z-x64.exe` and `DnnManager_Setup-X.Y.Z-x64.exe`, and every running DNN Manager
-   offers it with its **Update** button (see [The in-app update](#the-in-app-update)).
-   The tag it pushes is built and tested on GitHub too ([the build workflow](#the-build-workflow)),
-   which publishes nothing.
+   `DnnManager_Portable-X.Y.Z-x64.exe`, `DnnManager_Setup-X.Y.Z-x64.exe` and
+   `SHA256SUMS.txt`. The tag it pushes is built and tested on GitHub
+   ([the build workflow](#the-build-workflow)); the release stays a draft until
+   that has passed, and only then does every running DNN Manager offer it with
+   its **Update** button (see [The in-app update](#the-in-app-update)).
 
 ## Release from VS Code
 
 **Ctrl+Shift+B → release (GitHub)** (or **Terminal → Run Task…**) asks two
 questions in VS Code's picker, then runs
 [`.github/scripts/publish-release.ps1`](../.github/scripts/publish-release.ps1) in
-the terminal. The pickers are filled fresh each time - from `docs/release-notes`
+the terminal. The pickers are filled fresh each time - from `.docs/release-notes`
 and from GitHub - by the extension
 [Tasks Shell Input](https://marketplace.visualstudio.com/items?itemName=augustocdias.tasks-shell-input)
 (`augustocdias.tasks-shell-input`); VS Code offers to install it, as it's in
 `.vscode/extensions.json`.
 
-1. **Pick the release notes** from `docs/release-notes`. Files without a tag come
+1. **Pick the release notes** from `.docs/release-notes`. Files without a tag come
    first, marked *next release*; released ones are marked *already released*.
    `v1.7.0.md` makes the tag and the release title `v1.7.0` (`v1.7.0-rc.1.md`
    makes a pre-release).
@@ -51,20 +52,26 @@ and from GitHub - by the extension
    that release.
 4. In a temporary worktree of that commit - your working copy isn't touched - it
    runs the fast tests, then builds the portable exe and the installer with the
-   version stamped in.
-5. It checks both files report the version; they land in `publish\vX.Y.Z\`.
+   version stamped in (the installer with the pinned Inno Setup, `-PinnedInno`).
+5. It checks both files report the version and writes their SHA-256 into
+   `SHA256SUMS.txt`; they land in `publish\vX.Y.Z\`.
 6. **After you confirm**, it tags the commit, pushes the tag, creates the release as
-   a draft with the notes, uploads the two files, checks their sizes and
-   publishes it. Answer *N* and nothing is published - the files stay in
-   `publish\vX.Y.Z\`.
+   a draft with the notes (and the SHA-256 of both files under them), uploads the
+   files and checks each one's size and GitHub's own SHA-256 of it (its `digest`,
+   what every DNN Manager checks an update against) against the file here.
+7. It **waits for CI on the tag** (up to 90 minutes, asking every 30 seconds) and
+   publishes the release only once CI has passed. CI failing - or not finishing
+   in time - leaves the draft on GitHub, to look into. Answer *N* at step 6 and
+   nothing is published - the files stay in `publish\vX.Y.Z\`.
 
 It signs in to GitHub with the credential Git uses for this repository. Outside VS
 Code, `.github\scripts\publish-release.ps1` asks the same two questions in the
-terminal; `-NotesFile docs\release-notes\v1.7.0.md -Commit <hash>` answers them and
-`-SkipTests` skips the fast tests. A commit that isn't on GitHub yet is released
-only after you confirm.
+terminal; `-NotesFile .docs\release-notes\v1.7.0.md -Commit <hash>` answers them.
+`-SkipTests` (the fast tests) and `-SkipCi` (waiting for CI) are allowed for a
+pre-release (`vX.Y.Z-rc.1`) only: a release every DNN Manager is offered is
+tested. A commit that isn't on GitHub yet is released only after you confirm.
 
-The release's notes are `docs/release-notes/vX.Y.Z.md` as
+The release's notes are `.docs/release-notes/vX.Y.Z.md` as
 [`.github/scripts/release-notes.ps1`](../.github/scripts/release-notes.ps1) gives
 them to GitHub: its relative links pointed at the tag's files. Without that file it
 writes a draft in the same structure, from the version's `CHANGELOG.md` entry
@@ -93,21 +100,61 @@ its tag is made, **Ctrl+Shift+B → release: redo (GitHub)** runs
    **release (GitHub)** does - that makes the tag again.
 
 `-DryRun` shows the plan and changes nothing; `-Version 1.7.6 -Message "release: …"`
-answers the questions and `-SkipTests` is passed on to the build.
+answers the questions and `-SkipTests` is passed on to the build (a pre-release
+only).
 
 **Redo only a release nobody has installed yet.** DNN Manager updates only to a
 newer version: whoever installed the first build of that version is never offered
 the redone one. GitHub's release page shows the files' download counts; once others
 may have it, release the change as the next version instead.
 
+## A bad release
+
+A release that turns out broken once it is published - people may have updated to
+it already:
+
+1. **Stop new updates to it at once:** on GitHub, edit the release and tick *Set as
+   a pre-release*. DNN Manager and Setup offer only the latest release that isn't a
+   pre-release, so nobody else gets it; its files stay for those who have it.
+2. **Fix it as the next version** (`vX.Y.Z+1`) - a revert is enough - with the
+   changelog and release notes saying what was wrong and that it is fixed, and
+   release it as usual. Those who updated to the bad one are offered the fix;
+   nobody is offered an older version, so a redo of the bad tag doesn't reach them
+   ([Redo a release](#redo-a-release) is for a release nobody has installed).
+3. **A release that wasn't yours** (the GitHub credential or this PC
+   compromised): revoke the credential Git uses (GitHub → Settings → Applications
+   / Tokens), delete the release and its tag, and release a fixed version made
+   from a PC you trust; say what happened in its notes.
+
 ## The build workflow
 
-[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) ("CI") runs on every
-pushed tag `vX.Y.Z` (or `vX.Y.Z-suffix`) - the one **release (GitHub)** pushes -
-and by hand (**Actions → CI → Run workflow**). It restores, builds in Release (the version from the newest tag, as
-every local build) and runs the whole test suite. It publishes nothing. The
-integration tests are skipped (inconclusive) where the runner lacks IIS Express,
-LocalDB or Linux containers.
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) ("CI") runs on every push
+to `main`, on pull requests, on every pushed tag `vX.Y.Z` (or `vX.Y.Z-suffix`) -
+the one **release (GitHub)** pushes and waits for - and by hand (**Actions → CI →
+Run workflow**). It restores in locked mode (exactly the packages
+`packages.lock.json` names, with their hashes), builds in Release (the version from
+the newest tag, as every local build) and runs the whole test suite. It publishes
+nothing. The integration tests are skipped (inconclusive) where the runner lacks
+IIS Express, LocalDB or Linux containers.
+
+What makes a build the same each time:
+
+- **The .NET SDK** is the one [`global.json`](../global.json) names (newer patches
+  of it too) - CI installs it from there.
+- **The packages** are in `packages.lock.json` (the app's and the tests') - a
+  package change is a change to the lock file, in review. A restore that would
+  change them fails in CI, and in **release (GitHub)** before it tags anything:
+  its tests, portable exe and installer restore in locked mode too. After a
+  package change, update the lock files with
+  `dotnet restore tests/DnnManager.IntegrationTests --force-evaluate`. A build and
+  a single-file publish restore the same packages: `DnnManager.csproj` turns on
+  the single-file analyzer for every build, and with it the SDK's
+  `Microsoft.NET.ILLink.Tasks`, which a single-file publish adds otherwise.
+- **The actions** are pinned to commits, not tags that can move;
+  [Dependabot](../.github/dependabot.yml) proposes updates for them and the NuGet
+  packages each month, which CI builds and tests.
+- **Inno Setup** for a release is the pinned `Tools.InnoSetup` package, checked
+  against its SHA-512 ([Build the installer](#build-the-installer)).
 
 ## The in-app update
 
@@ -127,7 +174,9 @@ draft or a pre-release - a `vX.Y.Z-rc.1` tag isn't offered) - see
   either name.
 - **The version inside both files**: their *ProductVersion* must be the tag's version
   (`publish-release.ps1` checks it before publishing) - a download whose version differs is refused.
-- **GitHub's SHA-256** of each file (the asset's `digest`): checked when GitHub lists it.
+- **GitHub's SHA-256** of each file (the asset's `digest`): a file GitHub lists no
+  SHA-256 for isn't installed - by DNN Manager or by Setup. `publish-release.ps1`
+  checks GitHub's digest of every file it uploads.
 - **Silent Setup**: the update runs Setup with `/SILENT /SUPPRESSMSGBOXES /NORESTART
   /NOCANCEL /SP- /CURRENTUSER` (or `/ALLUSERS`) - `DnnManager.iss` must keep
   installing without questions that way, and keep its `AppId`.
@@ -156,17 +205,24 @@ draft or a pre-release - a `vX.Y.Z-rc.1` tag isn't offered) - see
   workspace saved), and waits up to 10 seconds for the mutex `DnnManager.NET.Running`
   to go. Still there (an older version, or no answer): Setup doesn't run elevated,
   so it ends the process with an elevated PowerShell (`runas` - one UAC prompt) -
-  only `DnnManager.exe` in the install folder, never the update helper in `%TEMP%` -
+  only `DnnManager.exe` in the install folder, never the update helper (`DnnManager-update.exe`) -
   and waits 5 more seconds. Only then does it ask the user to quit it and **Retry**.
 
-How it works: the running DNN Manager downloads and checks the file, notes the
-update (the `update` area of the `state` table in `Documents\DnnManager\dnnmanager.db` -
-where the user is, the workspace saves as DNN Manager closes), copies its own exe to
-`%TEMP%\DnnManager-update\<version>\helper-…\` and closes, starting that copy with
-`--apply-update plan.json`. The copy ([`UpdateHelper`](../src/DnnManager.Infrastructure/Updates/UpdateHelper.cs))
-waits for it to exit, runs Setup or swaps the portable exe (with a backup it puts
-back if anything fails), and starts DNN Manager again; the new version restores the
-workspace and checks it is the version the update meant to install.
+How it works: the running DNN Manager downloads and checks the file into
+`%ProgramData%\DnnManager\temp\update\<version>\` - a folder only administrators can
+change, as the helper runs from it with their rights ([security.md](security.md#updates)) -
+notes the update (the `update` area of the `state` table in
+`Documents\DnnManager\dnnmanager.db` - where the user is, the workspace saves as DNN
+Manager closes), copies its own exe to `helper-…\` there and closes, starting that
+copy with `--apply-update plan.json`. The copy
+([`UpdateHelper`](../src/DnnManager.Infrastructure/Updates/UpdateHelper.cs)) waits for it
+to exit, checks the downloaded file's size and SHA-256 again (the plan carries
+them) while holding it open, runs Setup or swaps the portable exe (with a backup it
+puts back if anything fails - an older backup left behind is deleted first), and
+starts DNN Manager again; the new version restores the workspace and checks it is
+the version the update meant to install. DNN Manager 1.8.0 and older used
+`%TEMP%\DnnManager-update\`; a newer one reads an older helper's plan there once, and
+cleans that folder up.
 The helper is the *old* version's code, so a release can change the helper only for
 the updates after it.
 
@@ -204,9 +260,12 @@ Publishes the app (self-contained, single file) into
 [`src/DnnManager.Installer/DnnManager.iss`](../src/DnnManager.Installer/DnnManager.iss) with Inno Setup
 into `publish\DnnManager_Setup-<version>-x64.exe`. The version
 is the newest version tag in git, as for every local build (see [Steps](#steps)). It uses an installed Inno Setup 6
-when there is one, otherwise it downloads a pinned copy (the `Tools.InnoSetup`
-package from nuget.org) into `src\DnnManager.Installer\bin\tools` - no admin
-rights needed. Everything made along the way (the published app, wizard images,
+when there is one, otherwise - and always with `-PinnedInno`, as a release does - a
+pinned copy (the `Tools.InnoSetup` package from nuget.org) in
+`src\DnnManager.Installer\bin\tools`, checked against the SHA-512 nuget.org lists for
+it (`$innoSha512` in `build.ps1`) each time it is used - no admin rights needed. To
+move to a newer Inno Setup, change `$innoVersion` and `$innoSha512` together (the
+hash is the `packageHash` of the version's entry in nuget.org's catalog). Everything made along the way (the published app, wizard images,
 Inno Setup) is in `src\DnnManager.Installer\bin`; the finished Setup is in
 `publish\`.
 `-SkipPublish` reuses the last publish; `-Iscc <path>` picks the compiler;

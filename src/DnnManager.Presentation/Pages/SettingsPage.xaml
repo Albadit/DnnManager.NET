@@ -99,7 +99,7 @@
 
             <!-- Search and the categories. -->
             <DockPanel>
-                <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="Search settings"
+                <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="Search settings" AutomationProperties.Name="Search settings"
                          Margin="0,0,0,20" TextChanged="Search_TextChanged" />
                 <TextBlock x:Name="NoMatch" DockPanel.Dock="Top" Style="{StaticResource Hint}" Text="No setting matches." Visibility="Collapsed" />
                 <ListBox x:Name="Categories" Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource CategoryItem}"
@@ -157,6 +157,9 @@
                             <TextBlock x:Name="StartAtSignInHint" Style="{StaticResource Hint}" Margin="22,2,0,0"
                                        Text="With its Administrator rights, without Windows asking for them at every sign-in (a scheduled task)." />
                             <CheckBox x:Name="KeepRunningWhenClosed" Content="Keep DNN Manager running when you close the window" Margin="0,12,0,0" />
+                            <CheckBox x:Name="CheckForUpdatesAtStart" Content="Look for a newer DNN Manager when it starts" Margin="0,12,0,0" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
+                                       Text="Asks GitHub once, a moment after the start - it is sent this PC's address and the name DnnManager, nothing else. Off, only Settings → About asks, when you click Check for updates." />
                             <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
                                        Text="Closing the window hides it: running operations go on and your sites are still followed and kept warm. The DNN Manager icon in the notification area (by the clock) opens it again - or right-click it to quit." />
 
@@ -164,11 +167,11 @@
                             <StackPanel Orientation="Horizontal">
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="UI scale" Margin="0,0,0,4" />
-                                    <ComboBox x:Name="UiScale" Width="160" SelectionChanged="Appearance_Changed" />
+                                    <ComboBox AutomationProperties.Name="UI scale" x:Name="UiScale" Width="160" SelectionChanged="Appearance_Changed" />
                                 </StackPanel>
                                 <StackPanel Margin="12,0,0,0">
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Font size" Margin="0,0,0,4" />
-                                    <ComboBox x:Name="AppFontSize" Width="160" SelectionChanged="Appearance_Changed" />
+                                    <ComboBox AutomationProperties.Name="Font size" x:Name="AppFontSize" Width="160" SelectionChanged="Appearance_Changed" />
                                 </StackPanel>
                             </StackPanel>
                             <TextBlock Style="{StaticResource Hint}"
@@ -184,16 +187,16 @@
                                        Text="Shells on the Terminal tab of the panel at the bottom of the window - opened with its + button. They run with Administrator rights, like DNN Manager." />
                             <StackPanel x:Name="TerminalOptions">
                                 <TextBlock Style="{StaticResource FieldLabel}" Text="Default shell" />
-                                <ComboBox x:Name="DefaultShell" Width="240" HorizontalAlignment="Left" SelectionChanged="Terminal_Changed" />
+                                <ComboBox AutomationProperties.Name="Default shell" x:Name="DefaultShell" Width="240" HorizontalAlignment="Left" SelectionChanged="Terminal_Changed" />
                                 <TextBlock Style="{StaticResource Hint}" Text="What + opens; the arrow next to it offers the other shells installed on this PC." />
                                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                     <StackPanel>
                                         <TextBlock Style="{StaticResource FieldLabel}" Text="Font family" />
-                                        <ComboBox x:Name="TerminalFont" Width="240" SelectionChanged="Terminal_Changed" />
+                                        <ComboBox AutomationProperties.Name="Font family" x:Name="TerminalFont" Width="240" SelectionChanged="Terminal_Changed" />
                                     </StackPanel>
                                     <StackPanel Margin="12,0,0,0">
                                         <TextBlock Style="{StaticResource FieldLabel}" Text="Font size" />
-                                        <ComboBox x:Name="TerminalFontSize" Width="90" SelectionChanged="Terminal_Changed" />
+                                        <ComboBox AutomationProperties.Name="Font size" x:Name="TerminalFontSize" Width="90" SelectionChanged="Terminal_Changed" />
                                     </StackPanel>
                                 </StackPanel>
                                 <TextBlock Style="{StaticResource Hint}" Text="Also the font of the Output and Logs tabs." />
@@ -206,7 +209,7 @@
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Projects folder" />
                             <DockPanel>
                                 <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="BrowseBaseDir_Click" ToolTip="Browse" />
-                                <TextBox x:Name="BaseDirectory" />
+                                <TextBox AutomationProperties.Name="Projects folder" x:Name="BaseDirectory" />
                             </DockPanel>
                             <TextBlock Style="{StaticResource Hint}" Text="Every project is a folder in here." />
 
@@ -219,11 +222,11 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Hostname suffix" Margin="0,0,0,4" />
-                                    <TextBox x:Name="HostnameSuffix" TextChanged="Preview_Changed" />
+                                    <TextBox AutomationProperties.Name="Hostname suffix" x:Name="HostnameSuffix" TextChanged="Preview_Changed" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Site port" Margin="0,0,0,4" />
-                                    <TextBox x:Name="SitePort" TextChanged="Preview_Changed" />
+                                    <TextBox AutomationProperties.Name="Site port" x:Name="SitePort" TextChanged="Preview_Changed" />
                                 </StackPanel>
                             </Grid>
                             <TextBlock x:Name="UrlPreview" Style="{StaticResource Hint}" />
@@ -248,27 +251,27 @@
                                 </Grid.RowDefinitions>
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Host username" />
-                                    <TextBox x:Name="HostUsername" />
+                                    <TextBox AutomationProperties.Name="Host username" x:Name="HostUsername" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Host password" />
-                                    <c:PasswordInput x:Name="HostPassword" />
+                                    <c:PasswordInput AutomationProperties.Name="Host password" x:Name="HostPassword" />
                                 </StackPanel>
                                 <StackPanel Grid.Row="1">
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Host e-mail" />
-                                    <TextBox x:Name="HostEmail" />
+                                    <TextBox AutomationProperties.Name="Host e-mail" x:Name="HostEmail" />
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Grid.Column="2">
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Website name" />
-                                    <TextBox x:Name="WebsiteName" />
+                                    <TextBox AutomationProperties.Name="Website name" x:Name="WebsiteName" />
                                 </StackPanel>
                                 <StackPanel Grid.Row="2">
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Language" />
-                                    <ComboBox x:Name="DnnLanguage" SelectionChanged="Defaults_Changed" />
+                                    <ComboBox AutomationProperties.Name="Language" x:Name="DnnLanguage" SelectionChanged="Defaults_Changed" />
                                 </StackPanel>
                                 <StackPanel Grid.Row="2" Grid.Column="2">
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Site template" />
-                                    <ComboBox x:Name="DnnTemplate" SelectionChanged="Defaults_Changed" />
+                                    <ComboBox AutomationProperties.Name="Site template" x:Name="DnnTemplate" SelectionChanged="Defaults_Changed" />
                                 </StackPanel>
                             </Grid>
                             <TextBlock x:Name="DnnDefaultsHint" Style="{StaticResource Hint}" />
@@ -286,15 +289,15 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Interval" />
-                                    <ComboBox x:Name="KeepWarmInterval" SelectionChanged="KeepWarm_Changed" />
+                                    <ComboBox AutomationProperties.Name="Interval" x:Name="KeepWarmInterval" SelectionChanged="KeepWarm_Changed" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Keep-alive page" />
-                                    <TextBox x:Name="KeepWarmPingPath" />
+                                    <TextBox AutomationProperties.Name="Keep-alive page" x:Name="KeepWarmPingPath" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="4">
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Warm-up page" />
-                                    <TextBox x:Name="KeepWarmWarmUpPath" />
+                                    <TextBox AutomationProperties.Name="Warm-up page" x:Name="KeepWarmWarmUpPath" />
                                 </StackPanel>
                             </Grid>
                             <TextBlock Style="{StaticResource Hint}"
@@ -304,7 +307,7 @@
                         <StackPanel x:Name="ReleasesPanel" Visibility="Collapsed">
                             <TextBlock Style="{StaticResource CategoryTitle}" Text="DNN releases" />
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Repositories" />
-                            <TextBox x:Name="ReleaseApis" AcceptsReturn="True" TextWrapping="NoWrap" MinHeight="90"
+                            <TextBox AutomationProperties.Name="Repositories" x:Name="ReleaseApis" AcceptsReturn="True" TextWrapping="NoWrap" MinHeight="90"
                                      VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" />
                             <TextBlock Style="{StaticResource Hint}" Text="GitHub releases API URLs, one per line - the repositories New project offers, with their versions." />
 
@@ -355,19 +358,19 @@
                                     </Grid.RowDefinitions>
                                     <StackPanel>
                                         <TextBlock Style="{StaticResource FieldLabel}" Text="Server host" Margin="0,0,0,4" />
-                                        <TextBox x:Name="ContainerIp" />
+                                        <TextBox AutomationProperties.Name="Server host" x:Name="ContainerIp" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="2">
                                         <TextBlock Style="{StaticResource FieldLabel}" Text="Port" Margin="0,0,0,4" />
-                                        <TextBox x:Name="DefaultPort" />
+                                        <TextBox AutomationProperties.Name="Port" x:Name="DefaultPort" />
                                     </StackPanel>
                                     <StackPanel Grid.Row="1">
                                         <TextBlock Style="{StaticResource FieldLabel}" Text="Username" Margin="0,0,0,4" />
-                                        <TextBox x:Name="ContainerUser" />
+                                        <TextBox AutomationProperties.Name="Username" x:Name="ContainerUser" />
                                     </StackPanel>
                                     <StackPanel Grid.Row="1" Grid.Column="2">
                                         <TextBlock Style="{StaticResource FieldLabel}" Text="Password" />
-                                        <c:PasswordInput x:Name="SaPassword" />
+                                        <c:PasswordInput AutomationProperties.Name="Password" x:Name="SaPassword" />
                                     </StackPanel>
                                 </Grid>
                                 <TextBlock Style="{StaticResource Hint}"
@@ -377,7 +380,7 @@
                             <StackPanel x:Name="ServerFields">
                                 <TextBlock x:Name="ServerGroupLabel" Style="{StaticResource GroupLabel}" Text="SQL Server" />
                                 <TextBlock x:Name="ServerLabel" Style="{StaticResource FieldLabel}" Text="Server" Margin="0,0,0,4" />
-                                <TextBox x:Name="ServerName" />
+                                <TextBox AutomationProperties.Name="Server" x:Name="ServerName" />
                                 <TextBlock x:Name="ServerHint" Style="{StaticResource Hint}" />
                                 <StackPanel x:Name="AuthFields">
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Authentication" />
@@ -393,11 +396,11 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock Style="{StaticResource FieldLabel}" Text="Username" />
-                                            <TextBox x:Name="ServerUserName" />
+                                            <TextBox AutomationProperties.Name="Username" x:Name="ServerUserName" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="2">
                                             <TextBlock Style="{StaticResource FieldLabel}" Text="Password" />
-                                            <c:PasswordInput x:Name="ServerPassword" />
+                                            <c:PasswordInput AutomationProperties.Name="Password" x:Name="ServerPassword" />
                                         </StackPanel>
                                     </Grid>
                                     <TextBlock x:Name="AuthHint" Style="{StaticResource Hint}" />
@@ -432,19 +435,19 @@
                                 </Grid.RowDefinitions>
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Container name" Margin="0,0,0,4" />
-                                    <TextBox x:Name="ContainerName" />
+                                    <TextBox AutomationProperties.Name="Container name" x:Name="ContainerName" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Volume name" Margin="0,0,0,4" />
-                                    <TextBox x:Name="VolumeName" />
+                                    <TextBox AutomationProperties.Name="Volume name" x:Name="VolumeName" />
                                 </StackPanel>
                                 <StackPanel Grid.Row="1">
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Edition (MSSQL_PID)" />
-                                    <TextBox x:Name="MssqlPid" />
+                                    <TextBox AutomationProperties.Name="Edition (MSSQL_PID)" x:Name="MssqlPid" />
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Grid.Column="2">
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Collation" />
-                                    <TextBox x:Name="Collation" />
+                                    <TextBox AutomationProperties.Name="Collation" x:Name="Collation" />
                                 </StackPanel>
                             </Grid>
 
@@ -457,7 +460,7 @@
                         <StackPanel x:Name="IisPanel" Visibility="Collapsed">
                             <TextBlock Style="{StaticResource CategoryTitle}" Text="IIS" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0"
-                                       Text="The Windows features DNN Manager needs - Test shows which are enabled, Set up IIS enables the missing ones, Edit… adds or removes features." />
+                                       Text="The Windows features DNN Manager needs - Test shows which are enabled, Set up IIS enables the missing ones, Edit… adds or removes features. These buttons act at once - nothing here waits for Save." />
                             <c:IisCard x:Name="IisCard" Margin="0,16,0,0" />
                         </StackPanel>
 

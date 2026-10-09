@@ -1,63 +1,42 @@
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Threading;
 using DnnManager.Application.Configuration;
-using DnnManager.Presentation.Pages.Projects;
 using DnnManager.Presentation.Services;
 
 namespace DnnManager.Presentation.Controls;
 
 /// <summary>
-/// The Output tab: the newest operation in the header strip and the stage rail - status, stages, summary - with the
-/// sites kept warm under its stages; the log of every operation on the right (<see cref="PipelineLog"/>).
+/// The Output tab: the newest operation in the header strip and the stage rail - status, stages, summary - and the log
+/// of every operation on the right (<see cref="PipelineLog"/>).
 /// </summary>
 public partial class PipelineView : UserControl
 {
     private ActivityLog _log = null!;
-    private AppOptions _options = null!;
     private OutputRun? _run;
-    private ListCollectionView? _warm;
-    // Ticks the running run's durations - only while one runs and the tab can be seen.
+    // Ticks the running run's durations - only while one runs and the tab can be seen; once a second, in whole seconds
+    // (a running stage's tenths would change the log's document ten times a second - and a UI Automation client
+    // listening hears every change).
     private readonly DispatcherTimer _clock;
 
     public PipelineView()
     {
         InitializeComponent();
-        _clock = new DispatcherTimer(TimeSpan.FromMilliseconds(100), DispatcherPriority.Background, (_, _) => Tick(), Dispatcher);
+        _clock = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Tick(), Dispatcher);
         _clock.Stop();
         IsVisibleChanged += (_, _) => UpdateClock();
     }
 
-    internal void Attach(ActivityLog log, ObservableCollection<ProjectRow> projects, AppOptions options)
+    internal void Attach(ActivityLog log, AppOptions options)
     {
         _log = log;
-        _options = options;
         Log.Attach(log, options.HostnameSuffix);
         log.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(ActivityLog.Latest)) Show(log.Latest);
         };
-
-        // The sites kept warm, as they go on and off.
-        _warm = new ListCollectionView(projects)
-        {
-            Filter = o => o is ProjectRow { KeepWarmOn: true },
-            IsLiveFiltering = true,
-            IsLiveSorting = true
-        };
-        _warm.LiveFilteringProperties.Add(nameof(ProjectRow.KeepWarmOn));
-        _warm.SortDescriptions.Add(new SortDescription(nameof(ProjectRow.Name), ListSortDirection.Ascending));
-        ((System.Collections.Specialized.INotifyCollectionChanged)_warm).CollectionChanged += (_, _) => UpdateBackground();
-        BackgroundList.ItemsSource = _warm;
-        options.Changed += () => Dispatcher.InvokeAsync(() =>
-        {
-            Log.SetHostSuffix(options.HostnameSuffix);
-            UpdateBackground();
-        });
-        UpdateBackground();
+        options.Changed += () => Dispatcher.InvokeAsync(() => Log.SetHostSuffix(options.HostnameSuffix));
         Show(log.Latest);
     }
 
@@ -82,7 +61,6 @@ public partial class PipelineView : UserControl
         Stages.ItemsSource = run?.Stages;
         Facts.ItemsSource = run?.Facts;
         StagesPart.Visibility = Summary.Visibility = run is null ? Visibility.Collapsed : Visibility.Visible;
-        UpdateBackground();
         Refresh();
     }
 
@@ -152,15 +130,5 @@ public partial class PipelineView : UserControl
     private void Stage_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is OutputStage stage) Log.ShowStage(stage);
-    }
-
-    // ─── Background ───────────────────────────────────────────────────────
-
-    private void UpdateBackground()
-    {
-        if (_warm is null) return;
-        BackgroundPart.Visibility = _warm.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        BackgroundPart.Margin = new Thickness(0, StagesPart.Visibility == Visibility.Visible ? 22 : 0, 0, 0);
-        BackgroundNote.Text = $"ping every {_options.KeepWarm.PingMinutes} min · re-warm after recycle";
     }
 }

@@ -10,6 +10,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<OperationUndo>();
         services.AddScoped<IisSiteProvisioner>();
         services.AddScoped<LocalSqlContainer>();
+        services.AddScoped<SiteDatabases>();
         services.AddScoped<SetupProjectUseCase>();
         services.AddScoped<HostExistingProjectUseCase>();
         services.AddScoped<ImportProjectUseCase>();

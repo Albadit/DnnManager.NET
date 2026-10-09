@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using DnnManager.Application.Abstractions;
@@ -52,6 +53,12 @@ public static class HostsFile
     {
         var name = host.Trim().TrimEnd('.').ToLowerInvariant();
         if (name.Length == 0 || name == "localhost" || Uri.CheckHostName(name) != UriHostNameType.Dns) return null;
+        // An international name (café.test) as Windows looks it up: in punycode (xn--caf-dma.test) - the file is ASCII.
+        if (!name.All(char.IsAscii))
+        {
+            try { name = new IdnMapping().GetAscii(name); }
+            catch (ArgumentException) { return null; }
+        }
         return name;
     }
 
@@ -72,8 +79,8 @@ public static class HostsFile
     {
         // Split on \n alone, each line keeping its \r: joined with \n again, the lines that stay are as they were.
         var lines = text.Split('\n').ToList();
-        var begin = lines.FindIndex(l => l.Trim().StartsWith(BeginPrefix, StringComparison.Ordinal));
-        var end = begin < 0 ? -1 : lines.FindIndex(begin + 1, l => l.Trim().StartsWith(EndPrefix, StringComparison.Ordinal));
+        var begin = lines.FindIndex(l => Content(l).StartsWith(BeginPrefix, StringComparison.Ordinal));
+        var end = begin < 0 ? -1 : lines.FindIndex(begin + 1, l => Content(l).StartsWith(EndPrefix, StringComparison.Ordinal));
         // A begin without an end (the end line deleted by hand): only the marker goes - lines after it may be the
         // user's, and the entries left are then the user's own lines.
         var blockLength = begin < 0 ? 0 : end < 0 ? 1 : end - begin + 1;
@@ -101,17 +108,33 @@ public static class HostsFile
         return head + string.Join('\n', block) + "\n";
     }
 
+    // A UTF-8 byte order mark as Latin-1 reads it: an editor that saved the file as "UTF-8 with BOM" put it before line 1.
+    private const string Bom = "ï»¿";
+
+    // A line without the spaces around it - and the first without its byte order mark.
+    private static string Content(string line)
+    {
+        var text = line.Trim();
+        return text.StartsWith(Bom, StringComparison.Ordinal) ? text[Bom.Length..].Trim() : text;
+    }
+
     // The names a hosts line maps: everything after the address, up to a comment.
     private static IEnumerable<string> NamesOn(string line)
     {
+        line = Content(line);
         var hash = line.IndexOf('#');
         var parts = (hash < 0 ? line : line[..hash]).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
         return parts.Skip(1).Select(n => n.TrimEnd('.'));
     }
 
+    /// <summary>The copy of the hosts file as it was before DNN Manager last changed it - beside it, as hosts.dnnmanager.bak.</summary>
+    public static string BackupPath(string path) => path + ".dnnmanager.bak";
+
     /// <summary>
     /// Puts <paramref name="entries"/> into the hosts file at <paramref name="path"/> (<see cref="WithEntries"/>), read and
-    /// written through one handle so no other writer comes in between. False when it already held them.
+    /// written through one handle so no other writer comes in between. What it held before is copied to
+    /// <see cref="BackupPath"/> first: a write cut off (a crash, the power) leaves the file to be put back from it. False
+    /// when it already held them.
     /// </summary>
     public static bool Write(string path, IReadOnlyList<HostsEntry> entries)
     {
@@ -121,6 +144,11 @@ public static class HostsFile
         var text = Bytes.GetString(bytes);
         var next = WithEntries(text, entries);
         if (next == text) return false;
+
+        // Written to a file of its own, then moved over the backup - never a half-written backup of a whole file.
+        var backup = BackupPath(path);
+        File.WriteAllBytes(backup + ".new", bytes);
+        File.Move(backup + ".new", backup, overwrite: true);
 
         var written = Bytes.GetBytes(next);
         file.Position = 0;

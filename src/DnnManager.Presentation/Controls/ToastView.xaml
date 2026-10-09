@@ -9,7 +9,7 @@
             <DropShadowEffect BlurRadius="18" ShadowDepth="3" Opacity="0.3" />
         </Border.Effect>
         <DockPanel>
-            <Button DockPanel.Dock="Right" ToolTip="Close" Click="Close_Click" VerticalAlignment="Center" Margin="6,0,0,0"
+            <Button AutomationProperties.Name="Close" DockPanel.Dock="Right" ToolTip="Close" Click="Close_Click" VerticalAlignment="Center" Margin="6,0,0,0"
                     Foreground="{DynamicResource TextMuted}" Cursor="Hand" Width="26" Height="26">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">

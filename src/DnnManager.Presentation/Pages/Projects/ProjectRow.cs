@@ -50,7 +50,7 @@ public sealed class ProjectRow : INotifyPropertyChanged
     private static readonly string[] StartedProperties = [nameof(LastStartedSort), nameof(LastStartedTip)];
     private static readonly string[] KeepWarmProperties =
     [
-        nameof(KeepWarm), nameof(KeepWarmOn), nameof(KeepWarmLook), nameof(KeepWarmBusy), nameof(KeepWarmText), nameof(KeepWarmAnswerText),
+        nameof(KeepWarm), nameof(KeepWarmOn), nameof(KeepWarmLook), nameof(KeepWarmBusy), nameof(KeepWarmText),
         nameof(KeepWarmTip), nameof(KeepWarmAction), nameof(CanToggleKeepWarm), nameof(Details)
     ];
 
@@ -117,7 +117,7 @@ public sealed class ProjectRow : INotifyPropertyChanged
     private IisSiteRuntime Site => _project.Site;
 
     // A started site whose app pool is stopped answers 503: for the user that is a stopped site (Start starts the pool).
-    private bool PoolStopped => Site is { State: "Started", AppPoolState: "Stopped" };
+    private bool PoolStopped => Site is { State: IisStates.Started, AppPoolState: IisStates.Stopped };
 
     public SiteRunState State
     {
@@ -129,13 +129,13 @@ public sealed class ProjectRow : INotifyPropertyChanged
             if (site.AppPoolState == "Stopping") return SiteRunState.Stopping;
             return site.State switch
             {
-                "Started" => site.AppPoolState switch
+                IisStates.Started => site.AppPoolState switch
                 {
-                    "Stopped" => SiteRunState.Stopped,
+                    IisStates.Stopped => SiteRunState.Stopped,
                     "Starting" => SiteRunState.Starting,
                     _ => SiteRunState.Running
                 },
-                "Stopped" => SiteRunState.Stopped,
+                IisStates.Stopped => SiteRunState.Stopped,
                 "Starting" => SiteRunState.Starting,
                 "Stopping" => SiteRunState.Stopping,
                 _ => SiteRunState.Unknown
@@ -246,10 +246,6 @@ public sealed class ProjectRow : INotifyPropertyChanged
     public bool KeepWarmBusy => KeepWarmLook == KeepWarmLook.Busy;
 
     public string KeepWarmText => _keepWarm.Text;
-
-    /// <summary>How long the site took to answer keep warm last: "12ms", "3.4s" - the Output tab's Background list.</summary>
-    public string KeepWarmAnswerText => _keepWarm.LastAnswer is not { } answer ? ""
-        : answer < TimeSpan.FromSeconds(1) ? $"{Math.Max(1, (int)Math.Round(answer.TotalMilliseconds))}ms" : OutputFormat.Short(answer);
 
     /// <summary>What switching it does: "Keep warm" or "Stop keeping warm".</summary>
     public string KeepWarmAction => KeepWarmOn ? "Stop keeping warm" : "Keep warm";

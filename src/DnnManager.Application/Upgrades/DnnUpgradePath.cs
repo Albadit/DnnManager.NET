@@ -114,11 +114,14 @@ public static class DnnUpgradePath
         var known = DnnUpgradeKnowledge.Steps.FirstOrDefault(s => to <= s.To && to > s.From)
                     ?? (to > Versions[^1] ? DnnUpgradeKnowledge.Steps[^1] : null);
         var method = to < OldestOnGitHub || from < Versions[0] ? DnnUpgradeMethod.Manual : MethodFor(from);
+        // Said of the version that is off the path - the site's own (a hotfix release such as 9.13.10) or the target.
         var note = to > Versions[^1]
             ? $"DNN {DnnUpgradeStep.Name(to)} is newer than the path's newest listed version ({DnnUpgradeStep.Name(Versions[^1])}) - check DNN's upgrade path for anything it needs."
             : from < Versions[0]
                 ? $"DNN {DnnUpgradeStep.Name(from)} is older than the path's oldest listed version ({DnnUpgradeStep.Name(Versions[0])}) - DNN Manager doesn't know how to upgrade it."
-                : $"Not one of the path's own steps: DNN {DnnUpgradeStep.Name(to)} lies between its listed versions.";
+                : !Versions.Contains(from)
+                    ? $"Not one of the path's own steps: the site's DNN {DnnUpgradeStep.Name(from)} lies between its listed versions."
+                    : $"Not one of the path's own steps: DNN {DnnUpgradeStep.Name(to)} lies between its listed versions.";
         return (known ?? new DnnUpgradeStep { From = from, To = to }) with
         {
             From = from, To = to, Method = method, Warnings = [note, .. known?.Warnings ?? []], Tested = []

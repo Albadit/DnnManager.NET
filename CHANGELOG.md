@@ -2,6 +2,108 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## v1.8.1
+
+### Upgrading
+
+- **Old installations keep their passwords.** A new installation makes up its own
+  `sa` password and has no default DNN host password; an existing one keeps what
+  it has - if that is still `Admin@123`, change it in **Settings → Database
+  server** and **Settings → Projects**.
+- **The projects folder is made private.** At its first start DNN Manager sets
+  the projects folder (`C:\DNN`) to SYSTEM, Administrators and you - every other
+  account on the PC loses access to it. Windows passes the change on to every
+  file in it, which can take a moment with many sites.
+- **Programs run with Administrator rights only from Program Files.** `docker`,
+  `dotnet`, `winget`, PowerShell 7 and Git Bash are used only when installed for
+  all users. SqlPackage is installed again, into `%ProgramData%\DnnManager\tools`,
+  the first time it is needed - a copy in `~\.dotnet\tools` isn't used.
+- **Sites made before keep signing in as `sa`**; new ones get a login of their own.
+
+### Fixed
+
+- **Import never touches the project it was exported from.** Importing a zip made
+  by Export on this PC under a new name restored into - or shared - the original
+  project's database, and moved its portal alias. The new project now always gets
+  a database of its own, and its `web.config` is pointed at it.
+- **No project replaces another folder's IIS site.** New project, Clone, Import
+  and Host project removed an IIS site of the same name serving another folder.
+  Such a name is refused - as you type, and before anything is made.
+- **A failed operation leaves nothing half made.** New project, Clone, Import and
+  Host project left their folder, site and database behind when they failed (an
+  offline download, an IIS error), so the same name couldn't be used again. What
+  they made is now taken away again, as after **Cancel** - only a failed DNN
+  installation is kept to look into.
+- **Quitting during an operation waits for it** to stop and put back what it did,
+  instead of cutting it off half way.
+- **An upgrade step that throws is rolled back** - before, an unexpected error
+  left the site half upgraded.
+- **Clone checks everything before copying a file**: the source's database (read
+  from the source's own `web.config`), the local SQL Server (not reachable: the
+  clone stops, rather than leaving a copy that uses the source's - possibly live -
+  database), and a database of the clone's name, which it now asks before
+  replacing. The copy goes in under a name of its own and replaces the old one only
+  once it is complete.
+- Clone from a SQL Server with Windows authentication, and from SQL Server
+  Express (no backup compression), works; a local server's backup goes to its own
+  backup folder.
+- **Remove** keeps a database another IIS site uses too, says when a database
+  couldn't be dropped, and offers to delete the project's backups.
+- **Restore backup** imports the database before it touches the site's files: a
+  failed import leaves the project as it was.
+- Portal aliases keep the site's port, and DNN's `objectQualifier` is respected
+  when clone, import and host fix the aliases and SSL.
+- A failed drop or restore no longer leaves the database in single-user mode;
+  rename and drop work on Azure SQL Database.
+- Editing bindings keeps each binding's IP address; stopping a site doesn't stop
+  an app pool another site's application uses; restart right after stop starts the
+  site; renaming a site only in capitals works; creating a site joins an app pool
+  of its name that other sites share.
+- The hosts file: its block is found after a byte order mark, international names
+  are written in punycode, a copy is kept as `hosts.dnnmanager.bak`, and it is
+  never written before IIS has been read.
+- The upgrade's local install never overwrites `web.config`, and its binding
+  redirects keep a `codeBase` and are set in whichever `assemblyBinding` they are.
+- DNN's release list reads every page, so the oldest versions are offered too.
+- Export for deployment finds `Web.config` with any capitals; a zip export doesn't
+  fail on a file older than 1980.
+- Sites sharing an app pool show their CPU; a SQL Server address without a port is
+  the container only when it publishes 1433.
+
+### Changed
+
+- **Security:** updates are staged in `%ProgramData%\DnnManager\temp` (only
+  administrators can change it) and checked again by the helper right before it
+  runs them; a release without GitHub's SHA-256 isn't installed. Editors open as
+  you, not as Administrator. A site's own app pool alone may change its folder.
+  `sqlcmd` runs with `-x -X`. See [security.md](.docs/security.md).
+- **Accessibility:** every field and icon button has a name for screen readers;
+  the Logs tab and the terminal are read as documents; toasts are announced;
+  light-theme error, success and warning text, field borders and the dark theme's
+  focus ring meet WCAG contrast; Windows Contrast themes are followed. **Ctrl+A**
+  ticks every row; the command palette can choose columns, sort the projects and
+  resize the sidebar and panel. **Create project** says what is still needed.
+- **Settings → General → Look for a newer DNN Manager when it starts** - off, only
+  About asks GitHub.
+- The Output tab no longer lists the sites kept warm under *Background* - the
+  Projects page shows them already.
+- **Troubleshoot → Clean up data → Deployment packages**; Export for deployment
+  says what its package holds.
+- A password put on the clipboard for SSMS stays out of Windows' clipboard
+  history and cloud clipboard, and is cleared after 60 seconds.
+- Faster: the Output tab updates once a second, project files are copied four at
+  a time, search has a time limit, a LocalDB database isn't asked every 10 seconds
+  (which kept LocalDB running), catching up a busy log after a pause reads only its
+  end, zips are made with fast compression.
+- Downloads that stop getting anything fail after a minute; Docker's checks after
+  30 seconds. The settings database's backup is renewed once a day; a day's log
+  file stops at 50 MB and old ones go when the day changes.
+- **Releases:** published only once CI has passed on the tag, with every file
+  checked against GitHub's SHA-256 and a `SHA256SUMS.txt`; CI runs on `main` and
+  pull requests too, with pinned actions, `global.json`, NuGet lock files and
+  Dependabot; the installer is compiled with a hash-checked Inno Setup. See
+  [releasing.md](.docs/releasing.md), which also has a runbook for a bad release.
+
 ## v1.8.0
 
 ### Added

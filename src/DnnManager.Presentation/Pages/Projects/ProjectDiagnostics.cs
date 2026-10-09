@@ -96,10 +96,10 @@ public static class ProjectDiagnostics
 
         var site = s.Iis;
         section.Add("IIS site", site is null ? s.Row.StateText : $"{site.State} - ID {site.Id}",
-            site?.State == "Started" ? Projects.Health.Ok : Projects.Health.Warning);
+            IisStates.IsStarted(site?.State) ? Projects.Health.Ok : Projects.Health.Warning);
         if (site is not null)
             section.Add("Application pool", site.Pool is { } pool ? $"{pool.Name} - {pool.State ?? "state unknown"}" : "not in IIS",
-                site.Pool is null ? Projects.Health.Bad : site.Pool.State == "Started" ? Projects.Health.Ok : Projects.Health.Warning);
+                site.Pool is null ? Projects.Health.Bad : IisStates.IsStarted(site.Pool.State) ? Projects.Health.Ok : Projects.Health.Warning);
 
         if (s.Database?.Dnn is { } dnn)
         {
@@ -136,7 +136,7 @@ public static class ProjectDiagnostics
         siteSection.Add("Name", site.Name);
         siteSection.Add("Site ID", site.Id.ToString(Culture), detail: $"Its IIS logs are in W3SVC{site.Id}.");
         siteSection.Add("Physical path", site.PhysicalPath, Directory.Exists(site.PhysicalPath) ? Projects.Health.None : Projects.Health.Bad);
-        siteSection.Add("State", site.State, site.State == "Started" ? Projects.Health.Ok : Projects.Health.Warning);
+        siteSection.Add("State", site.State, IisStates.IsStarted(site.State) ? Projects.Health.Ok : Projects.Health.Warning);
         siteSection.Add("Application pool", site.Pool?.Name ?? "not in IIS", site.Pool is null ? Projects.Health.Bad : Projects.Health.None);
         siteSection.Add("Configuration", site.ConfigPath);
         siteSection.Add("Auto-start", site.ServerAutoStart ? "on - starts with IIS" : "off - started by hand");
@@ -168,7 +168,7 @@ public static class ProjectDiagnostics
         {
             var poolSection = new InspectorSection("Application pool", "IIS");
             poolSection.Add("Name", pool.Name);
-            poolSection.Add("State", pool.State ?? "unknown", pool.State == "Started" ? Projects.Health.Ok : Projects.Health.Warning);
+            poolSection.Add("State", pool.State ?? "unknown", IisStates.IsStarted(pool.State) ? Projects.Health.Ok : Projects.Health.Warning);
             poolSection.Add(".NET CLR", pool.Runtime);
             poolSection.Add("Pipeline mode", pool.Pipeline, pool.Pipeline == "Classic" ? Projects.Health.Warning : Projects.Health.None,
                 pool.Pipeline == "Classic" ? "DNN runs in Integrated mode." : null);
@@ -543,7 +543,7 @@ public static class ProjectDiagnostics
             if (site.Pool is null) Add(Projects.Health.Bad, "IIS", "The site's application pool isn't in IIS.");
             else
             {
-                if (site.State == "Started" && site.Pool.State is { } state && state != "Started")
+                if (IisStates.IsStarted(site.State) && site.Pool.State is { } state && !IisStates.IsStarted(state))
                     Add(Projects.Health.Bad, "IIS", $"The site is started, but its application pool '{site.Pool.Name}' is {state}.");
                 if (site.Pool.Enable32Bit) Add(Projects.Health.Warning, "IIS", $"Application pool '{site.Pool.Name}' runs 32-bit worker processes (enable32BitAppOnWin64).");
                 if (site.Pool.Pipeline == "Classic") Add(Projects.Health.Warning, "IIS", $"Application pool '{site.Pool.Name}' uses the Classic pipeline - DNN runs in Integrated mode.");

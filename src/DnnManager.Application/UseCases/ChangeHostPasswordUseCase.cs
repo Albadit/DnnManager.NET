@@ -24,7 +24,7 @@ public sealed class ChangeHostPasswordUseCase(IIisManager iis, IDnnInstaller dnn
 
         reporter.Step($"Changing the password of host '{userName}'");
         var localFile = database.Kind == DatabaseKind.LocalDbFile;
-        var wasRunning = _iis.GetSiteStates().TryGetValue(siteName, out var state) && state.Equals("Started", StringComparison.OrdinalIgnoreCase);
+        var wasRunning = _iis.GetSiteStates().TryGetValue(siteName, out var state) && IisStates.IsStarted(state);
         if (localFile && wasRunning)
         {
             reporter.Info("Stopping the site for a moment - its database file can only be opened while the site doesn't use it…");

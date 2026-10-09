@@ -96,7 +96,21 @@ Where to look when something goes wrong:
   names, a table's prefix) quoted - `[` + name with `]` doubled + `]` - or
   checked first, like DNN's object qualifier (`Sql/DnnTables`).
 - **Processes**: through `ProcessRunner`, with `ArgumentList` - never a command
-  line built from strings, never a shell.
+  line built from strings, never a shell. `ProcessRunner` starts only a program
+  that nobody but administrators can change (`TrustedPrograms`) - DNN Manager runs
+  elevated; a program for the user (an editor) starts as the user
+  (`Unelevated.Start`), never with DNN Manager's rights. A quick question to a
+  program that can hang gets a `timeout`.
+- **Temporary files**: a file DNN Manager writes and later reads back or runs goes
+  into `PrivateTemp.Path` (`IPrivateTemp` in Application) - never `%TEMP%`, which
+  every program of the user's can change ([security.md](security.md#administrator-rights)).
+- **Failures**: a use case notes in `OperationUndo` how to take back each step
+  before it starts; the runner undoes it after a cancel *and* after a failure. To
+  leave what a failed run made (to look into), call `OperationUndo.Keep()` before
+  returning the failure ([ADR 0001](adr/0001-undo-on-failure.md)).
+- **A database another site may use**: before dropping, replacing or taking over a
+  database, ask `SiteDatabases.OtherSiteUsing`; a SQL Server address is read only
+  through `SqlServerAddress`.
 - **Secrets**: in the Windows Credential Manager or DPAPI-encrypted in the
   settings; never in a log line, a message, a command line written to disk, or
   the UI.

@@ -11,6 +11,8 @@ using DnnManager.Infrastructure.Sql;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 
+using static DnnManager.Infrastructure.Dnn.DnnLogFiles;
+
 namespace DnnManager.Infrastructure.Dnn;
 
 /// <summary>
@@ -427,12 +429,8 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
         }
 
         // A database script that ran cleanly leaves an empty log behind.
-        var scripts = Path.Combine(siteDirectory, "Providers", "DataProviders", "SqlDataProvider");
-        if (Directory.Exists(scripts))
-            foreach (var file in Directory.EnumerateFiles(scripts, "*.log.resources"))
-                if (File.GetLastWriteTimeUtc(file) >= installStartedUtc &&
-                    ReadShared(file).FirstOrDefault(l => l.Trim().Trim('\uFEFF').Length > 0) is { } first)
-                    problems.Add($"A DNN database script reported a problem: {Short(first)} (Providers\\DataProviders\\SqlDataProvider\\{Path.GetFileName(file)})");
+        foreach (var (file, first) in ScriptProblems(siteDirectory, installStartedUtc))
+            problems.Add($"A DNN database script reported a problem: {first} (Providers\\DataProviders\\SqlDataProvider\\{file})");
         return problems.Take(5);
     }
 
@@ -634,22 +632,6 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
         : location.IsAbsoluteUri ? location
         : new Uri(new Uri(site.Url), location);
 
-    private static IReadOnlyList<string> ReadShared(string file)
-    {
-        try
-        {
-            using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            using var reader = new StreamReader(stream, Encoding.UTF8);
-            var lines = new List<string>();
-            while (reader.ReadLine() is { } line) lines.Add(line);
-            return lines;
-        }
-        catch (IOException)
-        {
-            return [];
-        }
-    }
-
     /// <summary>
     /// The local time a DNN log line starts with: DNN 9 writes "2026-10-01 14:39:20,123 [MACHINE][Thread:12][ERROR] …",
     /// DNN 10 "2026-10-01 14:39:20.123+02:00 [MACHINE][D:2][T:28][ERROR] …" - the first 19 characters are the same.
@@ -668,8 +650,6 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
     private static bool StartsWith(string text, string prefix) => text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
 
     private static string After(string text, string prefix) => text[prefix.Length..].Trim().TrimStart(':').Trim();
-
-    private static string Short(string text) => text.Length > 200 ? text[..200] + "…" : text;
 
     private static string FirstLine(string text) => text.Split('\n')[0].Trim();
 

@@ -8,14 +8,14 @@
     <StackPanel Margin="20">
         <TextBlock x:Name="Intro" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimary}" />
         <TextBlock Style="{StaticResource FieldLabel}" Text="Live domain(s)" Margin="0,12,0,4" />
-        <TextBox x:Name="DomainsBox" TextChanged="Field_Changed" />
+        <TextBox AutomationProperties.Name="Live domain(s)" x:Name="DomainsBox" TextChanged="Field_Changed" />
         <TextBlock Style="{StaticResource Hint}"
                    Text="Comma- or space-separated host names, e.g. www.example.com, example.com - the first is the primary portal alias. Left empty, the portal aliases stay as they are." />
         <CheckBox x:Name="HttpsBox" Content="The live site uses HTTPS" IsChecked="True" Margin="0,14,0,0" />
         <TextBlock Style="{StaticResource Hint}"
                    Text="Switches DNN's SSL setting on, and turns the HTTPS redirect rules DNN Manager switched off back on." />
         <TextBlock Style="{StaticResource FieldLabel}" Text="Live database connection string (optional)" Margin="0,14,0,4" />
-        <TextBox x:Name="ConnectionBox" TextWrapping="Wrap" AcceptsReturn="False" MinHeight="44" MaxHeight="88"
+        <TextBox AutomationProperties.Name="Live database connection string (optional)" x:Name="ConnectionBox" TextWrapping="Wrap" AcceptsReturn="False" MinHeight="44" MaxHeight="88"
                  VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" />
         <TextBlock Style="{StaticResource Hint}" Text="Left empty, web.config gets a placeholder to fill in on the server." />
         <CheckBox x:Name="IncludeDatabaseBox" Content="Include the database (.bacpac)" Margin="0,14,0,0" />
@@ -24,7 +24,7 @@
         <TextBlock Style="{StaticResource FieldLabel}" Text="Folder" Margin="0,14,0,4" />
         <DockPanel>
             <Button DockPanel.Dock="Right" Content="Browse…" MinWidth="80" Margin="8,0,0,0" ToolTip="Browse…" Click="Browse_Click" />
-            <TextBox x:Name="FolderBox" TextChanged="Field_Changed" />
+            <TextBox AutomationProperties.Name="Folder" x:Name="FolderBox" TextChanged="Field_Changed" />
         </DockPanel>
         <TextBlock x:Name="FolderHint" Style="{StaticResource Hint}" />
         <TextBlock x:Name="Problem" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />

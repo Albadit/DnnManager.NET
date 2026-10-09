@@ -5,6 +5,7 @@ using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Application.UseCases;
 using DnnManager.Domain;
+using DnnManager.Infrastructure.Files;
 using DnnManager.Infrastructure.Hosts;
 using DnnManager.Infrastructure.KeepWarm;
 using DnnManager.Infrastructure.Monitoring;
@@ -42,6 +43,7 @@ public sealed class ServerStore
     private readonly ServerStateMonitor _monitor;
     private readonly KeepWarmService _keepWarm;
     private readonly HostsFileService _hosts;
+    private readonly ProjectsFolderGuard _projectsFolder;
     private readonly AppOptions _options;
     private readonly OperationRunner _runner;
     private readonly ActivityLog _log;
@@ -60,9 +62,10 @@ public sealed class ServerStore
     private string? _runtimePending;
 
     public ServerStore(ServerStateMonitor monitor, KeepWarmService keepWarm, HostsFileService hosts, OperationRunner runner,
-        ActivityLog log, IOptions<AppOptions> options, ILogger<ServerStore> logger)
+        ActivityLog log, IOptions<AppOptions> options, ILogger<ServerStore> logger, ProjectsFolderGuard projectsFolder)
     {
         _monitor = monitor; _keepWarm = keepWarm; _hosts = hosts; _runner = runner; _log = log; _logger = logger;
+        _projectsFolder = projectsFolder;
         _options = options.Value;
         _runner.PropertyChanged += OnRunnerChanged;
         // Other settings (the projects folder) change what the sites' folders are read as: the app's own doing.
@@ -127,6 +130,7 @@ public sealed class ServerStore
         // Before the monitor: they see the first snapshot of the sites too.
         _keepWarm.Start();
         _hosts.Start();
+        _projectsFolder.Start();
         _monitor.Start();
     }
 
