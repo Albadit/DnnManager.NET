@@ -99,6 +99,28 @@
             }
         },
         {
+            // The launcher (Native AOT) needs Visual Studio's C++ build tools; without them, a Setup without it - DNN Manager
+            // is then started as up to 1.8.1. Releases always have it (the release workflow builds them).
+            "label": "installer (DnnManager_Setup.exe, without the launcher)",
+            "type": "process",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/src/DnnManager.Installer/build.ps1",
+                "-NoLauncher"
+            ],
+            "group": "build",
+            "problemMatcher": "$msCompile",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            }
+        },
+        {
             // A portable exe one version below GitHub's newest release (1.6.0 -> 1.5.9), so its Update button installs
             // that release: publish\update-test\DnnManager_Portable-<version>-x64.exe. See .docs/releasing.md, The in-app update.
             "label": "publish (update test, one version below the release)",
@@ -120,8 +142,9 @@
             }
         },
         {
-            // Pick .docs/release-notes/vX.Y.Z.md (its name is the tag and the title) and a commit on GitHub; builds both
-            // exes for that commit and, after you confirm, tags it and publishes the GitHub release. See .docs/releasing.md.
+            // Pick .docs/release-notes/vX.Y.Z.md (its name is the tag and the title) and a commit on GitHub; runs the fast
+            // tests on that commit and, after you confirm, pushes the tag - GitHub's release workflow (.github/workflows/
+            // release.yml) builds both exes from it, attests and publishes the release. See .docs/releasing.md.
             // The two pickers are filled fresh each time by the extension Tasks Shell Input (augustocdias.tasks-shell-input).
             "label": "release (GitHub)",
             "type": "process",
@@ -147,9 +170,10 @@
             }
         },
         {
-            // Redo a release whose tag is made: folds your changes into the release commit (amend, push), deletes the
-            // tag and its GitHub release, and releases it again. Asks for the version (Enter = the newest tag) and the
-            // commit message in the terminal, shows the plan and asks before changing anything. See .docs/releasing.md.
+            // Redo a release whose tag is made but which isn't published (a published one is refused): folds your
+            // changes into the release commit (amend, push), deletes the tag and releases it again. Asks for the version
+            // (Enter = the newest tag) and the commit message in the terminal, shows the plan and asks before changing
+            // anything. See .docs/releasing.md.
             "label": "release: redo (GitHub)",
             "type": "process",
             "command": "powershell",

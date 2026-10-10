@@ -101,6 +101,15 @@ public partial class MainWindow
         AddForProject("project.restoreBackup", "Restore backup…", null, r => ProjectEdits.CanEdit(_services, r), PickBackup,
             "revert undo go back put back backup zip bacpac");
 
+        // ── IIS: the status bar's buttons, from the keyboard - each only while its button shows (IisStatus) ──
+        bool IisIs(Application.Abstractions.IisServerState state) => _store.RuntimePending is null && _store.Runtime == state && !_runner.IsBusy;
+        Add("iis.start", "Start IIS", "IIS", null, () => _ = _store.ControlIisAsync(Application.Abstractions.IisServerAction.Start),
+            () => IisIs(Application.Abstractions.IisServerState.Stopped), "web server w3svc service run");
+        Add("iis.stop", "Stop IIS", "IIS", null, () => _ = _store.ControlIisAsync(Application.Abstractions.IisServerAction.Stop),
+            () => IisIs(Application.Abstractions.IisServerState.Running), "web server w3svc service all websites");
+        Add("iis.restart", "Restart IIS", "IIS", null, () => _ = _store.ControlIisAsync(Application.Abstractions.IisServerAction.Restart),
+            () => IisIs(Application.Abstractions.IisServerState.Running), "web server w3svc service reset iisreset");
+
         // ── Pages ──
         Add("pages.projects", "Go to Projects", "Pages", "Ctrl+1", () => Go(NavProjects), keywords: "table sites");
         Add("pages.newProject", "New project", "Pages", "Ctrl+2", () => Go(NavSetup), keywords: "create setup install");
@@ -168,6 +177,11 @@ public partial class MainWindow
             OpenPanel();
             TerminalPanel.NewTerminal();
         }, keywords: "shell powershell", inTerminal: true);
+        Add("terminal.newAdmin", "New Administrator terminal", "Terminal", null, () =>
+        {
+            OpenPanel();
+            TerminalPanel.NewAdministratorTerminal();
+        }, keywords: "shell powershell elevated admin administrator rights", inTerminal: true);
     }
 
     // ─── Shortcuts ──────────────────────────────────────────────────────────

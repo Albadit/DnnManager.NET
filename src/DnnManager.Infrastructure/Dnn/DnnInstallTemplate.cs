@@ -3,6 +3,7 @@ using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 using DnnManager.Application.Abstractions;
+using DnnManager.Infrastructure.WebConfigs;
 
 namespace DnnManager.Infrastructure.Dnn;
 
@@ -27,7 +28,7 @@ public static class DnnInstallTemplate
         var shipped = Path.Combine(installDirectory, ShippedFileName);
         if (!File.Exists(shipped)) throw new FileNotFoundException("DNN's install template isn't in the package.", shipped);
 
-        var doc = XDocument.Load(shipped, LoadOptions.PreserveWhitespace);
+        var doc = SiteXml.Load(shipped, LoadOptions.PreserveWhitespace);
         var root = doc.Root ?? throw new InvalidDataException("DNN's install template is empty.");
         if (root.Name.LocalName != "dotnetnuke") throw new InvalidDataException($"DNN's install template starts with <{root.Name}>, not <dotnetnuke>.");
 
@@ -60,6 +61,10 @@ public static class DnnInstallTemplate
         SetChild(portal, "ischild", "false");
 
         var target = Path.Combine(installDirectory, FileName);
+        // The host password goes in it: never through a link or junction in the site (its app pool can make one) to a file
+        // elsewhere, nor into a file with other names (a hard link) - a file there is replaced, not written into.
+        DnnManager.Application.SafePath.EnsureNoLink(siteDirectory, target);
+        if (File.Exists(target)) File.Delete(target);
         var settings = new XmlWriterSettings { Encoding = new UTF8Encoding(false), OmitXmlDeclaration = doc.Declaration is null };
         using (var writer = XmlWriter.Create(target, settings)) doc.Save(writer);
         return target;

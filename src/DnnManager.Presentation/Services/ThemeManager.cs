@@ -130,6 +130,7 @@ public static class ThemeManager
             var name = key.ToLowerInvariant();
             palette[key] =
                 name is "onaccent" or "outbadgetext" ? SystemColors.HighlightTextBrush
+                : name == "linkfg" ? SystemColors.HotTrackBrush
                 : name.Contains("selection") || name.Contains("selected") || name.Contains("searchcurrent") || name.Contains("searchmatch") ||
                   name.StartsWith("accent") || name.StartsWith("danger") || name == "focusborder" ? SystemColors.HighlightBrush
                 : name.Contains("backdrop") ? new SolidColorBrush(Color.FromArgb(0x80, 0, 0, 0))

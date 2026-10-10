@@ -7,10 +7,18 @@ using Microsoft.Extensions.Options;
 
 namespace DnnManager.Presentation.Services;
 
-/// <param name="Key">What <c>terminal.defaultShell</c> in the settings stores: "powershell", "pwsh", "cmd" or "gitbash".</param>
+//// <param name="Key">What <c>terminal.defaultShell</c> in the settings stores: "powershell", "pwsh", "cmd" or "gitbash".</param>
 /// <param name="ExePath">The program, e.g. <c>C:\Program Files\Git\bin\bash.exe</c>.</param>
-/// <param name="Arguments">What it is started with, e.g. <c>--login -i</c>.</param>
-public sealed record TerminalShell(string Key, string Name, string ExePath, string Arguments = "")
+/// <param name="Arguments">What it is started with, e.g. <c>-NoProfile</c>.</param>
+/// <param name="AsAdministrator">
+/// Started with DNN Manager's administrator rights - otherwise as the signed-in user, without them (the default).
+/// </param>
+/// <param name="Refusal">
+/// Why it isn't offered as an Administrator terminal (others could change the program) - shown greyed with this; null
+/// when it can be started.
+/// </param>
+public sealed record TerminalShell(string Key, string Name, string ExePath, string Arguments = "", bool AsAdministrator = false,
+    string? Refusal = null)
 {
     public string CommandLine => Arguments.Length == 0 ? $"\"{ExePath}\"" : $"\"{ExePath}\" {Arguments}";
 }
@@ -32,7 +40,7 @@ public sealed class TerminalService
         "Source Code Pro", "Hack", "DejaVu Sans Mono"
     ];
 
-    private readonly Lazy<IReadOnlyList<TerminalShell>> _shells = new(FindShells);
+    private readonly Lazy<(IReadOnlyList<TerminalShell> User, IReadOnlyList<TerminalShell> Administrator)> _shells = new(FindShells);
     private readonly Lazy<IReadOnlyList<string>> _fonts = new(() =>
     {
         var installed = Fonts.SystemFontFamilies.Select(f => f.Source).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -61,12 +69,26 @@ public sealed class TerminalService
     /// <summary>A page asks for a site's logs - the window opens the panel on its Logs tab with that log (the newest when null).</summary>
     internal event Action<ProjectRow, SiteLogSource?>? LogsRequested;
 
-    /// <summary>The shells found on this PC - Command Prompt is always there.</summary>
-    public IReadOnlyList<TerminalShell> Shells => _shells.Value;
+    /// <summary>
+    /// The shells found on this PC, started as the signed-in user (without administrator rights) - Command Prompt is
+    /// always there. The user's own installs count (PowerShell 7 or Git for the user only, on their PATH).
+    /// </summary>
+    public IReadOnlyList<TerminalShell> Shells => _shells.Value.User;
+
+    /// <summary>
+    /// The shells for an Administrator terminal: each one found, those others could change greyed with
+    /// <see cref="TerminalShell.Refusal"/> - Command Prompt is always one that can be started.
+    /// </summary>
+    public IReadOnlyList<TerminalShell> AdministratorShells => _shells.Value.Administrator;
 
     /// <summary>The shell the settings name, or the first installed one when that one isn't (any more).</summary>
     public TerminalShell DefaultShell =>
         Shells.FirstOrDefault(s => s.Key.Equals(Settings.DefaultShell, StringComparison.OrdinalIgnoreCase)) ?? Shells[0];
+
+    /// <summary>The default shell for an Administrator terminal - the settings' one when it may be, otherwise Command Prompt.</summary>
+    public TerminalShell DefaultAdministratorShell =>
+        AdministratorShells.FirstOrDefault(s => s.Refusal is null && s.Key.Equals(Settings.DefaultShell, StringComparison.OrdinalIgnoreCase))
+        ?? AdministratorShells.First(s => s.Refusal is null);
 
     public IReadOnlyList<string> InstalledFonts => _fonts.Value;
 
@@ -82,36 +104,65 @@ public sealed class TerminalService
 
     internal void ShowLogs(ProjectRow site, SiteLogSource? source = null) => LogsRequested?.Invoke(site, source);
 
-    private static IReadOnlyList<TerminalShell> FindShells()
+    /// <remarks>
+    /// A terminal starts as the signed-in user - without DNN Manager's administrator rights: any shell they have, with
+    /// their profile and PATH. An Administrator terminal is asked for on its own; it runs with those rights, so only a
+    /// shell nobody else can change (one in the user's own folders, or on their PATH there, could be swapped by any
+    /// program of theirs) - and none of the scripts a shell runs as it starts from the user's own folders (a PowerShell
+    /// profile in Documents, cmd's AutoRun, ~/.bashrc), which any program of theirs could change too.
+    /// </remarks>
+    private static (IReadOnlyList<TerminalShell> User, IReadOnlyList<TerminalShell> Administrator) FindShells()
     {
-        var shells = new List<TerminalShell>();
+        var user = new List<TerminalShell>();
+        var administrator = new List<TerminalShell>();
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+
+        void Add(string key, string name, IEnumerable<string> userCandidates, IEnumerable<string> adminCandidates, string userArguments,
+            string adminArguments)
+        {
+            if (userCandidates.FirstOrDefault(File.Exists) is { } exe) user.Add(new(key, name, exe, userArguments));
+            // The first copy that may run as Administrator - or, when none may, the first found, greyed with why.
+            TerminalShell? refused = null;
+            foreach (var candidate in adminCandidates.Where(File.Exists))
+            {
+                var resolved = TrustedPrograms.Resolve(candidate);
+                if (resolved.Path is { } path)
+                {
+                    administrator.Add(new(key, name, path, adminArguments, AsAdministrator: true));
+                    return;
+                }
+                refused ??= new(key, name, candidate, adminArguments, AsAdministrator: true, Refusal: resolved.Problem(name));
+            }
+            if (refused is not null) administrator.Add(refused);
+        }
+
         var windowsPowerShell = Path.Combine(Environment.SystemDirectory, @"WindowsPowerShell\v1.0\powershell.exe");
-        if (File.Exists(windowsPowerShell)) shells.Add(new("powershell", "PowerShell", windowsPowerShell));
+        Add("powershell", "PowerShell", [windowsPowerShell], [windowsPowerShell], "", "-NoProfile");
 
-        // A terminal runs with DNN Manager's Administrator rights: only a shell nobody else can change (one in the user's
-        // own folders, or on their PATH there, could be swapped by any program of theirs).
-        var pwsh = OnPath("pwsh.exe") ?? FirstExisting(
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"PowerShell\7\pwsh.exe"));
-        if (pwsh is not null) shells.Add(new("pwsh", "PowerShell 7", pwsh));
+        var allUsersPwsh = Path.Combine(programFiles, @"PowerShell\7\pwsh.exe");
+        // As the user: theirs first (on their own PATH - a per-user or Store install), then the one for all users.
+        Add("pwsh", "PowerShell 7", OnUserPath("pwsh.exe").Append(allUsersPwsh),
+            // As Administrator: on the computer's PATH, then Program Files - only a copy administrators alone can change.
+            TrustedPrograms.OnMachinePath("pwsh.exe").Append(allUsersPwsh), "", "-NoProfile");
 
-        var cmd = Environment.GetEnvironmentVariable("ComSpec") is { Length: > 0 } comSpec && File.Exists(comSpec) && TrustedPrograms.MayRun(comSpec)
-            ? comSpec : Path.Combine(Environment.SystemDirectory, "cmd.exe");
-        shells.Add(new("cmd", "Command Prompt", cmd));
+        // Windows' own, whatever %ComSpec% says; /d as Administrator: no AutoRun command from the registry.
+        var cmd = Path.Combine(Environment.SystemDirectory, "cmd.exe");
+        Add("cmd", "Command Prompt", [cmd], [cmd], "", "/d");
 
-        // Git for Windows: for all users, the 32-bit one, or installed for this user only (when only administrators can change it).
-        var bash = FirstExisting(
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Git\bin\bash.exe"),
+        // Git for Windows: for all users, the 32-bit one, or installed for this user only.
+        string[] bash =
+        [
+            Path.Combine(programFiles, @"Git\bin\bash.exe"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Git\bin\bash.exe"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Programs\Git\bin\bash.exe"));
-        if (bash is not null) shells.Add(new("gitbash", "Git Bash", bash, "--login -i"));
-        return shells;
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Programs\Git\bin\bash.exe")
+        ];
+        Add("gitbash", "Git Bash", bash, bash, "--login -i", "--noprofile --norc -i");
+        return (user, administrator);
     }
 
-
-    private static string? FirstExisting(params string[] paths) => paths.FirstOrDefault(p => File.Exists(p) && TrustedPrograms.MayRun(p));
-
-    private static string? OnPath(string exe) => (Environment.GetEnvironmentVariable("PATH") ?? "")
+    // The user's PATH as this process has it (the computer's and theirs): for a shell that runs as them.
+    private static IEnumerable<string> OnUserPath(string exe) => (Environment.GetEnvironmentVariable("PATH") ?? "")
         .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-        .Select(folder => { try { return Path.Combine(folder, exe); } catch (ArgumentException) { return null; } })
-        .FirstOrDefault(path => path is not null && File.Exists(path) && TrustedPrograms.MayRun(path));
+        .Select(folder => { try { return Path.IsPathFullyQualified(folder) ? Path.Combine(folder, exe) : null; } catch (ArgumentException) { return null; } })
+        .OfType<string>();
 }

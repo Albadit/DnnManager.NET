@@ -18,7 +18,7 @@ public sealed class WebConfigService(ILogger<WebConfigService> log) : IWebConfig
             if (!File.Exists(webConfigPath))
                 return Result<SiteSqlConnection>.Fail($"web.config not found: {webConfigPath}");
 
-            var doc = XDocument.Load(webConfigPath, LoadOptions.PreserveWhitespace);
+            var doc = SiteXml.Load(webConfigPath, LoadOptions.PreserveWhitespace);
             var add = FindConnectionStringElement(doc, webConfigPath, out var sourcePath);
             if (add is null)
                 return Result<SiteSqlConnection>.Fail(
@@ -79,7 +79,7 @@ public sealed class WebConfigService(ILogger<WebConfigService> log) : IWebConfig
         {
             if (!File.Exists(webConfigPath))
                 return Result<DatabaseConnection>.Fail($"web.config not found: {webConfigPath}");
-            var doc = XDocument.Load(webConfigPath, LoadOptions.PreserveWhitespace);
+            var doc = SiteXml.Load(webConfigPath, LoadOptions.PreserveWhitespace);
             var add = FindConnectionStringElement(doc, webConfigPath, out var sourcePath);
             var raw = (string?)add?.Attribute("connectionString");
             if (string.IsNullOrWhiteSpace(raw))
@@ -102,7 +102,7 @@ public sealed class WebConfigService(ILogger<WebConfigService> log) : IWebConfig
             if (!File.Exists(webConfigPath))
                 return Result.Fail($"web.config not found: {webConfigPath}");
 
-            var doc = XDocument.Load(webConfigPath, LoadOptions.PreserveWhitespace);
+            var doc = SiteXml.Load(webConfigPath, LoadOptions.PreserveWhitespace);
 
             var (connAdd, connSourceFile, connDoc) = FindAndLoadSection(
                 doc, webConfigPath, "connectionStrings", "add", "name", "SiteSqlServer");
@@ -136,7 +136,7 @@ public sealed class WebConfigService(ILogger<WebConfigService> log) : IWebConfig
             if (!File.Exists(webConfigPath))
                 return Result.Fail($"web.config not found: {webConfigPath}");
 
-            var doc = XDocument.Load(webConfigPath, LoadOptions.PreserveWhitespace);
+            var doc = SiteXml.Load(webConfigPath, LoadOptions.PreserveWhitespace);
             var rewrites = doc.Descendants("system.webServer")
                               .Elements("rewrite")
                               .ToList();
@@ -164,7 +164,7 @@ public sealed class WebConfigService(ILogger<WebConfigService> log) : IWebConfig
         {
             if (!File.Exists(webConfigPath)) return Result<HttpsRedirectRules>.Ok(HttpsRedirectRules.None);
 
-            var doc = XDocument.Load(webConfigPath, LoadOptions.PreserveWhitespace);
+            var doc = SiteXml.Load(webConfigPath, LoadOptions.PreserveWhitespace);
             var redirects = doc.Descendants("system.webServer")
                 .Elements("rewrite").Elements("rules").Elements("rule")
                 .Where(IsHttpsRedirect)
@@ -201,7 +201,7 @@ public sealed class WebConfigService(ILogger<WebConfigService> log) : IWebConfig
         try
         {
             if (!File.Exists(webConfigPath)) return Result<IReadOnlyList<string>>.Ok([]);
-            var doc = XDocument.Load(webConfigPath, LoadOptions.PreserveWhitespace);
+            var doc = SiteXml.Load(webConfigPath, LoadOptions.PreserveWhitespace);
             var ours = doc.Descendants("system.webServer")
                 .Elements("rewrite").Elements("rules").Elements("rule")
                 .Where(r => IsHttpsRedirect(r) && IsDisabled(r) && HasDisabledComment(r))
@@ -232,7 +232,7 @@ public sealed class WebConfigService(ILogger<WebConfigService> log) : IWebConfig
     {
         try
         {
-            var doc = XDocument.Load(webConfigPath, LoadOptions.PreserveWhitespace);
+            var doc = SiteXml.Load(webConfigPath, LoadOptions.PreserveWhitespace);
             if (doc.Root?.Element("system.web")?.Element("compilation") is not { } compilation) return Result.Ok();
             compilation.SetAttributeValue("debug", debug ? "true" : "false");
             Save(doc, webConfigPath);
@@ -249,7 +249,7 @@ public sealed class WebConfigService(ILogger<WebConfigService> log) : IWebConfig
     {
         try
         {
-            var doc = XDocument.Load(webConfigPath);
+            var doc = SiteXml.Load(webConfigPath);
             var web = doc.Root?.Element("system.web");
             var debug = (string?)web?.Element("compilation")?.Attribute("debug");
             var framework = (string?)web?.Element("httpRuntime")?.Attribute("targetFramework")
@@ -333,12 +333,12 @@ public sealed class WebConfigService(ILogger<WebConfigService> log) : IWebConfig
         {
             var dir = Path.GetDirectoryName(webConfigPath) ?? string.Empty;
             var external = Path.GetFullPath(Path.Combine(dir, configSource));
-            // ASP.NET only takes a file in the site's own folder (or below) - nothing else is read or written.
-            var inSite = external.StartsWith(Path.GetFullPath(dir).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar,
-                StringComparison.OrdinalIgnoreCase);
+            // ASP.NET only takes a file in the site's own folder (or below) - nothing else is read or written, nor through a
+            // link or junction (the site's app pool can make one).
+            var inSite = DnnManager.Application.SafePath.IsInside(external, dir) && !DnnManager.Application.SafePath.HasLink(dir, external);
             if (!inSite || !File.Exists(external)) return (null, external, null);
 
-            var extDoc = XDocument.Load(external, LoadOptions.PreserveWhitespace);
+            var extDoc = SiteXml.Load(external, LoadOptions.PreserveWhitespace);
             var extRoot = extDoc.Root;
             if (extRoot is null) return (null, external, extDoc);
 

@@ -159,7 +159,11 @@ public sealed class AppUpdateTests
     {
         var mine = UpdateHelper.SetupArguments(false, @"C:\t\setup.log");
         CollectionAssert.IsSubsetOf(new[] { "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CURRENTUSER", @"/LOG=C:\t\setup.log" }, mine.ToList());
-        CollectionAssert.Contains(UpdateHelper.SetupArguments(true, "x").ToList(), "/ALLUSERS");
+        // Setup installs for all users by default: an installation for this user only must say so, or it gets a second one.
+        CollectionAssert.DoesNotContain(mine.ToList(), "/ALLUSERS");
+        var everyone = UpdateHelper.SetupArguments(true, "x").ToList();
+        CollectionAssert.Contains(everyone, "/ALLUSERS");
+        CollectionAssert.DoesNotContain(everyone, "/CURRENTUSER");
     }
 
     // ─── The helper ───────────────────────────────────────────────────────
@@ -311,7 +315,7 @@ public sealed class AppUpdateTests
     /// <summary>
     /// GitHub's newest DNN Manager release, downloaded and checked like the Update button does, and installed by the
     /// helper over a stand-in for the old portable exe - which then is that release. (The helper isn't let start it:
-    /// DNN Manager would ask for Administrator rights.)
+    /// DNN Manager would ask for administrator rights.)
     /// </summary>
     [TestMethod]
     [TestCategory("Integration")]

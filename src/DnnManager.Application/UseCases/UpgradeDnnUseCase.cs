@@ -1,7 +1,9 @@
 using System.Text;
 using DnnManager.Application.Abstractions;
+using DnnManager.Application.Configuration;
 using DnnManager.Application.Upgrades;
 using DnnManager.Domain;
+using Microsoft.Extensions.Options;
 
 namespace DnnManager.Application.UseCases;
 
@@ -53,7 +55,9 @@ public sealed class UpgradeDnnUseCase(
     IProjectRecords records,
     ExportProjectUseCase export,
     RestoreBackupUseCase restore,
-    OperationUndo undo)
+    OperationUndo undo,
+    IUserPrompt prompt,
+    IOptions<AppOptions> options)
 {
     private readonly IIisManager _iis = iis;
     private readonly IProjectRepository _projects = projects;
@@ -67,13 +71,43 @@ public sealed class UpgradeDnnUseCase(
     private readonly ExportProjectUseCase _export = export;
     private readonly RestoreBackupUseCase _restore = restore;
     private readonly OperationUndo _undo = undo;
+    private readonly IUserPrompt _prompt = prompt;
+    private readonly AppOptions _options = options.Value;
+
+    // How long putting a step's backup back may take as an undo step - a whole site and its database (a BACPAC import).
+    private static readonly TimeSpan RestoreLimit = TimeSpan.FromMinutes(20);
 
     /// <summary>What the analyser makes of the site - the plan, before anything changes. The dialog shows it.</summary>
     public async Task<Result<DnnUpgradePlan>> PlanAsync(string siteName, string directory, Version target, CancellationToken ct)
     {
         var project = _projects.Build(siteName, directory);
-        var facts = await _inspector.InspectAsync(siteName, directory, _sql.DatabaseOf(project), ct);
+        var database = _sql.DatabaseOf(project);
+        if (await SignInRefusedAsync(database, "Analysing the site for the upgrade", ct) is { } refused) return Result<DnnUpgradePlan>.Fail(refused);
+        var facts = await _inspector.InspectAsync(siteName, directory, database, ct);
         return Result<DnnUpgradePlan>.Ok(DnnUpgradeAnalyser.Plan(facts, target));
+    }
+
+    // Servers the user agreed to sign in to (see below).
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool> AgreedServers = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Null when DNN Manager may sign in to <paramref name="database"/> - the one the site's web.config names - else why
+    /// it doesn't. With Windows authentication to a server that isn't on this PC and isn't the one in Settings → Database
+    /// server, the user is asked first: the site's app pool can change web.config, and that server would get their sign-in.
+    /// </summary>
+    private async Task<string?> SignInRefusedAsync(DatabaseConnection? database, string why, CancellationToken ct)
+    {
+        if (database is not { Kind: not DatabaseKind.LocalDbFile, Authentication: SqlAuthentication.Windows } ||
+            SqlServerAddress.MaySignInAsUser(database.Server, _options.DatabaseServer) || AgreedServers.ContainsKey(database.Server))
+            return null;
+        // A yes holds until DNN Manager closes: the upgrade dialog plans again at every version picked.
+        if (await _prompt.ConfirmAsync(SqlServerAddress.SignInQuestion(database.Server, why),
+                                       $"Sign in to {database.Server}", "Don't sign in", false, ct))
+        {
+            AgreedServers[database.Server] = true;
+            return null;
+        }
+        return $"Not signed in to {database.Server} with your Windows account - the upgrade reads and backs up its database there. Nothing was changed.";
     }
 
     public async Task<Result> ExecuteAsync(UpgradeDnnRequest req, IProgressReporter reporter, CancellationToken ct)
@@ -83,6 +117,7 @@ public sealed class UpgradeDnnUseCase(
         var project = _projects.Build(req.SiteName, req.Directory);
         if (_iis.GetSiteDetails(req.SiteName) is not { } site) return Result.Fail($"IIS has no site named '{req.SiteName}'.");
         var database = _sql.DatabaseOf(project);
+        if (await SignInRefusedAsync(database, "Upgrading DNN", ct) is { } refused) return Result.Fail(refused);
         var facts = await _inspector.InspectAsync(req.SiteName, req.Directory, database, ct);
         var plan = DnnUpgradeAnalyser.Plan(facts, target);
         reporter.Plan(["Analyse", .. plan.Steps.Select(s => DnnUpgradeStep.Name(s.Step.To))]);
@@ -151,7 +186,9 @@ public sealed class UpgradeDnnUseCase(
         {
             SiteName = req.SiteName, Directory = req.Directory,
             SiteZip = Path.Combine(folder, ProjectBackups.SiteZipName(project)),
-            Database = Path.Combine(folder, ProjectBackups.DatabaseName(project, ".bacpac"))
+            Database = Path.Combine(folder, ProjectBackups.DatabaseName(project, ".bacpac")),
+            // Asked before the upgrade started (SignInRefusedAsync): putting the backup back doesn't ask again.
+            SignInAgreed = true
         };
         var backedUp = await _export.ExecuteAsync(new ExportProjectRequest
         {
@@ -166,12 +203,13 @@ public sealed class UpgradeDnnUseCase(
 
         // From here on the site changes: a failure or a cancel puts this backup back - and a site that was stopped stays so.
         var wasRunning = IisStates.IsStarted(site.State);
-        _undo.Add($"Put '{req.SiteName}' back as DNN {Short(step.From)} (the step's backup)", async () =>
+        // A whole site and its database put back: it has longer than an ordinary undo step.
+        _undo.Add($"Put '{req.SiteName}' back as DNN {Short(step.From)} (the step's backup)", async _ =>
         {
             var restored = await _restore.ExecuteAsync(backup, reporter, CancellationToken.None);
             if (!wasRunning) _iis.StopSite(req.SiteName);
             return restored;
-        });
+        }, RestoreLimit);
         var startedUtc = DateTime.UtcNow;
         try
         {

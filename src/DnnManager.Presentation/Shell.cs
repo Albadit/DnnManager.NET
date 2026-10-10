@@ -1,13 +1,13 @@
 using System.ComponentModel;
-using System.Diagnostics;
+using DnnManager.Infrastructure.Processes;
 using DnnManager.Presentation.Services;
 
 namespace DnnManager.Presentation;
 
 /// <summary>
 /// Opens what the user asked for the way Windows does - an address in the browser, a folder in Explorer, a file in its
-/// program. Handed to Explorer, which runs as the signed-in user: the browser (or editor) doesn't start with DNN
-/// Manager's Administrator rights, and a page it opens can't use them.
+/// program. Handed to Explorer (<see cref="ElevatedStart.Explorer"/>), which runs as the signed-in user: the browser (or
+/// editor) doesn't start with DNN Manager's administrator rights, and a page it opens can't use them.
 /// </summary>
 internal static class Shell
 {
@@ -16,7 +16,7 @@ internal static class Shell
     {
         try
         {
-            using var _ = Process.Start(new ProcessStartInfo("explorer.exe") { ArgumentList = { target }, UseShellExecute = false });
+            ElevatedStart.Explorer(target);
         }
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException)
         {

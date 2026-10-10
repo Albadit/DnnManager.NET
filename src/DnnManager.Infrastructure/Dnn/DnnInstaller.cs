@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Net;
 using System.Reflection;
 using System.Security;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
@@ -10,6 +12,7 @@ using DnnManager.Domain;
 using DnnManager.Infrastructure.Sql;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using DnnManager.Infrastructure.WebConfigs;
 
 using static DnnManager.Infrastructure.Dnn.DnnLogFiles;
 
@@ -90,7 +93,8 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
         try
         {
             // Written right before the request: while DNN isn't installed its installer asks nobody for a password.
-            DnnInstallTemplate.Write(site.Directory, account, site.Alias);
+            var template = DnnInstallTemplate.Write(site.Directory, account, site.Alias);
+            KeepToOwnAppPool(template, site.Directory);
             return await RunAsync(site, "/Install/Install.aspx?mode=install", "installation", output => output.Outcome(),
                 CountPackages(site.Directory), secrets, reporter, ct);
         }
@@ -527,7 +531,7 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
         public static Membership? Read(string webConfig)
         {
             if (!File.Exists(webConfig)) return null;
-            var membership = XDocument.Load(webConfig).Root?.Element("system.web")?.Element("membership");
+            var membership = SiteXml.Load(webConfig).Root?.Element("system.web")?.Element("membership");
             if (membership is null) return null;
             var name = (string?)membership.Attribute("defaultProvider");
             var provider = membership.Element("providers")?.Elements("add")
@@ -586,7 +590,7 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
     {
         var settings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (!File.Exists(webConfig)) return settings;
-        foreach (var add in XDocument.Load(webConfig).Root?.Element("appSettings")?.Elements("add") ?? [])
+        foreach (var add in SiteXml.Load(webConfig).Root?.Element("appSettings")?.Elements("add") ?? [])
             if ((string?)add.Attribute("key") is { } key) settings[key] = (string?)add.Attribute("value") ?? "";
         return settings;
     }
@@ -639,6 +643,51 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
     internal static DateTime? LogTime(string line) =>
         line.Length >= 19 && DateTime.TryParseExact(line[..19], "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture,
             DateTimeStyles.AssumeLocal, out var at) ? at : null;
+
+    /// <summary>
+    /// The install template holds the host password in plain text while DNN installs. The site's folder lets IIS_IUSRS
+    /// read it - every app pool on this computer, any other site's included: the template gets the rights of
+    /// administrators, SYSTEM and this site's own app pool only (the one IIS AppPool account that may change the site's
+    /// folder). A site run as another account keeps the folder's rights - its installer must read the template.
+    /// </summary>
+    private void KeepToOwnAppPool(string template, string siteDirectory)
+    {
+        try
+        {
+            var poolAccount = new SecurityIdentifier("S-1-5-82");
+            var own = new DirectoryInfo(siteDirectory).GetAccessControl()
+                .GetAccessRules(includeExplicit: true, includeInherited: false, typeof(SecurityIdentifier))
+                .Cast<FileSystemAccessRule>()
+                .Where(r => r.AccessControlType == AccessControlType.Allow &&
+                            (r.FileSystemRights & FileSystemRights.Modify) == FileSystemRights.Modify &&
+                            ((SecurityIdentifier)r.IdentityReference).Value.StartsWith(poolAccount.Value + "-", StringComparison.Ordinal))
+                .Select(r => (SecurityIdentifier)r.IdentityReference)
+                .Distinct()
+                .ToList();
+            if (own.Count != 1) return;
+            // Rights set on a link, or on a file with other names, would be set on another file: not done then.
+            if (DnnManager.Application.SafePath.HasLink(siteDirectory, template) || DnnManager.Application.SafePath.IsHardLinked(template))
+            {
+                _log.LogWarning("The install template {Template} is a link, reached through one, or has other names - its rights are left as they are", template);
+                return;
+            }
+            var security = new FileSecurity();
+            security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+            foreach (var sid in new[]
+                     {
+                         new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+                         new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
+                         own[0]
+                     })
+                security.AddAccessRule(new FileSystemAccessRule(sid,
+                    FileSystemRights.FullControl, AccessControlType.Allow));
+            new FileInfo(template).SetAccessControl(security);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            _log.LogWarning(ex, "Could not keep the install template {Template} to the site's own app pool", template);
+        }
+    }
 
     private static void TryDelete(string file)
     {

@@ -1,6 +1,7 @@
 <Window x:Class="DnnManager.Presentation.Controls.RenameProjectDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:DnnManager.Presentation.Controls"
         Title="Rename project" Icon="pack://application:,,,/DnnManager;component/src/DnnManager.Presentation/Assets/dnn.ico" Width="460" SizeToContent="Height"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
         Background="{DynamicResource WindowBg}" Foreground="{DynamicResource TextPrimary}">
@@ -9,7 +10,7 @@
         <TextBlock x:Name="Intro" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimary}" />
         <TextBlock Style="{StaticResource FieldLabel}" Text="New name" />
         <TextBox AutomationProperties.Name="New name" x:Name="NameBox" TextChanged="NameBox_TextChanged" />
-        <TextBlock x:Name="Problem" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
+        <TextBlock x:Name="Problem" Style="{StaticResource ErrorLine}" c:FieldError.For="{Binding ElementName=NameBox}" Visibility="Collapsed" />
         <!-- Only for a project that has a host name, and one that has a database: the texts follow the typed name. -->
         <CheckBox x:Name="HostBox" IsChecked="True" Margin="0,12,0,0">
             <TextBlock x:Name="HostText" TextWrapping="Wrap" />

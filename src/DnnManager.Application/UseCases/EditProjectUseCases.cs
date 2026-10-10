@@ -1,5 +1,7 @@
 using DnnManager.Application.Abstractions;
+using DnnManager.Application.Configuration;
 using DnnManager.Domain;
+using Microsoft.Extensions.Options;
 
 namespace DnnManager.Application.UseCases;
 
@@ -9,8 +11,10 @@ namespace DnnManager.Application.UseCases;
 /// be opened while the site doesn't use it, so that site is stopped meanwhile and started again if it ran.
 /// </summary>
 public sealed class EditBindingsUseCase(IIisManager iis, IProjectRepository projects, LocalSqlContainer sql,
-    IDatabaseProvisioner databases, OperationUndo undo)
+    IDatabaseProvisioner databases, OperationUndo undo, IUserPrompt prompt, IOptions<AppOptions> options)
 {
+    private readonly IUserPrompt _prompt = prompt;
+    private readonly AppOptions _options = options.Value;
     private readonly IIisManager _iis = iis;
     private readonly IProjectRepository _projects = projects;
     private readonly LocalSqlContainer _sql = sql;
@@ -47,6 +51,14 @@ public sealed class EditBindingsUseCase(IIisManager iis, IProjectRepository proj
             reporter.Warn("web.config names no database - DNN's portal aliases stay as they are. Add the new host names as site aliases in DNN.");
             return Result.Ok();
         }
+        // The database web.config names - the site's app pool can change it - gets DNN's aliases changed with DNN Manager's
+        // rights: asked first when it isn't the project's own, or when signing in to it as you would hand your Windows
+        // sign-in to a server elsewhere.
+        if (await DatabaseRefusedAsync(siteName, database, ct) is { } kept)
+        {
+            reporter.Warn($"{kept} - DNN's portal aliases stay as they are. Add the new host names as site aliases in DNN.");
+            return Result.Ok();
+        }
         var localFile = database.Kind == DatabaseKind.LocalDbFile;
         var wasRunning = IisStates.IsStarted(site.State);
         if (localFile && wasRunning)
@@ -69,6 +81,28 @@ public sealed class EditBindingsUseCase(IIisManager iis, IProjectRepository proj
         // DNN keeps its aliases in memory: it reads them again after a restart.
         if (!localFile) _iis.RecycleAppPool(siteName);
         return Result.Ok();
+    }
+
+    /// <summary>
+    /// Why DNN's aliases aren't changed in <paramref name="database"/> - the user said no: it isn't the project's own (named
+    /// like it), or it is reached with their Windows account on a server not on this PC and not the one in Settings;
+    /// null when they may be.
+    /// </summary>
+    private async Task<string?> DatabaseRefusedAsync(string siteName, DatabaseConnection database, CancellationToken ct)
+    {
+        if (database.Kind == DatabaseKind.LocalDbFile) return null;
+        var nl = Environment.NewLine;
+        var own = _options.DatabaseNameFor(siteName);
+        if (!database.Database.Equals(own, StringComparison.OrdinalIgnoreCase) &&
+            !await _prompt.ConfirmAsync($"The web.config of '{siteName}' names the database [{database.Database}] on {database.Server} - not the " +
+                                        $"project's own, [{own}].{nl}{nl}Change DNN's portal aliases in [{database.Database}]?",
+                                        "Change aliases there", "Leave them", false, ct))
+            return $"[{database.Database}] isn't the project's own database, and was left as it is";
+        if (database.Authentication == SqlAuthentication.Windows && !SqlServerAddress.MaySignInAsUser(database.Server, _options.DatabaseServer) &&
+            !await _prompt.ConfirmAsync(SqlServerAddress.SignInQuestion(database.Server, "Changing DNN's portal aliases"),
+                                        $"Sign in to {database.Server}", "Don't sign in", false, ct))
+            return $"Not signed in to {database.Server} with your Windows account";
+        return null;
     }
 }
 

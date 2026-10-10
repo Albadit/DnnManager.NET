@@ -70,7 +70,7 @@
         <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1" Padding="28,14,20,14">
             <DockPanel>
                 <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="{StaticResource GlyphClose}" FontSize="12"
-                        Foreground="{DynamicResource Accent}" ToolTip="Close (Esc)" Click="Close_Click" />
+                        Foreground="{DynamicResource LinkFg}" ToolTip="Close (Esc)" Click="Close_Click" />
                 <TextBlock Text="Settings" FontSize="{DynamicResource TextLarge}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" />
             </DockPanel>
         </Border>
@@ -152,10 +152,12 @@
                         <StackPanel x:Name="GeneralPanel">
                             <TextBlock Style="{StaticResource CategoryTitle}" Text="General" />
 
+                            <!-- The hint below says why it can't be ticked, when it can't: screen readers get it with the box. -->
                             <CheckBox x:Name="StartAtSignIn" Content="Start DNN Manager when you sign in to your computer" Margin="0,18,0,0"
-                                      IsEnabled="False" Click="StartAtSignIn_Click" />
+                                      IsEnabled="False" Click="StartAtSignIn_Click"
+                                      AutomationProperties.HelpText="{Binding Text, ElementName=StartAtSignInHint}" />
                             <TextBlock x:Name="StartAtSignInHint" Style="{StaticResource Hint}" Margin="22,2,0,0"
-                                       Text="With its Administrator rights, without Windows asking for them at every sign-in (a scheduled task)." />
+                                       Text="With its administrator rights, without Windows asking for them at every sign-in (a scheduled task)." />
                             <CheckBox x:Name="KeepRunningWhenClosed" Content="Keep DNN Manager running when you close the window" Margin="0,12,0,0" />
                             <CheckBox x:Name="CheckForUpdatesAtStart" Content="Look for a newer DNN Manager when it starts" Margin="0,12,0,0" />
                             <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
@@ -184,7 +186,7 @@
 
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Terminal" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4"
-                                       Text="Shells on the Terminal tab of the panel at the bottom of the window - opened with its + button. They run with Administrator rights, like DNN Manager." />
+                                       Text="Shells on the Terminal tab of the panel at the bottom of the window - opened with its + button. Terminals run as you, without administrator rights. New Administrator terminal (the arrow beside +) opens one that has them - only with shells installed for all users, without your profile scripts." />
                             <StackPanel x:Name="TerminalOptions">
                                 <TextBlock Style="{StaticResource FieldLabel}" Text="Default shell" />
                                 <ComboBox AutomationProperties.Name="Default shell" x:Name="DefaultShell" Width="240" HorizontalAlignment="Left" SelectionChanged="Terminal_Changed" />
@@ -302,6 +304,13 @@
                             </Grid>
                             <TextBlock Style="{StaticResource Hint}"
                                        Text="The interval is the longest wait between two requests - shorter for a site whose app pool shuts down sooner, and no request is sent while a site is in use anyway. The keep-alive page is DNN's own KeepAlive.aspx: tiny, no database work (/ keeps the home page's caches warm too, as Azure's Always On does). The warm-up page is requested when a site has no worker process - after a recycle, or IIS starting." />
+
+                            <TextBlock Style="{StaticResource GroupLabel}" Text="Backups" />
+                            <TextBlock x:Name="BackupKeepDaysLabel" Style="{StaticResource FieldLabel}" Text="Keep backups and deployment packages" />
+                            <ComboBox x:Name="BackupKeepDays" Width="280" HorizontalAlignment="Left" SelectionChanged="BackupKeepDays_Changed"
+                                      AutomationProperties.Name="Keep backups and deployment packages"
+                                      AutomationProperties.HelpText="{Binding Text, ElementName=BackupsHint}" />
+                            <TextBlock x:Name="BackupsHint" Style="{StaticResource Hint}" />
                         </StackPanel>
 
                         <StackPanel x:Name="ReleasesPanel" Visibility="Collapsed">

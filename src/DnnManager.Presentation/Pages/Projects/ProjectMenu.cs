@@ -107,12 +107,27 @@ internal sealed class ProjectMenu(IServiceProvider services, OperationRunner run
                 // Default: the local SQL Server as the container's user. Project: this project's database with its own login.
                 // Whether SSMS remembers the password is the SsmsRememberPassword setting.
                 var item = new MenuItem { Header = ssms.Name, ToolTip = ssms.ExePath };
+                // A copy DNN Manager doesn't start as Administrator (others could change it): greyed, saying why - not a
+                // failure on the click.
+                if (IdeLocator.Refusal(ssms) is { } refusal)
+                {
+                    item.IsEnabled = false;
+                    item.ToolTip = refusal;
+                    ToolTipService.SetShowOnDisabled(item, true);
+                    System.Windows.Automation.AutomationProperties.SetHelpText(item, refusal);
+                    openWith.Items.Add(item);
+                    continue;
+                }
                 item.Items.Add(Item($"Default  (local SQL Server, {_services.GetRequiredService<IOptions<AppOptions>>().Value.Docker.SqlUser})",
                     (_, _) => OpenDatabase(ssms, row, project: false)));
                 // The database the site's web.config names - none to open when it names none (the tooltip says why).
                 var projectItem = Item(projectDatabase is null ? "Project database" : $"Project  ([{projectDatabase}])",
                     (_, _) => OpenDatabase(ssms, row, project: true), projectDatabase is not null);
-                if (projectDatabase is null) projectItem.ToolTip = row.DatabaseTip ?? "The site's web.config names no database.";
+                if (projectDatabase is null)
+                {
+                    projectItem.ToolTip = row.DatabaseTip ?? "The site's web.config names no database.";
+                    ToolTipService.SetShowOnDisabled(projectItem, true);
+                }
                 item.Items.Add(projectItem);
                 openWith.Items.Add(item);
             }
@@ -377,6 +392,14 @@ internal sealed class ProjectMenu(IServiceProvider services, OperationRunner run
                 }
                 onThisMachine = sql.IsContainerHost(database.Server);
             }
+
+            // Windows authentication to a server web.config names - not on this PC, not the one in Settings - hands it your
+            // Windows sign-in (the check below, and SSMS): asked once, naming it.
+            if (database.User.Length == 0 &&
+                !SqlServerAddress.MaySignInAsUser(database.Server, _services.GetRequiredService<IOptions<AppOptions>>().Value.DatabaseServer) &&
+                !await _services.GetRequiredService<IUserPrompt>().ConfirmAsync(SqlServerAddress.SignInQuestion(database.Server, $"Opening it in {ssms.Name}"),
+                    $"Sign in to {database.Server}", "Cancel"))
+                return;
 
             // SQL Server reports a missing database as the same "Login failed for user" as a wrong password, so
             // check first: open the server when only the database is missing, and say which of the two it is.

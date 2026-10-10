@@ -5,7 +5,10 @@ public sealed record DnnProject(
     string ProjectDirectory,
     string BackupDirectory);
 
-public sealed record DnnRelease(string Version, string TagName, string DownloadUrl, bool Prerelease = false)
+/// <param name="Sha256">GitHub's SHA-256 of the install package (lowercase hex), when GitHub gives one - older releases have none.</param>
+/// <param name="UpgradeSha256">The same for the upgrade package (<see cref="UpgradeUrl"/>).</param>
+public sealed record DnnRelease(string Version, string TagName, string DownloadUrl, bool Prerelease = false, string? Sha256 = null,
+    string? UpgradeSha256 = null)
 {
     /// <summary>
     /// The release's upgrade package - DNN publishes <c>DNN_Platform_X_Upgrade.zip</c> beside the install package

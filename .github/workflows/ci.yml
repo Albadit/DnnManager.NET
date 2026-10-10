@@ -1,17 +1,16 @@
-# CI: on every push to main, every pull request, and when a version tag is pushed (or by hand: Actions -> CI -> Run
-# workflow), DNN Manager is built in Release and the whole test suite runs. Nothing is published - releases are made
-# from VS Code with the task "release (GitHub)" (.github/scripts/publish-release.ps1, see .docs/releasing.md), which
-# keeps the release a draft until this workflow has passed on its tag.
+# CI: on every push to main, every pull request, and by hand (Actions -> CI -> Run workflow), DNN Manager is built in
+# Release and the whole test suite runs. Nothing is published here. A version tag is tested by the release workflow,
+# which calls this one (.github/workflows/release.yml, see .docs/releasing.md) and publishes the release only once it
+# has passed.
 name: CI
 
 on:
   push:
     branches: [main]
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
-      - 'v[0-9]+.[0-9]+.[0-9]+-*'
   pull_request:
   workflow_dispatch:
+  # Called by release.yml for the tag being released.
+  workflow_call:
 
 permissions:
   contents: read
@@ -32,8 +31,16 @@ defaults:
 jobs:
   build:
     name: Build and test
-    runs-on: windows-latest
+    # A pinned image (as release.yml): a new Windows image is a change in review, not a surprise.
+    runs-on: windows-2025
     timeout-minutes: 60
+
+    env:
+      # How many tests may be skipped (inconclusive) on the runner: the integration tests, where it lacks IIS Express,
+      # LocalDB or Linux containers. More fails the run, and so does any skipped test outside TestCategory Integration -
+      # a fast test that stops running mustn't pass as green. Set the repository variable CI_MAX_SKIPPED_TESTS to the
+      # count the step summary shows once it is known, so a newly skipped integration test fails too.
+      MAX_SKIPPED: ${{ vars.CI_MAX_SKIPPED_TESTS || '14' }}
 
     steps:
       # Actions pinned to a commit, not a tag that can be moved: what runs is what was reviewed. Dependabot proposes updates.
@@ -42,27 +49,66 @@ jobs:
         with:
           # The tags too: the build takes its version from the newest version tag (DnnManager.csproj, VersionFromGitTag).
           fetch-depth: 0
+          # No token left in .git/config for the build's steps.
+          persist-credentials: false
 
       - name: Set up .NET
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
-          # The SDK global.json names - the one releases are built with.
+          # The SDK global.json names - exactly that one (rollForward: disable), the one releases are built with.
           global-json-file: global.json
+
+      - name: Runner and SDK
+        # What built this, for comparing two runs: the image's version and the SDK and runtimes it used.
+        run: |
+          Write-Host "Runner image: $env:ImageOS $env:ImageVersion"
+          dotnet --info
 
       - name: Restore
         # Exactly the packages packages.lock.json names, with their hashes - a change to them fails here, not unnoticed.
-        run: dotnet restore tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj --locked-mode
+        run: |
+          dotnet restore tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj --locked-mode
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet restore src/DnnManager.Launcher/DnnManager.Launcher.csproj --locked-mode
 
       - name: Build (Release)
-        run: >-
-          dotnet build tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj
-          -c Release --no-restore
-          -p:ContinuousIntegrationBuild=true
+        # Warnings are errors - the XML comments' among them: misplaced (CS1587), badly formed (CS1570), a cref that is
+        # ambiguous (CS0419) or names nothing (CS1574).
+        run: |
+          dotnet build tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj -c Release --no-restore `
+            -p:ContinuousIntegrationBuild=true -warnaserror
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # The launcher as a plain .NET build: it compiles; the release workflow publishes it with Native AOT.
+          dotnet build src/DnnManager.Launcher/DnnManager.Launcher.csproj -c Release --no-restore -p:ContinuousIntegrationBuild=true -warnaserror
 
       - name: Test
         # The whole suite. The integration tests need IIS Express, LocalDB and Docker (Linux containers); where the
-        # runner lacks one, those tests are reported as skipped (inconclusive), not passed.
+        # runner lacks one, those tests are reported as skipped (inconclusive), not passed - counted in the next step.
         run: >-
           dotnet test tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj
           -c Release --no-build
           --logger "console;verbosity=normal"
+          --logger "trx;LogFileName=tests.trx"
+          --results-directory TestResults
+
+      - name: Count skipped tests
+        if: ${{ !cancelled() }}
+        run: |
+          $trx = Get-ChildItem TestResults -Recurse -Filter tests.trx | Select-Object -First 1
+          if (-not $trx) { throw 'No test results (TestResults/tests.trx) - the tests didn''t run.' }
+          [xml]$xml = [IO.File]::ReadAllText($trx.FullName)
+          $ns = @{ t = 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010' }
+          # Each test's categories, by its id.
+          $categories = @{}
+          foreach ($test in (Select-Xml -Xml $xml -XPath '//t:UnitTest' -Namespace $ns).Node) {
+            $categories[$test.id] = @($test.SelectNodes('.//*[local-name()="TestCategoryItem"]') | ForEach-Object { $_.TestCategory })
+          }
+          $results = @((Select-Xml -Xml $xml -XPath '//t:UnitTestResult' -Namespace $ns).Node)
+          $skipped = @($results | Where-Object { $_.outcome -in 'NotExecuted', 'Inconclusive' })
+          $fast = @($skipped | Where-Object { $categories[$_.testId] -notcontains 'Integration' })
+          $lines = @("### Tests", '', "$($results.Count) run, $($skipped.Count) skipped (inconclusive) - at most $env:MAX_SKIPPED may be.", '')
+          $lines += $skipped | ForEach-Object { "- $($_.testName)$(if ($categories[$_.testId] -notcontains 'Integration') { ' **(not an integration test)**' })" }
+          [IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, ($lines -join "`n") + "`n", [Text.UTF8Encoding]::new($false))
+          $lines | ForEach-Object { Write-Host $_ }
+          if ($fast.Count -gt 0) { throw "$($fast.Count) test(s) outside TestCategory Integration were skipped - a fast test must run everywhere." }
+          if ($skipped.Count -gt [int]$env:MAX_SKIPPED) { throw "$($skipped.Count) tests were skipped, more than the $env:MAX_SKIPPED expected (CI_MAX_SKIPPED_TESTS)." }

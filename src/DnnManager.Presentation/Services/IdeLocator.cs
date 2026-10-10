@@ -50,12 +50,7 @@ internal static class IdeLocator
     /// Starts SSMS with no connection switches, so it just shows its Connect dialog (any connection switch makes
     /// it connect at once - without a password, failing with an error first).
     /// </summary>
-    public static Process? StartManagementStudio(Ide ssms)
-    {
-        var psi = new ProcessStartInfo(ssms.ExePath) { UseShellExecute = false };
-        psi.ArgumentList.Add("-nosplash");
-        return Process.Start(psi);
-    }
+    public static Process? StartManagementStudio(Ide ssms) => ElevatedStart.Start(ssms.ExePath, ["-nosplash"]);
 
     /// <summary>
     /// Opens <paramref name="database"/> in SSMS: server, database and login filled in. SSMS takes no password
@@ -66,13 +61,18 @@ internal static class IdeLocator
     /// self-signed. SSMS 20+ encrypts by default and refuses such a certificate otherwise.
     /// </param>
     /// <returns>The started SSMS process.</returns>
+    /// <remarks>
+    /// SSMS starts with DNN Manager's administrator rights (Windows authentication signs in as an administrator then) -
+    /// so only a copy that nobody but administrators can change (<see cref="ElevatedStart"/>); <see cref="Refusal"/> says
+    /// beforehand when it isn't one.
+    /// </remarks>
     public static Process? OpenDatabase(Ide ssms, SiteSqlConnection database, bool trustServerCertificate, string displayName)
     {
         // SSMS 21+ switches: -S -d -U -A -C -N -i -dn -nosplash -log; no user = Windows authentication.
         // SSMS 18-20 have no -C / -dn and take -E for Windows authentication.
         var modern = ssms.MajorVersion >= 21;
-        var psi = new ProcessStartInfo(ssms.ExePath) { UseShellExecute = false };
-        void Add(params string[] args) { foreach (var a in args) psi.ArgumentList.Add(a); }
+        var args = new List<string>();
+        void Add(params string[] more) => args.AddRange(more);
 
         Add("-S", database.Server);
         if (database.Database.Length > 0) Add("-d", database.Database);
@@ -84,12 +84,21 @@ internal static class IdeLocator
             Add("-dn", displayName);
         }
         Add("-nosplash");
-        return Process.Start(psi);
+        return ElevatedStart.Start(ssms.ExePath, args);
     }
 
     /// <summary>
+    /// Why DNN Manager doesn't start <paramref name="ssms"/> (it runs as Administrator: only a copy nobody but
+    /// administrators can change) - for its menu entry, shown greyed; null when it may. Asked once per copy.
+    /// </summary>
+    public static string? Refusal(Ide ssms) =>
+        Refusals.GetOrAdd(ssms.ExePath, exe => TrustedPrograms.Resolve(exe) is { Path: null } refused ? refused.Problem(ssms.Name) : null);
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string?> Refusals = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Opens <paramref name="projectDirectory"/> (or its only solution file) in <paramref name="ide"/> - as the signed-in
-    /// user, not with DNN Manager's Administrator rights: an editor has no need of them, and one installed in the user's
+    /// user, not with DNN Manager's administrator rights: an editor has no need of them, and one installed in the user's
     /// own folders (VS Code's user installer) could have been changed by any program of theirs. Only when the desktop's
     /// shell can't start it, and only administrators can change it, it is started directly.
     /// </summary>
@@ -97,16 +106,14 @@ internal static class IdeLocator
     {
         var target = ide.OpensSolution && SolutionFor(projectDirectory) is { } sln ? sln : projectDirectory;
         if (Unelevated.Start(ide.ExePath, [target], projectDirectory)) return;
-        if (!TrustedPrograms.MayRun(ide.ExePath))
-            throw new InvalidOperationException($"{ide.Name} couldn't be started as you, and DNN Manager doesn't start it as Administrator: " +
-                                                $"programs without administrator rights could change {ide.ExePath}.");
-        var psi = new ProcessStartInfo(ide.ExePath)
+        try
         {
-            UseShellExecute = false,
-            WorkingDirectory = projectDirectory
-        };
-        psi.ArgumentList.Add(target);
-        Process.Start(psi);
+            using var _ = ElevatedStart.Start(ide.ExePath, [target], projectDirectory);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new InvalidOperationException($"{ide.Name} couldn't be started as you. {ex.Message}");
+        }
     }
 
     /// <summary>The project's solution file when its folder holds exactly one, otherwise null.</summary>
@@ -270,7 +277,8 @@ internal static class IdeLocator
 
     /// <summary>
     /// Every install vswhere knows about, newest first: Visual Studio itself when <paramref name="products"/> is
-    /// null (vswhere's default: Community, Professional, Enterprise), otherwise that product.
+    /// null (vswhere's default: Community, Professional, Enterprise), otherwise that product. vswhere runs as
+    /// Administrator, so through <see cref="ElevatedStart"/> - and never for longer than a few seconds.
     /// </summary>
     private static IEnumerable<Ide> FromVsWhere(string? products, string fallbackName, bool opensSolution)
     {
@@ -278,23 +286,9 @@ internal static class IdeLocator
             "Microsoft Visual Studio", "Installer", "vswhere.exe");
         if (!File.Exists(vswhere)) return Array.Empty<Ide>();
 
-        var psi = new ProcessStartInfo(vswhere)
-        {
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            CreateNoWindow = true
-        };
-        foreach (var arg in new[] { "-all", "-prerelease", "-sort", "-format", "json", "-utf8" }) psi.ArgumentList.Add(arg);
-        if (products is not null)
-        {
-            psi.ArgumentList.Add("-products");
-            psi.ArgumentList.Add(products);
-        }
-
-        using var process = Process.Start(psi);
-        if (process is null) return Array.Empty<Ide>();
-        var json = process.StandardOutput.ReadToEnd();
-        process.WaitForExit(5000);
+        var args = new List<string> { "-all", "-prerelease", "-sort", "-format", "json", "-utf8" };
+        if (products is not null) args.AddRange(["-products", products]);
+        if (ElevatedStart.Output(vswhere, args, TimeSpan.FromSeconds(10)) is not { Length: > 0 } json) return Array.Empty<Ide>();
 
         using var doc = JsonDocument.Parse(json);
         var list = new List<Ide>();

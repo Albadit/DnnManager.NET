@@ -820,6 +820,12 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
         try
         {
             var di = new DirectoryInfo(path);
+            // Rights given to a link - the folder itself or one on the way to it - would go to what it points to: another
+            // folder the app pool could then change. (A junction that a program without administrator rights made isn't
+            // followed at all: RedirectionTrust.)
+            if (DnnManager.Application.SafePath.HasLink(Path.GetPathRoot(di.FullName)!, di.FullName))
+                return Result.Fail($"{path} is a link or junction, or reached through one - IIS's rights are given to a site's own folder, " +
+                                   $"not to what a link points to.{Environment.NewLine}{DnnManager.Application.SafePath.LinkHint}");
             var sec = di.GetAccessControl();
             foreach (var id in identities)
             {
@@ -828,12 +834,16 @@ public sealed class IisManager(ProcessRunner proc, ILogger<IisManager> log) : II
                     // The site's own app pool may change its files (DNN writes Portals, App_Data, web.config); IIS's shared
                     // groups only read them - IIS_IUSRS holds every site's app pool, which mustn't change this site.
                     var shared = id.Equals("IIS_IUSRS", StringComparison.OrdinalIgnoreCase) || id.Equals("IUSR", StringComparison.OrdinalIgnoreCase);
+                    var identity = ResolveIdentity(id);
                     var rule = new FileSystemAccessRule(
-                        ResolveIdentity(id),
+                        identity,
                         shared ? FileSystemRights.ReadAndExecute : FileSystemRights.Modify,
                         InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
                         PropagationFlags.None,
                         AccessControlType.Allow);
+                    // In place of what it had: an added rule only adds to an earlier one - the Full control older versions
+                    // gave IIS_IUSRS, IUSR and the app pool would stay.
+                    sec.PurgeAccessRules(identity);
                     sec.AddAccessRule(rule);
                 }
                 catch (Exception ex)

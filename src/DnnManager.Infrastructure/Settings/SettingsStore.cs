@@ -70,9 +70,15 @@ public sealed class SettingsStore(AppDataPaths paths)
         }
 
         var saved = ReadRows();
-        var settings = ToSettings(saved);
-        // The first start - or values added since: what is saved is complete again.
-        if (saved.Count == 0 || !Rows(settings).All(r => saved.TryGetValue(r.Key, out var v) && (v == r.Value || r.Key == SaPasswordKey)))
+        var (settings, reset) = ToSettingsResettingBadValues(saved);
+        if (reset.Count > 0)
+            notices.Add(new(true,
+                $"{(reset.Count == 1 ? "A saved setting isn't" : $"{reset.Count} saved settings aren't")} allowed by this version of " +
+                $"DNN Manager and {(reset.Count == 1 ? "is" : "are")} back at the default: {string.Join(" ", reset.Select(r => "• " + r))} " +
+                "The other settings are as you saved them - check these in Settings."));
+        // The first start, values added since, or values put back to their defaults: what is saved is complete again.
+        if (saved.Count == 0 || reset.Count > 0 ||
+            !Rows(settings).All(r => saved.TryGetValue(r.Key, out var v) && (v == r.Value || r.Key == SaPasswordKey)))
         {
             if (saved.Count == 0) notices.Add(new(false, $"Created the settings in {Location} with their defaults."));
             try { Write(settings, saved); }
@@ -185,7 +191,70 @@ public sealed class SettingsStore(AppDataPaths paths)
         return bracket > 0 && rows.ContainsKey(key[..bracket]);
     }
 
+    /// <summary>The settings in <paramref name="saved"/>, checked. Throws <see cref="SettingsException"/> for anything wrong.</summary>
     private UserSettings ToSettings(IReadOnlyDictionary<string, string> saved)
+    {
+        var settings = Parse(saved, out var unreadable);
+        if (unreadable.Count > 0)
+            throw new SettingsException($"The settings in {Location} have values that can't be read.",
+                unreadable.Select(key => $"{key} has a value of the wrong type.").ToList());
+        ThrowIfInvalid(settings);
+        return settings;
+    }
+
+    /// <summary>
+    /// The settings in <paramref name="saved"/> - with each value that can't be read or isn't allowed (one a newer, stricter
+    /// rule refuses, say) back at its default instead of stopping the start, and what was put back, a line each. Throws
+    /// <see cref="SettingsException"/> for what that can't mend: settings of a newer version, an sa password that can't
+    /// be decrypted, or values still not allowed with their defaults.
+    /// </summary>
+    internal (UserSettings Settings, IReadOnlyList<string> Reset) ToSettingsResettingBadValues(IReadOnlyDictionary<string, string> saved)
+    {
+        var rows = new Dictionary<string, string>(saved, StringComparer.Ordinal);
+        var resetKeys = new HashSet<string>(StringComparer.Ordinal);
+        var reset = new List<string>();
+        IReadOnlyList<string> left = [];
+        // A value's default can make another one wrong (an empty login once SQL Server authentication is kept): a few rounds.
+        for (var round = 0; round < 4; round++)
+        {
+            var settings = Parse(rows, out var unreadable);
+            var bad = unreadable.Select(key => new SettingsProblem(key, "has a value of the wrong type."))
+                .Concat(settings.Validate()).ToList();
+            if (bad.Count == 0)
+            {
+                settings.Version = UserSettings.CurrentVersion;
+                return (settings, reset);
+            }
+            left = bad.Select(p => p.ToString()).ToList();
+            var keys = bad.SelectMany(p => GoesWith(p.Key)).Where(resetKeys.Add).ToList();
+            if (keys.Count == 0) break; // back at their defaults already, and still not allowed
+            foreach (var problem in bad.Where(p => !reset.Any(r => r.StartsWith(p.Key + " ", StringComparison.Ordinal))))
+                reset.Add(problem.ToString());
+            // Without its rows a value - a whole list or dictionary - has its default.
+            foreach (var key in keys)
+                foreach (var row in rows.Keys.Where(k => IsRowOf(k, key)).ToList())
+                    rows.Remove(row);
+        }
+        throw new SettingsException($"The settings in {Location} have values that aren't allowed.", left);
+    }
+
+    /// <summary>The keys put back to their defaults together with <paramref name="key"/>: a login needs the authentication that asks for it.</summary>
+    private static IEnumerable<string> GoesWith(string key) => key switch
+    {
+        "sqlServer.userName" => [key, "sqlServer.authentication"],
+        _ => [key]
+    };
+
+    /// <summary>Whether <paramref name="row"/> is <paramref name="key"/>'s row or one of its items' or values' (<c>key[0]</c>, <c>key{x}</c>, <c>key.name</c>).</summary>
+    private static bool IsRowOf(string row, string key) =>
+        row == key || (row.Length > key.Length && row.StartsWith(key, StringComparison.Ordinal) && row[key.Length] is '[' or '{' or '.');
+
+    /// <summary>
+    /// The settings in <paramref name="saved"/>, not checked: a value that can't be read keeps its default and is named in
+    /// <paramref name="unreadable"/>. Throws <see cref="SettingsException"/> for settings of a newer version or an sa password
+    /// that can't be decrypted.
+    /// </summary>
+    private UserSettings Parse(IReadOnlyDictionary<string, string> saved, out IReadOnlyList<string> unreadable)
     {
         if (saved.TryGetValue("version", out var text) && int.TryParse(text, out var version) && version > UserSettings.CurrentVersion)
             throw new SettingsException(
@@ -205,12 +274,8 @@ public sealed class SettingsStore(AppDataPaths paths)
         }
 
         var settings = new UserSettings();
-        var unreadable = ValueRows.Into(settings, rows);
-        if (unreadable.Count > 0)
-            throw new SettingsException($"The settings in {Location} have values that can't be read.",
-                unreadable.Select(key => $"{key} has a value of the wrong type.").ToList());
+        unreadable = ValueRows.Into(settings, rows);
         settings.Version = UserSettings.CurrentVersion;
-        ThrowIfInvalid(settings);
         return settings;
     }
 

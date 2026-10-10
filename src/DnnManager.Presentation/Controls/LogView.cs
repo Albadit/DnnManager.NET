@@ -251,7 +251,10 @@ internal sealed class LogView : FrameworkElement, IScrollInfo
             var start = Math.Max(column, rowStart);
             var end = Math.Min(column + length, rowEnd);
             if (end <= start) continue;
-            dc.DrawRectangle((Brush)FindResource(i == _currentMatch ? "SearchCurrentBg" : "SearchMatchBg"), null,
+            // The current one outlined too: it stands out from the others by more than its colour (WCAG 1.4.1).
+            var current = i == _currentMatch;
+            dc.DrawRectangle((Brush)FindResource(current ? "SearchCurrentBg" : "SearchMatchBg"),
+                current ? new Pen((Brush)FindResource("SearchCurrentBorder"), 1) : null,
                 new Rect(X(start, rowStart), y, (end - start) * _charWidth, _lineHeight));
         }
     }

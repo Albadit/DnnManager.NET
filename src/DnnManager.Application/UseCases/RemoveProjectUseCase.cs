@@ -163,6 +163,22 @@ public sealed class RemoveProjectUseCase(
     private string? DatabaseNameOf(DnnProject project, bool deleteFiles) =>
         DeveloperDb.FromWebConfig(project, _webConfig) ?? (deleteFiles ? _opts.DatabaseNameFor(project.Name) : null);
 
+    /// <summary>
+    /// Whether <paramref name="database"/> - named by the site's web.config, which its app pool can change - is the
+    /// project's own (named like it), and so may be dropped with it. Another name is asked about first, naming both: a
+    /// changed web.config mustn't have DNN Manager drop someone else's database with its rights.
+    /// </summary>
+    private async Task<bool> IsOwnDatabaseAsync(DnnProject project, string database, string server, CancellationToken ct)
+    {
+        var own = _opts.DatabaseNameFor(project.Name);
+        if (database.Equals(own, StringComparison.OrdinalIgnoreCase)) return true;
+        var nl = Environment.NewLine;
+        return await _prompt.ConfirmDangerAsync(
+            $"The web.config of '{project.Name}' names the database [{database}] on {server} - not the project's own, [{own}].{nl}{nl}" +
+            "Drop [" + database + "] with the project anyway? Another site or program may use it; dropped, it can't be brought back.",
+            $"Drop [{database}]", "Keep it", ct);
+    }
+
     private static string Join(List<string> parts) =>
         parts.Count <= 1 ? string.Concat(parts) : string.Join(", ", parts.Take(parts.Count - 1)) + " and " + parts[^1];
 
@@ -220,6 +236,10 @@ public sealed class RemoveProjectUseCase(
                 else if (SharedDatabase(project, deleteFiles) is { } shared)
                 {
                     reporter.Info($"Database [{shared.Database}] is kept - the IIS site '{shared.Site}' uses it too.");
+                }
+                else if (dbName is not null && !await IsOwnDatabaseAsync(project, dbName, database?.Server ?? _container.Server, ct))
+                {
+                    reporter.Info($"Database [{dbName}] is kept - it isn't the project's own ([{_opts.DatabaseNameFor(project.Name)}]). Drop it yourself if it should go.");
                 }
                 else if (database is { Kind: DatabaseKind.SqlServer })
                 {
@@ -321,10 +341,11 @@ public sealed class RemoveProjectUseCase(
         {
             foreach (var locker in closable) reporter.Info($"In use by {locker}");
             var names = string.Join(Environment.NewLine, closable.Select(l => $"• {l.Name} ({l.ExeName})"));
-            if (await _prompt.ConfirmAsync(
+            // Closing loses what isn't saved in them: asked as the other steps that can't be taken back - keeping them is the default.
+            if (await _prompt.ConfirmDangerAsync(
                     $"These programs are using {folder}:{Environment.NewLine}{Environment.NewLine}{names}" +
                     $"{Environment.NewLine}{Environment.NewLine}Close them and delete the folder? Unsaved work in them is lost.",
-                    "Close and delete", "Don't close", true, ct))
+                    "Close and delete", "Don't close", ct))
             {
                 var stillRunning = await _locks.CloseAsync(closable, ct);
                 foreach (var locker in closable.Except(stillRunning)) reporter.Success($"Closed {locker.Name} ({locker.ExeName}).");

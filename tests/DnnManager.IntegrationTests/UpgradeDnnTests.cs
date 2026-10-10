@@ -63,7 +63,8 @@ public sealed class UpgradeDnnTests
             Add("web.config", "<configuration>the package's</configuration>");
             Add("bin/DotNetNuke.dll", "new");
             Add("Install/Install.aspx", "installer");
-            Add("../outside.txt", "never");
+            // A path outside the site ("../outside.txt") refuses the whole package now, before any file goes in -
+            // SecurityHardeningTests.A_package_with_a_path_outside_the_site_writes_nothing.
         }
 
         var installer = new DnnPackageInstaller(new HttpClient(), Options.Create(new AppOptions { KeepDnnPackages = true }), paths,
@@ -74,7 +75,6 @@ public sealed class UpgradeDnnTests
         Assert.AreEqual("new", File.ReadAllText(Path.Combine(site, "bin", "DotNetNuke.dll")));
         Assert.IsTrue(File.Exists(Path.Combine(site, "Install", "Install.aspx")));
         Assert.AreEqual("<configuration>the site's own</configuration>", File.ReadAllText(Path.Combine(site, "web.config")), "web.config stays the site's.");
-        Assert.IsFalse(File.Exists(Path.Combine(_dir, "outside.txt")), "Nothing outside the site's folder.");
         Assert.IsTrue(File.Exists(kept), "A kept package stays kept.");
     }
 

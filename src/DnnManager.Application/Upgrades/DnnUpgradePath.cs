@@ -70,7 +70,7 @@ public sealed record DnnUpgradeStep
 /// <summary>
 /// DNN's suggested upgrade path (docs.dnncommunity.org → Getting started → Setup → Upgrades → Suggested upgrade path):
 /// a site is upgraded through each listed version in turn, never straight to the newest. A version between two listed
-/// ones is upgraded to the next listed one first. <see cref="Steps"/> is the knowledge base - maintained here, in one
+/// ones is upgraded to the next listed one first. <see cref="DnnUpgradeKnowledge.Steps"/> is the knowledge base - maintained here, in one
 /// place (<see cref="DnnUpgradeKnowledge"/> holds what is known about each step); <see cref="Chain"/> works out the steps
 /// from a site's version to the one asked for.
 /// </summary>

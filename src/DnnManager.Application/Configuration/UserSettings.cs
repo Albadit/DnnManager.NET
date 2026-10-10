@@ -28,6 +28,7 @@ public sealed class UserSettings
     public UpdateSettings Updates { get; set; } = new();
     public KeyboardSettings Keyboard { get; set; } = new();
     public LayoutSettings Layout { get; set; } = new();
+    public BackupSettings Backups { get; set; } = new();
 
     /// <summary>The values that aren't allowed, each with the key it is about; empty when the settings are usable.</summary>
     public IReadOnlyList<SettingsProblem> Validate()
@@ -39,32 +40,19 @@ public sealed class UserSettings
         }
         static bool IsPort(int port) => port is > 0 and <= 65535;
         static bool Has(string? value) => !string.IsNullOrWhiteSpace(value);
-        static bool IsSystemFolder(string folder)
-        {
-            var full = Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar);
-            if (Path.GetPathRoot(full + Path.DirectorySeparatorChar)?.TrimEnd(Path.DirectorySeparatorChar) == full) return true;
-            return new[]
-                {
-                    Environment.SpecialFolder.Windows, Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86,
-                    Environment.SpecialFolder.UserProfile, Environment.SpecialFolder.CommonApplicationData
-                }
-                .Select(Environment.GetFolderPath)
-                .Any(system => system.Length > 0 && full.Equals(system.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase));
-        }
 
-        Check(Has(Projects.BaseDirectory) && Path.IsPathFullyQualified(Projects.BaseDirectory),
-            "projects.baseDirectory", "must be a full path, e.g. C:\\DNN.");
-        // A site in the projects folder is DNN Manager's: removing it deletes its folder. A drive or a system folder as
-        // the projects folder would make every site on it one.
-        Check(!Has(Projects.BaseDirectory) || !Path.IsPathFullyQualified(Projects.BaseDirectory) || !IsSystemFolder(Projects.BaseDirectory),
-            "projects.baseDirectory", "can't be a drive or a system folder (Windows, Program Files, your user folder) - use a folder of its own, e.g. C:\\DNN.");
+        // A site in the projects folder is DNN Manager's: removing it deletes its folder, and the folder is kept to
+        // administrators and the user. A drive or a system folder as the projects folder would make every site on it one.
+        var folderProblem = SettingRules.ProjectsFolderProblem(Projects.BaseDirectory);
+        Check(folderProblem is null, "projects.baseDirectory", folderProblem ?? "");
         Check(IsPort(Projects.SitePort), "projects.sitePort", "must be a number between 1 and 65535.");
-        Check(Has(Projects.HostnameSuffix) && !Projects.HostnameSuffix.Trim().Trim('.').Contains(' '),
-            "projects.hostnameSuffix", "is required and can't contain spaces.");
+        // It goes into host names, IIS bindings, the hosts file and SQL: a host name's characters only.
+        Check(SettingRules.IsHostnameSuffix(Projects.HostnameSuffix),
+            "projects.hostnameSuffix", "is required and must be a host name - letters, digits, dots and hyphens, e.g. dnndev.me.");
         Check(Projects.DnnReleaseSources.Count > 0, "projects.dnnReleaseSources", "needs at least one URL.");
         foreach (var source in Projects.DnnReleaseSources)
-            Check(Uri.TryCreate(source, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https",
-                "projects.dnnReleaseSources", $"has an invalid URL: {source}");
+            Check(SettingRules.IsReleaseSource(source),
+                "projects.dnnReleaseSources", $"has a URL that isn't https (http only for this computer): {source}");
 
         var dnn = Projects.DnnDefaults;
         Check(DnnDefaultsSettings.InstallModes.Contains(dnn.InstallMode, StringComparer.OrdinalIgnoreCase),
@@ -101,15 +89,20 @@ public sealed class UserSettings
         Check(Has(SqlServer.Host), "sqlServer.host", "is required.");
         Check(IsPort(SqlServer.Port), "sqlServer.port", "must be a number between 1 and 65535.");
         Check(!string.IsNullOrEmpty(SqlServer.SaPassword), "sqlServer.saPassword", "is required.");
-        Check(Has(Docker.ContainerName), "docker.containerName", "is required.");
-        Check(Has(Docker.VolumeName), "docker.volumeName", "is required.");
+        // They go to docker on the command line and into docker-compose.yml: Docker's own name rules.
+        Check(SettingRules.IsDockerName(Docker.ContainerName), "docker.containerName",
+            "is required and must be a Docker name - a letter or digit, then letters, digits, '_', '.' and '-', e.g. dnn-sqlserver.");
+        Check(SettingRules.IsDockerName(Docker.VolumeName), "docker.volumeName",
+            "is required and must be a Docker name - a letter or digit, then letters, digits, '_', '.' and '-', e.g. dnn_sqlserver_data.");
         Check(Has(Docker.Edition), "docker.edition", "is required.");
         // Goes into CREATE DATABASE … COLLATE as it is - a collation name is only letters, digits and _.
-        Check(Has(Docker.Collation) && Docker.Collation.All(c => char.IsAsciiLetterOrDigit(c) || c == '_'),
+        Check(SettingRules.IsCollation(Docker.Collation),
             "docker.collation", "must be a collation name such as Latin1_General_CI_AS (letters, digits and _).");
 
+        // The names go to PowerShell, run with administrator rights.
         foreach (var feature in Iis.RequiredFeatures)
-            Check(Has(feature?.Name), "iis.requiredFeatures", "has a feature without a name.");
+            Check(SettingRules.IsIisFeatureName(feature?.Name), "iis.requiredFeatures",
+                $"has a feature whose name isn't a Windows feature name (letters, digits, '-', '_' and '.'): {feature?.Name}");
 
         Check(AppearanceSettings.Themes.Contains(Appearance.Theme, StringComparer.OrdinalIgnoreCase),
             "appearance.theme", $"must be one of: {string.Join(", ", AppearanceSettings.Themes)}.");
@@ -125,7 +118,105 @@ public sealed class UserSettings
         OneOf(Layout.PanelAlignment, LayoutSettings.PanelAlignments, "layout.panelAlignment");
         OneOf(Layout.QuickInputPosition, LayoutSettings.QuickInputPositions, "layout.quickInputPosition");
         OneOf(Layout.Density, LayoutSettings.Densities, "layout.density");
+        Check(Backups.KeepDays is >= 0 and <= BackupSettings.MaxKeepDays, "backups.keepDays",
+            $"must be a number of days between 1 and {BackupSettings.MaxKeepDays}, or 0 to keep them for good.");
         return problems;
+    }
+
+    /// <summary>
+    /// These settings with what <paramref name="options"/> holds put in their place - to hold options that came from
+    /// somewhere else (<c>DNNMANAGER_*</c> environment variables) to every rule of <see cref="Validate"/>. What the options
+    /// don't have (the UI scale, say) stays as it is here. Nothing of this object is changed.
+    /// </summary>
+    public UserSettings WithOptions(AppOptions options) => new()
+    {
+        Version = Version,
+        Projects = new ProjectSettings
+        {
+            BaseDirectory = options.BaseDirectory,
+            HostnameSuffix = options.HostnameSuffix,
+            SitePort = options.SitePort,
+            DnnReleaseSources = options.GitHubReleaseApis.ToList(),
+            KeepDnnPackages = options.KeepDnnPackages,
+            DnnDefaults = options.DnnDefaults.Copy(),
+            KeepWarm = options.KeepWarm.Copy()
+        },
+        SqlServer = new SqlServerSettings
+        {
+            Type = options.DatabaseServer.Type,
+            Host = options.Docker.ContainerIp,
+            Port = options.Docker.DefaultPort,
+            SaPassword = options.Docker.SaPassword,
+            Server = options.DatabaseServer.Server,
+            Authentication = options.DatabaseServer.Authentication,
+            // One setting for both: the container's login, or the SQL Server login.
+            UserName = options.DatabaseServer.IsContainer ? options.Docker.SqlUser : options.DatabaseServer.UserName
+        },
+        Docker = new DockerSettings
+        {
+            ContainerName = options.Docker.ContainerName,
+            VolumeName = options.Docker.VolumeName,
+            Edition = options.Docker.MssqlPid,
+            Collation = options.Docker.Collation
+        },
+        Ssms = new SsmsSettings { RememberPassword = options.SsmsRememberPassword },
+        Iis = new IisSettings { RequiredFeatures = options.RequiredIisFeatures.ToList() },
+        Appearance = new AppearanceSettings
+        {
+            Theme = options.Theme,
+            UiScale = Appearance.UiScale,
+            FontSize = Appearance.FontSize,
+            Animations = Appearance.Animations,
+            ProjectColumns = options.ProjectColumns.ToList()
+        },
+        Terminal = new TerminalSettings
+        {
+            DefaultShell = options.Terminal.DefaultShell,
+            FontFamily = options.Terminal.FontFamily,
+            FontSize = options.Terminal.FontSize
+        },
+        Window = new WindowSettings { KeepRunningWhenClosed = options.KeepRunningWhenClosed },
+        Updates = new UpdateSettings { CheckAtStart = options.CheckForUpdatesAtStart },
+        Keyboard = new KeyboardSettings { Shortcuts = new Dictionary<string, string>(options.KeyboardShortcuts, StringComparer.Ordinal) },
+        Layout = options.Layout.Copy(),
+        Backups = new BackupSettings { KeepDays = options.BackupKeepDays }
+    };
+
+    /// <summary>
+    /// What <paramref name="key"/> is called in <see cref="AppOptions"/> - its <c>DNNMANAGER_DnnManager__*</c> environment
+    /// variable after the prefix, e.g. <c>Docker__ContainerIp</c> for <c>sqlServer.host</c>; null for a key the options
+    /// don't have.
+    /// </summary>
+    public static string? OptionNameOf(string key)
+    {
+        static string Under(string section, string rest) => section + "__" + char.ToUpperInvariant(rest[0]) + rest[1..];
+        return key switch
+        {
+            "projects.baseDirectory" => "BaseDirectory",
+            "projects.sitePort" => "SitePort",
+            "projects.hostnameSuffix" => "HostnameSuffix",
+            "projects.dnnReleaseSources" => "GitHubReleaseApis",
+            "projects.keepDnnPackages" => "KeepDnnPackages",
+            "sqlServer.type" => "DatabaseServer__Type",
+            "sqlServer.server" => "DatabaseServer__Server",
+            "sqlServer.authentication" => "DatabaseServer__Authentication",
+            "sqlServer.userName" => "DatabaseServer__UserName or Docker__SqlUser",
+            "sqlServer.host" => "Docker__ContainerIp",
+            "sqlServer.port" => "Docker__DefaultPort",
+            "sqlServer.saPassword" => "Docker__SaPassword",
+            "docker.containerName" => "Docker__ContainerName",
+            "docker.volumeName" => "Docker__VolumeName",
+            "docker.edition" => "Docker__MssqlPid",
+            "docker.collation" => "Docker__Collation",
+            "iis.requiredFeatures" => "RequiredIisFeatures",
+            "appearance.theme" => "Theme",
+            "terminal.fontSize" => "Terminal__FontSize",
+            "backups.keepDays" => "BackupKeepDays",
+            _ when key.StartsWith("projects.dnnDefaults.", StringComparison.Ordinal) => Under("DnnDefaults", key["projects.dnnDefaults.".Length..]),
+            _ when key.StartsWith("projects.keepWarm.", StringComparison.Ordinal) => Under("KeepWarm", key["projects.keepWarm.".Length..]),
+            _ when key.StartsWith("layout.", StringComparison.Ordinal) => Under("Layout", key["layout.".Length..]),
+            _ => null
+        };
     }
 
     public AppOptions ToAppOptions() => new()
@@ -162,6 +253,7 @@ public sealed class UserSettings
         SsmsRememberPassword = Ssms.RememberPassword,
         KeepRunningWhenClosed = Window.KeepRunningWhenClosed,
         CheckForUpdatesAtStart = Updates.CheckAtStart,
+        BackupKeepDays = Backups.KeepDays,
         Docker = new DockerOptions
         {
             ContainerName = Docker.ContainerName,
@@ -376,6 +468,25 @@ public sealed class DockerSettings
     /// <summary>The container's <c>MSSQL_PID</c>.</summary>
     public string Edition { get; set; } = "Developer";
     public string Collation { get; set; } = "Latin1_General_CI_AS";
+}
+
+/// <summary>
+/// How long project backups and deployment packages are kept in <c>Documents\DnnManager</c> (Settings → Projects →
+/// Backups). Applied at each start.
+/// </summary>
+public sealed class BackupSettings
+{
+    public const int MaxKeepDays = 3650;
+
+    /// <summary>The choices Settings offers, in days; 0 keeps them for good (the default).</summary>
+    public static readonly int[] KeepDayChoices = [0, 7, 14, 30, 60, 90, 180, 365];
+
+    /// <summary>
+    /// 0 (the default): project backups (<c>backups\</c> - a clone's cached copy of the source database too) and
+    /// deployment packages (<c>deployments\</c>) are kept until deleted (Troubleshoot → Clean up data). More than 0: at
+    /// each start, the ones older than this many days are deleted.
+    /// </summary>
+    public int KeepDays { get; set; }
 }
 
 public sealed class SsmsSettings

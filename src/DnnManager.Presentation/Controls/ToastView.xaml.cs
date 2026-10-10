@@ -6,10 +6,14 @@ using DnnManager.Presentation.Services;
 
 namespace DnnManager.Presentation.Controls;
 
-/// <summary>The toast in the main window (see <see cref="Toast"/>): one message at a time, the newest replacing the last.</summary>
+/// <summary>
+/// The toast in the main window (see <see cref="Toast"/>): one message at a time; what comes while one stays waits its
+/// turn (<see cref="ToastQueue"/>) - "1 more" under the message says so - and shows when it is closed.
+/// </summary>
 public partial class ToastView : UserControl
 {
     private readonly DispatcherTimer _timer = new();
+    private readonly ToastQueue _queue = new();
     private Action? _action;
     // Shown (or still showing) while the window is minimized (EfficiencyMode): its time starts once the window is back -
     // a toast doesn't go away unseen.
@@ -24,19 +28,28 @@ public partial class ToastView : UserControl
         MouseLeave += (_, _) => { if (_timer.Interval > TimeSpan.Zero && IsVisible) _timer.Start(); };
     }
 
-    /// <param name="duration">How long it stays; <see cref="TimeSpan.Zero"/> keeps it until closed or replaced.</param>
-    public void Show(string message, ToastKind kind, TimeSpan duration, string? actionText, Action? action)
+    /// <summary>The toasts waiting their turn - for tests.</summary>
+    internal ToastQueue Queue => _queue;
+
+    /// <summary>Shows <paramref name="message"/> now - or after the one showing, when that one stays.</summary>
+    public void Enqueue(ToastMessage message)
+    {
+        if (_queue.Add(message) is { } now) Present(now);
+        else ShowWaiting();
+    }
+
+    private void Present(ToastMessage message)
     {
         _timer.Stop();
-        Message.Text = message;
-        Glyph.SetResourceReference(TextBlock.TextProperty, kind switch
+        Message.Text = message.Text;
+        Glyph.SetResourceReference(TextBlock.TextProperty, message.Kind switch
         {
             ToastKind.Success => "GlyphCheck",
             ToastKind.Warning => "GlyphWarning",
             ToastKind.Error => "GlyphError",
             _ => "GlyphInfo"
         });
-        Glyph.SetResourceReference(TextBlock.ForegroundProperty, kind switch
+        Glyph.SetResourceReference(TextBlock.ForegroundProperty, message.Kind switch
         {
             ToastKind.Success => "SuccessText",
             ToastKind.Warning => "LogWarn",
@@ -44,13 +57,15 @@ public partial class ToastView : UserControl
             _ => "Accent"
         });
 
-        _action = action;
-        ActionButton.Content = actionText;
-        ActionButton.Visibility = action is null ? Visibility.Collapsed : Visibility.Visible;
+        _action = message.Action;
+        ActionButton.Content = message.ActionText;
+        ActionButton.Visibility = message.Action is null ? Visibility.Collapsed : Visibility.Visible;
+        ShowWaiting();
 
         BeginAnimation(OpacityProperty, null);
         Opacity = 1;
         Visibility = Visibility.Visible;
+        var duration = message.Duration;
         _timer.Interval = duration;
         _timeWaits = false;
         if (duration <= TimeSpan.Zero) return;
@@ -58,10 +73,24 @@ public partial class ToastView : UserControl
         else _timer.Start();
     }
 
+    /// <summary>"1 more" / "2 more" under the message while others wait - they show when this one is closed.</summary>
+    private void ShowWaiting()
+    {
+        var waiting = _queue.Waiting;
+        More.Text = waiting == 0 ? "" : $"{waiting} more - shown when you close this one";
+        More.Visibility = waiting == 0 ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    /// <summary>Closes the toast showing: the next one waiting shows - or, with none, it fades out.</summary>
     public void Hide()
     {
         _timer.Stop();
         _timeWaits = false;
+        if (_queue.Next() is { } next)
+        {
+            Present(next);
+            return;
+        }
         if (!IsVisible) return;
         if (Motion.GetOff(this))
         {

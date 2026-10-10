@@ -36,9 +36,11 @@ public sealed record SqlServerAddress(string Protocol, string Host, int? Port, s
             s = s[(colon + 1)..].Trim();
         }
 
-        // A named pipe: np:\\server\pipe\…
-        if (protocol == "np")
+        // A named pipe: np:\\server\pipe\… - or a pipe's path alone (\\server\pipe\…), which SqlClient opens as one too: its
+        // server is the part after the two backslashes, not an empty host (which would be this PC).
+        if (protocol == "np" || s.StartsWith(@"\\", StringComparison.Ordinal))
         {
+            protocol = "np";
             var path = s.TrimStart('\\');
             var end = path.IndexOf('\\');
             return new SqlServerAddress(protocol, end < 0 ? path : path[..end], null, "", false);
@@ -121,23 +123,86 @@ public sealed record SqlServerAddress(string Protocol, string Host, int? Port, s
 
     public bool SameServerAs(string other) => SameServerAs(Parse(other));
 
+    /// <summary>
+    /// Whether DNN Manager may sign in to <paramref name="server"/> with the user's Windows account without asking: a
+    /// server on this PC, or the SQL Server chosen in Settings → Database server (<paramref name="chosen"/>) - not just
+    /// any a site's web.config names, which the site's app pool can change: Windows authentication would hand that server
+    /// the user's sign-in. The monitor leaves any other unasked; an operation the user starts asks first, naming it.
+    /// </summary>
+    public static bool MaySignInAsUser(string server, Configuration.DatabaseServerOptions chosen)
+    {
+        if (IsOnThisMachine(server)) return true;
+        return !chosen.IsContainer && !chosen.IsLocalDbFile && chosen.Server.Length > 0 && Parse(server).SameServerAs(Parse(chosen.Server));
+    }
+
+    /// <summary>The question asked before signing in to <paramref name="server"/> as the user, when <see cref="MaySignInAsUser"/> isn't so.</summary>
+    public static string SignInQuestion(string server, string why) =>
+        $"{why} signs in to {server} with your Windows account. That server is named by the site's web.config - not on this PC, " +
+        "and not the one in Settings → Database server - and gets your Windows sign-in.\n\nSign in to it as you?";
+
     private static bool IsLocalHost(string host)
     {
         if (host is "" or "." or "(local)" || host.Equals("localhost", StringComparison.OrdinalIgnoreCase)) return true;
-        var machine = Environment.MachineName;
-        if (host.Equals(machine, StringComparison.OrdinalIgnoreCase) ||
-            host.StartsWith(machine + ".", StringComparison.OrdinalIgnoreCase)) return true;
+        // Its name: the NetBIOS one (at most 15 characters) or its full DNS name - not any name that merely starts with it
+        // (PC.example.com is someone else's server, whose database DNN Manager would otherwise treat as its own).
+        if (host.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase)) return true;
+        var local = LocalNames.Current;
+        if (local.Names.Contains(host)) return true;
         if (!IPAddress.TryParse(host, out var address)) return false;
-        if (IPAddress.IsLoopback(address)) return true;
-        try
+        return IPAddress.IsLoopback(address) || local.Addresses.Contains(address);
+    }
+
+    /// <summary>
+    /// This PC's DNS names and addresses - read once, and again only when an address changes (a network joined or left):
+    /// the monitor asks every few seconds, for every site, and reading every adapter each time costs.
+    /// </summary>
+    internal sealed class LocalNames
+    {
+        private static volatile LocalNames? _current;
+
+        static LocalNames()
         {
-            return NetworkInterface.GetAllNetworkInterfaces()
-                .SelectMany(n => n.GetIPProperties().UnicastAddresses)
-                .Any(a => a.Address.Equals(address));
+            // Read again the next time it is asked, after a change.
+            NetworkChange.NetworkAddressChanged += (_, _) => _current = null;
         }
-        catch (NetworkInformationException)
+
+        private LocalNames(HashSet<string> names, HashSet<IPAddress> addresses) { Names = names; Addresses = addresses; }
+
+        public HashSet<string> Names { get; }
+        public HashSet<IPAddress> Addresses { get; }
+
+        public static LocalNames Current => _current ??= Read();
+
+        /// <summary>Forgets what was read - as an address change does (for the tests).</summary>
+        internal static void Forget() => _current = null;
+
+        /// <summary>Whether it is read already, and kept.</summary>
+        internal static bool IsKept => _current is not null;
+
+        private static LocalNames Read()
         {
-            return false;
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var addresses = new HashSet<IPAddress>();
+            try
+            {
+                var dns = IPGlobalProperties.GetIPGlobalProperties();
+                if (dns.HostName.Length > 0) names.Add(dns.HostName);
+                if (dns.HostName.Length > 0 && dns.DomainName.Length > 0) names.Add($"{dns.HostName}.{dns.DomainName}");
+            }
+            catch (NetworkInformationException)
+            {
+                // Not known: only the machine's name.
+            }
+            try
+            {
+                foreach (var address in NetworkInterface.GetAllNetworkInterfaces().SelectMany(n => n.GetIPProperties().UnicastAddresses))
+                    addresses.Add(address.Address);
+            }
+            catch (NetworkInformationException)
+            {
+                // None known: no address counts as this PC's but the loopback ones.
+            }
+            return new LocalNames(names, addresses);
         }
     }
 }

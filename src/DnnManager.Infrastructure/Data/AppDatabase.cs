@@ -9,7 +9,6 @@ namespace DnnManager.Infrastructure.Data;
 /// <list type="bullet">
 /// <item><c>settings</c> - the settings, one row per value: <c>projects.sitePort</c> = <c>80</c> (<see cref="ValueRows"/>,
 /// <see cref="Settings.SettingsStore"/>);</item>
-
 /// <item><c>state</c> - the workspace (window, page, forms, Logs tab, an update under way), by area, one row per value
 /// (<see cref="State.StateStore"/>);</item>
 /// <item><c>projects</c> - how DNN Manager installed the projects it set up;</item>
@@ -81,6 +80,12 @@ public sealed class AppDatabase
         // A reset to the defaults keeps no copy of the settings.
         """
         DROP TABLE IF EXISTS settings_copies;
+        """,
+        // GitHub's SHA-256s of the install and upgrade packages, kept with the list: a package used offline is checked as
+        // it is online.
+        """
+        ALTER TABLE dnn_releases ADD COLUMN sha256 TEXT;
+        ALTER TABLE dnn_releases ADD COLUMN upgrade_sha256 TEXT;
         """
     ];
 

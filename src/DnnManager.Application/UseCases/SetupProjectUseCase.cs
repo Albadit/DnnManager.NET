@@ -226,7 +226,7 @@ public sealed class SetupProjectUseCase(
             {
                 var login = await _sqlContainer.GrantSiteLoginAsync(project, _sqlContainer.DatabaseFor(project, database.Database, _opts.Docker.DefaultPort), ct);
                 if (!login.Success) return login.WithoutValue();
-                _undo.Add($"Drop the login {login.Value!.User}", () => _sql.DropLoginAsync(login.Value.User, CancellationToken.None));
+                _undo.Add($"Drop the login {login.Value!.User}", undoCt => _sql.DropLoginAsync(login.Value.User, undoCt));
                 database = database with { User = login.Value.User, Password = login.Value.Password };
             }
             var configured = _webConfig.WriteDatabaseConnection(Path.Combine(siteDirectory, "web.config"), database);
@@ -281,6 +281,12 @@ public sealed class SetupProjectUseCase(
             reporter.Link(url);
             reporter.Success($"DNN installation completed. Open {url} - sign in as '{account.UserName}'.");
             return Result.Ok();
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Cancelled, not failed: the runner says so and undoes what was done.
+            _log.LogInformation("Setup of {Project} cancelled", req.ProjectName);
+            throw;
         }
         catch (Exception ex)
         {
@@ -368,7 +374,7 @@ public sealed class SetupProjectUseCase(
         {
             // Before it is made: a cancel while it is being created drops it too.
             _undo.Add($"Drop database [{database.Database}] on {database.Server}",
-                () => _databases.DropDatabaseAsync(database, CancellationToken.None));
+                undoCt => _databases.DropDatabaseAsync(database, undoCt));
             reporter.Info($"Creating database [{database.Database}] on {database.Server}…");
             var created = await _databases.CreateDatabaseAsync(database,
                 database.Kind == DatabaseKind.Container ? _opts.Docker.Collation : null, ct);

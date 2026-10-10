@@ -103,7 +103,7 @@ public static class TestEnvironment
 
     // ─── Docker ───────────────────────────────────────────────────────────
 
-    public const string SqlServerImage = "mcr.microsoft.com/mssql/server:2022-latest";
+    public const string SqlServerImage = global::DnnManager.Infrastructure.Docker.DockerComposeService.SqlServerImage;
 
     /// <summary>
     /// Docker runs and can run the Linux SQL Server image - not when it runs Windows containers, as on GitHub's Windows

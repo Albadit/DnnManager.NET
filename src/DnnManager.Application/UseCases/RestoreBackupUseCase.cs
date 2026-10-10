@@ -1,5 +1,8 @@
+using System.IO.Compression;
 using DnnManager.Application.Abstractions;
+using DnnManager.Application.Configuration;
 using DnnManager.Domain;
+using Microsoft.Extensions.Options;
 
 namespace DnnManager.Application.UseCases;
 
@@ -16,6 +19,12 @@ public sealed class RestoreBackupRequest
 
     /// <summary>The backup's database (<c>&lt;project&gt;.bacpac</c>); null to leave the database as it is.</summary>
     public string? Database { get; init; }
+
+    /// <summary>
+    /// The user already agreed to DNN Manager signing in to the site's database server with their Windows account (an
+    /// upgrade asks before it starts, then puts a step's backup back): not asked again.
+    /// </summary>
+    public bool SignInAgreed { get; init; }
 }
 
 /// <summary>
@@ -35,9 +44,13 @@ public sealed class RestoreBackupUseCase(
     IBacpacService bacpac,
     IFileLockService locks,
     IProjectRecords records,
-    OperationUndo undo)
+    OperationUndo undo,
+    IUserPrompt prompt,
+    IOptions<AppOptions> options)
 {
     private readonly OperationUndo _undo = undo;
+    private readonly IUserPrompt _prompt = prompt;
+    private readonly AppOptions _options = options.Value;
     private readonly IFileLockService _locks = locks;
     private readonly IIisManager _iis = iis;
     private readonly IProjectRepository _projects = projects;
@@ -53,6 +66,9 @@ public sealed class RestoreBackupUseCase(
         if (!File.Exists(req.SiteZip)) return Result.Fail($"The backup's site files aren't there: {req.SiteZip}");
         if (req.Database is { } bacpacFile && !File.Exists(bacpacFile)) return Result.Fail($"The backup's database isn't there: {bacpacFile}");
         if (!System.IO.Directory.Exists(req.Directory)) return Result.Fail($"Project folder not found: {req.Directory}");
+        // Every file of the backup checked before one is written: one that can't be put back (outside the folder, through
+        // a link) would otherwise stop the restore half-way, with the site's files a mix of both.
+        if (CheckZip(req.SiteZip, req.Directory) is { } refused) return Result.Fail($"{refused} Nothing was changed.");
         var project = _projects.Build(req.SiteName, req.Directory);
         IReadOnlyList<string> filtered;
         try { filtered = BackupFilter.Read(req.Directory); }
@@ -72,6 +88,13 @@ public sealed class RestoreBackupUseCase(
             else
             {
                 target = database.Kind == DatabaseKind.Container ? _sql.Connection(database.Database) : database;
+                // Windows authentication to a server web.config names - not on this PC, not the one in Settings → Database
+                // server - would hand it the user's sign-in: asked first, before anything changes.
+                if (!req.SignInAgreed && target.Authentication == SqlAuthentication.Windows &&
+                    !SqlServerAddress.MaySignInAsUser(target.Server, _options.DatabaseServer) &&
+                    !await _prompt.ConfirmAsync(SqlServerAddress.SignInQuestion(target.Server, "Restoring the backup's database"),
+                                                $"Sign in to {target.Server}", "Don't sign in", false, ct))
+                    return Result.Fail($"Not signed in to {target.Server} with your Windows account - the backup's database goes there. Nothing was changed.");
                 var imported = await ImportAsideAsync(target, bacpacPath, reporter, none);
                 if (!imported.Success) return imported.WithoutValue();
                 incoming = imported.Value;
@@ -93,7 +116,9 @@ public sealed class RestoreBackupUseCase(
             if (!extracted.Success)
             {
                 if (target is not null && incoming is not null) await _databases.DropDatabaseAsync(target with { Database = incoming }, none);
-                return Result.Fail($"Could not put the site's files back: {extracted.Error} The database is left as it was.");
+                return Result.Fail($"Could not put the site's files back: {extracted.Error} The site's files are now a mix - some " +
+                                   "as the backup has them, the rest as they were. Run Restore again once nothing holds them " +
+                                   "(an editor, a terminal in the folder). The database is left as it was.");
             }
             var removed = await _copier.RemoveFilesNotInZipAsync(req.SiteZip, req.Directory, [".git", .. filtered], reporter, none);
             if (removed is { Success: true, Value: > 0 }) reporter.Info($"Deleted {removed.Value:N0} file(s) added since the backup.");
@@ -122,19 +147,75 @@ public sealed class RestoreBackupUseCase(
     /// <summary>
     /// What still holds a file of the site once it is stopped: the C# compiler ASP.NET runs from its bin\roslyn keeps
     /// running for minutes, and the worker process takes a moment to let go. Tried again for half a minute, the site's
-    /// own programs ended before each try.
+    /// own programs ended before each try - but only for a file in use: anything else (access denied, a full disk, a
+    /// file of the backup that can't be put back) fails the same way each time, and is said at once.
     /// </summary>
     private async Task<Result> ExtractWithRetryAsync(string zip, string directory, IProgressReporter reporter)
     {
         for (var attempt = 1; ; attempt++)
         {
-            Result result;
-            try { result = await _copier.ExtractZipAsync(zip, directory, reporter, CancellationToken.None); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { result = Result.Fail(ex.Message); }
-            if (result.Success || attempt == 10) return result;
-            reporter.Progress($"A file of the site is still in use - trying again ({attempt} of 9)…");
+            try
+            {
+                return await _copier.ExtractZipAsync(zip, directory, reporter, CancellationToken.None);
+            }
+            catch (IOException ex) when (IsInUse(ex) && attempt < 10)
+            {
+                reporter.Progress($"A file of the site is still in use - trying again ({attempt} of 9)…");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return Result.Fail(ex.Message);
+            }
             await Task.Delay(3000);
             await StopSiteProgramsAsync(directory, reporter);
+        }
+    }
+
+    /// <summary>
+    /// A file another program has open: a sharing or lock violation, or a DLL a process has mapped (the worker process
+    /// letting go) - what goes away by itself.
+    /// </summary>
+    internal static bool IsInUse(IOException ex) => (ex.HResult & 0xFFFF) is 32 or 33 or 1224;
+
+    /// <summary>
+    /// Why <paramref name="zip"/> can't be put back into <paramref name="directory"/> - or null when every file in it can:
+    /// none outside the folder ("..", a full path, a drive), none through a link or junction in the folder, none that is
+    /// itself a link (a zip made on Linux can hold one). The same files as the extraction writes: those under the zip's
+    /// site root (its shallowest folder with a web.config).
+    /// </summary>
+    internal static string? CheckZip(string zip, string directory)
+    {
+        try
+        {
+            using var archive = ZipFile.OpenRead(zip);
+            static string Normalized(ZipArchiveEntry e) => e.FullName.Replace('\\', '/');
+            var files = archive.Entries.Where(e => !Normalized(e).EndsWith('/')).ToList();
+            if (files.Count == 0) return "The backup's site files are empty.";
+            var webConfig = files
+                .Where(e => e.Name.Equals("web.config", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(e => Normalized(e).Count(c => c == '/'))
+                .FirstOrDefault();
+            var root = webConfig is null ? "" : Normalized(webConfig)[..^webConfig.Name.Length];
+            foreach (var entry in files)
+            {
+                var name = Normalized(entry);
+                if (!name.StartsWith(root, StringComparison.OrdinalIgnoreCase)) continue;
+                // The Unix file type in the upper bits: 0xA000 is a symbolic link.
+                if (((entry.ExternalAttributes >> 16) & 0xF000) == 0xA000)
+                    return $"The backup's site files hold a link ({entry.FullName}) - DNN Manager doesn't put links back.";
+                if (SafePath.Under(directory, name[root.Length..]) is null)
+                    return $"The backup's site files hold a file that would land outside the site's folder, or go through a link " +
+                           $"or junction in it: {entry.FullName}";
+            }
+            return null;
+        }
+        catch (InvalidDataException)
+        {
+            return $"The backup's site files aren't a valid zip: {zip}";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return $"Could not read the backup's site files: {ex.Message}";
         }
     }
 

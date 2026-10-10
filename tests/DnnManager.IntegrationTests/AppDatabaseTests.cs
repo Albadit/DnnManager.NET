@@ -91,8 +91,7 @@ public sealed class AppDatabaseTests
         using (var connection = Raw(Database.Path))
         {
             AppDatabase.Execute(connection, "INSERT INTO settings (key, value) VALUES ('projects.sitePort', '8080')");
-            // As an older version left it: the last step (dropping a table that is gone) runs again, harmlessly.
-            AppDatabase.Execute(connection, $"PRAGMA user_version = {current - 1}");
+            AsTheVersionBefore(connection, current);
         }
 
         using (Database.Open()) { }
@@ -103,6 +102,28 @@ public sealed class AppDatabaseTests
         using var backup = Raw(Database.BackupPath);
         Assert.AreEqual("8080", AppDatabase.Scalar<string>(backup, "SELECT value FROM settings WHERE key = 'projects.sitePort'"));
         Assert.IsFalse(File.Exists(Database.BackupPath + ".tmp"), "Nothing half-written left beside it.");
+    }
+
+    [TestMethod]
+    public void The_saved_DNN_releases_gain_columns_for_their_SHA_256s()
+    {
+        var current = CurrentVersion();
+        using (var connection = Raw(Database.Path))
+        {
+            AsTheVersionBefore(connection, current);
+            AppDatabase.Execute(connection,
+                "INSERT INTO dnn_releases (api, position, version, tag, url, prerelease, saved_utc) " +
+                "VALUES ('https://api.github.com/repos/dnnsoftware/Dnn.Platform/releases', 0, '10.0.0', 'v10.0.0', 'https://github.com/x.zip', 0, '2026-01-01T00:00:00Z')");
+        }
+
+        using (var connection = Database.Open())
+        {
+            Assert.AreEqual(2L, AppDatabase.Scalar<long>(connection,
+                "SELECT COUNT(*) FROM pragma_table_info('dnn_releases') WHERE name IN ('sha256', 'upgrade_sha256')"));
+            Assert.AreEqual(1L, AppDatabase.Scalar<long>(connection, "SELECT COUNT(*) FROM dnn_releases WHERE sha256 IS NULL"),
+                "The list saved before keeps its row, without a SHA-256 until GitHub is asked again.");
+        }
+        Assert.AreEqual(current, UserVersion(Database.Path));
     }
 
     [TestMethod]
@@ -143,7 +164,7 @@ public sealed class AppDatabaseTests
         using (var connection = Raw(Database.Path))
         {
             AppDatabase.Execute(connection, "INSERT INTO settings (key, value) VALUES ('appearance.theme', 'dark')");
-            AppDatabase.Execute(connection, $"PRAGMA user_version = {current - 1}");
+            AsTheVersionBefore(connection, current);
         }
         using (Database.Open()) { } // makes the copy
         DamagePages(Database.Path);
@@ -172,6 +193,17 @@ public sealed class AppDatabaseTests
         using var connection = Database.Open();
         var version = new Version(AppDatabase.Scalar<string>(connection, "SELECT sqlite_version()")!);
         Assert.IsTrue(version >= new Version(3, 50, 2), $"SQLite {version}: GHSA-2m69-gcr7-jv3q is fixed in 3.50.2.");
+    }
+
+    /// <summary>
+    /// Makes a current file the version before: the last step (the SHA-256 columns of <c>dnn_releases</c>) undone, so it
+    /// runs again as it does for a user's older file.
+    /// </summary>
+    private static void AsTheVersionBefore(SqliteConnection connection, long current)
+    {
+        AppDatabase.Execute(connection, "ALTER TABLE dnn_releases DROP COLUMN sha256");
+        AppDatabase.Execute(connection, "ALTER TABLE dnn_releases DROP COLUMN upgrade_sha256");
+        AppDatabase.Execute(connection, $"PRAGMA user_version = {current - 1}");
     }
 
     /// <summary>Overwrites every page after the first with junk - a file a crash or a disk left broken.</summary>

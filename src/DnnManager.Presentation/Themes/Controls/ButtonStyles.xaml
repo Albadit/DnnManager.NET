@@ -94,7 +94,10 @@
         <Setter Property="Width" Value="28" />
         <Setter Property="Height" Value="28" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="Focusable" Value="False" />
+        <!-- Reached with Tab and pressed with Enter or Space, the focus ring showing which one has the keyboard (WCAG 2.1.1,
+             2.4.7). Where a list's rows have keys of their own (the Projects table) its row buttons set Focusable False. -->
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+        <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -120,7 +123,7 @@
         <Setter Property="Width" Value="32" />
         <Setter Property="Height" Value="32" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="Focusable" Value="False" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ToggleButton">
@@ -133,7 +136,8 @@
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SelectionBg}" />
-                            <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+                            <!-- LinkFg, not Accent: 3:1 for the icon on the selection (WCAG 1.4.11). -->
+                            <Setter Property="Foreground" Value="{DynamicResource LinkFg}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -143,7 +147,8 @@
 
     <!-- Text-only button (e.g. "Show all" in the Columns menu). -->
     <Style TargetType="Button" x:Key="LinkButton">
-        <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+        <!-- LinkFg: 4.5:1 on the page, a card, a hovered and a selected row in both themes (WCAG 1.4.3). -->
+        <Setter Property="Foreground" Value="{DynamicResource LinkFg}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
@@ -161,8 +166,9 @@
     </Style>
 
     <!-- Chevron that turns down when checked (a table row's details). -->
+    <!-- Not a tab stop: in the Projects table the row's Right and Left arrows expand and collapse it. -->
     <Style TargetType="ToggleButton" x:Key="ExpandToggle">
-        <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+        <Setter Property="Foreground" Value="{DynamicResource LinkFg}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Focusable" Value="False" />
         <Setter Property="Template">

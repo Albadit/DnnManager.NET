@@ -14,7 +14,7 @@
                     <TextBlock Style="{StaticResource CardTitle}" Text="Project" />
                     <TextBlock Style="{StaticResource FieldLabel}" Text="Project name" Margin="0,0,0,4" />
                     <TextBox AutomationProperties.Name="Project name" x:Name="NameBox" TextChanged="NameBox_TextChanged" />
-                    <TextBlock x:Name="NameError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
+                    <TextBlock x:Name="NameError" Style="{StaticResource ErrorLine}" c:FieldError.For="{Binding ElementName=NameBox}" Visibility="Collapsed" />
                     <TextBlock x:Name="NameHint" Style="{StaticResource Hint}" />
                 </StackPanel>
             </Border>
@@ -59,7 +59,7 @@
                     </DockPanel>
                     <TextBlock Style="{StaticResource Hint}"
                                Text="The site's database - restored into the project's database. A .bak works too." />
-                    <TextBlock x:Name="ImportError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
+                    <TextBlock x:Name="ImportError" Style="{StaticResource ErrorLine}" c:FieldError.For="{Binding ElementName=ZipBox}" Visibility="Collapsed" />
                 </StackPanel>
             </Border>
 
@@ -171,7 +171,7 @@
                             <ComboBox AutomationProperties.Name="Site template" x:Name="TemplateCombo" SelectionChanged="Selection_Changed" />
                         </StackPanel>
                     </Grid>
-                    <TextBlock x:Name="AccountError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
+                    <TextBlock x:Name="AccountError" Style="{StaticResource ErrorLine}" c:FieldError.For="{Binding ElementName=HostPasswordBox}" Visibility="Collapsed" />
                     <TextBlock x:Name="AccountHint" Style="{StaticResource Hint}" />
                 </StackPanel>
             </Border>
@@ -223,7 +223,7 @@
                             <c:PasswordInput AutomationProperties.Name="Password" x:Name="DbPasswordBox" PasswordChanged="DbPassword_Changed" />
                         </StackPanel>
                     </Grid>
-                    <TextBlock x:Name="DatabaseError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" />
+                    <TextBlock x:Name="DatabaseError" Style="{StaticResource ErrorLine}" c:FieldError.For="{Binding ElementName=DbNameBox}" Visibility="Collapsed" />
                     <TextBlock x:Name="DatabaseHint" Style="{StaticResource Hint}" />
                 </StackPanel>
             </Border>
@@ -231,9 +231,13 @@
             <StackPanel Orientation="Horizontal">
                 <Button x:Name="RunButton" Style="{StaticResource Primary}" Content="Create project" IsEnabled="False" Click="Run_Click"
                         ToolTip="Create the website with these choices - the panel at the bottom shows each step, Cancel undoes it" />
-                <!-- Why the button can't be clicked yet: a disabled button says nothing, and can't even show its tooltip. -->
+                <!-- Why the button can't be clicked yet: a disabled button says nothing, and can't even show its tooltip. A
+                     screen reader hears it too: as the button's help text, and said once it settles - without interrupting
+                     (FieldError). -->
                 <TextBlock x:Name="StillNeeded" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="12,0,0,0"
-                           TextWrapping="Wrap" MaxWidth="520" />
+                           TextWrapping="Wrap" MaxWidth="520"
+                           c:FieldError.Message="{Binding Text, RelativeSource={RelativeSource Self}}"
+                           c:FieldError.For="{Binding ElementName=RunButton}" c:FieldError.Important="False" />
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

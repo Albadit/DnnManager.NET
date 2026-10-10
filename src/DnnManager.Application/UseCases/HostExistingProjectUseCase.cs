@@ -48,7 +48,8 @@ public sealed class HostExistingProjectUseCase(
     IUserPrompt prompt,
     ILogger<HostExistingProjectUseCase> log,
     OperationUndo undo,
-    SiteDatabases siteDatabases)
+    SiteDatabases siteDatabases,
+    IDatabaseProvisioner databases)
 {
     private readonly AppOptions _opts = opts.Value;
     private readonly IProjectRepository _projects = projects;
@@ -63,6 +64,7 @@ public sealed class HostExistingProjectUseCase(
     private readonly ILogger<HostExistingProjectUseCase> _log = log;
     private readonly OperationUndo _undo = undo;
     private readonly SiteDatabases _siteDatabases = siteDatabases;
+    private readonly IDatabaseProvisioner _databases = databases;
 
     public async Task<Result> ExecuteAsync(HostExistingProjectRequest req, IProgressReporter reporter, CancellationToken ct)
     {
@@ -144,6 +146,12 @@ public sealed class HostExistingProjectUseCase(
             if (disabledRules.Count > 0)
                 reporter.Warn(ProductionReminder(disabledRules));
             return Result.Ok();
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Cancelled, not failed: the runner says so and undoes what was done.
+            _log.LogInformation("Hosting existing project {Project} cancelled", req.ProjectName);
+            throw;
         }
         catch (Exception ex)
         {
@@ -240,30 +248,41 @@ public sealed class HostExistingProjectUseCase(
             }
             else
             {
-                // A database that is restored into new is dropped again by a cancel; one that was there is replaced.
-                if (exists.Value)
-                    _undo.CannotUndo($"database [{db.DatabaseName}] was replaced by {fileName}, as you chose - what was in it is gone.");
-                else
-                    _undo.Add($"Drop database [{db.DatabaseName}]", () => _sql.DropDatabaseAsync(db.DatabaseName, CancellationToken.None));
-                reporter.Info($"Restoring [{db.DatabaseName}] from {fileName}…");
-                var restore = await _sqlContainer.RestoreAsync(db, backupFile, reporter, ct);
+                // Restored beside the database that is there, under a name of its own, and swapped in only once it is
+                // complete: a failed or cancelled restore leaves that one as it was. One restored into new is dropped
+                // again by a cancel or a failure.
+                var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                var incoming = exists.Value ? db with { DatabaseName = $"{db.DatabaseName}_restore_{stamp}" } : db;
+                _undo.Add($"Drop database [{incoming.DatabaseName}]", undoCt => _sql.DropDatabaseAsync(incoming.DatabaseName, undoCt));
+                reporter.Info(exists.Value
+                    ? $"Restoring {fileName} beside [{db.DatabaseName}] - it replaces it once it is complete…"
+                    : $"Restoring [{db.DatabaseName}] from {fileName}…");
+                var restore = await _sqlContainer.RestoreAsync(incoming, backupFile, reporter, ct);
                 if (!restore.Success)
-                    return Result.Fail($"Restoring {fileName} failed: {restore.Error}");
-                reporter.Success($"Database [{db.DatabaseName}] restored from {fileName}.");
+                    return Result.Fail($"Restoring {fileName} failed: {restore.Error}" +
+                                       (exists.Value ? $" [{db.DatabaseName}] is left as it was." : ""));
+                reporter.Success($"Database [{incoming.DatabaseName}] restored from {fileName}.");
 
                 // A backup from another environment carries that site's portal aliases; without one for this
                 // hostname DNN can't match the request and the site fails to load. Not fatal - it can be
                 // added by hand - but the site won't answer at its local address until it is.
                 // The address the site is bound to - with its port when that isn't 80, or DNN doesn't match the request.
                 var hostname = DnnSiteAddress.AliasFor(_opts.HostnameFor(project.Name), _opts.SitePort);
-                var alias = await _sql.RemapPortalAliasesAsync(db.DatabaseName, _opts.HostnameSuffix, hostname, ct);
+                var alias = await _sql.RemapPortalAliasesAsync(incoming.DatabaseName, _opts.HostnameSuffix, hostname, ct);
                 if (alias.Success)
                     reporter.Success($"PortalAlias set to {hostname}.");
                 else
                     reporter.Fail($"Could not update PortalAlias: {alias.Error}. Add '{hostname}' as a site alias " +
                                   "or the site will not load at that address.");
 
-                await DisableSslAsync(_sql, db.DatabaseName, reporter, ct);
+                await DisableSslAsync(_sql, incoming.DatabaseName, reporter, ct);
+
+                if (exists.Value)
+                {
+                    var swapped = await LocalDatabaseSwap.SwapInAsync(_sqlContainer, _databases, _sql, _undo, db.DatabaseName,
+                        incoming.DatabaseName, $"{db.DatabaseName}_before_restore_{stamp}", $"the database restored from {fileName}", reporter, ct);
+                    if (!swapped.Success) return swapped;
+                }
             }
         }
         else if (exists.Value)
@@ -272,7 +291,7 @@ public sealed class HostExistingProjectUseCase(
         }
         else
         {
-            _undo.Add($"Drop database [{db.DatabaseName}]", () => _sql.DropDatabaseAsync(db.DatabaseName, CancellationToken.None));
+            _undo.Add($"Drop database [{db.DatabaseName}]", undoCt => _sql.DropDatabaseAsync(db.DatabaseName, undoCt));
             var create = await _sql.CreateDatabaseAsync(db, ct);
             if (!create.Success)
                 return Result.Fail($"Database creation reported an error: {create.Error}");
@@ -297,7 +316,7 @@ public sealed class HostExistingProjectUseCase(
                 // The site signs in with a login of its own, owner of its database only - not the container's sa.
                 var login = await _sqlContainer.GrantSiteLoginAsync(project, db, ct);
                 if (!login.Success) return login.WithoutValue();
-                _undo.Add($"Drop the login {login.Value!.User}", () => _sql.DropLoginAsync(login.Value.User, CancellationToken.None));
+                _undo.Add($"Drop the login {login.Value!.User}", undoCt => _sql.DropLoginAsync(login.Value.User, undoCt));
                 _undo.RestoreFileOnUndo(webConfigPath);
                 var write = _webConfig.WriteSiteSqlServer(webConfigPath, login.Value);
                 if (write.Success)

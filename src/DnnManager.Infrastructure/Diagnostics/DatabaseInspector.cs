@@ -63,18 +63,9 @@ public static class DatabaseInspector
         SqlConnection conn;
         try
         {
-            conn = new SqlConnection(new SqlConnectionStringBuilder
-            {
-                DataSource = site.Server,
-                InitialCatalog = site.Database,
-                UserID = site.User,
-                Password = site.Password,
-                IntegratedSecurity = site.User.Length == 0,
-                Encrypt = true,
-                TrustServerCertificate = true,
-                ConnectTimeout = timeoutSeconds,
-                ApplicationName = "DNN Manager (Details)"
-            }.ConnectionString);
+            var builder = Sql.ConnectionStrings.For(site.Server, site.Database, site.User, site.Password, timeoutSeconds);
+            builder.ApplicationName = "DNN Manager (Details)";
+            conn = new SqlConnection(builder.ConnectionString);
             await conn.OpenAsync(ct);
         }
         catch (Exception ex) when (ex is SqlException or InvalidOperationException or ArgumentException)

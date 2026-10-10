@@ -7,8 +7,10 @@ using System.Windows.Interop;
 using System.Windows.Media.Animation;
 using System.Windows.Input;
 using DnnManager.Application.Configuration;
+using DnnManager.Infrastructure.Processes;
 using DnnManager.Infrastructure.Settings;
 using DnnManager.Infrastructure.SiteLogs;
+using DnnManager.Infrastructure.Startup;
 using DnnManager.Infrastructure.Updates;
 using DnnManager.Presentation.Pages;
 using DnnManager.Presentation.Services;
@@ -116,10 +118,13 @@ public partial class MainWindow : Window
             OpenPanel();
             TerminalPanel.ShowLogs(site, source);
         };
+        // Windows signing out or shutting down while an operation runs: it is undone first.
+        if (System.Windows.Application.Current is { } app) app.SessionEnding += OnSessionEnding;
         Closed += (_, _) =>
         {
             TerminalPanel.CloseAll();
             TerminalPanel.StopLogs();
+            if (System.Windows.Application.Current is { } current) current.SessionEnding -= OnSessionEnding;
         };
         SetLogOpen(false);
         Tour.Ended += Tour_Ended;
@@ -406,6 +411,58 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// DNN Manager runs with administrator rights: one installed where programs without them can change it (installed
+    /// for this user only, in %LOCALAPPDATA%) is said once per version - and the scheduled task that would start such a
+    /// copy at sign-in, with those rights and without asking, is removed. Off the UI thread, and the scheduled task only
+    /// looked at when it can be one to remove: on a version's first start (one made by 1.8.1 or older, or for a copy since
+    /// moved), and whenever this copy is one others could change.
+    /// </summary>
+    private async void CheckInstallLocation(bool newVersion)
+    {
+        if (!TrustedPrograms.IsElevated || _updater.Target is null || Environment.ProcessPath is not { } exe) return;
+        try
+        {
+            var adminOnly = await Task.Run(() => TrustedPrograms.IsAdminOnly(exe));
+            if (newVersion || !adminOnly)
+            {
+                var startup = _services.GetRequiredService<StartupTask>();
+                if (await Task.Run(() => startup.RemoveIfUnsafeAsync()) is { } removed)
+                {
+                    _log.Warn(removed);
+                    Toast.Show(removed, ToastKind.Warning);
+                }
+            }
+            if (newVersion && !adminOnly)
+                Toast.Show($"DNN Manager is installed in {Path.GetDirectoryName(exe)}, which programs without administrator rights can change - " +
+                           "and it runs with those rights. Install it for all users: run its Setup from GitHub, which installs it in Program Files.",
+                    ToastKind.Warning);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            App.Log?.LogWarning(ex, "Could not check where DNN Manager is installed");
+        }
+    }
+
+    /// <summary>
+    /// An operation the last DNN Manager ended before it did (a crash, Windows shutting down, Quit now): said, with what
+    /// it had left to undo - that may still be there, half made.
+    /// </summary>
+    private void ReportUnfinished()
+    {
+        if (_runner.TakeUnfinished() is not { } unfinished) return;
+        var left = unfinished.Left.Count == 0
+            ? "It hadn't changed anything that needed undoing yet."
+            : $"It may have left half done what these would have undone: {string.Join("; ", unfinished.Left)}.";
+        var message = $"'{unfinished.Title}' didn't finish - DNN Manager ended while it ran (started {unfinished.StartedUtc.ToLocalTime():g}). {left}";
+        _log.Warn(message);
+        Toast.Show(message, ToastKind.Warning, "Show output", () =>
+        {
+            OpenPanel();
+            TerminalPanel.ShowActivity();
+        });
+    }
+
+    /// <summary>
     /// The workspace as the last start left it: the panel, the page, the Settings category and unsaved edits, the Projects
     /// table and the Details that were open, the log on the Logs tab. What is gone (a project, a log) falls back to the
     /// place above it. Then says so - and, after an update, whether it worked. Terminals aren't kept: their shells end
@@ -419,12 +476,14 @@ public partial class MainWindow : Window
         // DNN Manager has never run here: no version and no window place saved (1.7.3 and older kept no version).
         var firstStart = lastRun is null && layout.Width is null;
         var current = _updater.Current.ToString();
-        // An update by 1.7.2 or older noted itself where this version doesn't look - its helper's plan says it.
-        var update = TakeUpdate() ?? (lastRun != current ? _updater.HandedOver() : null);
+        // An update by 1.7.2 or older left its plan in %TEMP%, which every program of the user can change - not read:
+        // the release notes since the last run still show.
+        var update = TakeUpdate();
         NoteFirstVersion(firstStart);
         // A new user gets the getting started guide, never release notes of changes they didn't see.
         var whatsNewSince = IsNewUser ? null : WhatsNewSince(update, lastRun);
         if (lastRun != current) _workspace.Store.Save(new VersionState { LastRun = current });
+        CheckInstallLocation(newVersion: lastRun != current);
         foreach (var (key, draft) in _workspace.Load<FormsState>().Drafts) _drafts[key] = draft;
         _restoringWorkspace = state;
         _restoringLogs = logs;
@@ -462,6 +521,7 @@ public partial class MainWindow : Window
             else if (logs.LogSite is { } site && _store.Projects.FirstOrDefault(r => r.Name.Equals(site, StringComparison.OrdinalIgnoreCase)) is { } row)
                 TerminalPanel.ShowLog(row, logs.LogGroup, logs.LogTitle);
             Report(update, missing, settingsBack);
+            ReportUnfinished();
             // What changed, then the getting started guide - once the window is up and restored. One after the other in
             // one go: queued apart, the second would open inside the first one's dialog loop, both at once.
             _ = Dispatcher.BeginInvoke(() =>
@@ -893,6 +953,12 @@ public partial class MainWindow : Window
             }
             return;
         }
+        // Quit now: the running operation, or its undo, is left as it is - the next start says what was left.
+        if (_quitNow)
+        {
+            _workspace.SaveNow(last: true);
+            return;
+        }
         if (_quittingForSetup)
         {
             // Setup waits for DNN Manager to close - not for ever: an operation gets a while to stop and undo itself.
@@ -929,24 +995,75 @@ public partial class MainWindow : Window
 
     // Quitting, once the running operation has stopped.
     private bool _stoppingToQuit;
+    // Quitting without waiting for the running operation any longer (Quit now).
+    private bool _quitNow;
+
+    // How long quitting waits for an operation to stop and undo itself before it offers to quit without waiting.
+    private static readonly TimeSpan OfferQuitNowAfter = TimeSpan.FromSeconds(20);
 
     /// <summary>
     /// Cancels the running operation and closes the window once it has stopped and undone what it did - never cut off
-    /// half-way, which would leave a site, a database or files half made. With <paramref name="limit"/>, closes after that
-    /// long whatever it is doing (Setup is waiting).
+    /// half-way, which would leave a site, a database or files half made. One that takes a while gets a Quit now, for an
+    /// undo that waits on something that doesn't answer. With <paramref name="limit"/>, closes after that long whatever it
+    /// is doing (Setup is waiting, Windows is shutting down) - the undo stopped first, so what is left is said.
     /// </summary>
     private async void QuitOnceStopped(TimeSpan? limit)
     {
         if (_stoppingToQuit) return;
         _stoppingToQuit = true;
-        Toast.Show($"Quitting once '{_runner.Current}' has stopped and put back what it did…");
+        var title = _runner.Current;
+        Toast.Show($"Quitting once '{title}' has stopped and put back what it did…");
         _runner.Cancel();
         var idle = _runner.WhenIdleAsync();
-        if (limit is { } wait) await Task.WhenAny(idle, Task.Delay(wait));
-        else await idle;
+        if (limit is { } wait)
+        {
+            if (await Task.WhenAny(idle, Task.Delay(wait)) != idle)
+            {
+                _runner.SkipUndo();
+                await Task.WhenAny(idle, Task.Delay(TimeSpan.FromSeconds(3)));
+                _quitNow = true;
+            }
+        }
+        else if (await Task.WhenAny(idle, Task.Delay(OfferQuitNowAfter)) != idle)
+        {
+            Toast.Show($"'{title}' is still stopping and putting back what it did. Quit now leaves what isn't undone yet as it " +
+                       "is - the next start says what that is.", ToastKind.Warning, "Quit now", QuitNow);
+            await idle;
+            // Quit now was chosen meanwhile: the window is closed already.
+            if (_quitNow) return;
+        }
         _quitting = true;
         Close();
     }
+
+    /// <summary>Quits without waiting any longer for the running operation to stop and undo itself.</summary>
+    private void QuitNow()
+    {
+        if (_quitNow) return;
+        _quitNow = true;
+        _quitting = true;
+        _runner.SkipUndo();
+        Close();
+    }
+
+    /// <summary>
+    /// Windows is signing out or shutting down while an operation runs: it is held up until the operation has been
+    /// cancelled and undone - at most a minute, with the reason Windows shows - and DNN Manager then quits. Sign out or
+    /// shut down again after that. Should Windows end DNN Manager first, the next start says what was left.
+    /// </summary>
+    private void OnSessionEnding(object? sender, SessionEndingCancelEventArgs e)
+    {
+        if (!_runner.IsBusy || _quitNow) return;
+        e.Cancel = true;
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle != IntPtr.Zero)
+            ShutdownBlockReasonCreate(handle, $"DNN Manager is cancelling '{_runner.Current}' and putting back what it did.");
+        QuitOnceStopped(TimeSpan.FromSeconds(60));
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShutdownBlockReasonCreate(IntPtr hWnd, string reason);
 }
 
 /// <summary>A page that reloads its data after an operation finishes.</summary>

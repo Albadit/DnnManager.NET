@@ -72,11 +72,22 @@ public sealed class CloneProjectUseCase(
     private readonly IUserPrompt _prompt = prompt;
     private readonly ILogger<CloneProjectUseCase> _log = log;
     private readonly OperationUndo _undo = undo;
+    // The source's database as it was copied, kept in the project's backups folder - said at the end.
+    private string? _keptCopy;
+
+    /// <summary>
+    /// Where the copy of the source's database is kept (<c>&lt;backups&gt;\&lt;project&gt;\&lt;project&gt;_&lt;date&gt;\</c>),
+    /// and how old backups go: it holds all of the source's data, and nothing deletes it unless that is set.
+    /// </summary>
+    internal static string KeptCopyNote(string file) =>
+        $"A copy of the source's database is kept with the project's backups: {file}. It holds all of the source's data - " +
+        "Settings → Projects → Backups (Keep backups and deployment packages) can delete old backups by themselves; until that is set they are kept for good.";
 
     public async Task<Result> ExecuteAsync(CloneProjectRequest req, IProgressReporter reporter, CancellationToken ct)
     {
         var nameCheck = ProjectName.Validate(req.TargetProjectName);
         if (!nameCheck.Success) return nameCheck;
+        _keptCopy = null;
 
         try
         {
@@ -161,7 +172,7 @@ public sealed class CloneProjectUseCase(
                 // The copy signs in with a login of its own, owner of its database only - not the container's sa.
                 var login = await _sqlContainer.GrantSiteLoginAsync(project, database.Target, ct);
                 if (!login.Success) return login.WithoutValue();
-                _undo.Add($"Drop the login {login.Value!.User}", () => _sql.DropLoginAsync(login.Value.User, CancellationToken.None));
+                _undo.Add($"Drop the login {login.Value!.User}", undoCt => _sql.DropLoginAsync(login.Value.User, undoCt));
                 _undo.RestoreFileOnUndo(webConfigPath);
                 var write = _webConfig.WriteSiteSqlServer(webConfigPath, login.Value);
                 if (!write.Success) return write;
@@ -182,6 +193,7 @@ public sealed class CloneProjectUseCase(
             }
 
             reporter.Step("Clone complete");
+            if (_keptCopy is { } kept) reporter.Info(KeptCopyNote(kept));
             // The Output tab offers the site's address at the end of the run.
             if (siteCreated)
                 reporter.Link(_opts.SiteUrlFor(req.TargetProjectName));
@@ -265,7 +277,9 @@ public sealed class CloneProjectUseCase(
         var name = plan.Target.DatabaseName;
         var incoming = plan.Replaces ? plan.Target with { DatabaseName = $"{name}_clone_{stamp}" } : plan.Target;
         // The copy, made below - dropped again by a cancel or a failure; the database it replaces is untouched until the end.
-        _undo.Add($"Drop database [{incoming.DatabaseName}]", () => _sql.DropDatabaseAsync(incoming.DatabaseName, CancellationToken.None));
+        // A RESTORE into it that was cancelled has been stopped in SQL Server by then (ISqlServerService), and a drop
+        // while it is still letting go is tried again.
+        _undo.Add($"Drop database [{incoming.DatabaseName}]", undoCt => _sql.DropDatabaseAsync(incoming.DatabaseName, undoCt));
 
         var backupFolder = ProjectBackups.NewFolder(project, DateTime.Now);
         _undo.DeleteFolderOnUndo(backupFolder);
@@ -285,7 +299,8 @@ public sealed class CloneProjectUseCase(
                 try
                 {
                     File.Copy(bacpacTmp, cached, overwrite: true);
-                    reporter.Info($"Cached BACPAC at {cached}");
+                    _keptCopy = cached;
+                    reporter.Info($"Copy of the source's database kept at {cached}");
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
@@ -338,7 +353,8 @@ public sealed class CloneProjectUseCase(
             {
                 TryDelete(srcBakHostPath);
             }
-            reporter.Info($"Cached backup at {projectBak}");
+            _keptCopy = projectBak;
+            reporter.Info($"Copy of the source's database kept at {projectBak}");
 
             reporter.Step($"Seed [{name}] from clone backup", Stage.Seed);
             var restore = await _sql.RestoreDatabaseLocalAsync(incoming, projectBak, ct);
@@ -354,35 +370,10 @@ public sealed class CloneProjectUseCase(
         reporter.Success($"PortalAlias set to {alias}.");
         await HostExistingProjectUseCase.DisableSslAsync(_sql, incoming.DatabaseName, reporter, ct);
 
-        if (plan.Replaces) return await SwapInAsync(name, incoming.DatabaseName, stamp, reporter, ct);
+        if (plan.Replaces)
+            return await LocalDatabaseSwap.SwapInAsync(_sqlContainer, _databases, _sql, _undo, name, incoming.DatabaseName,
+                $"{name}_before_clone_{stamp}", "the copy", reporter, ct);
         reporter.Success($"Local database [{name}] ready.");
-        return Result.Ok();
-    }
-
-    /// <summary>
-    /// The copy in place of the database it replaces: that one renamed aside, the copy given its name, the one aside dropped.
-    /// A rename that fails puts the old one back - it is only gone once the copy has its name.
-    /// </summary>
-    private async Task<Result> SwapInAsync(string name, string incoming, string stamp, IProgressReporter reporter, CancellationToken ct)
-    {
-        var aside = $"{name}_before_clone_{stamp}";
-        var old = _sqlContainer.Connection(name);
-        var renamed = await _databases.RenameDatabaseAsync(old, aside, ct);
-        if (!renamed.Success)
-            return Result.Fail($"Could not set [{name}] aside to put the copy in: {renamed.Error} The database is left as it was.");
-        var named = await _databases.RenameDatabaseAsync(_sqlContainer.Connection(incoming), name, ct);
-        if (!named.Success)
-        {
-            var back = await _databases.RenameDatabaseAsync(old with { Database = aside }, name, CancellationToken.None);
-            return Result.Fail(back.Success
-                ? $"The copy couldn't be named [{name}]: {named.Error} The database is left as it was."
-                : $"The copy couldn't be named [{name}]: {named.Error} - and the database it replaces couldn't be put back from [{aside}]: {back.Error}");
-        }
-        _undo.CannotUndo($"database [{name}] that was there before was replaced by the copy, as you chose.");
-        var dropped = await _sql.DropDatabaseAsync(aside, CancellationToken.None);
-        if (!dropped.Success)
-            reporter.Warn($"The database it replaced is still there as [{aside}] - drop it once you no longer need it ({dropped.Error}).");
-        reporter.Success($"Local database [{name}] ready - it replaced the one that was there.");
         return Result.Ok();
     }
 
@@ -391,4 +382,41 @@ public sealed class CloneProjectUseCase(
         try { if (File.Exists(path)) File.Delete(path); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { _log.LogWarning(ex, "Could not delete {Path}", path); }
     }
+}
+
+/// <summary>
+/// A database on the local SQL Server replaced by one made beside it (a clone's copy, a backup restored): the old one is
+/// only gone once the new one is complete and has its name - a failure on the way leaves it as it was.
+/// </summary>
+internal static class LocalDatabaseSwap
+{
+    /// <summary>
+    /// <paramref name="incoming"/> in place of <paramref name="name"/>: that one renamed to <paramref name="aside"/>, the new
+    /// one given its name, the one aside dropped. A rename that fails puts the old one back. <paramref name="what"/> names
+    /// the new one in what is said ("the copy").
+    /// </summary>
+    public static async Task<Result> SwapInAsync(LocalSqlContainer container, IDatabaseProvisioner databases, ISqlServerService sql,
+        OperationUndo undo, string name, string incoming, string aside, string what, IProgressReporter reporter, CancellationToken ct)
+    {
+        var old = container.Connection(name);
+        var renamed = await databases.RenameDatabaseAsync(old, aside, ct);
+        if (!renamed.Success)
+            return Result.Fail($"Could not set [{name}] aside to put {what} in: {renamed.Error} The database is left as it was.");
+        var named = await databases.RenameDatabaseAsync(container.Connection(incoming), name, ct);
+        if (!named.Success)
+        {
+            var back = await databases.RenameDatabaseAsync(old with { Database = aside }, name, CancellationToken.None);
+            return Result.Fail(back.Success
+                ? $"{Capital(what)} couldn't be named [{name}]: {named.Error} The database is left as it was."
+                : $"{Capital(what)} couldn't be named [{name}]: {named.Error} - and the database it replaces couldn't be put back from [{aside}]: {back.Error}");
+        }
+        undo.CannotUndo($"database [{name}] that was there before was replaced by {what}, as you chose.");
+        var dropped = await sql.DropDatabaseAsync(aside, CancellationToken.None);
+        if (!dropped.Success)
+            reporter.Warn($"The database it replaced is still there as [{aside}] - drop it once you no longer need it ({dropped.Error}).");
+        reporter.Success($"Local database [{name}] ready - it replaced the one that was there.");
+        return Result.Ok();
+    }
+
+    private static string Capital(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
 }

@@ -2,10 +2,13 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text;
 using DnnManager.Application.Abstractions;
 using DnnManager.Domain;
 using Microsoft.Extensions.Logging;
+using DnnManager.Application;
 
 namespace DnnManager.Infrastructure.Files;
 
@@ -115,7 +118,6 @@ public sealed class FileLockService(ILogger<FileLockService> log) : IFileLockSer
 
     public async Task<IReadOnlyList<string>> StopProgramsRunningFromAsync(string directory)
     {
-        var root = Path.GetFullPath(directory).TrimEnd('\\') + "\\";
         var stopped = new List<string>();
         foreach (var process in Process.GetProcesses())
         {
@@ -123,8 +125,7 @@ public sealed class FileLockService(ILogger<FileLockService> log) : IFileLockSer
             {
                 try
                 {
-                    if (process.Id == Environment.ProcessId || ExePath(process) is not { } exe ||
-                        !exe.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                    if (process.Id == Environment.ProcessId || ExePath(process) is not { } exe || !SafePath.IsInside(exe, directory))
                         continue;
                     process.Kill(entireProcessTree: true);
                     await ExitedAsync(process, TimeSpan.FromSeconds(5), CancellationToken.None);
@@ -164,14 +165,19 @@ public sealed class FileLockService(ILogger<FileLockService> log) : IFileLockSer
         if (!Directory.Exists(directory)) return Result.Ok();
         try
         {
-            // Pending deletes run in order: every file first, then the folders deepest first so each is empty.
-            var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = 0 };
-            var files = Directory.EnumerateFiles(directory, "*", options).ToList();
-            var folders = Directory.EnumerateDirectories(directory, "*", options)
-                .OrderByDescending(d => d.Length)
-                .Append(directory)
-                .ToList();
+            var root = new DirectoryInfo(directory);
+            if (SafePath.IsLink(root.FullName))
+                return Result.Fail($"{directory} is a link - DNN Manager doesn't delete through those.{Environment.NewLine}{SafePath.LinkHint}");
+            // Windows deletes these as it starts - by their paths, with SYSTEM's rights, without the protection against
+            // junctions DNN Manager has. So each folder is first made Administrators' and SYSTEM's only (and theirs): no
+            // program without administrator rights, nor the site's app pool, can then put a junction on the way between
+            // now and the restart. A link already in it is deleted itself, never followed.
+            var files = new List<string>();
+            var folders = new List<string>();
+            Collect(root, files, folders);
+            folders = folders.OrderByDescending(d => d.Length).Append(root.FullName).ToList();
 
+            // Pending deletes run in order: every file first, then the folders deepest first so each is empty.
             var failed = 0;
             foreach (var path in files.Concat(folders))
                 if (!MoveFileEx(path, null, MOVEFILE_DELAY_UNTIL_REBOOT)) failed++;
@@ -185,12 +191,44 @@ public sealed class FileLockService(ILogger<FileLockService> log) : IFileLockSer
         }
     }
 
+    /// <summary>
+    /// The files and folders in <paramref name="dir"/>, each folder made Administrators' and SYSTEM's only before it is
+    /// read - so nothing can be swapped into it afterwards. A link (junction, symbolic link) is listed itself and not
+    /// gone into: deleting it deletes only the link.
+    /// </summary>
+    private static void Collect(DirectoryInfo dir, List<string> files, List<string> folders)
+    {
+        dir.SetAccessControl(AdministratorsOnly());
+        foreach (var entry in dir.EnumerateFileSystemInfos("*", new EnumerationOptions { IgnoreInaccessible = true, AttributesToSkip = 0 }))
+        {
+            if (entry is not DirectoryInfo sub) files.Add(entry.FullName);
+            else
+            {
+                if (!SafePath.IsLink(sub.FullName)) Collect(sub, files, folders);
+                folders.Add(sub.FullName);
+            }
+        }
+    }
+
+    private static DirectorySecurity AdministratorsOnly()
+    {
+        var security = new DirectorySecurity();
+        var admins = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
+        security.SetOwner(admins);
+        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        foreach (var sid in new[] { admins, new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null) })
+            security.AddAccessRule(new FileSystemAccessRule(sid, FileSystemRights.FullControl,
+                InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit, PropagationFlags.None, AccessControlType.Allow));
+        return security;
+    }
+
     // ─── Restart Manager: processes with files open ──────────────────────────
 
     private IEnumerable<(int Pid, string AppName, bool IsService)> ProcessesWithFilesOpen(string root)
     {
         // Only the files still there after the failed delete - those are the locked ones (and their neighbours).
-        var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = FileAttributes.ReparsePoint };
+        var options = SafePath.Recursive;
+        options.IgnoreInaccessible = true;
         var files = Directory.Exists(root)
             ? Directory.EnumerateFiles(root, "*", options).Take(MaxFilesToCheck).ToArray()
             : Array.Empty<string>();
@@ -232,16 +270,11 @@ public sealed class FileLockService(ILogger<FileLockService> log) : IFileLockSer
 
     private IEnumerable<int> ProcessesWorkingIn(string root)
     {
-        var prefix = root + "\\";
         foreach (var process in Process.GetProcesses())
         {
             using (process)
             {
-                var cwd = CurrentDirectoryOf(process.Id);
-                if (cwd is null) continue;
-                cwd = cwd.TrimEnd('\\');
-                if (cwd.Equals(root, StringComparison.OrdinalIgnoreCase) ||
-                    cwd.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                if (CurrentDirectoryOf(process.Id) is { } cwd && SafePath.IsSameOrInside(cwd, root))
                     yield return process.Id;
             }
         }

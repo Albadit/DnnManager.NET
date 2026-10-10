@@ -322,8 +322,28 @@ public sealed class ProjectRow : INotifyPropertyChanged
 
     public bool Matches(string text) => SearchKey.Contains(text, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>What assistive technology reads for the row: "shop, Running, http://shop.dnndev.me" (<see cref="ProjectsTable"/>).</summary>
-    public string AutomationName => $"{Name}, {StateText}, {Url}";
+    /// <summary>
+    /// What assistive technology reads for the row - what the table's first columns show: "shop, Running,
+    /// http://shop.dnndev.me, DNN 9.13.4, database shop, SQL Live" (<see cref="ProjectsTable"/>). What is unknown is left out.
+    /// </summary>
+    public string AutomationName
+    {
+        get
+        {
+            var parts = new List<string> { Name, StateText };
+            if (Url != None) parts.Add(Url);
+            if (_project.DnnVersion is { } dnn) parts.Add($"DNN {dnn}");
+            if (Database != None) parts.Add($"database {Database}");
+            if (Sql != None) parts.Add($"SQL {Sql}");
+            return string.Join(", ", parts);
+        }
+    }
+
+    /// <summary>
+    /// The figures that change all the time, read on request (UI Automation's item status) - not in the name, whose every
+    /// change would be raised to the listeners: "CPU 0.25%, memory 312 MB".
+    /// </summary>
+    public string AutomationStatus => Stats is null ? "Worker process not running" : $"CPU {CpuText}, memory {MemoryText}";
 
     public override string ToString() => Name;
 

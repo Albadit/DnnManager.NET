@@ -90,7 +90,8 @@ public partial class TroubleshootPage : UserControl
         (CleanPackages, AppDataKind.DnnPackages, "Kept DNN packages"),
 
         (CleanProjectBackups, AppDataKind.ProjectBackups, "Project backups"),
-        (CleanDeployments, AppDataKind.Deployments, "Deployment packages")
+        (CleanDeployments, AppDataKind.Deployments, "Deployment packages"),
+        (CleanOldSettings, AppDataKind.OldSettingsFiles, "Old settings files")
     ];
 
     /// <summary>Shows each kind of data with what it takes now - measured off the UI thread (backups can be large).</summary>
@@ -106,7 +107,8 @@ public partial class TroubleshootPage : UserControl
             "downloaded DNN install packages, kept to install the same version again without downloading",
 
             "every project's backups",
-            "the packages made for a live server"
+            "the packages made for a live server",
+            "what older versions left in it"
         };
         for (var i = 0; i < sizes.Length; i++)
             Choices[i].Box.Content = $"{Choices[i].Name} - {details[i]} ({ByteSize.Format(sizes[i])})";
@@ -203,7 +205,7 @@ public partial class TroubleshootPage : UserControl
                 $"Reset DNN Manager to factory defaults?{nl}{nl}" +
                 $"Removed: the settings, the saved passwords (the DNN host " +
                 $"password and the database server login's), starting at sign-in, which sites are kept warm, the logs, the " +
-                $"kept DNN packages, and the remembered workspace (the window, the open page, unsaved form values).{nl}{nl}" +
+                $"kept DNN packages, older versions' settings files, and the remembered workspace (the window, the open page, unsaved form values).{nl}{nl}" +
                 $"Kept: your projects - their IIS sites, folders and databases - and their backups.{nl}{nl}" +
                 "DNN Manager restarts afterwards.",
                 "Reset to factory defaults", "Cancel"))
@@ -227,6 +229,8 @@ public partial class TroubleshootPage : UserControl
             _cleaner.Clean(AppDataKind.Logs);
             _cleaner.Clean(AppDataKind.DnnPackages);
             _cleaner.Clean(AppDataKind.KeepWarmChoices);
+            // An older version's settings files can hold the sa password in plain text.
+            _cleaner.Clean(AppDataKind.OldSettingsFiles);
         });
 
         // Where the user was, the window, unsaved form values: the next start opens as a first one.

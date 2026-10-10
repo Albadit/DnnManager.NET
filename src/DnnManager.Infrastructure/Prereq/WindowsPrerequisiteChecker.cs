@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Domain;
@@ -141,7 +140,7 @@ public sealed class WindowsPrerequisiteChecker(ProcessRunner proc, IOptions<AppO
         try
         {
             // Through Explorer, so it runs as the signed-in user rather than elevated like DNN Manager.
-            using var _ = Process.Start(new ProcessStartInfo("explorer.exe", $"\"{DockerDesktopExe}\"") { UseShellExecute = false });
+            ElevatedStart.Explorer(DockerDesktopExe);
             return Result.Ok();
         }
         catch (Exception ex)
@@ -157,10 +156,16 @@ public sealed class WindowsPrerequisiteChecker(ProcessRunner proc, IOptions<AppO
     private async Task<Dictionary<string, string>> RunPerFeatureAsync(
         IEnumerable<IisFeatureSetting> features, string perFeature, CancellationToken ct)
     {
-        // Names come from the settings (iis.requiredFeatures), typed by the user - quote them as PowerShell single-quoted literals.
-        var names = string.Join(",", features.Select(f => "'" + f.Name.Replace("'", "''") + "'"));
-        var script = $"foreach ($n in @({names})) {{ $r = {perFeature}; \"$n=$r\" }}";
-        var run = await _proc.RunAsync("powershell.exe", new[] { "-NoProfile", "-NonInteractive", "-Command", script }, ct);
+        // Names come from the settings (iis.requiredFeatures), which any program of the user can change: never part of
+        // the script's text (PowerShell takes more quote characters than ' for one), but data it reads from its
+        // environment - and only Windows feature names, also when a value got past the settings' own rules.
+        var valid = features.Where(f => SettingRules.IsIisFeatureName(f.Name)).Select(f => f.Name).ToList();
+        foreach (var f in features.Where(f => !SettingRules.IsIisFeatureName(f.Name)))
+            _log.LogWarning("Skipped the IIS feature '{Name}': not a Windows feature name", f.Name);
+        if (valid.Count == 0) return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var script = $"foreach ($n in ($env:DNNMANAGER_FEATURES -split ';')) {{ $r = {perFeature}; \"$n=$r\" }}";
+        var run = await _proc.RunAsync("powershell.exe", new[] { "-NoProfile", "-NonInteractive", "-Command", script }, ct,
+            env: new Dictionary<string, string?> { ["DNNMANAGER_FEATURES"] = string.Join(";", valid) });
         if (!run.Success) _log.LogWarning("IIS feature script failed: {Error}", run.StdErr);
 
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

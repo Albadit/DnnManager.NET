@@ -2,7 +2,6 @@ using DnnManager.Application.Abstractions;
 using DnnManager.Domain;
 using DnnManager.Infrastructure.Files;
 using DnnManager.Infrastructure.Processes;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 
 namespace DnnManager.Infrastructure.Sql;
@@ -16,6 +15,10 @@ public sealed class SqlPackageService(ProcessRunner proc, ILogger<SqlPackageServ
 {
     private readonly ProcessRunner _proc = proc;
     private readonly ILogger<SqlPackageService> _log = log;
+    // The version installed: a known one, not whatever nuget.org has as latest the day it is first needed - it runs as
+    // Administrator. Raised by hand after a look at its release notes.
+    internal const string PinnedVersion = "170.5.96";
+
     private const string InstallHint =
         "SqlPackage was not found. Install the .NET SDK for all users and try again - DNN Manager then installs SqlPackage itself.";
 
@@ -36,11 +39,30 @@ public sealed class SqlPackageService(ProcessRunner proc, ILogger<SqlPackageServ
         // change: it runs as Administrator. (A global tool in ~/.dotnet/tools is the user's to change - never run from
         // there.) Requires the .NET SDK; we surface a manual hint if that's missing.
         reporter.Info("SqlPackage not found - installing it (one-time)…");
-        reporter.Info($"Running: dotnet tool install Microsoft.SqlPackage --tool-path {PrivateTemp.ToolsPath}");
+        reporter.Info($"Running: dotnet tool install Microsoft.SqlPackage --version {PinnedVersion} --tool-path {PrivateTemp.ToolsPath}");
         try
         {
+            // Only from nuget.org, by a NuGet.Config of DNN Manager's own: the user's (%APPDATA%\NuGet) is theirs to change,
+            // and a package source added there would put its "SqlPackage" in a folder whose programs run as Administrator.
+            // The source mapping says it once more: every package from nuget.org, and from nowhere else.
+            var nugetConfig = Path.Combine(PrivateTemp.Path, "sqlpackage.nuget.config");
+            await File.WriteAllTextAsync(nugetConfig,
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <configuration>
+                  <packageSources>
+                    <clear />
+                    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" protocolVersion="3" />
+                  </packageSources>
+                  <packageSourceMapping>
+                    <packageSource key="nuget.org">
+                      <package pattern="*" />
+                    </packageSource>
+                  </packageSourceMapping>
+                </configuration>
+                """, ct);
             var r = await _proc.RunAsync("dotnet",
-                new[] { "tool", "install", "Microsoft.SqlPackage", "--tool-path", PrivateTemp.ToolsPath }, ct);
+                new[] { "tool", "install", "Microsoft.SqlPackage", "--version", PinnedVersion, "--tool-path", PrivateTemp.ToolsPath, "--configfile", nugetConfig }, ct);
 
             // `install` exits non-zero when the tool is already present, so don't trust the exit
             // code alone - the real test is whether we can now resolve the executable.
@@ -137,25 +159,15 @@ public sealed class SqlPackageService(ProcessRunner proc, ILogger<SqlPackageServ
         return Result.Ok();
     }
 
-    /// <summary>A SQL login - or, without a user, Windows authentication as whoever runs DNN Manager.</summary>
-    private static string ConnectionString(string server, string database, string user, string password)
-    {
-        var builder = new SqlConnectionStringBuilder
-        {
-            DataSource = server,
-            InitialCatalog = database,
-            Encrypt = true,
-            TrustServerCertificate = true,
-            ConnectTimeout = 60
-        };
-        if (user.Length == 0) builder.IntegratedSecurity = true;
-        else
-        {
-            builder.UserID = user;
-            builder.Password = password;
-        }
-        return builder.ConnectionString;
-    }
+    /// <summary>
+    /// A SQL login - or, without a user, Windows authentication as whoever runs DNN Manager. On SqlPackage's command line,
+    /// password and all: Import and Export take no publish profile, and the other ways of giving the password
+    /// (/SourcePassword, /TargetPassword) are command-line arguments too. SqlPackage runs elevated, as DNN Manager does,
+    /// so programs without administrator rights can't read its command line; its output is never logged with the
+    /// password in it (<see cref="Hide"/>).
+    /// </summary>
+    private static string ConnectionString(string server, string database, string user, string password) =>
+        ConnectionStrings.For(server, database, user, password, 60).ConnectionString;
 
     // SqlPackage/SqlClient accept "host,port"; drop the optional "tcp:" prefix.
     private static string NormalizeServer(string server)

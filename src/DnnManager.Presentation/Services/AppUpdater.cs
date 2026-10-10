@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Reflection;
 using DnnManager.Application.Configuration;
 using DnnManager.Infrastructure.Files;
+using DnnManager.Infrastructure.Settings;
 using DnnManager.Infrastructure.Updates;
 using Microsoft.Extensions.Options;
 
@@ -33,10 +34,12 @@ public sealed class AppUpdater : INotifyPropertyChanged
     private bool _checking, _updating;
 
     private readonly AppOptions _options;
+    // Where a failed update's logs are kept (logs\update-failed-<version>.log) - the update's folder is cleaned up.
+    private readonly string _logsDirectory;
 
-    public AppUpdater(WorkspaceService workspace, OperationRunner runner, ActivityLog log, IOptions<AppOptions> options)
+    public AppUpdater(WorkspaceService workspace, OperationRunner runner, ActivityLog log, IOptions<AppOptions> options, AppDataPaths paths)
     {
-        _workspace = workspace; _runner = runner; _log = log; _options = options.Value;
+        _workspace = workspace; _runner = runner; _log = log; _options = options.Value; _logsDirectory = paths.LogsDirectory;
         var version = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
         Current = new Version(version.Major, version.Minor, Math.Max(version.Build, 0));
     }
@@ -46,9 +49,6 @@ public sealed class AppUpdater : INotifyPropertyChanged
     /// administrators may change it: the helper runs from it, and runs the package, with their rights.
     /// </summary>
     public static string WorkFolder => Path.Combine(PrivateTemp.Path, "update");
-
-    /// <summary>Where DNN Manager 1.8.0 and older put them: %TEMP%, which every program of the user can change.</summary>
-    private static string LegacyWorkFolder => Path.Combine(Path.GetTempPath(), "DnnManager-update");
 
     public Version Current { get; }
     public UpdateState State { get; private set; } = UpdateState.Checking;
@@ -159,7 +159,8 @@ public sealed class AppUpdater : INotifyPropertyChanged
                 Kind = target.Kind, Package = package, PackageSha256 = asset.Sha256 ?? "", PackageSize = asset.Size,
                 AppExe = target.AppExe, AllUsers = target.AllUsers,
                 WaitForProcessId = Environment.ProcessId, FromVersion = Current.ToString(), ToVersion = release.Version.ToString(),
-                LogFile = Path.Combine(folder, "update.log"), ResultFile = resultFile
+                LogFile = Path.Combine(folder, "update.log"), ResultFile = resultFile,
+                FailedLogFile = UpdateHelper.FailedLogPath(_logsDirectory, release.Version.ToString())
             };
             var planFile = Path.Combine(folder, "plan.json");
             plan.Write(planFile);
@@ -214,43 +215,36 @@ public sealed class AppUpdater : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// The update that started this version when DNN Manager 1.7.2 or older made it (from 1.7.3 on, an update is noted in the database): those note it in a file this
-    /// version doesn't read (<c>state\update.json</c>), but their helper's plan for this version is still in
-    /// <see cref="LegacyWorkFolder"/> for a couple of minutes. Null when there is none, or it is older than an update takes.
+    /// The last update's downloads and helper, once it has surely finished - unless an update is under way. Only
+    /// <see cref="WorkFolder"/>: what DNN Manager 1.8.0 and older left in %TEMP% stays - deleting there, with
+    /// administrator rights, would follow wherever another program of the user had pointed that folder. An update
+    /// that failed keeps its logs first, in the logs folder - a helper of 1.8.1 or older doesn't keep them itself.
     /// </summary>
-    public UpdateRecord? HandedOver()
-    {
-        var plan = Path.Combine(LegacyWorkFolder, Current.ToString(), "plan.json");
-        try
-        {
-            if (!File.Exists(plan)) return null;
-            var saved = File.GetLastWriteTimeUtc(plan);
-            if (DateTime.UtcNow - saved is var age && (age < TimeSpan.Zero || age > UpdateRecord.MaxAge)) return null;
-            var read = UpdatePlan.Read(plan);
-            return read.ToVersion == Current.ToString()
-                ? new UpdateRecord { SavedUtc = saved, FromVersion = read.FromVersion, ToVersion = read.ToVersion, ResultFile = read.ResultFile }
-                : null;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidDataException)
-        {
-            return null;
-        }
-    }
-
-    /// <summary>The last update's downloads and helper, once it has surely finished - unless an update is under way.</summary>
     private async Task CleanupLaterAsync()
     {
         await Task.Delay(CleanupAfter);
         if (_updating || IsUpdating) return;
-        await Task.Run(() =>
+        await Task.Run(() => CleanUp(WorkFolder, _logsDirectory));
+    }
+
+    /// <summary>
+    /// Deletes every update's folder in <paramref name="workFolder"/> - keeping the logs of one that failed (its result
+    /// says so, or the helper wrote none) as <c>update-failed-&lt;version&gt;.log</c> in <paramref name="logsDirectory"/>,
+    /// unless its helper kept them there already.
+    /// </summary>
+    internal static void CleanUp(string workFolder, string logsDirectory)
+    {
+        if (!Directory.Exists(workFolder)) return;
+        foreach (var dir in Directory.EnumerateDirectories(workFolder))
         {
-            foreach (var folder in new[] { WorkFolder, LegacyWorkFolder }.Where(Directory.Exists))
-            foreach (var dir in Directory.EnumerateDirectories(folder))
-            {
-                try { Directory.Delete(dir, recursive: true); }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* in use - next time */ }
-            }
-        });
+            var updateLog = Path.Combine(dir, "update.log");
+            var result = UpdateResult.TryRead(Path.Combine(dir, "result.json"));
+            var kept = UpdateHelper.FailedLogPath(logsDirectory, Path.GetFileName(dir));
+            if (result is not { Installed: true } && File.Exists(updateLog) && !string.Equals(result?.LogFile, kept, StringComparison.OrdinalIgnoreCase))
+                UpdateHelper.KeepFailedLog(updateLog, Path.ChangeExtension(updateLog, ".setup.log"), kept, out _);
+            try { Directory.Delete(dir, recursive: true); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* in use - next time */ }
+        }
     }
 
     private void Set(UpdateState state, string? problem = null)

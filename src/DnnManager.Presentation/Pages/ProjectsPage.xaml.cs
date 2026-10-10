@@ -1,6 +1,7 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
@@ -318,7 +319,10 @@ public partial class ProjectsPage : UserControl
         BulkKeepWarmButton.IsEnabled = warmable.Count > 0;
         BulkKeepWarmIcon.Data = (Geometry)FindResource(allWarm ? "FlameFilled" : "FlameOutline");
         BulkKeepWarmIcon.SetResourceReference(Shape.FillProperty, allWarm ? "KeepWarmFg" : "TextPrimary");
-        BulkKeepWarmButton.ToolTip = allWarm ? "Stop keeping the selected websites ready" : "Keep the selected websites ready, so they open fast after a while without visits";
+        BulkKeepWarmButton.ToolTip = allWarm ? "Stop keeping the selected websites warm"
+            : "Keep the selected websites warm, so they open fast after a while without visits";
+        // Its name says what pressing it does now, as the tooltip's first part (a screen reader doesn't see the flame).
+        AutomationProperties.SetName(BulkKeepWarmButton, allWarm ? "Stop keeping the selected websites warm" : "Keep the selected websites warm");
 
         // A message in the middle only while there are no rows to show: before the first snapshot, without projects,
         // or when the search matches none. Never over rows that are there.

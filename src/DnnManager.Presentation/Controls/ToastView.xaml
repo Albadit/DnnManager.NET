@@ -30,7 +30,12 @@
                     VerticalAlignment="Center" Margin="12,0,0,0" Click="Action_Click" />
             <TextBlock x:Name="Glyph" FontFamily="{StaticResource IconFont}" FontSize="16"
                        VerticalAlignment="Center" Margin="0,0,10,0" />
-            <TextBlock x:Name="Message" TextWrapping="Wrap" VerticalAlignment="Center" />
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock x:Name="Message" TextWrapping="Wrap" />
+                <!-- Others waiting their turn (ToastQueue): they show when this one is closed. -->
+                <TextBlock x:Name="More" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextCaption}"
+                           Margin="0,2,0,0" Visibility="Collapsed" />
+            </StackPanel>
         </DockPanel>
     </Border>
 </UserControl>

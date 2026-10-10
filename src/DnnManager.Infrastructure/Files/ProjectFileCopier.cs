@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using DnnManager.Application;
 using DnnManager.Application.Abstractions;
 using DnnManager.Domain;
 
@@ -13,8 +14,19 @@ public sealed class ProjectFileCopier : IProjectFileCopier
     public Task<Result> CopyAsync(string sourceDirectory, string destinationDirectory,
         IProgressReporter reporter, CancellationToken ct)
     {
+        // Not into a link or junction either: with administrator rights the copy would land wherever it points.
+        if (DestinationLink(destinationDirectory) is { } link) return Task.FromResult(Result.Fail(link));
         Directory.CreateDirectory(destinationDirectory);
         return Task.FromResult(CopyLocal(sourceDirectory, destinationDirectory, reporter, ct));
+    }
+
+    /// <summary>Why <paramref name="dest"/> can't be copied into - it, or a folder on the way to it, is a link or junction; null when it can.</summary>
+    private static string? DestinationLink(string dest)
+    {
+        var full = Path.GetFullPath(dest);
+        return SafePath.HasLink(Path.GetPathRoot(full)!, full)
+            ? $"{dest} is a link or junction, or reached through one - DNN Manager doesn't copy into those.{Environment.NewLine}{SafePath.LinkHint}"
+            : null;
     }
 
     private static Result CopyLocal(string src, string dest, IProgressReporter reporter, CancellationToken ct)
@@ -23,16 +35,28 @@ public sealed class ProjectFileCopier : IProjectFileCopier
         if (!Directory.Exists(src)) return Result.Fail($"Source folder does not exist: {src}");
 
         reporter.Info($"Copying files from {src}");
-        // Enumerating FileInfo (rather than paths) carries each size over from the directory scan,
-        // so the byte total costs no extra file-system calls.
-        var files = new DirectoryInfo(src).EnumerateFiles("*", SearchOption.AllDirectories).ToList();
+        // Not through a link or junction: with administrator rights, the copy would read wherever one points (files only
+        // an administrator may read) into a folder the user can read.
+        if (SafePath.IsLink(src))
+            return Result.Fail($"{src} is a link or junction - DNN Manager copies a site's own folder, not what a link points to.{Environment.NewLine}{SafePath.LinkHint}");
+        if (DestinationLink(dest) is { } link) return Result.Fail(link);
+        var (files, links) = Walk(src);
+        // Said, not left out silently: the copy lacks what they point to.
+        if (links.Count > 0)
+            reporter.Warn($"Not copied: {links.Count} link(s) or junction(s) - DNN Manager doesn't copy what they point to with its administrator rights: " +
+                          string.Join(", ", links.Take(10)) + (links.Count > 10 ? ", …" : "") +
+                          $"{Environment.NewLine}Hint: copy what they point to into the new project yourself, or recreate the links there.");
         var total = files.Count;
         var progress = new ProgressThrottle();
         // Every destination folder first, once each - then the files, a few at a time: a DNN site is tens of thousands
         // of small files, and copying them one after the other waits on each file's own round trip, not the disk.
+        var checkedFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var folder in files.Select(f => Path.GetDirectoryName(Path.Combine(dest, Path.GetRelativePath(src, f.FullName)))!)
                      .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            SafePath.EnsureNoLink(dest, folder, checkedFolders);
             Directory.CreateDirectory(folder);
+        }
         var fileCount = 0;
         var byteCount = 0L;
         try
@@ -40,7 +64,10 @@ public sealed class ProjectFileCopier : IProjectFileCopier
             Parallel.ForEach(files, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = ct }, file =>
             {
                 var rel = Path.GetRelativePath(src, file.FullName);
-                file.CopyTo(Path.Combine(dest, rel), overwrite: true);
+                var target = Path.Combine(dest, rel);
+                // A file already there that is a link, or has other names, is replaced - not written through.
+                if (SafePath.IsLink(target) || SafePath.IsHardLinked(target)) File.Delete(target);
+                file.CopyTo(target, overwrite: true);
                 var copied = Interlocked.Increment(ref fileCount);
                 Interlocked.Add(ref byteCount, file.Length);
                 lock (progress)
@@ -57,6 +84,29 @@ public sealed class ProjectFileCopier : IProjectFileCopier
         return Result.Ok();
     }
 
+    /// <summary>
+    /// Every file under <paramref name="src"/> (hidden and system ones too), and - relative to it - the links and junctions
+    /// in it, which aren't gone into.
+    /// </summary>
+    internal static (List<FileInfo> Files, List<string> Links) Walk(string src)
+    {
+        var files = new List<FileInfo>();
+        var links = new List<string>();
+        var options = new EnumerationOptions { AttributesToSkip = 0 };
+        var folders = new Stack<DirectoryInfo>();
+        folders.Push(new DirectoryInfo(src));
+        while (folders.Count > 0)
+        {
+            foreach (var entry in folders.Pop().EnumerateFileSystemInfos("*", options))
+            {
+                if (entry.Attributes.HasFlag(FileAttributes.ReparsePoint)) links.Add(Path.GetRelativePath(src, entry.FullName));
+                else if (entry is DirectoryInfo folder) folders.Push(folder);
+                else if (entry is FileInfo file) files.Add(file);
+            }
+        }
+        return (files, links);
+    }
+
     public Task<Result> ExtractZipAsync(string zipPath, string destinationDirectory, IProgressReporter reporter, CancellationToken ct)
         => Task.Run(() => ExtractZip(zipPath, destinationDirectory, reporter, ct), ct);
 
@@ -70,49 +120,46 @@ public sealed class ProjectFileCopier : IProjectFileCopier
 
         using (zip)
         {
-            // Some zip tools write '\' separators; directory entries end with a separator and hold nothing.
-            static string Normalized(ZipArchiveEntry e) => e.FullName.Replace('\\', '/');
-            var files = zip.Entries.Where(e => !Normalized(e).EndsWith('/')).ToList();
+            var files = zip.Entries.Where(e => !SafeZip.IsFolder(e)).ToList();
             if (files.Count == 0) return Result.Fail("The zip is empty.");
 
             var webConfig = files
                 .Where(e => e.Name.Equals("web.config", StringComparison.OrdinalIgnoreCase))
-                .OrderBy(e => Normalized(e).Count(c => c == '/'))
+                .OrderBy(e => SafeZip.Name(e).Count(c => c == '/'))
                 .FirstOrDefault();
-            var root = webConfig is null ? "" : Normalized(webConfig)[..^webConfig.Name.Length];
+            var root = webConfig is null ? "" : SafeZip.Name(webConfig)[..^webConfig.Name.Length];
             if (webConfig is null)
                 reporter.Info("No web.config in the zip - extracting it as it is. It may not be a DNN site.");
             else if (root.Length > 0)
                 reporter.Info($"Site root in the zip: {root}");
 
-            var destRoot = Path.GetFullPath(dest).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-            var createdDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var inRoot = files.Where(e => SafeZip.Name(e).StartsWith(root, StringComparison.OrdinalIgnoreCase)).ToList();
+            var skipped = files.Count - inRoot.Count;
+            var checkedFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var progress = new ProgressThrottle();
-            int count = 0, skipped = 0;
+            var count = 0;
             var bytes = 0L;
-
-            foreach (var entry in files)
+            try
             {
-                ct.ThrowIfCancellationRequested();
-                var name = Normalized(entry);
-
-                if (!name.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                // Too big for the disk (a zip bomb): refused before the first file.
+                SafeZip.EnsureFits(inRoot, dest);
+                Directory.CreateDirectory(dest);
+                foreach (var entry in inRoot)
                 {
-                    skipped++;
-                    continue;
+                    ct.ThrowIfCancellationRequested();
+                    var name = SafeZip.Name(entry);
+                    // Strictly inside the project ("zip slip"), on no other file's stream (':'), and through no link or junction
+                    // in the project (its app pool can make one): with administrator rights the file would be written wherever
+                    // it points.
+                    SafeZip.ExtractEntry(dest, entry, checkedFolders, name[root.Length..]);
+                    count++;
+                    bytes += entry.Length;
+                    if (progress.Due()) reporter.Progress($"{count}/{inRoot.Count}  {name}");
                 }
-
-                // An entry like "../../evil.dll" must not land outside the project ("zip slip").
-                var target = Path.GetFullPath(Path.Combine(dest, name[root.Length..]));
-                if (!target.StartsWith(destRoot, StringComparison.OrdinalIgnoreCase))
-                    return Result.Fail($"The zip contains an unsafe path: {entry.FullName}");
-
-                var dir = Path.GetDirectoryName(target)!;
-                if (createdDirs.Add(dir)) Directory.CreateDirectory(dir);
-                entry.ExtractToFile(target, overwrite: true);
-                count++;
-                bytes += entry.Length;
-                if (progress.Due()) reporter.Progress($"{count}/{files.Count}  {name}");
+            }
+            catch (IOException ex)
+            {
+                return Result.Fail(ex.Message);
             }
 
             if (skipped > 0) reporter.Info($"Skipped {skipped} file(s) outside the site root.");

@@ -29,6 +29,8 @@
     <SolidColorBrush x:Key="Accent"           Color="#005FB8" />  <!-- button.background, focusBorder -->
     <!-- The border of a field or check box under the mouse or with the focus: 3:1 against the field (WCAG 1.4.11). -->
     <SolidColorBrush x:Key="FocusBorder"      Color="#005FB8" />  <!-- focusBorder -->
+    <!-- Text that is a link or acts like one (LinkButton, links in text, accent icons in rows). -->
+    <SolidColorBrush x:Key="LinkFg"           Color="#005FB8" />  <!-- textLink.foreground -->
     <!-- Text and marks on an accent fill: a primary button, a ticked check box, a switch that is on. -->
     <SolidColorBrush x:Key="OnAccent"         Color="#FFFFFF" />
     <SolidColorBrush x:Key="AccentHover"      Color="#0258A8" />  <!-- button.hoverBackground -->
@@ -67,8 +69,13 @@
 
     <SolidColorBrush x:Key="LogBg"            Color="#F8F8F8" />  <!-- panel.background -->
     <!-- Search (Ctrl+F in the bottom panel): every match, and the current one. -->
-    <SolidColorBrush x:Key="SearchMatchBg"    Color="#55EA5C00" /> <!-- editor.findMatchHighlightBackground -->
-    <SolidColorBrush x:Key="SearchCurrentBg"  Color="#A8AC94" />  <!-- editor.findMatchBackground -->
+    <!-- Every match: opaque, under the text - lighter than VS Code's findMatchHighlightBackground (#55EA5C00, #F3C4A5 on
+         the panel), so text that reads at 5.5:1 or more on the panel still does at 4.5:1 on a match (LogFg 8.3:1, LogMuted
+         4.6:1); it stands out from the panel by its colour (1.28:1). -->
+    <SolidColorBrush x:Key="SearchMatchBg"    Color="#FED894" />  <!-- editor.findMatchHighlightBackground, lighter -->
+    <SolidColorBrush x:Key="SearchCurrentBg"  Color="#FFE4A6" />  <!-- told apart by SearchCurrentBorder; muted text on it 5.0:1 -->
+    <!-- Around the current match, so it stands out from the others by more than its colour. -->
+    <SolidColorBrush x:Key="SearchCurrentBorder" Color="#855F00" /> <!-- editorWarning.foreground -->
     <SolidColorBrush x:Key="LogHeaderBg"      Color="#F8F8F8" />  <!-- panel.background -->
     <SolidColorBrush x:Key="LogHeaderFg"      Color="#000000" />  <!-- list.activeSelectionForeground -->
     <SolidColorBrush x:Key="LogFg"            Color="#3B3B3B" />  <!-- terminal.foreground -->

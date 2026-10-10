@@ -1,25 +1,29 @@
 <#
 .SYNOPSIS
-    Redoes a release whose tag is already made: folds your changes into the release commit, removes the old tag and
-    GitHub release, and releases that version again.
+    Redoes a release whose tag is made but which isn't published: folds your changes into the release commit,
+    removes the old tag and releases that version again.
 
 .DESCRIPTION
-    For a release that failed (the workflow's tests, say) or that needs one more change before anyone has it.
+    For a release whose workflow failed (the tests, say) or that needs one more change before it is published. A
+    published release is never redone - not even a pre-release: running DNN Managers may have installed it, and with
+    immutable releases its tag can't move. Release the change as the next version instead.
     1. The version: -Version, or the newest version tag.
-    2. The release commit is the tag's commit - it must be the newest commit of the current branch (or, with no tag
+    2. Refuses when GitHub has published that release, or while a release workflow run on its tag hasn't ended
+       (queued, running, or waiting for the publish job's approval) - asked without signing in; refused too when
+       GitHub can't be asked.
+    3. The release commit is the tag's commit - it must be the newest commit of the current branch (or, with no tag
        yet, the newest commit when its message starts with "release: vX.Y.Z").
-    3. Shows what it will do and asks once:
-       - amends the release commit with every change in your working copy (new files too), with the same message
-         or the one you type;
+    4. Shows what it will do and asks once:
+       - amends the release commit with the changes in your working copy to files git has (git add -u) - new files
+         only when you say yes to them, listed first - with the same message or the one you type;
        - pushes the branch (--force-with-lease when the old commit was on GitHub already);
-       - deletes the GitHub release of that tag, if there is one - a published one only after you type its tag,
-         since DNN Manager may have offered it as an update already;
        - deletes the tag here and on GitHub.
-    4. Then releases it again, if you want: builds and publishes it from this PC (publish-release.ps1, the task
-       "release (GitHub)"), which makes the tag again.
+       A draft release the failed run left is kept: the next release workflow run on the tag reuses it, replacing
+       its files and notes.
+    5. Then releases it again, if you want: publish-release.ps1 (the task "release (GitHub)") runs the fast tests and
+       pushes the tag again, and the release workflow builds and publishes it.
 
-    It signs in to GitHub with the credential Git already uses for this repository. -DryRun shows the plan and
-    changes nothing.
+    The only credential it uses is the one Git pushes with. -DryRun shows the plan and changes nothing.
 
 .EXAMPLE
     .github\scripts\redo-release.ps1
@@ -34,7 +38,7 @@ param(
     [string]$Version,
     # The release commit's new message; asked for when omitted (Enter keeps the current one).
     [string]$Message,
-    # Passed on to publish-release.ps1: builds without running the fast tests first.
+    # Passed on to publish-release.ps1: tags without running the fast tests here first.
     [switch]$SkipTests,
     # Shows what would be done, and does nothing.
     [switch]$DryRun
@@ -46,55 +50,18 @@ Set-StrictMode -Version Latest
 
 $root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 
-# --- Helpers (as in publish-release.ps1) ---
+# --- Helpers: Invoke-Tool, Invoke-Git, Confirm-Step, Write-Step, Get-PublishedRelease and Get-UnfinishedReleaseRuns,
+# shared with publish-release.ps1 ---
 
-# Runs a program and throws when it fails. -Quiet returns its output instead of showing it as it runs.
-function Invoke-Tool([string]$exe, [string[]]$argv, [switch]$Quiet) {
-    $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-    try {
-        if ($Quiet) { $out = @(& $exe @argv 2>&1 | ForEach-Object { "$_" }) }
-        else {
-            Write-Host "> $exe $($argv -join ' ')" -ForegroundColor DarkGray
-            & $exe @argv 2>&1 | ForEach-Object { Write-Host "$_" }
-        }
-    }
-    finally { $ErrorActionPreference = $prev }
-    if ($LASTEXITCODE -ne 0) {
-        if ($Quiet) { $out | Write-Host }
-        throw "$exe $($argv | Select-Object -First 3) failed (exit code $LASTEXITCODE)."
-    }
-    if ($Quiet) { return $out }
-}
-
-function Invoke-Git([string[]]$argv) { Invoke-Tool git (@('-C', $root) + $argv) -Quiet }
-
-function Confirm-Step([string]$question) {
-    $answer = Read-Host "$question [y/N]"
-    return $answer -match '^(y|yes)$'
-}
-
-function Write-Step([string]$text) { Write-Host ''; Write-Host "== $text" -ForegroundColor Cyan }
-
-# GitHub's REST API, signed in with the credential Git uses for github.com (never printed).
-$script:token = $null
-function Invoke-GitHub([string]$method, [string]$url) {
-    if (-not $script:token) {
-        $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-        $env:GIT_TERMINAL_PROMPT = '0'
-        try { $cred = "protocol=https`nhost=github.com`n`n" | git credential fill 2>$null } finally { $ErrorActionPreference = $prev }
-        $script:token = ($cred | Where-Object { $_ -like 'password=*' } | Select-Object -First 1) -replace '^password=', ''
-        if (-not $script:token) { throw 'No GitHub credential found - sign in to GitHub with Git first (e.g. git push once).' }
-    }
-    if ($url -notmatch '^https://') { $url = "https://api.github.com/repos/$script:repo$url" }
-    $headers = @{ Authorization = "Bearer $script:token"; Accept = 'application/vnd.github+json'; 'X-GitHub-Api-Version' = '2022-11-28' }
-    return Invoke-RestMethod -Method $method -Uri $url -Headers $headers -UseBasicParsing
-}
+Import-Module (Join-Path $PSScriptRoot 'ReleaseCommon.psm1') -Force
+Set-ReleaseContext -Root $root
 
 # --- 1. The version and its tag ---
 
 $origin = (Invoke-Git @('remote', 'get-url', 'origin')) | Select-Object -First 1
 if ($origin -notmatch 'github\.com[:/](.+?)(\.git)?$') { throw "origin ($origin) isn't a GitHub repository." }
 $script:repo = $Matches[1]
+Set-ReleaseContext -Repository $script:repo
 
 Write-Host "Redo a DNN Manager release - $script:repo" -ForegroundColor Cyan
 Write-Host 'Fetching tags and branches from origin...'
@@ -109,6 +76,24 @@ $tag = 'v' + $Version.TrimStart('v', 'V')
 if ($tag -notmatch '^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw "$Version isn't a version like 1.7.6." }
 $notes = Join-Path $root ".docs\release-notes\$tag.md"
 if (-not (Test-Path $notes)) { throw "There are no release notes .docs\release-notes\$tag.md - the release needs them." }
+
+# A published release is never redone: DNN Managers may have installed it, and nobody who has it would be offered
+# the redone one. Not knowing counts as published.
+try { $published = Get-PublishedRelease $tag }
+catch { throw "GitHub couldn't be asked whether $tag is published ($($_.Exception.Message)) - nothing was changed. Try again later." }
+if ($published) {
+    Write-Host "GitHub has published $tag ($($published.html_url))." -ForegroundColor Red
+    throw "A published release isn't redone - release the change as the next version (see .docs\releasing.md, A bad release). Nothing was changed."
+}
+
+# A release run on the tag that hasn't ended could still publish what it built while the tag is moved under it (its
+# publish job checks the tag again, but its draft would be the old commit's). Not knowing counts as running.
+try { $unfinished = @(Get-UnfinishedReleaseRuns $tag) }
+catch { throw "GitHub couldn't be asked whether a release run on $tag is still going ($($_.Exception.Message)) - nothing was changed. Try again later." }
+if ($unfinished.Count -gt 0) {
+    $unfinished | ForEach-Object { Write-Host "  The release workflow on $tag is $($_.status): $($_.html_url)" -ForegroundColor Red }
+    throw "Wait for it to end, or cancel it (a run waiting for approval: reject the job 'Publish the release'), then run this again. Nothing was changed."
+}
 
 $branch = (Invoke-Git @('rev-parse', '--abbrev-ref', 'HEAD')) | Select-Object -First 1
 if ($branch -eq 'HEAD') { throw 'No branch is checked out (detached HEAD) - check out the branch the release is on.' }
@@ -158,29 +143,10 @@ if ($remoteBranchSha -and -not $pushedAlready) {
     }
 }
 
-$changes = @(Invoke-Git @('status', '--porcelain', '--untracked-files=all'))
-
-# --- 3. The GitHub release of that tag (drafts aren't found by tag, so the list is read) ---
-
-$release = $null
-$releaseChecked = $true
-try {
-    # Kept in a variable first: Windows PowerShell 5.1 passes a JSON array on as one object, and @(...) around the
-    # call would make every release one item - whose tag_name "matches" when any release has the tag.
-    $all = Invoke-GitHub GET '/releases?per_page=100'
-    $found = @(foreach ($r in $all) { if ([string]$r.tag_name -eq $tag) { $r } })
-    if ($found.Count -gt 1) { throw "GitHub has $($found.Count) releases with the tag $tag - delete the extra ones by hand." }
-    if ($found.Count -eq 1) {
-        $release = $found[0]
-        if (@($release.id).Count -ne 1) { throw "GitHub's answer for the release $tag couldn't be read." }
-    }
-}
-catch {
-    # A dry run still shows the rest of the plan.
-    if (-not $DryRun) { throw }
-    $releaseChecked = $false
-    Write-Host "  GitHub's releases couldn't be read: $($_.Exception.Message)" -ForegroundColor Yellow
-}
+# What is amended: the changes to files git has (git add -u) - new files only when you say so, one look at them first:
+# a stray file (a log, a local setting, something with a secret in it) mustn't end up in a release by itself.
+$tracked = @(Invoke-Git @('-c', 'core.quotepath=off', 'status', '--porcelain', '--untracked-files=no'))
+$untracked = @(Invoke-Git @('-c', 'core.quotepath=off', 'ls-files', '--others', '--exclude-standard'))
 
 if (-not $Message -and -not $DryRun) {
     Write-Host ''
@@ -191,12 +157,24 @@ if (-not $Message -and -not $DryRun) {
 }
 $newMessage = if ($Message) { $Message } else { $null }
 
-if ($changes.Count -eq 0 -and -not $newMessage -and -not $localTagSha -and -not $remoteTagSha -and -not $release) {
-    Write-Host 'Nothing to redo: no changes, no new message, no tag and no GitHub release.' -ForegroundColor Yellow
+$addNew = @()
+if ($untracked.Count -gt 0) {
+    Write-Host ''
+    Write-Host "New files in your working copy, not in git yet:" -ForegroundColor Cyan
+    $untracked | Select-Object -First 25 | ForEach-Object { Write-Host "  $_" }
+    if ($untracked.Count -gt 25) { Write-Host "  ... and $($untracked.Count - 25) more" }
+    if ($DryRun) { Write-Host '  (asked when it isn''t a dry run - left out unless you say yes)' -ForegroundColor DarkGray }
+    elseif (Confirm-Step "  Add these $($untracked.Count) new file(s) to the release commit too?") { $addNew = $untracked }
+    else { Write-Host '  They stay out of the commit.' }
+}
+$changes = @($tracked) + @($addNew | ForEach-Object { "?? $_" })
+
+if ($changes.Count -eq 0 -and -not $newMessage -and -not $localTagSha -and -not $remoteTagSha) {
+    Write-Host 'Nothing to redo: no changes, no new message and no tag.' -ForegroundColor Yellow
     return
 }
 
-# --- 4. The plan ---
+# --- 3. The plan ---
 
 Write-Step "Redo $tag"
 if ($changes.Count -gt 0 -or $newMessage) {
@@ -213,17 +191,10 @@ if ($changes.Count -gt 0 -or $newMessage) {
 else {
     Write-Host "  Commit   $($head.Substring(0, 7)) ""$releaseSubject"" stays as it is"
 }
-if ($release) {
-    $state = if ($release.draft) { 'draft' } else { 'PUBLISHED' }
-    Write-Host "  Delete   the GitHub release $tag ($state, $(@($release.assets).Count) file(s))"
-    if (-not $release.draft) {
-        Write-Host '           It is published: running DNN Managers may have offered it as an update already.' -ForegroundColor Yellow
-    }
-}
-if (-not $releaseChecked) { Write-Host "  Delete   the GitHub release $tag, if there is one (not checked in this dry run)" }
 if ($remoteTagSha) { Write-Host "  Delete   the tag $tag on GitHub" }
 if ($localTagSha) { Write-Host "  Delete   the tag $tag here" }
-Write-Host '  Then     release it again from this PC - asked at the end'
+Write-Host "  Keep     a draft release $tag, if the failed run left one - the next run on the tag reuses it"
+Write-Host '  Then     tag it again (publish-release.ps1) - asked at the end; GitHub builds and publishes it'
 
 if ($DryRun) {
     Write-Host ''
@@ -233,16 +204,13 @@ if ($DryRun) {
 
 Write-Host ''
 if (-not (Confirm-Step "Redo $tag like this?")) { Write-Host 'Nothing was changed.' -ForegroundColor Yellow; return }
-if ($release -and -not $release.draft) {
-    $typed = Read-Host "Type $tag to delete its published release"
-    if ($typed -ne $tag) { Write-Host 'Nothing was changed.' -ForegroundColor Yellow; return }
-}
 
-# --- 5. Do it: the commit and the branch first (nothing on GitHub is gone if they fail), then the release and tag ---
+# --- 4. Do it: the commit and the branch first (nothing on GitHub is gone if they fail), then the tag ---
 
 if ($changes.Count -gt 0 -or $newMessage) {
     Write-Step 'Commit'
-    if ($changes.Count -gt 0) { $null = Invoke-Git @('add', '--all') }
+    if ($tracked.Count -gt 0) { $null = Invoke-Git @('add', '--update') }
+    if ($addNew.Count -gt 0) { $null = Invoke-Git (@('add', '--') + $addNew) }
     $amend = @('-C', $root, 'commit', '--amend')
     if ($newMessage) { $amend += @('-m', $newMessage) } else { $amend += '--no-edit' }
     Invoke-Tool git $amend
@@ -253,22 +221,17 @@ if ($changes.Count -gt 0 -or $newMessage) {
     else { Invoke-Tool git @('-C', $root, 'push', 'origin', $branch) }
 }
 
-if ($release) {
-    Write-Step "Delete the GitHub release $tag"
-    $null = Invoke-GitHub DELETE "/releases/$($release.id)"
-    Write-Host '  Deleted.'
-}
 if ($remoteTagSha -or $localTagSha) {
     Write-Step "Delete the tag $tag"
     if ($remoteTagSha) { Invoke-Tool git @('-C', $root, 'push', 'origin', ":refs/tags/$tag") }
     if ($localTagSha) { Invoke-Tool git @('-C', $root, 'tag', '-d', $tag) }
 }
 
-# --- 6. Release it again ---
+# --- 5. Release it again ---
 
 $short = $head.Substring(0, 7)
 Write-Step "Release $tag from $short"
-if (Confirm-Step "Build and publish $tag from this PC now (publish-release.ps1 - the fast tests, both exes, the tag, the release)?") {
+if (Confirm-Step "Release $tag again now (publish-release.ps1 - the fast tests here, then the tag; GitHub builds and publishes)?") {
     $publishArgs = @{ NotesFile = ".docs\release-notes\$tag.md"; Commit = $head }
     if ($SkipTests) { $publishArgs.SkipTests = $true }
     & (Join-Path $PSScriptRoot 'publish-release.ps1') @publishArgs

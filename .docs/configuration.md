@@ -15,17 +15,32 @@ Documents\DnnManager\
 ├── dnnmanager.db        DNN Manager's own data, one SQLite database (below)
 ├── dnnmanager.backup.db a copy of the database - made before its tables change (an update) and once a day -
 │                        what a damaged one comes back from
-├── backups\             project backups (user guide: Backups)
+├── backups\             project backups (user guide: Backups) - kept until you delete them, or backups.keepDays
 ├── deployments\         packages made by Export for deployment: <project>_<date>\ with .zip, .bacpac and DEPLOY.txt
 ├── logs\                one file per day, kept 30 days: every operation's messages, one line each after its
 │                        time (`18:21:16 Database seeded.`), [warning] / [error] marked, how it ended - the
 │                        operation's title and stages are the Output tab's - and DNN Manager's own warnings and
-│                        errors with their stack traces
+│                        errors with their stack traces; update-failed-<version>.log for an update that failed
 └── packages\            downloaded DNN install packages, when projects.keepDnnPackages is on - per repository
                          (<owner>.<repo>\)
 ```
 
 The folders are made at the first start, empty until something goes in them.
+
+**The logs** are written in batches - a line waits at most 2 seconds; a
+warning, an error and how an operation ended are written at once. A day's file
+stops at 50 MB (saying so in its last line), and all the files in `logs\`
+together stay under 200 MB, the oldest going first
+([`Files/DailyLogFile.cs`](../src/DnnManager.Infrastructure/Files/DailyLogFile.cs)).
+**A failed update** keeps its logs - the update helper's and Setup's - in
+`logs\update-failed-<version>.log` (the newest two are kept); **Show log** opens
+it.
+
+**When `Documents` is in OneDrive or on a network share** (OneDrive's folder
+backup, or a redirected Documents), everything above is copied there - whole
+databases in the backups, a live server's connection string in a deployment
+package. DNN Manager says so at every start, with how to stop it (OneDrive →
+Settings → Sync and back up → Manage back up); it moves nothing.
 
 Besides them, DNN Manager - which runs as Administrator - keeps what it writes and
 later reads back or runs in a folder only administrators can change
@@ -33,9 +48,11 @@ later reads back or runs in a folder only administrators can change
 
 ```text
 %ProgramData%\DnnManager\
+├── docker\              docker's configuration folder for the docker DNN Manager runs - empty, instead of your .docker
 ├── temp\                updates being installed (update\<version>\), database exports and .bak copies of a clone,
-│                        deployment packages being made, downloaded DNN packages - removed when done
-└── tools\               SqlPackage, installed there by DNN Manager the first time it needs it
+│                        deployment packages being made, downloaded DNN packages - removed when done; what is left
+│                        there more than 24 hours is deleted
+└── tools\               SqlPackage (170.5.96), installed there by DNN Manager the first time it needs it
 ```
 
 And beside Windows' hosts file, `hosts.dnnmanager.bak`: the hosts file as it was
@@ -47,7 +64,7 @@ own - there is no JSON in it:
 | Table | Holds |
 |---|---|
 | `settings` | The settings, one row per value: `key` (the value's path, e.g. `projects.sitePort`) and `value` (as text, e.g. `80`) - see [How the settings are saved](#how-the-settings-are-saved) |
-| `state` | The workspace kept for the next start ([user guide](user-guide.md#picking-up-where-you-left-off)), one row per value - `area`, `key`, `value` - in eight areas: `window` (where the window was, its size, the sidebar shown or hidden, the bottom panel's height), `workspace` (the page, the Projects table - search, filter, sorting, rows, scroll - the open Details and tab), `forms` (what was typed on New project, Host project and unsaved Settings - never a password), `logs` (the bottom panel's tab, its search, the site and log on the Logs tab) `update` (only during an update: which one - the new version reads it once, then deletes it), `version` (the version that ran last - a newer one shows What's new at its first start) `palette` (the commands last run from the command palette, listed first as *recently used*) and `onboarding` (which version of the getting started guide was finished or skipped - the first start shows it, later ones don't - and the version of the first start: still on it, no What's new is offered; see the [user guide](user-guide.md#getting-started-guide-and-help)) |
+| `state` | The workspace kept for the next start ([user guide](user-guide.md#picking-up-where-you-left-off)), one row per value - `area`, `key`, `value` - in nine areas: `window` (where the window was, its size, the sidebar shown or hidden, the bottom panel's height), `workspace` (the page, the Projects table - search, filter, sorting, rows, scroll - the open Details and tab), `forms` (what was typed on New project, Host project and unsaved Settings - never a password), `logs` (the bottom panel's tab, its search, the site and log on the Logs tab) `update` (only during an update: which one - the new version reads it once, then deletes it), `version` (the version that ran last - a newer one shows What's new at its first start) `palette` (the commands last run from the command palette, listed first as *recently used*) and `onboarding` (which version of the getting started guide was finished or skipped - the first start shows it, later ones don't - and the version of the first start: still on it, no What's new is offered; see the [user guide](user-guide.md#getting-started-guide-and-help)) and `operation` (only while an operation runs: its title, when it started and what it would undo now - deleted when it ends; still there at a start, DNN Manager ended before the operation did, and says what may be left half done) |
 | `projects` | How DNN Manager installed each project it set up - `site`, `install_mode`, `created_utc`, `dnn_version`, `host_user_name` - shown on the overview's **DNN** tab. Data about the project only, no secrets |
 | `keep_warm` | The sites kept warm - `site`, a row each. How they are kept warm (interval, pages) is the same for every site: `projects.keepWarm.*`. Saved the moment one is switched; the same sites are kept warm at the next start |
 | `dnn_releases` | Each repository's DNN versions as GitHub last listed them - asked at every start, and offered by New project when GitHub can't be reached |
@@ -74,7 +91,8 @@ one, otherwise with the defaults. The Output tab says which.
 
 An [update](user-guide.md#update) downloads into `%ProgramData%\DnnManager\temp\update\<version>\`,
 with its log (`update.log`, and `update.setup.log` for Setup) - removed a couple of
-minutes after the next start.
+minutes after the next start; when the update failed, the logs are copied to
+`logs\update-failed-<version>.log` first.
 
 ### Looking at the database
 
@@ -102,7 +120,11 @@ and has no record of how the existing projects were installed. Set your
 settings again in the app (Settings - the SQL container's `sa` password too -,
 Customize Layout, Keyboard shortcuts, the Projects table's columns) and switch
 keep warm on again for your sites. The old files stay where they are,
-untouched - delete them once you no longer need them. Your projects, backups,
+untouched - **Troubleshoot → Clean up data → Old settings files** deletes them
+(`settings.json`, `settings.json.bak`, `appsettings.json`, `docker-compose.yml`,
+the `.json` files in `state\`, and `dnnmanager.damaged-*.db` files put aside),
+as does **Reset to factory defaults**. They may hold the `sa` password in
+plain text. Your projects, backups,
 logs and kept packages, and the passwords in the Windows Credential Manager,
 are kept.
 
@@ -137,17 +159,18 @@ another place.
 | Key | Meaning |
 |---|---|
 | `version` | The layout of the settings (`3`), written by the app. Settings with a higher one were saved by a newer DNN Manager and aren't used - see [When the settings can't be used](#when-the-settings-cant-be-used). |
-| `projects.baseDirectory` | Where projects live (`C:\DNN` by default). |
-| `projects.sitePort`, `projects.hostnameSuffix` | Sites answer at `http://<project>.<hostnameSuffix>[:sitePort]`. |
-| `projects.dnnReleaseSources` | GitHub releases API URLs - the repositories **New project** offers, with their versions. |
-| `projects.keepDnnPackages` | `false` by default. When `true`, each downloaded DNN install package is kept in `Documents\DnnManager\packages\<owner>.<repo>\` and used again when a new project picks the same version - no download. Each repository's version list is saved at every start (in `dnnmanager.db`, `dnn_releases`), so New project works without internet for the kept versions. When `false`, the package is downloaded into the project and deleted after installing. |
+| `projects.baseDirectory` | Where projects live (`C:\DNN` by default). A full path on this computer - not a drive, a system folder (Windows, Program Files, ProgramData) or anything in one, Windows' own folders at the top of a drive (`$Recycle.Bin`, `System Volume Information`, `Recovery`…), `C:\Users` itself, your user folder itself, another user's folder (Public and Default too), `AppData\Local\Programs`, `AppData\Local\Microsoft\WindowsApps`, or DNN Manager's own `Documents\DnnManager` - DNN Manager keeps it to administrators and you, and deletes a removed project's folder in it ([`SettingRules`](../src/DnnManager.Application/Configuration/SettingRules.cs)). |
+| `projects.sitePort`, `projects.hostnameSuffix` | Sites answer at `http://<project>.<hostnameSuffix>[:sitePort]`. The suffix is a host name (`dnndev.me`): labels of letters, digits and hyphens (1 to 63 characters, not starting or ending with a hyphen) between dots, at most 200 characters, and not an IP address. |
+| `projects.dnnReleaseSources` | GitHub releases API URLs - the repositories **New project** offers, with their versions. https only (http only to this computer). |
+| `projects.keepDnnPackages` | `false` by default. When `true`, each downloaded DNN install package is kept in `Documents\DnnManager\packages\<owner>.<repo>\` and used again when a new project picks the same version - no download. Each repository's version list is saved at every start (in `dnnmanager.db`, `dnn_releases`), so New project works without internet for the kept versions. When `false`, the package is downloaded into DNN Manager's own temporary folder (`%ProgramData%\DnnManager\temp`) and deleted after installing. |
 | `projects.dnnDefaults.*` | What **New project** starts with for a new site: `installMode` (`automatic` or `manual`), `hostUsername` (`host`), `hostEmail` (`admin@admin.com`; empty: `host@<hostnameSuffix>`), `websiteName` (`My Website`; empty: the project's name), `language` (`en-US`, `de-DE`, `es-ES`, `fr-FR`, `it-IT` or `nl-NL`) and `template` (`Default Website` or `Blank Website`). The host password is not in the settings: it is in the Windows Credential Manager of your account (`DnnManager/dnn-defaults/host-password`); while none is saved there, New project asks for one. Set in **Settings → Projects**. |
 | `projects.keepWarm.*` | How the sites switched to [keep warm](user-guide.md#keep-warm) are kept warm: `pingMinutes` (`5`, 1 to 60) - the longest wait between two requests, shortened for a site whose app pool idles out sooner; `pingPath` (`/KeepAlive.aspx`) - the page requested to keep a running site warm (`/` keeps the home page's caches warm too, as Azure's *Always On* does); `warmUpPath` (`/`) - the page requested to warm up a site without a worker process. Pages are on the site itself (a leading `/` is added), never one of DNN's installer (`/Install/…`, `mode=`). Set in **Settings → Projects → Keep warm**. Which sites are kept warm is not in the settings: it is in `dnnmanager.db` (`keep_warm`). |
+| `backups.keepDays` | `0` by default: project backups (`backups\` - a clone's copy of its source database too) and deployment packages (`deployments\`) are kept until you delete them. 1 to 3650: at each start, those older than that many days are deleted - a folder's age is the date in its name (`<project>_yyyyMMdd_HHmmss`), or when it was last written to - never through a junction or link; the Output tab names what went. Set in **Settings → Projects → Backups** (*Keep them for good*, or after a week up to a year). |
 | `sqlServer.type` | Where a new project's database goes: `container` (the local SQL container - the default), `sqlServer` (SQL Server / SQL Server Express at `server`, with `authentication` `windows` or `sql` and, for `sql`, the login `userName` - its password is in the Windows Credential Manager, `DnnManager/database-server/password`) or `localDbFile` (the site's own `App_Data\Database.mdf` on the LocalDB instance `server`, e.g. `(LocalDB)\MSSQLLocalDB`). Set in **Settings → Database server**; a project keeps the database it was made with. |
 | `sqlServer.host`, `port`, `userName`, `saPassword` | The local SQL container DNN Manager connects to: `host` (`localhost` by default), `port`, `userName` (the login it signs in with - `sa` when empty; another one has to exist on the container already - the same setting as the SQL Server login of `sqlServer.type` `sqlServer`) and `saPassword` (that login's password - and the `sa` password **Set up docker-compose** creates the container with; a new installation makes up its own, 24 random characters, which Troubleshoot's resets keep - the container was made with it). The password is stored encrypted for your Windows account (Windows DPAPI, `dpapi:…`) - not hashed, since DNN Manager needs it to sign in. Set in **Settings → Database server**. A new project's database is named like the project, and its site signs in with a login of its own, `dnn_<project>` - not with this one. The Docker container publishes SQL Server on this port with this password - on this PC only (`127.0.0.1`) when `host` is `localhost` or `127.0.0.1`, on every network interface for any other host (this PC's address on the network, for a VM). An existing data volume keeps the sa password it was created with. |
-| `docker.*` | The SQL Server container: `containerName`, `volumeName`, `edition` (`MSSQL_PID`) and `collation`. **Settings → Docker container → Set up docker-compose** makes the container from these (and `sqlServer.port` / `saPassword`); **Show docker-compose.yml** shows the file to copy. |
+| `docker.*` | The SQL Server container: `containerName` (`dnn-sqlserver`), `volumeName` (`dnn_sqlserver_data`), `edition` (`MSSQL_PID`) and `collation`. The names are names Docker allows - a letter or digit, then letters, digits, `_`, `.` and `-` (`^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`, at most 128); the collation is letters, digits and `_`. **Settings → Docker container → Set up docker-compose** makes the container from these (and `sqlServer.port` / `saPassword`) with the SQL Server image DNN Manager pins (`mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04`, by digest) - a container made with another image is made again, the volume and its databases kept; **Show docker-compose.yml** shows the file to copy. |
 | `ssms.rememberPassword` | `false` by default. When `true`, signing SSMS in from the project menu ticks its *Remember Password*, so SSMS keeps the password. On the Settings page under **Database server**. |
-| `iis.requiredFeatures` | The Windows features **Settings → IIS → Test** checks and **Set up IIS** enables, each a `name` (as `dism /online /get-features` lists it) and a `label`. Set with **Settings → IIS → Edit…**: a row each, how it is shown and its Windows feature name, e.g. *ASP.NET 4.8* and `IIS-ASPNET45` (left empty, it is shown by its name). |
+| `iis.requiredFeatures` | The Windows features **Settings → IIS → Test** checks and **Set up IIS** enables, each a `name` (as `dism /online /get-features` lists it: letters, digits, `-`, `_` and `.` only) and a `label`. Set with **Settings → IIS → Edit…**: a row each, how it is shown and its Windows feature name, e.g. *ASP.NET 4.8* and `IIS-ASPNET45` (left empty, it is shown by its name). |
 | `appearance.theme` | `system` (follow the Windows app theme), `light` or `dark`. Set from the gear's **Themes** (or the command palette's *Color theme…*), applied and saved at once. |
 | `appearance.uiScale` | `100` by default: everything in the window - text, icons and spacing, menus and tooltips too - at this percentage (50 to 200; Settings offers 80-175). Set in **Settings → General**, applied at once. |
 | `appearance.fontSize` | `13` by default: the app's text size in pixels (8 to 32; Settings offers 11-18) - titles and hints keep their proportions, icons keep their size. The terminal has its own (`terminal.fontSize`). Set in **Settings → General**, applied at once. |
@@ -199,33 +222,57 @@ layout.sidebarPosition                left
   account (DPAPI, `dpapi:…`).
 
 The rows are written by the app: one changed by hand that can't be read or isn't
-allowed stops the next start (below).
+allowed goes back to its default at the next start (below).
 
 ## When the settings can't be used
 
 When the app starts, it reads the settings - a setting without a row gets its
-default (and is saved). **Settings it can't use** open a dialog that says what's
-wrong:
+default (and is saved).
+
+**A value that can't be read or isn't allowed** - text where a number belongs,
+a site port of 0, a projects folder a newer, stricter rule refuses - goes back
+to its default, and the start goes on. A warning names each one (a toast with
+**Show output**, and the Output tab); the other settings stay as you saved
+them, and the defaults are saved in their place. A login put back takes the
+authentication that needs it along (`sqlServer.userName` with
+`sqlServer.authentication`).
+
+**Settings it can't use at all** open a dialog that says what's wrong:
 
 - the database can't be opened or read (another program has it locked,
   Windows Security's *Controlled folder access* blocks it);
 - the settings were saved by a *newer* DNN Manager (their `version` is higher
   than this version's);
 - the `sa` password was encrypted by another Windows account or on another PC;
-- a value can't be read (text where a number belongs) or isn't allowed (a site
-  port of 0).
+- values that still aren't allowed with their defaults.
 
 The dialog has **Try again** (once what it names is fixed), **Reset to
 defaults** (the current settings aren't kept) and **Exit**. The app never
-starts with half-read settings, and
-nothing is written until they can be used. Settings from a newer DNN Manager
-are not touched until you reset them - or update the app.
+starts with half-read settings, and nothing is written until they can be used.
+Settings from a newer DNN Manager are not touched until you reset them - or
+update the app.
+
+Other warnings at the start show the same way (a toast, and the Output tab):
+`Documents` in OneDrive or on a network share (above), Windows' Developer Mode
+on, redirection trust missing from Windows, .NET profiler or diagnostics
+variables set, `DNNMANAGER_*` variables ignored (below) - see
+[troubleshooting.md](troubleshooting.md#warnings-at-the-start).
 
 ## Environment variables
 
 Environment variables prefixed with `DNNMANAGER_` override settings, e.g.
 `DNNMANAGER_DnnManager__Docker__SaPassword=...` (names as in `AppOptions`). The
 Settings page lists any that are set, since they win over what it saves.
+
+They are held to every rule of the saved settings - any program of yours can
+set them, and DNN Manager runs with Administrator rights. They are first put as
+the app uses them (the hostname suffix trimmed of spaces and dots, keep warm's
+pages starting with `/`, the server's names trimmed), then checked: when one
+breaks a rule (the projects folder a drive or a system folder, a release source
+that isn't https, a Docker name, an IIS feature name, a port out of range…),
+**all of them are ignored** and a warning names it - its variable and settings
+key. Allowed, they stay on top of the settings after a **Save** on the Settings
+page too. The command line isn't read as settings.
 
 > The folder is the Documents folder of the Windows account the app runs as. If
 > you sign in to the UAC prompt with a *different* administrator account, that

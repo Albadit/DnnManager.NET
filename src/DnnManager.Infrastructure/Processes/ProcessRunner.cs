@@ -1,6 +1,8 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.Win32.SafeHandles;
 
 namespace DnnManager.Infrastructure.Processes;
 
@@ -44,6 +46,7 @@ public sealed class ProcessRunner
         };
         if (stdin is not null) psi.StandardInputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
         foreach (var a in args) psi.ArgumentList.Add(a);
+        ChildEnvironment.Apply(psi.Environment);
         if (env != null)
             foreach (var kv in env) psi.Environment[kv.Key] = kv.Value;
 
@@ -63,6 +66,8 @@ public sealed class ProcessRunner
             // of the exception unwinding the whole operation.
             return new ProcessResult { ExitCode = -1, StdErr = $"Could not start '{fileName}': {ex.Message}" };
         }
+        // Ended with DNN Manager, however it ends (a crash, Windows signing out): never left running on its own.
+        ChildJob.Add(p);
         p.BeginOutputReadLine();
         p.BeginErrorReadLine();
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -106,4 +111,97 @@ public sealed class ProcessRunner
         }
         return new ProcessResult { ExitCode = p.ExitCode, StdOut = stdout.ToString(), StdErr = stderr.ToString() };
     }
+}
+
+/// <summary>
+/// A Windows job object holding the programs <see cref="ProcessRunner"/> starts, closed by Windows when DNN Manager's
+/// process ends - which ends them too (KILL_ON_JOB_CLOSE). Without it a docker, sqlcmd or SqlPackage run would go on after
+/// DNN Manager crashed or was ended, holding files and databases nobody waits for. Only the program itself: what it
+/// starts in turn (a LocalDB instance sqllocaldb starts, which sites use) leaves the job silently and is kept.
+/// </summary>
+internal static class ChildJob
+{
+    private static readonly Lazy<SafeFileHandle?> Job = new(Create);
+
+    /// <summary>Puts <paramref name="process"/> in the job - best effort: a process that can't be added runs as before.</summary>
+    public static void Add(Process process)
+    {
+        try
+        {
+            if (Job.Value is { IsInvalid: false } job) AssignProcessToJobObject(job, process.Handle);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or Win32Exception) { /* already ended */ }
+    }
+
+    /// <summary>Whether the job could be made - false only where Windows refuses one.</summary>
+    internal static bool IsAvailable => Job.Value is { IsInvalid: false };
+
+    private static SafeFileHandle? Create()
+    {
+        var job = CreateJobObjectW(IntPtr.Zero, null);
+        if (job.IsInvalid) return null;
+        var info = new JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+        {
+            BasicLimitInformation = new JOBOBJECT_BASIC_LIMIT_INFORMATION { LimitFlags = KillOnJobClose | SilentBreakawayOk }
+        };
+        var size = Marshal.SizeOf<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>();
+        var buffer = Marshal.AllocHGlobal(size);
+        try
+        {
+            Marshal.StructureToPtr(info, buffer, false);
+            if (SetInformationJobObject(job, JobObjectExtendedLimitInformation, buffer, (uint)size)) return job;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
+        job.Dispose();
+        return null;
+    }
+
+    private const int JobObjectExtendedLimitInformation = 9;
+    private const uint KillOnJobClose = 0x2000;
+    private const uint SilentBreakawayOk = 0x1000;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct JOBOBJECT_BASIC_LIMIT_INFORMATION
+    {
+        public long PerProcessUserTimeLimit;
+        public long PerJobUserTimeLimit;
+        public uint LimitFlags;
+        public UIntPtr MinimumWorkingSetSize;
+        public UIntPtr MaximumWorkingSetSize;
+        public uint ActiveProcessLimit;
+        public UIntPtr Affinity;
+        public uint PriorityClass;
+        public uint SchedulingClass;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct IO_COUNTERS
+    {
+        public ulong ReadOperationCount, WriteOperationCount, OtherOperationCount, ReadTransferCount, WriteTransferCount, OtherTransferCount;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+    {
+        public JOBOBJECT_BASIC_LIMIT_INFORMATION BasicLimitInformation;
+        public IO_COUNTERS IoInfo;
+        public UIntPtr ProcessMemoryLimit;
+        public UIntPtr JobMemoryLimit;
+        public UIntPtr PeakProcessMemoryUsed;
+        public UIntPtr PeakJobMemoryUsed;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern SafeFileHandle CreateJobObjectW(IntPtr attributes, string? name);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetInformationJobObject(SafeFileHandle job, int infoClass, IntPtr info, uint length);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool AssignProcessToJobObject(SafeFileHandle job, IntPtr process);
 }

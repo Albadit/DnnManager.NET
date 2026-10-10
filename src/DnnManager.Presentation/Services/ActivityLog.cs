@@ -106,8 +106,8 @@ public sealed partial class ActivityLog(DailyLogFile file) : INotifyPropertyChan
         if (_run is { } run) EndRunNow(run, now, RunStatus.Cancelled, $"{run.Title} - not done: the answer was no.");
     });
 
-    // The Output tab keeps the newest runs - over a long day it would only grow (it isn't virtualized); every run is in
-    // the day's log file.
+    // The Output tab keeps the newest runs - over a long day it would only grow (it isn't virtualized) - and of a stage
+    // its first and newest lines (OutputCap); every run, every line, is in the day's log file.
     private const int RunsKept = 50;
 
     /// <summary>Leaves the newest <see cref="RunsKept"/> runs, with the lines between them.</summary>
@@ -298,7 +298,8 @@ public sealed partial class ActivityLog(DailyLogFile file) : INotifyPropertyChan
         foreach (var detail in line.Details) _file.Append(now, $"        {detail}");
         if (hint is not null) _file.Append(now, $"        → {hint}");
 
-        if (LinesForNewLine(now) is { } lines) lines.Add(line);
+        // A stage keeps its first and newest lines (OutputCap) - the file above has every one.
+        if (LinesForNewLine(now) is { } lines) OutputCap.Add(lines, line);
         else Items.Add(line);
         _run?.Changed();
     }

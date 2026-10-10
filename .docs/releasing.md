@@ -1,6 +1,6 @@
 # Releasing
 
-Making a new version: the steps, releasing from VS Code, the build workflow, the portable exe and the installer.
+Making a new version: the steps, releasing from VS Code, the release workflow, code signing, setting up GitHub, the build workflow, the portable exe and the installer.
 
 ## Steps
 
@@ -24,12 +24,15 @@ until 1.7.2 is tagged ([`DnnManager.csproj`](../DnnManager.csproj), target
    The notes are built into the exe (What's new after an update shows them), so
    they must be committed before the release is built.
 4. Commit and push, then run the task **release (GitHub)** (see
-   [Release from VS Code](#release-from-vs-code)). The GitHub release gets
-   `DnnManager_Portable-X.Y.Z-x64.exe`, `DnnManager_Setup-X.Y.Z-x64.exe` and
-   `SHA256SUMS.txt`. The tag it pushes is built and tested on GitHub
-   ([the build workflow](#the-build-workflow)); the release stays a draft until
-   that has passed, and only then does every running DNN Manager offer it with
-   its **Update** button (see [The in-app update](#the-in-app-update)).
+   [Release from VS Code](#release-from-vs-code)). It pushes the version tag, and
+   GitHub's [release workflow](#the-release-workflow) builds the release from that
+   tag: `DnnManager_Portable-X.Y.Z-x64.exe`, `DnnManager_Setup-X.Y.Z-x64.exe` and
+   `SHA256SUMS.txt`, signs them once signing is set up, tries them, and puts them
+   on a draft release once the whole test suite has passed on the tag.
+5. **Approve the job *Publish the release*** on the run's page on GitHub (the
+   `publish` environment's required reviewer). It checks the tag and the files
+   again and publishes the release. Every running DNN Manager then offers it
+   with its **Update** button (see [The in-app update](#the-in-app-update)).
 
 ## Release from VS Code
 
@@ -48,28 +51,32 @@ and from GitHub - by the extension
    makes a pre-release).
 2. **Pick the commit** from the 20 newest on GitHub (`origin/<current branch>`,
    fetched first) - the newest is on top.
-3. It stops when the tag already points at another commit or GitHub already has
-   that release.
+3. It stops when the tag is on GitHub already (or here, on another commit), when
+   GitHub has published that version, or when the commit doesn't have its release
+   notes or the release workflow (`.github/workflows/release.yml`). The release is
+   built from that commit, and its notes are built into the exe.
 4. In a temporary worktree of that commit - your working copy isn't touched - it
-   runs the fast tests, then builds the portable exe and the installer with the
-   version stamped in (the installer with the pinned Inno Setup, `-PinnedInno`).
-5. It checks both files report the version and writes their SHA-256 into
-   `SHA256SUMS.txt`; they land in `publish\vX.Y.Z\`.
-6. **After you confirm**, it tags the commit, pushes the tag, creates the release as
-   a draft with the notes (and the SHA-256 of both files under them), uploads the
-   files and checks each one's size and GitHub's own SHA-256 of it (its `digest`,
-   what every DNN Manager checks an update against) against the file here.
-7. It **waits for CI on the tag** (up to 90 minutes, asking every 30 seconds) and
-   publishes the release only once CI has passed. CI failing - or not finishing
-   in time - leaves the draft on GitHub, to look into. Answer *N* at step 6 and
-   nothing is published - the files stay in `publish\vX.Y.Z\`.
+   restores the packages in locked mode and runs the fast tests, so a problem shows
+   up before the tag exists.
+5. **After you confirm**, it tags the commit and pushes the tag. Nothing built on
+   this PC is uploaded: the release workflow builds, tests, signs (once
+   [code signing](#code-signing) is set up), attests, tries and drafts it, and
+   publishes it once you approve.
+6. It follows the workflow's run on GitHub (every 2 minutes, for up to 90): it
+   says when the draft is ready and the publish job waits for your approval,
+   and shows the release's link once it is published, or the run's link if the
+   run failed. Answer *N* at step 5 and nothing is tagged.
 
-It signs in to GitHub with the credential Git uses for this repository. Outside VS
-Code, `.github\scripts\publish-release.ps1` asks the same two questions in the
-terminal; `-NotesFile .docs\release-notes\v1.7.0.md -Commit <hash>` answers them.
-`-SkipTests` (the fast tests) and `-SkipCi` (waiting for CI) are allowed for a
-pre-release (`vX.Y.Z-rc.1`) only: a release every DNN Manager is offered is
-tested. A commit that isn't on GitHub yet is released only after you confirm.
+The only credential it uses is the one Git pushes the tag with (see
+[Set up GitHub](#set-up-github)). It asks GitHub's public API, without signing in,
+whether the version is published and how the run is going
+([`ReleaseCommon.psm1`](../.github/scripts/ReleaseCommon.psm1), which it shares
+with the redo script). Outside VS Code,
+`.github\scripts\publish-release.ps1` asks the same two questions in the terminal;
+`-NotesFile .docs\release-notes\v1.7.0.md -Commit <hash>` answers them. `-SkipTests`
+skips the fast tests here (the workflow still runs every test before it publishes),
+and `-NoWait` stops after pushing the tag. You have to confirm before it releases a
+commit that isn't on GitHub yet.
 
 The release's notes are `.docs/release-notes/vX.Y.Z.md` as
 [`.github/scripts/release-notes.ps1`](../.github/scripts/release-notes.ps1) gives
@@ -82,31 +89,34 @@ writes a draft in the same structure, from the version's `CHANGELOG.md` entry
 
 ## Redo a release
 
-When a release failed (the workflow's tests, say) or needs one more change after
-its tag is made, **Ctrl+Shift+B → release: redo (GitHub)** runs
+When a release's workflow failed (the tests, say) or the release needs one more
+change before it is published, **Ctrl+Shift+B → release: redo (GitHub)** runs
 [`.github/scripts/redo-release.ps1`](../.github/scripts/redo-release.ps1):
 
 1. It asks for the version (Enter takes the newest tag) and a new message for the
    release commit (Enter keeps it).
-2. The release commit is the tag's commit, and it must be the newest commit of
+2. **It refuses a version GitHub has published** - a pre-release too, and also when
+   GitHub can't be asked. A published version gets a new version number (see
+   [A bad release](#a-bad-release)). It also refuses while a release workflow run
+   on the tag hasn't ended - queued, running, or waiting for the publish job's
+   approval: wait for it, or cancel it (reject *Publish the release*), first.
+3. The release commit is the tag's commit, and it must be the newest commit of
    the branch - one with commits after it is refused. Without a tag, the newest
    commit counts when its message starts with `release: vX.Y.Z`.
-3. It shows the plan and asks once: amend the release commit with every change in
-   your working copy (new files too), push the branch (`--force-with-lease` when
+4. It lists the new files in your working copy that git doesn't have yet and
+   asks whether they go in too (*No* by default - a stray log or local setting
+   mustn't end up in a release). Then it shows the plan and asks once: amend the
+   release commit with the changes to the files git has (`git add -u`, plus the
+   new files you said yes to), push the branch (`--force-with-lease` when
    the old commit is on GitHub - refused when GitHub's branch has commits yours
-   hasn't), delete the tag's GitHub release (a published one only after you type
-   the tag) and delete the tag here and on GitHub.
-4. Then, if you want, it releases the version again from this PC, as
-   **release (GitHub)** does - that makes the tag again.
+   hasn't) and delete the tag here and on GitHub. A draft release that the failed
+   run left stays on GitHub: the next run on the tag reuses it and replaces its
+   files and notes.
+5. Then, if you want, it releases the version again, as **release (GitHub)** does:
+   the fast tests, then the tag, and GitHub builds and publishes it.
 
 `-DryRun` shows the plan and changes nothing; `-Version 1.7.6 -Message "release: …"`
-answers the questions and `-SkipTests` is passed on to the build (a pre-release
-only).
-
-**Redo only a release nobody has installed yet.** DNN Manager updates only to a
-newer version: whoever installed the first build of that version is never offered
-the redone one. GitHub's release page shows the files' download counts; once others
-may have it, release the change as the next version instead.
+answers the questions and `-SkipTests` is passed on to **release (GitHub)**.
 
 ## A bad release
 
@@ -119,42 +129,221 @@ it already:
 2. **Fix it as the next version** (`vX.Y.Z+1`) - a revert is enough - with the
    changelog and release notes saying what was wrong and that it is fixed, and
    release it as usual. Those who updated to the bad one are offered the fix;
-   nobody is offered an older version, so a redo of the bad tag doesn't reach them
-   ([Redo a release](#redo-a-release) is for a release nobody has installed).
+   nobody is offered an older version, and a published version is never redone.
 3. **A release that wasn't yours** (the GitHub credential or this PC
-   compromised): revoke the credential Git uses (GitHub → Settings → Applications
-   / Tokens), delete the release and its tag, and release a fixed version made
-   from a PC you trust; say what happened in its notes.
+   compromised): revoke the credential Git uses (GitHub → Settings → Developer
+   settings → Personal access tokens, or Applications), delete the release, and
+   release a fixed version from a PC you trust; say what happened in its notes.
+   A release the workflow didn't build has no attestation from it
+   (`gh attestation verify <file> --repo Albadit/DnnManager.NET` fails).
+
+## The release workflow
+
+[`.github/workflows/release.yml`](../.github/workflows/release.yml) ("Release") runs
+when a tag `vX.Y.Z` (or `vX.Y.Z-suffix`) is pushed - one run per tag at a time,
+never cancelled half way. Its jobs run in this order:
+
+```mermaid
+flowchart LR
+    ci["ci<br/>whole test suite"] --> draft
+    build["build<br/>fast tests, publish"] --> sign["sign<br/>sign, Setup, SHA256SUMS, attest"]
+    sign --> smoke["smoke<br/>install, start, uninstall"]
+    sign --> draft["draft<br/>upload, check digests"]
+    smoke --> draft
+    draft --> publish["publish<br/>approved by a reviewer"]
+```
+
+- **CI** - the whole test suite on the tag ([the build workflow](#the-build-workflow),
+  which it calls).
+- **Build** (on the `windows-2025` image) - checks the runner has Visual Studio's
+  C++ build tools (the launcher's Native AOT needs them), restores in locked mode
+  (the app's tests and the launcher), runs the fast tests, stamps the tag's
+  version into the manifest, publishes the portable exe, and publishes the app and
+  the launcher for Setup (`build.ps1 -PublishOnly`) - all unsigned. It runs the
+  packages' and the tests' code, so it gets no OpenID Connect token: it may only
+  read the repository.
+- **Sign, package and attest** (environment `release`) - takes the build's files;
+  it restores no package and runs no test. When [code signing](#code-signing) is
+  set up, it signs in to Azure just before the first file is signed, signs the
+  portable exe, then builds Setup with the pinned Inno Setup (`build.ps1
+  -SkipPublish -PinnedInno -SignScript …`), which signs `DnnManager.exe` and the
+  launcher before they go in and has Inno sign Setup and its uninstaller; then it
+  signs out of Azure. It checks that both exes and the launcher report the
+  version (and are signed), writes `SHA256SUMS.txt` and the notes, and attests
+  the provenance of both exes (`actions/attest-build-provenance`, signed by GitHub
+  through Sigstore): which workflow built them, from which tag and commit.
+- **Try the files** (smoke) - on a fresh runner,
+  [`smoke-test.ps1`](../.github/scripts/smoke-test.ps1) installs Setup silently
+  into a temporary folder, checks `DnnManager.exe` and the launcher (a Native AOT
+  build, no DLL beside it) report the version, starts DNN Manager through the
+  launcher and waits for its window to stay up, uninstalls, then starts the
+  portable exe the same way. A release whose files don't start isn't offered.
+- **Draft the release** - only once CI, the signing and the smoke test have
+  passed. [`upload-release.ps1 -Stage Draft`](../.github/scripts/upload-release.ps1)
+  checks the files against `SHA256SUMS.txt` and creates the release as a draft
+  for the commit the workflow built (`target_commitish` = `GITHUB_SHA`), with the
+  notes and the files' SHA-256 under them. If a failed run left a draft for the
+  tag, it reuses that draft and replaces its files. It uploads the files and
+  checks each one's size and GitHub's own SHA-256 of it (its `digest`, what every
+  DNN Manager checks an update against). A published release of the tag fails
+  the job and changes nothing.
+- **Publish the release** - in the environment `publish`: it waits until a
+  required reviewer approves it on the run's page. Then `upload-release.ps1
+  -Stage Publish` checks again that the tag still points at the commit that was
+  built (`GITHUB_SHA`), that each file on the draft has the digest in
+  `SHA256SUMS.txt` and that the draft has no other file, and publishes it - as the
+  latest release only when its version is newer than the latest one (a fix to an
+  older line doesn't become what every DNN Manager is offered), or as a
+  pre-release for `vX.Y.Z-rc.1`.
+
+A failure anywhere leaves at most a draft, which nobody is offered; a pushed tag
+alone never publishes anything. Each job has only the permissions it needs. CI,
+build and smoke only read the repository. Only the sign job may get an OpenID
+Connect token and write attestations - for the attestation's certificate and for
+Azure's sign-in when signing. Only the draft and publish jobs may write to the
+repository, and that is for the release. The workflow's own `GITHUB_TOKEN` is its
+only GitHub credential - no personal token is stored in the repository. Its
+actions are pinned to commits, like CI's, check-outs leave no token in
+`.git/config`, and `${{ }}` values reach its scripts only through environment
+variables.
+
+**Check a downloaded file** came from the workflow:
+`gh attestation verify DnnManager_Setup-1.9.0-x64.exe --repo Albadit/DnnManager.NET`
+shows the workflow, tag and commit that built it. Releases up to 1.8.1 were built
+on the publisher's PC and have no attestation.
+
+## Code signing
+
+The exes aren't signed until a code-signing service is set up. The workflow is
+ready for [Azure Artifact Signing](https://learn.microsoft.com/azure/artifact-signing/)
+(formerly Trusted Signing). **Until its variables are set, signing is off** and
+every release is built unsigned. Once they are, the sign job signs in to Azure
+with OpenID Connect - no secret is stored - right before the first file is
+signed, and [`.github/scripts/sign.ps1`](../.github/scripts/sign.ps1) signs with
+`signtool` and the Artifact Signing client (a pinned NuGet package, checked
+against its SHA-512), timestamped. It signs the portable exe, the published
+`DnnManager.exe` and the launcher before they go into Setup, and - through Inno's
+`SignTool` - Setup and its uninstaller. With the variables set, a file that comes
+out unsigned fails the run instead of being published; so does a half set-up
+(some variables missing). Set the variable `REQUIRE_SIGNING` to `true` once
+signing works: from then on a run without the signing variables fails rather
+than release unsigned files.
+
+To set it up:
+
+1. **In Azure**: an Artifact Signing account and a certificate profile (Public
+   Trust, after the publisher's identity validation). Note the account's endpoint
+   (`https://<region>.codesigning.azure.net`), its name and the profile's name.
+2. **In Microsoft Entra ID**: an app registration with a *federated credential*
+   for GitHub Actions - organization `Albadit`, repository `DnnManager.NET`, entity
+   *Environment*, name `release` (subject
+   `repo:Albadit/DnnManager.NET:environment:release`). Give it the role
+   *Artifact Signing Certificate Profile Signer* on the certificate profile.
+3. **On GitHub, Settings → Environments**: open `release` (the first run makes it) or
+   create it, and under *Deployment branches and tags* allow only the tag pattern
+   `v*`. Then only a release run can get the Azure token.
+4. **Settings → Secrets and variables → Actions → Variables** (of the repository or
+   of the `release` environment): `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
+   `AZURE_SUBSCRIPTION_ID`, `ARTIFACT_SIGNING_ENDPOINT`, `ARTIFACT_SIGNING_ACCOUNT`
+   and `ARTIFACT_SIGNING_PROFILE`. They are identifiers, not secrets. Then
+   `REQUIRE_SIGNING` = `true`.
+
+Nothing else to change for the installer: `build.ps1 -SignScript <script>` defines
+Inno's sign tool `dnnsign` and passes `/DSignToolName=dnnsign`, and `DnnManager.iss`
+then sets `SignTool` and `SignedUninstaller=yes`. Inno refuses a file the sign tool
+left unsigned, and `build.ps1` checks Setup's signature once more.
+
+## Set up GitHub
+
+Do these once, before the first release with the workflow, in the repository's
+**Settings**:
+
+- **Actions → General**: *Workflow permissions* - *Read repository contents and
+  packages permissions* (each job asks for more itself), and *Allow GitHub Actions
+  to create and approve pull requests* off. Under *Actions permissions*, tick
+  *Require actions to be pinned to a full-length commit SHA*.
+- **General → Releases**: turn on *release immutability*. Once a release is published,
+  its files and tag can't change any more - a draft still can, which is how the
+  workflow uploads them. This is what the scripts' refusal to redo a published
+  version relies on.
+- **Rules → Rulesets**:
+  - a *branch* ruleset for the default branch (`main`): *Restrict deletions*,
+    *Block force pushes* and *Require status checks to pass* (CI's **Build and
+    test**);
+  - a *tag* ruleset for `refs/tags/v*`: *Restrict creations*, *Restrict updates*,
+    *Restrict deletions* and *Block force pushes*.
+
+  Add the *Repository admin* role to both bypass lists: **release (GitHub)** creates
+  the tag, and **release: redo (GitHub)** deletes it and force-pushes the amended
+  release commit. Nobody else can push or move a version tag, so nobody else can
+  start a release.
+- **Environments** (the first release run makes both; set them up before it):
+  - `publish` - under *Required reviewers* add yourself, and under *Deployment
+    branches and tags* allow only the tag pattern `v*`. **Without a required reviewer the
+    publish job runs as soon as the draft is ready** - this is the step that makes
+    a person approve every release.
+  - `release` - *Deployment branches and tags*: only `v*` (see
+    [Code signing](#code-signing)).
+- **Secrets and variables → Actions → Variables**: `REQUIRE_SIGNING` (`true`
+  once signing is set up), and `CI_MAX_SKIPPED_TESTS` - the number of skipped
+  integration tests the build workflow accepts ([below](#the-build-workflow)).
+- **The Git credential on this PC** is all that releases need here: it pushes the
+  branch and the tag, and no script reads it from Git or calls the API with it.
+  Make it a *fine-grained personal access token* for this repository only
+  (GitHub → Settings → Developer settings → Fine-grained tokens): *Contents: Read and
+  write*, plus *Workflows: Read and write* only while you push changes to
+  `.github/workflows`. Store it in Git Credential Manager in place of a broader
+  sign-in, and give it an expiry date.
 
 ## The build workflow
 
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) ("CI") runs on every push
-to `main`, on pull requests, on every pushed tag `vX.Y.Z` (or `vX.Y.Z-suffix`) -
-the one **release (GitHub)** pushes and waits for - and by hand (**Actions → CI →
-Run workflow**). It restores in locked mode (exactly the packages
-`packages.lock.json` names, with their hashes), builds in Release (the version from
-the newest tag, as every local build) and runs the whole test suite. It publishes
-nothing. The integration tests are skipped (inconclusive) where the runner lacks
-IIS Express, LocalDB or Linux containers.
+to `main`, on pull requests and by hand (**Actions → CI → Run workflow**); for a
+version tag the [release workflow](#the-release-workflow) calls it and publishes
+only once it has passed. It restores in locked mode (exactly the packages
+`packages.lock.json` names, with their hashes - the app's tests' and the
+launcher's), builds in Release (the version from the newest tag, as every local
+build) **with warnings as errors** (`-warnaserror`, XML-comment warnings
+included: `DnnManager.csproj` has the compiler read its XML comments
+(`GenerateDocumentationFile`), so a misplaced or broken one fails the build -
+without asking a comment for every public member: CS1591 and CS1573 are off),
+builds the launcher as
+plain .NET (the release publishes it with Native AOT), and runs the whole test
+suite. It publishes nothing.
+
+**Skipped tests are counted.** The integration tests are skipped (inconclusive)
+where the runner lacks IIS Express, LocalDB or Linux containers. The step
+*Count skipped tests* reads the results (`TestResults/tests.trx`), lists the
+skipped ones in the run's summary, and fails the run when a test outside
+`TestCategory=Integration` was skipped - a fast test must run everywhere - or
+when more were skipped than the repository variable `CI_MAX_SKIPPED_TESTS`
+allows (14 when it isn't set). Set it to the count the summary shows, so a newly
+skipped integration test fails the run too.
 
 What makes a build the same each time:
 
-- **The .NET SDK** is the one [`global.json`](../global.json) names (newer patches
-  of it too) - CI installs it from there.
+- **The .NET SDK** is exactly the one [`global.json`](../global.json) names
+  (`10.0.401`, `rollForward: disable` - no newer patch) - both workflows install
+  it from there, and a local build needs it too.
+- **The runner** is a pinned image (`windows-2025`), not `windows-latest`: moving to
+  a newer image is a change in review.
 - **The packages** are in `packages.lock.json` (the app's and the tests') - a
   package change is a change to the lock file, in review. A restore that would
-  change them fails in CI, and in **release (GitHub)** before it tags anything:
-  its tests, portable exe and installer restore in locked mode too. After a
-  package change, update the lock files with
+  change them fails in CI, in the release workflow, and in **release (GitHub)**
+  before it tags anything. After a package change, update the lock files with
   `dotnet restore tests/DnnManager.IntegrationTests --force-evaluate`. A build and
   a single-file publish restore the same packages: `DnnManager.csproj` turns on
   the single-file analyzer for every build, and with it the SDK's
   `Microsoft.NET.ILLink.Tasks`, which a single-file publish adds otherwise.
+- **Where packages come from**: [`nuget.config`](../nuget.config) clears every other
+  package source (a machine-wide or user NuGet.Config) and maps every package to
+  nuget.org, so a package of the same name on another feed is never used.
 - **The actions** are pinned to commits, not tags that can move;
   [Dependabot](../.github/dependabot.yml) proposes updates for them and the NuGet
   packages each month, which CI builds and tests.
 - **Inno Setup** for a release is the pinned `Tools.InnoSetup` package, checked
-  against its SHA-512 ([Build the installer](#build-the-installer)).
+  against its SHA-512 and extracted again on every build
+  ([Build the installer](#build-the-installer)).
 
 ## The in-app update
 
@@ -173,9 +362,9 @@ draft or a pre-release - a `vX.Y.Z-rc.1` tag isn't offered) - see
   hand once. 1.7.7 and newer (and Setup, for **Repair** of an old version) find
   either name.
 - **The version inside both files**: their *ProductVersion* must be the tag's version
-  (`publish-release.ps1` checks it before publishing) - a download whose version differs is refused.
+  (the release workflow checks it before publishing) - a download whose version differs is refused.
 - **GitHub's SHA-256** of each file (the asset's `digest`): a file GitHub lists no
-  SHA-256 for isn't installed - by DNN Manager or by Setup. `publish-release.ps1`
+  SHA-256 for isn't installed - by DNN Manager or by Setup. The release workflow
   checks GitHub's digest of every file it uploads.
 - **Silent Setup**: the update runs Setup with `/SILENT /SUPPRESSMSGBOXES /NORESTART
   /NOCANCEL /SP- /CURRENTUSER` (or `/ALLUSERS`) - `DnnManager.iss` must keep
@@ -184,18 +373,27 @@ draft or a pre-release - a `vX.Y.Z-rc.1` tag isn't offered) - see
   it starts. A new install and **Update** install that one, **Repair** the installed
   version (the release `v<installed version>`); for any version but its own, Setup
   downloads that release's `DnnManager_Setup-<version>-x64.exe` (`DnnManagerSetup-…` up to 1.7.6; GitHub's
-  SHA-256, and a *file version* of `<version>.0`), copies it to
-  `%TEMP%\DnnManager-update\<version>\` and starts it with
-  `/SP- /HandedOver=1 /CURRENTUSER` (or `/ALLUSERS`), then closes. A newer Setup must
-  keep `/HandedOver=1` meaning: don't ask GitHub, skip the license and the
-  Repair / Uninstall page, and use a Setup mutex of its own
-  (`SetupMutex=DnnManager.NET.Setup{param:HandedOver|}{param:Done|}`) - the older one may not have
-  exited yet. Setup's log (`/LOG=<file>`) records what GitHub answered.
+  SHA-256, and a *file version* of `<version>.0`), checks the SHA-256 again right
+  before it runs it from its own temporary folder (`{tmp}` - only administrators may
+  write there when Setup is elevated), with `/SP- /HandedOver=1 /ALLUSERS` (or
+  `/CURRENTUSER`) and `/Again=<n>`, and waits for it, its own wizard hidden. A Setup
+  newer than 1.8.1 also gets `/ReturnToCaller=1`: it doesn't start itself again when
+  done - the waiting one shows its first page. A newer Setup must keep `/HandedOver=1`
+  meaning: don't ask GitHub, skip the license and the Repair / Uninstall page, and use
+  a Setup mutex of its own
+  (`SetupMutex=DnnManager.NET.Setup{param:HandedOver|}{param:Done|}{param:Again|}`) - the
+  calling one is still running. Setup's log (`/LOG=<file>`) records what GitHub answered.
 - **Back to Setup's first page**: after Repair or Update (from 1.7.6 on) Setup skips its
   Finished page and starts itself again with `/SP- /Done=Repaired` (or `Updated`,
   or `Uninstalled` after the uninstaller), plus `/CURRENTUSER` or `/ALLUSERS`. A
   Setup it hands over to gets `/Back=Repaired` (or `Updated`) to do the same; an
-  older one ignores it and shows its Finished page.
+  older one ignores it and shows its Finished page. `/Done` and `/Back` accept only
+  `Updated`, `Repaired` and `Uninstalled` - anything else counts as none -, since they
+  go on the command line of a Setup with administrator rights. Setup starts its own
+  exe again only while its SHA-256 is still the one it started with: directly once
+  the installation has started, before that through `cmd /d /v:off /c start` (Inno's
+  `Exec` refuses Setup's own exe until then), with the path checked for quotes,
+  `%`, `!` and control characters.
 - **A running DNN Manager**: Setup has no `AppMutex`, so it opens while DNN Manager
   runs. Just before replacing or removing the files (`PrepareToInstall`, and the
   uninstaller's `usUninstall` step - after its confirmation) it sets the event
@@ -203,10 +401,18 @@ draft or a pre-release - a `vX.Y.Z-rc.1` tag isn't offered) - see
   ([`SingleInstance`](../src/DnnManager.Presentation/SingleInstance.cs)) and quit on
   without asking (an open dialog is closed, a running operation cancelled, the
   workspace saved), and waits up to 10 seconds for the mutex `DnnManager.NET.Running`
-  to go. Still there (an older version, or no answer): Setup doesn't run elevated,
-  so it ends the process with an elevated PowerShell (`runas` - one UAC prompt) -
-  only `DnnManager.exe` in the install folder, never the update helper (`DnnManager-update.exe`) -
-  and waits 5 more seconds. Only then does it ask the user to quit it and **Retry**.
+  to go. Still there (an older version, or no answer): it ends the process with
+  PowerShell started through `runas` - with Setup's own administrator rights, or one
+  UAC prompt for a `/CURRENTUSER` Setup - only `DnnManager.exe` in the install folder
+  (a plain path, quoted as a PowerShell string), never the update helper
+  (`DnnManager-update.exe`) - and waits 5 more seconds. Only then does it ask the
+  user to quit it and **Retry**.
+- **Uninstall**: the uninstaller removes the sign-in task (the one that starts this
+  `DnnManager.exe` or the launcher beside it - asking for administrator rights when
+  it must), then, unless it is silent, lists what stays and asks - *No* by default -
+  whether to remove `Documents\DnnManager`, `%ProgramData%\DnnManager` (for all
+  users only) and the saved credentials (`DnnManager/…`); never Docker's container
+  or volume, the projects, IIS or the hosts file.
 
 How it works: the running DNN Manager downloads and checks the file into
 `%ProgramData%\DnnManager\temp\update\<version>\` - a folder only administrators can
@@ -220,9 +426,12 @@ to exit, checks the downloaded file's size and SHA-256 again (the plan carries
 them) while holding it open, runs Setup or swaps the portable exe (with a backup it
 puts back if anything fails - an older backup left behind is deleted first), and
 starts DNN Manager again; the new version restores the workspace and checks it is
-the version the update meant to install. DNN Manager 1.8.0 and older used
-`%TEMP%\DnnManager-update\`; a newer one reads an older helper's plan there once, and
-cleans that folder up.
+the version the update meant to install. The helper waits for Setup however long it
+takes. When the update fails, its log and Setup's are copied to
+`Documents\DnnManager\logs\update-failed-<version>.log` (the newest two kept) - the
+update folder is cleaned up - and **Show log** opens that file. DNN Manager 1.8.0 and older used
+`%TEMP%\DnnManager-update\`; a newer one leaves that folder alone - deleting in
+`%TEMP%` with administrator rights would follow wherever another program pointed it.
 The helper is the *old* version's code, so a release can change the helper only for
 the updates after it.
 
@@ -242,7 +451,10 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 ```
 
 `-p:PortableExe=true` names the exe `publish\DnnManager_Portable-<version>-x64.exe`
-(without it, it's `DnnManager.exe`). The publish output holds only the program. Settings live in
+(without it, it's `DnnManager.exe`). The publish output holds only the program - no
+launcher: a portable DNN Manager relaunches itself elevated directly, and extracts
+its native DLLs to `%TEMP%\.net` when it starts (an accepted risk -
+[security.md](security.md#known-open-risks)). Settings live in
 `Documents\DnnManager` and are created on first start (see
 [configuration.md](configuration.md)).
 
@@ -256,21 +468,35 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 ```
 
 Publishes the app (self-contained, single file) into
-`src\DnnManager.Installer\bin\app`, then compiles
+`src\DnnManager.Installer\bin\app` and the launcher
+([`src/DnnManager.Launcher`](../src/DnnManager.Launcher/DnnManager.Launcher.csproj),
+`DnnManager-launcher.exe`, Native AOT) into `bin\launcher`, then compiles
 [`src/DnnManager.Installer/DnnManager.iss`](../src/DnnManager.Installer/DnnManager.iss) with Inno Setup
 into `publish\DnnManager_Setup-<version>-x64.exe`. The version
 is the newest version tag in git, as for every local build (see [Steps](#steps)). It uses an installed Inno Setup 6
 when there is one, otherwise - and always with `-PinnedInno`, as a release does - a
-pinned copy (the `Tools.InnoSetup` package from nuget.org) in
-`src\DnnManager.Installer\bin\tools`, checked against the SHA-512 nuget.org lists for
-it (`$innoSha512` in `build.ps1`) each time it is used - no admin rights needed. To
+pinned copy (the `Tools.InnoSetup` package from nuget.org) - no admin rights needed.
+Only the package is kept between builds, in `src\DnnManager.Installer\bin\tools`. On
+every build it is checked against the SHA-512 nuget.org lists for it (`$innoSha512` in
+`build.ps1`), and the compiler is extracted again from the bytes just checked. A
+cached `ISCC.exe`, `Setup.e32` or `SetupLdr.e64` that something changed since the last
+build is never run. To
 move to a newer Inno Setup, change `$innoVersion` and `$innoSha512` together (the
 hash is the `packageHash` of the version's entry in nuget.org's catalog). Everything made along the way (the published app, wizard images,
 Inno Setup) is in `src\DnnManager.Installer\bin`; the finished Setup is in
 `publish\`.
-`-SkipPublish` reuses the last publish; `-Iscc <path>` picks the compiler;
-`-Version 1.7.0` builds that version instead of the tag's (`publish-release.ps1`
-passes the release's).
+`-SkipPublish` reuses the last publish (`bin\app` and `bin\launcher`);
+`-PublishOnly` only publishes them, unsigned, and stops (the release workflow's
+build job); `-Iscc <path>` picks the compiler; `-Version 1.7.0` builds that version
+instead of the tag's (the release workflow passes the tag's); `-SignScript <script>`
+signs the published `DnnManager.exe` and the launcher and has Inno sign Setup and
+its uninstaller (see [Code signing](#code-signing)).
+
+**The launcher needs Visual Studio's C++ build tools** (*Desktop development with
+C++*, or the Build Tools for Visual Studio with it): Native AOT links with them.
+Without them, `-NoLauncher` builds a Setup without the launcher - DNN Manager then
+starts as up to 1.8.1, and a launcher an earlier version installed is removed.
+Never for a release.
 
 The installer's `AppId` in `DnnManager.iss` identifies the installation for
 upgrades and uninstall - never change it.

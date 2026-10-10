@@ -31,13 +31,24 @@ public sealed class ClearSiteCacheUseCase(IIisManager iis, IUserPrompt prompt)
         if (isDnn)
         {
             reporter.Step("Deleting DNN's cached files");
+            // The site's folder itself a link or junction: its cache isn't the site's - nothing is deleted there, and that is
+            // said rather than passed over as done.
+            if (SafePath.IsLink(directory))
+                return Result.Fail($"{directory} is a link or junction - DNN Manager doesn't delete through those: what it points to " +
+                                   $"isn't necessarily the site's cache.{Environment.NewLine}{SafePath.LinkHint}");
             var deleted = 0;
             var locked = 0;
             foreach (var folder in CacheFolders.Select(f => Path.Combine(directory, f)).Where(Directory.Exists))
             {
-                // Not through a junction or link: the app pool can write here, and what one points to isn't the cache.
-                foreach (var file in Directory.EnumerateFiles(folder, "*",
-                             new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint }))
+                // Not through a junction or link - the cache folder itself, a folder on the way, or one in it: the app
+                // pool can write here, and what one points to isn't the cache.
+                if (SafePath.HasLink(directory, folder))
+                {
+                    reporter.Warn($"Left {folder} as it is: it is a link or junction, or reached through one - deleting there could reach a folder outside the site." +
+                                  $"{Environment.NewLine}{SafePath.LinkHint}");
+                    continue;
+                }
+                foreach (var file in Directory.EnumerateFiles(folder, "*", SafePath.Recursive))
                 {
                     ct.ThrowIfCancellationRequested();
                     try
@@ -51,8 +62,9 @@ public sealed class ClearSiteCacheUseCase(IIisManager iis, IUserPrompt prompt)
                         locked++; // in use - the recycle below lets go of it, and DNN writes it anew
                     }
                 }
+                // A link among them is only unlinked, never gone into.
                 foreach (var sub in Directory.EnumerateDirectories(folder))
-                    try { Directory.Delete(sub, true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+                    try { SafePath.DeleteTree(sub); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
             }
             reporter.Success(locked == 0 ? $"Deleted {deleted} cached file(s)." : $"Deleted {deleted} cached file(s); {locked} in use were left.");
         }

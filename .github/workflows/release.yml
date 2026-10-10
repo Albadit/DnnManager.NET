@@ -1,0 +1,364 @@
+# Release: when a version tag is pushed (by the VS Code task "release (GitHub)", .github/scripts/publish-release.ps1),
+# GitHub builds that tag and publishes it - nothing built on a PC is ever uploaded. See .docs/releasing.md.
+#
+#   ci       the whole test suite on the tag (.github/workflows/ci.yml, called here).
+#   build    the fast tests, then the portable exe, the app for Setup and the launcher (Native AOT) with the tag's
+#            version - unsigned. It runs the packages' and the tests' code, so it gets no OpenID Connect token.
+#   sign     signs them when signing is set up, compiles Setup with the pinned Inno Setup (which signs Setup and its
+#            uninstaller), writes SHA256SUMS.txt and attests both exes. Only this job can get the token Azure signs with
+#            and the attestation's certificate - and it restores no package and runs no test.
+#   smoke    installs the built Setup into a temporary folder, starts DNN Manager through its launcher, starts the
+#            portable exe, and uninstalls - a release whose files don't start isn't offered.
+#   draft    only once all of the above have passed: the files go on a draft release and GitHub's SHA-256 of each is
+#            checked.
+#   publish  in the environment "publish", which a required reviewer approves: checks that the tag still points at the
+#            commit built and the draft's files are the ones built, then publishes the release - the one every DNN
+#            Manager offers with its Update button.
+#
+# Each job gets only the permissions it needs; the workflow's own GITHUB_TOKEN is the only GitHub credential.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+
+# Nothing by default; each job below asks for what it needs.
+permissions: {}
+
+# One release run per tag at a time, never cancelled half way (a redo pushes the tag again after the first run ended).
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  TAG: ${{ github.ref_name }}
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  build:
+    name: Build
+    # A pinned image, not windows-latest: a release is built on the image it was tested on until this line changes.
+    runs-on: windows-2025
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      file-version: ${{ steps.version.outputs.file-version }}
+    env:
+      # MSBuild reads these as properties: every restore below in locked mode, every build deterministic.
+      RestoreLockedMode: true
+      ContinuousIntegrationBuild: true
+
+    steps:
+      # Actions pinned to a commit, not a tag that can be moved: what runs is what was reviewed. Dependabot proposes updates.
+      - name: Check out
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # The tags too: the fast tests build with the newest tag's version, as every build does.
+          fetch-depth: 0
+          # No token left in .git/config for the build's steps.
+          persist-credentials: false
+
+      - name: Version from the tag
+        id: version
+        run: |
+          if ($env:TAG -notmatch '^v(\d+\.\d+\.\d+)(-[0-9A-Za-z.-]+)?$') { throw "$env:TAG isn't a version tag like v1.9.0." }
+          "version=$($env:TAG.Substring(1))" >> $env:GITHUB_OUTPUT
+          "file-version=$($Matches[1]).0" >> $env:GITHUB_OUTPUT
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          # Exactly the SDK global.json names (rollForward: disable).
+          global-json-file: global.json
+
+      - name: Runner, SDK and C++ build tools
+        # Native AOT (the launcher) links with MSVC: the image's Visual Studio must have the C++ build tools.
+        run: |
+          Write-Host "Runner image: $env:ImageOS $env:ImageVersion"
+          dotnet --info
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vc = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vc) { throw 'No Visual Studio with the C++ build tools on this runner - Native AOT (the launcher) needs them.' }
+          Write-Host "C++ build tools: $vc"
+
+      - name: Restore
+        # Exactly the packages packages.lock.json names, with their hashes, from nuget.org only (nuget.config).
+        run: |
+          dotnet restore tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj --locked-mode
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet restore src/DnnManager.Launcher/DnnManager.Launcher.csproj --locked-mode
+
+      - name: Fast tests
+        run: >-
+          dotnet test tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj
+          -c Release --no-restore
+          --filter "TestCategory!=Integration"
+          --logger "console;verbosity=normal"
+
+      - name: Stamp the version
+        # The exe's manifest carries the file version too (its file properties).
+        env:
+          FILE_VERSION: ${{ steps.version.outputs.file-version }}
+        run: |
+          $manifest = 'app.manifest'
+          $text = [IO.File]::ReadAllText($manifest) -replace '(<assemblyIdentity version=")[0-9.]+(")', "`${1}$env:FILE_VERSION`${2}"
+          [IO.File]::WriteAllText($manifest, $text, [Text.UTF8Encoding]::new($false))
+
+      - name: Portable exe
+        # One file: the native DLLs inside are extracted to %TEMP%\.net when it starts - an accepted risk of the
+        # portable exe (.docs/security.md); the installed DNN Manager has them beside it, in Program Files.
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          FILE_VERSION: ${{ steps.version.outputs.file-version }}
+        run: |
+          dotnet publish DnnManager.csproj -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true `
+            -p:PortableExe=true "-p:Version=$env:VERSION" "-p:AssemblyVersion=$env:FILE_VERSION" "-p:FileVersion=$env:FILE_VERSION" `
+            -o publish
+          if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed (exit code $LASTEXITCODE)." }
+
+      - name: App and launcher for Setup
+        # Windows PowerShell, as on the publisher's PC. Publishes into src/DnnManager.Installer/bin/app and bin/launcher;
+        # the sign job compiles Setup from them.
+        shell: powershell
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\src\DnnManager.Installer\build.ps1 -Version $env:VERSION -PublishOnly
+
+      - name: Hand the files to the sign job
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unsigned
+          path: |
+            publish/DnnManager_Portable-*.exe
+            src/DnnManager.Installer/bin/app/
+            src/DnnManager.Installer/bin/launcher/
+          if-no-files-found: error
+          retention-days: 7
+
+  sign:
+    name: Sign, package and attest
+    needs: build
+    runs-on: windows-2025
+    timeout-minutes: 45
+    # The environment "release" gives Azure's sign-in a fixed subject (repo:<owner>/<repo>:environment:release) - see
+    # .docs/releasing.md, Code signing. Restrict it to v* tags in Settings -> Environments.
+    environment: release
+    permissions:
+      contents: read
+      # Both only for the attestation (a Sigstore certificate for this run) and, when signing is set up, Azure's
+      # OpenID Connect sign-in. No package is restored and no test runs in this job.
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      # Signing runs only when its repository variables are set; without them the files are built unsigned...
+      SIGNING: ${{ vars.ARTIFACT_SIGNING_ACCOUNT != '' && vars.AZURE_CLIENT_ID != '' }}
+      # ...unless REQUIRE_SIGNING is true: then a release without signing fails here.
+      REQUIRE_SIGNING: ${{ vars.REQUIRE_SIGNING }}
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # The tags too: release-notes.ps1 looks for the previous release.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Get the unsigned files
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: unsigned
+          path: .
+
+      - name: Signing required?
+        env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          ARTIFACT_SIGNING_ENDPOINT: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          ARTIFACT_SIGNING_ACCOUNT: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          ARTIFACT_SIGNING_PROFILE: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
+        run: |
+          $names = 'AZURE_CLIENT_ID', 'AZURE_TENANT_ID', 'AZURE_SUBSCRIPTION_ID', 'ARTIFACT_SIGNING_ENDPOINT', 'ARTIFACT_SIGNING_ACCOUNT', 'ARTIFACT_SIGNING_PROFILE'
+          $missing = @($names | Where-Object { -not [Environment]::GetEnvironmentVariable($_) })
+          if ($env:REQUIRE_SIGNING -eq 'true' -and $missing) { throw "REQUIRE_SIGNING is true, but these signing variables aren't set: $($missing -join ', ') - nothing is released unsigned." }
+          if ($env:SIGNING -eq 'true' -and $missing) { throw "Signing is half set up - missing: $($missing -join ', ')." }
+          Write-Host $(if ($env:SIGNING -eq 'true') { 'The files are signed.' } else { 'Signing isn''t set up - the files are unsigned.' })
+
+      # Right before the first file is signed: the Azure CLI's sign-in lives only for the steps that sign.
+      - name: Sign in to Azure (signing)
+        if: env.SIGNING == 'true'
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set up signing
+        if: env.SIGNING == 'true'
+        env:
+          ARTIFACT_SIGNING_ENDPOINT: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          ARTIFACT_SIGNING_ACCOUNT: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          ARTIFACT_SIGNING_PROFILE: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
+        run: ./.github/scripts/sign.ps1 -Setup
+
+      - name: Sign the portable exe
+        if: env.SIGNING == 'true'
+        run: ./.github/scripts/sign.ps1 -Path "publish/DnnManager_Portable-$env:VERSION-x64.exe"
+
+      - name: Installer
+        # Windows PowerShell, as on the publisher's PC: build.ps1 draws the wizard images with System.Drawing. It signs
+        # DnnManager.exe and the launcher, and Inno signs Setup and its uninstaller.
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sign = @{}
+          if ($env:SIGNING -eq 'true') { $sign.SignScript = '.github\scripts\sign.ps1' }
+          # The pinned Inno Setup, never one installed on the runner: every release is compiled by the same one.
+          & .\src\DnnManager.Installer\build.ps1 -Version $env:VERSION -SkipPublish -PinnedInno @sign
+
+      - name: Sign out of Azure
+        if: always() && env.SIGNING == 'true'
+        run: |
+          az logout 2>$null; az account clear 2>$null
+          exit 0
+
+      - name: Check the files
+        run: |
+          $out = New-Item -ItemType Directory -Force dist
+          $assets = "DnnManager_Portable-$env:VERSION-x64.exe", "DnnManager_Setup-$env:VERSION-x64.exe"
+          $launcher = 'src/DnnManager.Installer/bin/launcher/DnnManager-launcher.exe'
+          foreach ($path in @($assets | ForEach-Object { "publish/$_" }) + $launcher) {
+            $info = (Get-Item $path).VersionInfo
+            $product = ($info.ProductVersion -split '\+')[0].Trim()
+            Write-Host ("{0}: file version {1}, product version {2}" -f (Split-Path $path -Leaf), $info.FileVersion.Trim(), $info.ProductVersion.Trim())
+            # A download whose version isn't the release's is refused by DNN Manager and Setup.
+            if ($product -ne $env:VERSION) { throw "$path reports $product, not $env:VERSION." }
+            if ($env:SIGNING -eq 'true') {
+              $signature = Get-AuthenticodeSignature $path
+              if ($signature.Status -ne 'Valid') { throw "$path isn't signed ($($signature.Status))." }
+              Write-Host "  signed by $($signature.SignerCertificate.Subject)"
+            }
+          }
+          foreach ($name in $assets) { Copy-Item "publish/$name" $out }
+          # The files' SHA-256, for whoever downloads them by hand: a file beside them, and in the release's notes.
+          $sums = foreach ($name in $assets) { "{0}  {1}" -f (Get-FileHash "dist/$name" -Algorithm SHA256).Hash.ToLowerInvariant(), $name }
+          [IO.File]::WriteAllText("$PWD/dist/SHA256SUMS.txt", ($sums -join "`n") + "`n", [Text.UTF8Encoding]::new($false))
+          $sums | ForEach-Object { Write-Host $_ }
+          ./.github/scripts/release-notes.ps1 -Version $env:VERSION -Tag $env:TAG -Repository $env:GITHUB_REPOSITORY -OutFile dist/release-notes.md
+
+      - name: Attest build provenance
+        # Signed by GitHub (Sigstore): these files were built by this workflow, from this commit of this repository.
+        # Check one with: gh attestation verify <file> --repo <owner>/<repo>
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/DnnManager_Portable-*.exe
+            dist/DnnManager_Setup-*.exe
+
+      - name: Hand the files on
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  smoke:
+    name: Try the files
+    needs: sign
+    runs-on: windows-2025
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the scripts
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: Get the files
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: dist
+
+      - name: Install, start and uninstall
+        run: ./.github/scripts/smoke-test.ps1 -Directory dist -Tag $env:TAG
+
+  draft:
+    name: Draft the release
+    # Only once the whole test suite, the build, the signing and the smoke test have passed; until the publish job
+    # ends, the release is at most a draft.
+    needs: [ci, sign, smoke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      # Create the draft and upload the files.
+      contents: write
+    steps:
+      - name: Check out the scripts
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: Get the files
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: dist
+
+      - name: Draft, upload and check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./.github/scripts/upload-release.ps1 -Stage Draft -Tag $env:TAG -Directory dist
+
+  publish:
+    name: Publish the release
+    needs: draft
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # A person approves this job before it runs: Settings -> Environments -> publish -> Required reviewers (and only
+    # v* tags under Deployment branches and tags). A pushed tag alone builds a draft, never a release.
+    environment: publish
+    permissions:
+      # Publish the draft.
+      contents: write
+    steps:
+      - name: Check out the scripts
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: Get the files
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: dist
+
+      - name: Check and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./.github/scripts/upload-release.ps1 -Stage Publish -Tag $env:TAG -Directory dist

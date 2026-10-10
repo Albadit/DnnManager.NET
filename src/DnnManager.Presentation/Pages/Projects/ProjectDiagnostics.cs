@@ -30,7 +30,7 @@ public sealed record ProjectSnapshot
     public bool DatabaseRead { get; init; }
     public ProjectRecord? Record { get; init; }
     public Result<IReadOnlyList<DnnHostAccount>>? Hosts { get; init; }
-    /// <summary>The folder's git branch, solutions and backups - read with the rest of the folder (<see cref="ReadFolderFacts"/>).</summary>
+    /// <summary>The folder's git branch, solutions and backups - read with the rest of the folder (<see cref="ProjectDiagnostics.ReadFolderFacts"/>).</summary>
     public FolderFacts Folder { get; init; } = FolderFacts.None;
 }
 
@@ -128,7 +128,7 @@ public static class ProjectDiagnostics
     {
         if (s.Iis is not { } site)
         {
-            yield return new InspectorSection("Site", "IIS") { Note = "IIS's configuration couldn't be read - DNN Manager reads it as Administrator." };
+            yield return new InspectorSection("Site", "IIS") { Note = "IIS's configuration couldn't be read - DNN Manager reads it with administrator rights." };
             yield break;
         }
 

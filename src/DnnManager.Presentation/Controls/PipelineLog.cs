@@ -361,19 +361,22 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
 
         private void OnNotesChanged(object? sender, NotifyCollectionChangedEventArgs e) => _log.Change(() =>
         {
-            if (e.NewItems is not null)
-                foreach (OutputLine line in e.NewItems) AddNote(line);
             if (e.OldItems is not null)
                 foreach (OutputLine line in e.OldItems)
                     if (_noteBlocks.Remove(line, out var block)) _notes.Blocks.Remove(block);
+            if (e.NewItems is not null)
+            {
+                var at = e.NewStartingIndex;
+                foreach (OutputLine line in e.NewItems) AddNote(line, at < 0 ? -1 : at++);
+            }
         });
 
-        private void AddNote(OutputLine line)
+        private void AddNote(OutputLine line, int index = -1)
         {
             var block = _log.MakeLine(line);
             _noteBlocks[line] = block;
-            _notes.Blocks.Add(block);
-            if (line.Level == LineLevel.Progress) _log.WatchProgress(line, () => _noteBlocks.GetValueOrDefault(line));
+            InsertAt(_notes.Blocks, block, _run.Notes, index, _noteBlocks);
+            if (line.Level == LineLevel.Progress || line.IsElision) _log.WatchProgress(line, () => _noteBlocks.GetValueOrDefault(line));
         }
 
         private void OnRunChanged(object? sender, PropertyChangedEventArgs e)
@@ -463,20 +466,40 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
 
         private void OnLinesChanged(object? sender, NotifyCollectionChangedEventArgs e) => _log.Change(() =>
         {
-            if (e.NewItems is not null)
-                foreach (OutputLine line in e.NewItems) AddLine(line);
             if (e.OldItems is not null)
                 foreach (OutputLine line in e.OldItems)
                     if (_lines.Remove(line, out var block)) Section.Blocks.Remove(block);
+            if (e.NewItems is not null)
+            {
+                var at = e.NewStartingIndex;
+                foreach (OutputLine line in e.NewItems) AddLine(line, at < 0 ? -1 : at++);
+            }
         });
 
-        private void AddLine(OutputLine line)
+        private void AddLine(OutputLine line, int index = -1)
         {
             var block = _log.MakeLine(line);
             _lines[line] = block;
-            Section.Blocks.Add(block);
-            if (line.Level == LineLevel.Progress) _log.WatchProgress(line, () => _lines.GetValueOrDefault(line));
+            InsertAt(Section.Blocks, block, _stage.Lines, index, _lines);
+            if (line.Level == LineLevel.Progress || line.IsElision) _log.WatchProgress(line, () => _lines.GetValueOrDefault(line));
         }
+    }
+
+    /// <summary>
+    /// Puts <paramref name="block"/> where its line is in <paramref name="lines"/>: before the block of the line after it -
+    /// at the end when it is the last (or <paramref name="index"/> is unknown). A long stage's "… more lines" goes in
+    /// the middle (<see cref="OutputCap"/>).
+    /// </summary>
+    private static void InsertAt(BlockCollection blocks, Block block, IList<OutputLine> lines, int index,
+        Dictionary<OutputLine, Block> shown)
+    {
+        for (var i = index < 0 ? lines.Count : index + 1; i < lines.Count; i++)
+            if (shown.TryGetValue(lines[i], out var after) && after.Parent is not null)
+            {
+                blocks.InsertBefore(after, block);
+                return;
+            }
+        blocks.Add(block);
     }
 
     // ─── Lines ────────────────────────────────────────────────────────────
@@ -581,7 +604,8 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
         p.Inlines.Add(Stamp(run.EndedAt ?? DateTime.Now));
         var (badge, badgeBrush, text, textBrush) = run.Status switch
         {
-            RunStatus.Finished => ("SUCCESS", "OutOk", run.ClosingTitle ?? $"{run.Title} finished", "OutText"),
+            // OutSuccessText, not OutOk: the badge's text needs 4.5:1 on it (light: white on #236B26 6.6:1, #369432 only 3.9:1).
+            RunStatus.Finished => ("SUCCESS", "OutSuccessText", run.ClosingTitle ?? $"{run.Title} finished", "OutText"),
             RunStatus.Cancelled => ("CANCELLED", "OutMuted", run.Outcome ?? $"{run.Title} was cancelled", "OutText"),
             _ => ("ERROR", "OutError", run.StoppedAt is { } at ? $"{run.Title} stopped at {at.Name}" : $"{run.Title} failed", "OutErrorText")
         };
@@ -621,10 +645,14 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
         return run;
     }
 
-    /// <summary>"WARN", "ERROR" - a small coloured label.</summary>
-    private static InlineUIContainer Badge(string text, string brush)
+    /// <summary>A badge's text size: as much smaller than the log's text as 11 is than 12.5 - it grows with it.</summary>
+    private double BadgeSize => (double)BadgeSizeConverter.Instance.Convert(FontSize, typeof(double), null!, CultureInfo.InvariantCulture);
+
+    /// <summary>"WARN", "ERROR" - a small coloured label, its text size following the log's.</summary>
+    private InlineUIContainer Badge(string text, string brush)
     {
-        var label = new TextBlock { Text = text, FontSize = 11, FontWeight = FontWeights.Bold };
+        var label = new TextBlock { Text = text, FontWeight = FontWeights.Bold };
+        label.SetBinding(TextBlock.FontSizeProperty, new Binding(nameof(FontSize)) { Source = this, Converter = BadgeSizeConverter.Instance });
         label.SetResourceReference(TextBlock.ForegroundProperty, "OutBadgeText");
         var badge = new Border { CornerRadius = new CornerRadius(3), Padding = new Thickness(6, 0, 6, 0), Child = label };
         badge.SetResourceReference(Border.BackgroundProperty, brush);
@@ -653,7 +681,7 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
         var bold = new Typeface(FontFamily, FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
         double Width(string text, Typeface typeface, double size) =>
             new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, typeface, size, Brushes.Black, dpi).WidthIncludingTrailingWhitespace;
-        return Width("00:00:00  ", face, FontSize) + Width(badge, bold, 11) + 12 + Width("  ", face, FontSize);
+        return Width("00:00:00  ", face, FontSize) + Width(badge, bold, BadgeSize) + 12 + Width("  ", face, FontSize);
     }
 
     /// <summary>
@@ -794,4 +822,15 @@ public sealed partial class PipelineLog : RichTextBox, ISearchTarget
         _matches = [];
         Selection.Select(Document.ContentEnd, Document.ContentEnd);
     }
+}
+
+/// <summary>The log's text size to its badges' (<see cref="PipelineLog"/>): 11 at 12.5, in proportion.</summary>
+internal sealed class BadgeSizeConverter : IValueConverter
+{
+    public static readonly BadgeSizeConverter Instance = new();
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+        value is double size ? Math.Max(8, Math.Round(size * 11 / 12.5 * 2) / 2) : 11d;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
 }
