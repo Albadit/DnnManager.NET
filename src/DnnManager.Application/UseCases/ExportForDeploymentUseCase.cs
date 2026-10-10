@@ -113,7 +113,7 @@ public sealed class ExportForDeploymentUseCase(
     /// The zip's web.config - and the files its connectionStrings and appSettings come from (configSource) - changed for
     /// the server in a temporary folder and put back into the zip.
     /// </summary>
-    private Result PrepareWebConfig(string zipPath, ExportForDeploymentRequest req, IProgressReporter reporter)
+    internal Result PrepareWebConfig(string zipPath, ExportForDeploymentRequest req, IProgressReporter reporter)
     {
         var temp = Path.Combine(_temp.Folder, $"dnnmanager-deploy-{Guid.NewGuid():N}");
         try
@@ -124,16 +124,19 @@ public sealed class ExportForDeploymentUseCase(
             Directory.CreateDirectory(temp);
             var webConfigPath = Path.Combine(temp, "web.config");
             entry.ExtractToFile(webConfigPath);
-            var entries = new List<string> { "web.config" };
+            // The entries as found, whatever their capitals: these are replaced - by name, a Web.config would stay next to
+            // the new one, with the local connection string in it.
+            var entries = new List<(ZipArchiveEntry Entry, string File)> { (entry, webConfigPath) };
             foreach (var source in ConfigSources(webConfigPath))
             {
-                if (Entry(zip, source) is not { } external) continue;
+                // connectionStrings and appSettings may both come from one file: it is put back once.
+                if (Entry(zip, source) is not { } external || entries.Exists(e => e.Entry == external)) continue;
                 var path = Path.Combine(temp, source.Replace('/', '\\'));
                 // A rooted configSource (C:\...) would make Path.Combine leave the temporary folder.
                 if (!SafePath.IsInside(path, temp)) continue;
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
                 external.ExtractToFile(path);
-                entries.Add(source);
+                entries.Add((external, path));
             }
 
             var live = req.ConnectionString is { Length: > 0 } given ? given.Trim() : Placeholder;
@@ -146,10 +149,11 @@ public sealed class ExportForDeploymentUseCase(
             if (req.Https && _webConfig.EnableHttpsRedirectRules(webConfigPath) is { Success: true, Value.Count: > 0 } rules)
                 reporter.Success($"Switched back on: {string.Join(", ", rules.Value)}");
 
-            foreach (var name in entries)
+            foreach (var (found, file) in entries)
             {
-                zip.GetEntry(name)?.Delete();
-                zip.CreateEntryFromFile(Path.Combine(temp, name.Replace('/', '\\')), name, CompressionLevel.Optimal);
+                var name = found.FullName;
+                found.Delete();
+                zip.CreateEntryFromFile(file, name, CompressionLevel.Optimal);
             }
             return Result.Ok();
         }

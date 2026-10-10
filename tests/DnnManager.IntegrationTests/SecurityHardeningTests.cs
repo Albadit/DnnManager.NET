@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Security.Principal;
 using System.Text;
 using DnnManager.Application;
 using DnnManager.Application.Abstractions;
@@ -346,6 +347,25 @@ public sealed class SecurityHardeningTests
         var resolved = TrustedPrograms.Resolve("cmd");
         Assert.IsNotNull(resolved.Path, resolved.Reason);
         Assert.AreEqual(TrustedPrograms.Trust.AdminOnly, TrustedPrograms.AdminOnly(resolved.Path));
+    }
+
+    [TestMethod]
+    public void TrustedInstaller_is_known_by_its_own_SID()
+    {
+        // Wrong, every program in Program Files and Windows (owned by it) was refused as one others could change.
+        var sid = new NTAccount("NT SERVICE", "TrustedInstaller").Translate(typeof(SecurityIdentifier)).Value;
+        Assert.AreEqual(TrustedPrograms.TrustedInstallerSid, sid);
+    }
+
+    [TestMethod]
+    public void Windows_own_programs_and_Program_Files_are_trusted_to_run_as_Administrator()
+    {
+        // Checked whether elevated or not: the check reads who may change the file, it doesn't need the rights.
+        var windows = new[] { "cmd.exe", "schtasks.exe", @"WindowsPowerShell\v1.0\powershell.exe" }
+            .Select(f => Path.Combine(Environment.SystemDirectory, f));
+        var programFiles = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet", "dotnet.exe");
+        foreach (var file in windows.Append(programFiles).Where(File.Exists))
+            Assert.AreEqual(TrustedPrograms.Trust.AdminOnly, TrustedPrograms.AdminOnly(file), file);
     }
 
     [TestMethod]

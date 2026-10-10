@@ -258,8 +258,12 @@ END";
             var r = await StoppableSqlcmdAsync(sql, ct);
             if (!r.Success) return Result<string>.Fail(r.StdErr);
 
-            // Copied out to a host temp file; the caller moves it into the project's backup folder.
-            var cp = await _proc.RunAsync("docker", new[] { "cp", $"{Container}:{containerPath}", hostTmp }, ct);
+            // Copied out to a host temp file; the caller moves it into the project's backup folder. Streamed through docker
+            // (cat in the container) and written by DNN Manager - not docker cp to a path: a docker that runs as the user
+            // (installed for this account only) can't write DNN Manager's admin-only temporary folder.
+            ProcessResult cp;
+            await using (var file = new FileStream(hostTmp, FileMode.Create, FileAccess.Write, FileShare.None))
+                cp = await _proc.RunAsync("docker", new[] { "exec", Container, "cat", containerPath }, ct, output: file);
             if (!cp.Success) return Result<string>.Fail(cp.StdErr);
             handedOn = true;
             return Result<string>.Ok(hostTmp);
@@ -279,7 +283,12 @@ END";
         try
         {
             await _proc.RunAsync("docker", new[] { "exec", Container, "mkdir", "-p", BackupDir }, ct);
-            var cp = await _proc.RunAsync("docker", new[] { "cp", backupFilePath, $"{Container}:{containerPath}" }, ct);
+            // Read by DNN Manager and streamed in (as the copy out): a docker running as the user may not read the file.
+            // The path goes to the shell as an argument ($1), never into its script.
+            ProcessResult cp;
+            await using (var file = new FileStream(backupFilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                cp = await _proc.RunAsync("docker", new[] { "exec", "-i", Container, "sh", "-c", "cat > \"$1\"", "sh", containerPath }, ct,
+                    input: file);
             if (!cp.Success) return Result.Fail(cp.StdErr);
 
             var listSql = $@"
@@ -421,7 +430,16 @@ ALTER ROLE db_owner ADD MEMBER {Quoted(login)};";
 
     public async Task<Result> DropLoginAsync(string login, CancellationToken ct)
     {
-        var sql = $"IF SUSER_ID(N'{Literal(login)}') IS NOT NULL DROP LOGIN {Quoted(login)};";
+        // Its sessions ended first - the site's app pool may still hold one: "the user is currently logged in" otherwise.
+        var sql = $@"
+IF SUSER_ID(N'{Literal(login)}') IS NOT NULL
+BEGIN
+  DECLARE @kill nvarchar(max) = N'';
+  SELECT @kill += N'KILL ' + CAST(session_id AS nvarchar(10)) + N';' FROM sys.dm_exec_sessions
+    WHERE login_name = N'{Literal(login)}' AND session_id <> @@SPID;
+  EXEC (@kill);
+  DROP LOGIN {Quoted(login)};
+END";
         var r = await SqlcmdAsync(null, sql, ct);
         return r.Success ? Result.Ok() : Result.Fail(r.StdErr.Length > 0 ? r.StdErr : r.StdOut);
     }

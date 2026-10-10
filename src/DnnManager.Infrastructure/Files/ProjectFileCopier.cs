@@ -157,9 +157,14 @@ public sealed class ProjectFileCopier : IProjectFileCopier
                     if (progress.Due()) reporter.Progress($"{count}/{inRoot.Count}  {name}");
                 }
             }
-            catch (IOException ex)
+            // A file in use is thrown, not returned: the caller may end what holds it and try again (Restore backup does).
+            catch (IOException ex) when (!FileInUse.Is(ex))
             {
                 return Result.Fail(ex.Message);
+            }
+            catch (InvalidDataException ex)
+            {
+                return Result.Fail($"A file in the zip is damaged: {ex.Message}");
             }
 
             if (skipped > 0) reporter.Info($"Skipped {skipped} file(s) outside the site root.");

@@ -268,8 +268,10 @@ public sealed class RemoveProjectUseCase(
                     {
                         _undo.CannotUndo($"database [{dbName}] was dropped.");
                         reporter.Success($"Database [{dbName}] dropped (if it existed).");
-                        // The site's own login on the container goes with its database - never the container's own user.
-                        if (database?.User is { Length: > 0 } login && login.Equals(LocalSqlContainer.SiteLoginFor(projectName), StringComparison.OrdinalIgnoreCase))
+                        // The site's own login on the container goes with its database - never the container's own user, nor
+                        // one another site signs in with. Named after the project, or after its name before a rename.
+                        if (database?.User is { Length: > 0 } login && LocalSqlContainer.IsSiteLogin(login) &&
+                            _siteDatabases.OtherSiteSigningInAs(projectName, _container.Server, login) is null)
                         {
                             var dropped = await _sql.DropLoginAsync(login, ct);
                             if (dropped.Success) reporter.Success($"Its login {login} dropped.");

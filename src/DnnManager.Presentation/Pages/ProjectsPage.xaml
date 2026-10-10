@@ -257,11 +257,15 @@
                        VerticalOffset="4" StaysOpen="False" AllowsTransparency="True"
                        PopupAnimation="{Binding (s:Motion.Off), RelativeSource={RelativeSource Self}, Converter={x:Static s:Motion.PopupFade}}"
                        Opened="ColumnsPopup_Opened" Closed="ColumnsPopup_Closed">
-                    <Border Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource InputBorder}" BorderThickness="1"
-                            CornerRadius="6" Padding="14,10" Margin="0,0,8,8" MinWidth="220" LayoutTransform="{DynamicResource UiScale}">
+                    <Grid Margin="0,0,8,8" MinWidth="220" LayoutTransform="{DynamicResource UiScale}">
+                    <!-- The shadow a layer of its own: an effect on the menu would draw its text as a bitmap, without ClearType. -->
+                    <Border Background="{DynamicResource CardBg}" CornerRadius="6" IsHitTestVisible="False">
                         <Border.Effect>
                             <DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.25" />
                         </Border.Effect>
+                    </Border>
+                    <Border Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1"
+                            CornerRadius="6" Padding="14,10">
                         <StackPanel>
                             <ItemsControl x:Name="ColumnList">
                                 <ItemsControl.ItemTemplate>
@@ -281,6 +285,7 @@
                             </DockPanel>
                         </StackPanel>
                     </Border>
+                    </Grid>
                 </Popup>
                 <!-- Only the projects whose site runs - a row comes and goes as its site starts and stops. -->
                 <CheckBox x:Name="OnlyRunning" Style="{StaticResource ToggleSwitch}" Content="Only show running" Margin="14,0,0,0"

@@ -109,4 +109,92 @@ public sealed class SqlTextTests
         Assert.IsFalse(compose.Contains("2022-latest", StringComparison.Ordinal));
         Assert.IsFalse(compose.Contains(" -P ", StringComparison.Ordinal));
     }
+
+    [TestMethod]
+    public void ALocalContainer_IsPublishedOnBothLoopbackAddresses_SoLocalhostAnswers()
+    {
+        // Windows resolves localhost to ::1 first: published on 127.0.0.1 only, SqlClient waited its whole timeout there.
+        var local = new DnnManager.Application.Configuration.DockerOptions { ContainerIp = "localhost", DefaultPort = 1433 };
+        CollectionAssert.AreEqual(new[] { "127.0.0.1:1433:1433", "[::1]:1433:1433" }, DockerComposeService.PublishedOn(local, ipv6: true).ToArray());
+        CollectionAssert.AreEqual(new[] { "127.0.0.1:1433:1433" }, DockerComposeService.PublishedOn(local, ipv6: false).ToArray());
+        var network = new DnnManager.Application.Configuration.DockerOptions { ContainerIp = "192.168.1.20", DefaultPort = 1433 };
+        CollectionAssert.AreEqual(new[] { "1433:1433" }, DockerComposeService.PublishedOn(network, ipv6: true).ToArray());
+
+        // Each address its own item of the ports list, at the list's indentation.
+        var compose = new DockerComposeService(new DnnManager.Infrastructure.Processes.ProcessRunner()).Render(local);
+        var items = compose.Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.Contains(":1433:1433\"", StringComparison.Ordinal)).ToList();
+        Assert.AreEqual(System.Net.Sockets.Socket.OSSupportsIPv6 ? 2 : 1, items.Count, compose);
+        foreach (var item in items) StringAssert.StartsWith(item, "      - \"", compose);
+    }
+
+    [TestMethod]
+    public async Task AVolumeWithTheOldDefaultPassword_IsSaidAtOnce_NotAfterMinutesOfWaiting()
+    {
+        var setup = new DnnManager.Application.UseCases.SetupSqlContainerUseCase(new ComposeThatStarts(), new OnlyOldPassword());
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        var result = await setup.ExecuteAsync(new DnnManager.Application.Configuration.DockerOptions { SaPassword = "Th3-New-0ne!" },
+            new DnnManager.IntegrationTests.Support.RecordingReporter(), CancellationToken.None);
+
+        Assert.IsFalse(result.Success);
+        StringAssert.Contains(result.Error, "Admin@123");
+        Assert.IsTrue(watch.Elapsed < TimeSpan.FromSeconds(30), $"It waited {watch.Elapsed.TotalSeconds:0} s.");
+    }
+
+    [TestMethod]
+    public async Task AVolumeWithTheOldDefaultPassword_IsTakenIntoTheSettings_AndTheContainerMadeAgainWithIt()
+    {
+        var compose = new ComposeThatStarts();
+        var setup = new DnnManager.Application.UseCases.SetupSqlContainerUseCase(compose, new OnlyOldPassword());
+        string? adopted = null;
+
+        var result = await setup.ExecuteAsync(new DnnManager.Application.Configuration.DockerOptions { SaPassword = "Th3-New-0ne!" },
+            new DnnManager.IntegrationTests.Support.RecordingReporter(), CancellationToken.None,
+            password => { adopted = password; return DnnManager.Domain.Result.Ok(); });
+
+        Assert.IsTrue(result.Success, result.Error);
+        Assert.AreEqual("Admin@123", adopted);
+        // Made again with the volume's password: the container's health check signs in with it.
+        CollectionAssert.AreEqual(new[] { "Th3-New-0ne!", "Admin@123" }, compose.Passwords);
+    }
+
+    [TestMethod]
+    [DataRow("localhost,1433", "127.0.0.1,1433")]
+    [DataRow("LOCALHOST, 1433", "127.0.0.1,1433")]
+    [DataRow("tcp:localhost,14330", "tcp:127.0.0.1,14330")]
+    [DataRow(@"localhost\SQLEXPRESS", @"localhost\SQLEXPRESS")]
+    [DataRow("localhost", "localhost")]
+    [DataRow("sql.example.com,1433", "sql.example.com,1433")]
+    [DataRow(@"(LocalDB)\MSSQLLocalDB", @"(LocalDB)\MSSQLLocalDB")]
+    public void Localhost_WithAPort_IsReachedAs127001(string server, string reached) =>
+        // Windows tries localhost as ::1 first, and SqlClient waits its whole timeout there when the server listens on IPv4.
+        Assert.AreEqual(reached, ConnectionStrings.Reachable(server));
+
+    private sealed class ComposeThatStarts : DnnManager.Application.Abstractions.IDockerComposeService
+    {
+        public List<string> Passwords { get; } = [];
+
+        public string Render(DnnManager.Application.Configuration.DockerOptions docker) => "";
+
+        public Task<DnnManager.Domain.Result> UpAsync(DnnManager.Application.Configuration.DockerOptions docker,
+            DnnManager.Application.Abstractions.IProgressReporter reporter, CancellationToken ct)
+        {
+            Passwords.Add(docker.SaPassword);
+            return Task.FromResult(DnnManager.Domain.Result.Ok());
+        }
+    }
+
+    /// <summary>A SQL Server whose sa still has the password DNN Manager 1.7.1 and older gave it.</summary>
+    private sealed class OnlyOldPassword : DnnManager.Application.Abstractions.ISqlConnectionTester
+    {
+        public Task<DnnManager.Domain.Result<string>> TestAsync(DnnManager.Application.Abstractions.SiteSqlConnection connection, CancellationToken ct,
+            int timeoutSeconds = 15) =>
+            Task.FromResult(connection.Password == "Admin@123"
+                ? DnnManager.Domain.Result<string>.Ok("SQL Server 2022")
+                : DnnManager.Domain.Result<string>.Fail("Login failed for user 'sa'."));
+
+        public Task<DnnManager.Domain.Result<IReadOnlyList<string>>> ListDatabasesAsync(DnnManager.Application.Abstractions.SiteSqlConnection server,
+            CancellationToken ct, int timeoutSeconds = 15) =>
+            Task.FromResult(DnnManager.Domain.Result<IReadOnlyList<string>>.Ok([]));
+    }
 }

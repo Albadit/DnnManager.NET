@@ -1,6 +1,7 @@
 using System.Windows.Automation;
 using System.Windows.Automation.Peers;
 using DnnManager.Presentation.Controls;
+using Microsoft.Extensions.Logging;
 
 namespace DnnManager.Presentation.Services;
 
@@ -26,12 +27,56 @@ public static class Toast
         foreach (var message in early ?? []) view.Enqueue(message);
     }
 
+    /// <summary>
+    /// Shows <paramref name="message"/> - its first sentence, when it says more: all of it goes to the log file, and behind
+    /// a Details button unless the toast offers something else (Show output, where it is in full too).
+    /// </summary>
     public static void Show(string message, ToastKind kind = ToastKind.Info, string? actionText = null, Action? action = null)
     {
-        var toast = new ToastMessage(message, kind, actionText, action);
+        var shown = Summary(message);
+        if (shown != message)
+        {
+            App.Log?.Log(kind switch
+            {
+                ToastKind.Error => LogLevel.Error,
+                ToastKind.Warning => LogLevel.Warning,
+                _ => LogLevel.Information
+            }, "{Message}", message);
+            if (action is null)
+            {
+                actionText = "Details";
+                action = () => MessageDialog.Warn(message);
+            }
+        }
+        var toast = new ToastMessage(shown, kind, actionText, action);
         if (_view is not null) _view.Enqueue(toast);
         else if (_early is { Count: < 20 } early) early.Add(toast);
-        Announce(_view, message, kind is ToastKind.Error or ToastKind.Warning);
+        Announce(_view, shown, kind is ToastKind.Error or ToastKind.Warning);
+    }
+
+    // About two lines of a toast.
+    private const int SummaryLength = 140;
+
+    /// <summary>
+    /// What a toast shows of <paramref name="message"/>: its first sentence, and of a long one the part before its first
+    /// " - " or ": " - or its first words, with "…". The whole message when it is short already.
+    /// </summary>
+    internal static string Summary(string message)
+    {
+        var text = message.Trim();
+        // A sentence ends at ". " before a capital letter - not at the dot in a file name or a version.
+        for (var i = 0; i + 2 < text.Length; i++)
+            if (text[i] == '.' && text[i + 1] == ' ' && char.IsUpper(text[i + 2]))
+            {
+                text = text[..(i + 1)];
+                break;
+            }
+        if (text.Length <= SummaryLength) return text;
+        foreach (var separator in new[] { " - ", ": " })
+            if (text.IndexOf(separator, StringComparison.Ordinal) is var at && at >= 20 && at <= SummaryLength)
+                return text[..at] + ".";
+        var space = text.LastIndexOf(' ', SummaryLength);
+        return text[..(space > 20 ? space : SummaryLength)].TrimEnd(',', ';', ' ') + "…";
     }
 
     /// <summary>

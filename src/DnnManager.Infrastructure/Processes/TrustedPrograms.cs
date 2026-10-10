@@ -23,6 +23,12 @@ public static class TrustedPrograms
     /// <summary>DNN Manager runs with administrator rights - what it starts runs with them too.</summary>
     public static bool IsElevated => Elevated.Value;
 
+    /// <summary>
+    /// NT SERVICE\TrustedInstaller, owner of Windows' own files and of Program Files: a service SID, the same on every
+    /// Windows (made from the service's name) - not one of the well-known SIDs .NET names.
+    /// </summary>
+    internal const string TrustedInstallerSid = "S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464";
+
     // Who may change a program DNN Manager runs elevated: SYSTEM, Administrators, TrustedInstaller - and "the owner of
     // what is created here" (CREATOR OWNER), whose rights go to the owner, which is checked on its own.
     private static readonly HashSet<string> TrustedSids =
@@ -30,7 +36,7 @@ public static class TrustedPrograms
         new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null).Value,
         new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null).Value,
         new SecurityIdentifier(WellKnownSidType.CreatorOwnerSid, null).Value,
-        "S-1-5-80-956008885-3425870976-2436764453-2556521931-1409716564" // TrustedInstaller
+        TrustedInstallerSid
     ];
 
     // Changing a file, or putting another in its place (or a DLL beside it).
@@ -75,7 +81,34 @@ public static class TrustedPrograms
             if (checkedOne.Path is not null) return checkedOne;
             refused ??= checkedOne;
         }
-        return refused ?? new Resolved(null, null, null);
+        // Only on the user's own PATH (Docker Desktop or the .NET SDK installed for this account): there, but never
+        // started - said as such, not as "isn't installed".
+        return refused ?? (OnUserPath(name) is { } own
+            ? new Resolved(null, own, "it is installed for your account only - programs without administrator rights could change it, and DNN Manager would run it as Administrator.")
+            : new Resolved(null, null, null));
+    }
+
+    /// <summary>
+    /// The first copy of <paramref name="name"/> on the signed-in user's own PATH - only to name it in a message; a program
+    /// found there is never started with DNN Manager's rights.
+    /// </summary>
+    private static string? OnUserPath(string name)
+    {
+        try
+        {
+            var path = Environment.GetEnvironmentVariable("Path", EnvironmentVariableTarget.User) ?? "";
+            var extensions = System.IO.Path.HasExtension(name) ? [""] : ChildEnvironment.MachinePathExt.Split(';', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var folder in Environment.ExpandEnvironmentVariables(path).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            foreach (var extension in extensions)
+            {
+                string candidate;
+                try { candidate = System.IO.Path.Combine(folder, name + extension); }
+                catch (ArgumentException) { continue; }
+                if (System.IO.Path.IsPathFullyQualified(candidate) && File.Exists(candidate)) return candidate;
+            }
+        }
+        catch (System.Security.SecurityException) { /* not readable: as not found */ }
+        return null;
     }
 
     /// <summary>

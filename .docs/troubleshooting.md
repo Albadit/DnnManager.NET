@@ -37,7 +37,9 @@ places tell you most of what went wrong:
 - **Fix:** the dialog names the problem. Fix what it names (close the other
   program, allow `DnnManager.exe` through Controlled folder access, update DNN
   Manager) and press **Try again** - or **Reset to defaults**, which starts
-  with the defaults (the current settings aren't kept). **Exit** changes
+  with the defaults (the current settings aren't kept). An `sa` password from
+  another account or PC goes with them: enter the container's password again
+  in **Settings → Database server**. **Exit** changes
   nothing. See
   [configuration.md](configuration.md#when-the-settings-cant-be-used).
 
@@ -206,7 +208,15 @@ site runs in IIS.
   - *Login failed* for `sa` on the container: the container keeps the `sa`
     password its data volume was created with - changing **SA password** in
     Settings doesn't change it. Put the password the volume was created with
-    back in **Settings → Database server**.
+    back in **Settings → Database server**. A volume made by DNN Manager 1.7.1
+    or older has `Admin@123` - **Set up docker-compose** finds it and takes it
+    into Settings by itself.
+  - *A network-related or instance-specific error* (*The remote computer
+    refused the network connection*) for `localhost,1433` while
+    `127.0.0.1,1433` works: the container is published on this PC's loopback
+    only, and .NET Framework's SqlClient - a DNN site's - goes to `localhost`
+    by this computer's name and network address. **Set up docker-compose**
+    again: it points sites that say `localhost,1433` at `127.0.0.1,1433`.
 - **Verify:** the SQL column turns **Live** within 10 seconds.
 
 ### No SQL state for a site on another server
@@ -301,15 +311,25 @@ site runs in IIS.
   Windows itself, services and Explorer are never closed: what they still hold
   is deleted at the next Windows restart.
 
-### "Didn't start …" or "DNN Manager doesn't start … as Administrator: programs without administrator rights could change it"
+### "DNN Manager doesn't start … as Administrator: programs without administrator rights could change it"
 
 DNN Manager runs as Administrator, and runs a program with those rights only
 when nobody but administrators can change it - a copy in your own folders, or on
 your own PATH, could be swapped by any program you run
 ([security.md](security.md#administrator-rights)). The message names the copy it
-found. Install that program **for all users** (into Program Files):
+found.
 
-- **docker**: Docker Desktop installs for all users by default.
+The copy it names is already in Program Files or Windows
+(`C:\Program Files\dotnet\dotnet.exe`, `powershell.exe`)? DNN Manager 1.8.1 and
+1.8.2 refused every program there - a wrong ID for Windows' TrustedInstaller
+account, which owns them. Update DNN Manager.
+
+Otherwise, install that program **for all users** (into Program Files):
+
+- **docker**: Docker Desktop installs for all users by default. One installed
+  for your account only (in `%LOCALAPPDATA%\Programs\DockerDesktop`) is used
+  too: DNN Manager runs its `docker` as you, without administrator rights
+  ([security.md](security.md#administrator-rights)).
 - **dotnet** (to install SqlPackage): the .NET SDK installer, not a user-only
   `dotnet-install` script.
 - **winget**: comes with Windows' App Installer; if it is refused, install Docker

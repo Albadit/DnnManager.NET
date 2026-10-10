@@ -95,6 +95,27 @@ public sealed class WebConfigService(ILogger<WebConfigService> log) : IWebConfig
         }
     }
 
+    public Result<bool> UseLoopbackAddress(string webConfigPath)
+    {
+        try
+        {
+            if (!File.Exists(webConfigPath)) return Result<bool>.Fail($"web.config not found: {webConfigPath}");
+            var doc = SiteXml.Load(webConfigPath, LoadOptions.PreserveWhitespace);
+            var raw = (string?)FindConnectionStringElement(doc, webConfigPath, out _)?.Attribute("connectionString");
+            if (string.IsNullOrWhiteSpace(raw)) return Result<bool>.Ok(false);
+            var builder = new SqlConnectionStringBuilder(raw);
+            var reached = ConnectionStrings.Reachable(builder.DataSource);
+            if (reached == builder.DataSource) return Result<bool>.Ok(false);
+            builder.DataSource = reached;
+            var written = WriteConnectionString(webConfigPath, builder.ConnectionString);
+            return written.Success ? Result<bool>.Ok(true) : Result<bool>.Fail(written.Error!);
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException or System.Xml.XmlException)
+        {
+            return Result<bool>.Fail(ex.Message);
+        }
+    }
+
     public Result WriteConnectionString(string webConfigPath, string connStr)
     {
         try
@@ -352,7 +373,11 @@ public sealed class WebConfigService(ILogger<WebConfigService> log) : IWebConfig
         return (inline, webConfigPath, doc);
     }
 
-    // With the builder, a password with ; = or quotes in it is quoted instead of breaking the connection string.
+    // With the builder, a password with ; = or quotes in it is quoted instead of breaking the connection string. The site
+    // reaches localhost,<port> as 127.0.0.1 too: its SqlClient waits at ::1 as DNN Manager's would (ConnectionStrings.Reachable).
     private static string BuildConnectionString(SiteSqlConnection c) =>
-        new SqlConnectionStringBuilder { DataSource = c.Server, InitialCatalog = c.Database, UserID = c.User, Password = c.Password }.ConnectionString;
+        new SqlConnectionStringBuilder
+        {
+            DataSource = ConnectionStrings.Reachable(c.Server), InitialCatalog = c.Database, UserID = c.User, Password = c.Password
+        }.ConnectionString;
 }

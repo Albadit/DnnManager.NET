@@ -366,24 +366,30 @@
         </Grid>
 
         <!-- Settings and Troubleshoot open over the page, as VS Code's modal editors: the page dimmed behind them, a click
-             there closes them (ShowModal / CloseModal). Between the title bar and the status bar, which still work - a
-             Troubleshoot action's progress and Cancel are in the status bar. -->
+             there closes them (ShowModal / CloseModal). Between the title bar and the status bar, which still work. Over
+             the toasts too: a running operation's stays behind them, and shows again when they close. -->
         <Grid x:Name="ModalHost" Grid.Row="1" Panel.ZIndex="50" Visibility="Collapsed"
               Background="{DynamicResource ModalBackdrop}" MouseLeftButtonDown="ModalBackdrop_MouseLeftButtonDown">
-            <Border x:Name="ModalBox" MaxWidth="1280" Margin="40,20,40,28" Background="{DynamicResource WindowBg}"
-                    BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="8"
-                    KeyboardNavigation.TabNavigation="Cycle" MouseLeftButtonDown="ModalBox_MouseLeftButtonDown">
-                <Border.Effect>
-                    <DropShadowEffect BlurRadius="28" ShadowDepth="6" Opacity="0.4" />
-                </Border.Effect>
-                <!-- The page's own header (its name and ✕) is the modal's. -->
-                <ContentControl x:Name="ModalContent" Focusable="False" />
-            </Border>
+            <Grid x:Name="ModalBox" MaxWidth="1280" Margin="40,20,40,28"
+                  KeyboardNavigation.TabNavigation="Cycle" MouseLeftButtonDown="ModalBox_MouseLeftButtonDown">
+                <!-- The shadow is a layer of its own: an effect on the box would draw all its text as a bitmap, without
+                     ClearType - soft. -->
+                <Border Background="{DynamicResource WindowBg}" CornerRadius="8" IsHitTestVisible="False">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="28" ShadowDepth="6" Opacity="0.4" />
+                    </Border.Effect>
+                </Border>
+                <Border Background="{DynamicResource WindowBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="8">
+                    <!-- The page's own header (its name and ✕) is the modal's. -->
+                    <ContentControl x:Name="ModalContent" Focusable="False" />
+                </Border>
+            </Grid>
         </Grid>
 
-        <!-- Toasts float over the page's bottom-right - above the bottom panel, not over its Output (PlaceToasts) - and
-             over Settings too: the running operation (OperationToast), and under it a message (Services/Toast). -->
-        <StackPanel x:Name="Toasts" Grid.Row="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,16" Panel.ZIndex="60">
+        <!-- Toasts float over the page's bottom-right - above the bottom panel, not over its Output (PlaceToasts) - but
+             never over Settings or Troubleshoot: under ModalHost, behind its dimmed backdrop, and back when it closes.
+             The running operation (OperationToast), and under it a message (Services/Toast). -->
+        <StackPanel x:Name="Toasts" Grid.Row="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,16" Panel.ZIndex="40">
             <c:OperationToast x:Name="OperationToast" HorizontalAlignment="Right" />
             <c:ToastView x:Name="ToastHost" HorizontalAlignment="Right" />
         </StackPanel>

@@ -3,11 +3,15 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Visibility="Collapsed" MaxWidth="480" MinWidth="260">
     <!-- A short message over the bottom-right corner of the page - e.g. "Settings saved" - that fades out by itself. -->
-    <Border Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1"
-            CornerRadius="6" Padding="14,10,8,10">
+    <!-- The shadow a layer of its own: an effect on the card would draw its text as a bitmap, without ClearType - soft. -->
+    <Grid>
+    <Border Background="{DynamicResource CardBg}" CornerRadius="6" IsHitTestVisible="False">
         <Border.Effect>
             <DropShadowEffect BlurRadius="18" ShadowDepth="3" Opacity="0.3" />
         </Border.Effect>
+    </Border>
+    <Border Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1"
+            CornerRadius="6" Padding="14,10,8,10">
         <DockPanel>
             <Button AutomationProperties.Name="Close" DockPanel.Dock="Right" ToolTip="Close" Click="Close_Click" VerticalAlignment="Center" Margin="6,0,0,0"
                     Foreground="{DynamicResource TextMuted}" Cursor="Hand" Width="26" Height="26">
@@ -38,4 +42,5 @@
             </StackPanel>
         </DockPanel>
     </Border>
+    </Grid>
 </UserControl>

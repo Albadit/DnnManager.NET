@@ -104,7 +104,7 @@ public sealed class IisSiteProvisioner(IOptions<AppOptions> opts, IIisManager ii
 /// hosting an existing folder. The container is never started from here - it must already be running.
 /// </summary>
 public sealed class LocalSqlContainer(IOptions<AppOptions> opts, ISqlServerService sql, ISqlConnectionTester tester,
-    IBacpacService bacpac, IWebConfigService webConfig)
+    IBacpacService bacpac, IWebConfigService webConfig, SiteDatabases sites)
 {
     // A local server either answers straight away or isn't running - no point waiting the default 15s.
     private const int ConnectTimeoutSeconds = 5;
@@ -114,6 +114,7 @@ public sealed class LocalSqlContainer(IOptions<AppOptions> opts, ISqlServerServi
     private readonly ISqlConnectionTester _tester = tester;
     private readonly IBacpacService _bacpac = bacpac;
     private readonly IWebConfigService _webConfig = webConfig;
+    private readonly SiteDatabases _sites = sites;
 
     /// <summary>The local SQL Server's address (<c>ip,port</c>) from the settings.</summary>
     public string Server => _opts.ServerFor(_opts.Docker.DefaultPort);
@@ -252,18 +253,33 @@ public sealed class LocalSqlContainer(IOptions<AppOptions> opts, ISqlServerServi
     /// </summary>
     public static string SiteLoginFor(string projectName) => $"dnn_{projectName}";
 
+    /// <summary>Whether <paramref name="login"/> is named as a project's own login is (<see cref="SiteLoginFor"/>) - never the container's user.</summary>
+    public static bool IsSiteLogin(string login) => login.StartsWith("dnn_", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>
     /// Makes <paramref name="project"/>'s own login on the container, owner of <paramref name="database"/>, with a new
     /// password - and returns how the site signs in with it, for its web.config.
     /// </summary>
     public async Task<Result<SiteSqlConnection>> GrantSiteLoginAsync(DnnProject project, DatabaseConfig database, CancellationToken ct)
     {
-        var login = SiteLoginFor(project.Name);
+        var login = FreeLoginFor(project.Name);
         var password = SqlPasswords.New();
         var granted = await _sql.GrantSiteLoginAsync(database.DatabaseName, login, password, ct);
         return granted.Success
             ? Result<SiteSqlConnection>.Ok(new SiteSqlConnection(database.Server, database.DatabaseName, login, password))
             : Result<SiteSqlConnection>.Fail($"Could not make the site's login {login}: {granted.Error}");
+    }
+
+    /// <summary>
+    /// <see cref="SiteLoginFor"/>, or <c>dnn_shop_2</c>, … when another site signs in with it: a project renamed keeps its
+    /// login, and a new password for it - or the undo's drop - would lock that site out.
+    /// </summary>
+    private string FreeLoginFor(string projectName)
+    {
+        var login = SiteLoginFor(projectName);
+        for (var n = 2; _sites.OtherSiteSigningInAs(projectName, Server, login) is not null; n++)
+            login = $"{SiteLoginFor(projectName)}_{n}";
+        return login;
     }
 
     /// <summary>A database in the shared container for <paramref name="project"/>.</summary>

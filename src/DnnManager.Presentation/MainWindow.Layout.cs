@@ -667,12 +667,15 @@ public partial class MainWindow
     private void Manage_Click(object sender, RoutedEventArgs e)
     {
         var onRight = _layout.SidebarRight;
+        // The menu's room for its shadow (MenuStyles: 8 on its right and below) - left out, so its card lines up.
+        var shadow = 8 * ThemeManager.Scale;
         var menu = new ContextMenu
         {
             PlacementTarget = ManageButton,
             Placement = PlacementMode.Custom,
             CustomPopupPlacementCallback = (popup, target, _) =>
-                [new CustomPopupPlacement(new Point(onRight ? -popup.Width - 6 : target.Width + 6, target.Height - popup.Height), PopupPrimaryAxis.None)]
+                [new CustomPopupPlacement(new Point(onRight ? -popup.Width - 6 + shadow : target.Width + 6, target.Height - popup.Height + shadow),
+                    PopupPrimaryAxis.None)]
         };
         menu.Items.Add(MenuEntry("Command Palette…", "workbench.commandPalette", () => ShowPalette(commands: true)));
         menu.Items.Add(new Separator());

@@ -171,6 +171,13 @@ public sealed class DockerOptions
     public int DefaultPort { get; set; } = Abstractions.SqlServerAddress.DefaultPort;
     public string Collation { get; set; } = "Latin1_General_CI_AS";
     public string MssqlPid { get; set; } = "Developer";
+
+    /// <summary>These options with another sa password - the one a data volume already has.</summary>
+    public DockerOptions WithSaPassword(string password) => new()
+    {
+        ContainerName = ContainerName, ContainerIp = ContainerIp, VolumeName = VolumeName, SqlUser = SqlUser,
+        SaPassword = password, DefaultPort = DefaultPort, Collation = Collation, MssqlPid = MssqlPid
+    };
 }
 
 /// <summary>The kind of SQL Server new projects get their database on - see <see cref="SqlServerSettings"/>.</summary>

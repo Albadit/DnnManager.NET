@@ -180,6 +180,7 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
         using var http = CreateClient();
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
         limit.CancelAfter(InstallLimit);
+        var started = DateTime.UtcNow;
 
         var output = new DnnInstallOutput();
         var installed = 0;
@@ -267,6 +268,9 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
         }
 
         var result = outcome(output);
+        // DNN says only that it couldn't connect: what SQL Server answers its connection string, and what DNN logged.
+        if (!result.Success && output.Body.Contains("Could not connect to database", StringComparison.OrdinalIgnoreCase))
+            await DiagnoseConnectionAsync(site.Directory, started, secrets, reporter);
         return result.Success ? result : Result.Fail(secrets.Hide(result.Error!));
 
         void Report(DnnInstallStep step)
@@ -291,6 +295,63 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
             else if (!StartsWith(text, "Installation Complete")) reporter.Progress($"Running DNN {what}: {text}…");
         }
     }
+
+    /// <summary>
+    /// When DNN couldn't connect to its database: the site's own connection string (web.config) tried from here - its
+    /// SQL Server's answer, or that it works here, so that it is the site's process that can't - and the errors DNN
+    /// logged since <paramref name="sinceUtc"/>, in its log4net or (DNN 10.4 on) Serilog files.
+    /// </summary>
+    private static async Task DiagnoseConnectionAsync(string siteDirectory, DateTime sinceUtc, Secrets secrets, IProgressReporter reporter)
+    {
+        var read = new WebConfigs.WebConfigService(Microsoft.Extensions.Logging.Abstractions.NullLogger<WebConfigs.WebConfigService>.Instance)
+            .ReadDatabaseConnection(Path.Combine(siteDirectory, "web.config"));
+        if (read is { Success: true, Value: { Kind: not DatabaseKind.LocalDbFile } site })
+        {
+            var who = site.UsesWindowsAuthentication ? "with Windows authentication" : $"as {site.User}";
+            try
+            {
+                var builder = Sql.ConnectionStrings.For(site.Server, site.Database, site.UsesWindowsAuthentication ? "" : site.User, site.Password, 10);
+                // Not kept open in the pool: a session of the site's login would stop Remove from dropping that login.
+                builder.Pooling = false;
+                await using var connection = new SqlConnection(builder.ConnectionString);
+                await connection.OpenAsync(CancellationToken.None);
+                reporter.Warn($"The site's connection string works from DNN Manager ([{site.Database}] on {site.Server}, {who}) - " +
+                              "so it is the site's own process that can't reach it: its app pool's identity, or the address as it resolves there.");
+            }
+            catch (Exception ex) when (ex is SqlException or InvalidOperationException)
+            {
+                reporter.Warn($"The site's connection string ([{site.Database}] on {site.Server}, {who}) fails from DNN Manager too: {secrets.Hide(FirstLine(ex.Message))}");
+            }
+        }
+
+        // What DNN logged meanwhile: log4net's [ERROR]/[FATAL], Serilog's [ERR]/[FTL].
+        var logs = Path.Combine(siteDirectory, "Portals", "_default", "Logs");
+        if (!Directory.Exists(logs)) return;
+        var found = 0;
+        foreach (var file in Directory.EnumerateFiles(logs).Where(f => File.GetLastWriteTimeUtc(f) >= sinceUtc.AddMinutes(-1)))
+        {
+            var lines = ReadShared(file).ToList();
+            for (var i = 0; i < lines.Count; i++)
+            {
+                var line = lines[i];
+                if (!(line.Contains("[ERROR]", StringComparison.Ordinal) || line.Contains("[FATAL]", StringComparison.Ordinal) ||
+                      line.Contains("[ERR]", StringComparison.Ordinal) || line.Contains("[FTL]", StringComparison.Ordinal)))
+                    continue;
+                // The exception is on the lines after it, up to the next entry (which starts with its date): its type and
+                // message say what failed - the entry's own text is often empty.
+                var exception = lines.Skip(i + 1).TakeWhile(l => !StartsWithDate(l)).Select(l => l.Trim())
+                    .Where(l => l.Length > 0 && !l.StartsWith("at ", StringComparison.Ordinal)).Take(3);
+                var detail = string.Join(" | ", exception);
+                reporter.Warn($"DNN logged: {secrets.Hide(Short(line))}{(detail.Length > 0 ? $" → {secrets.Hide(detail)}" : "")} " +
+                              $"(Portals\\_default\\Logs\\{Path.GetFileName(file)})");
+                if (++found == 3) return;
+            }
+        }
+    }
+
+    // A log entry's first line starts with its date: 2026-10-10 18:01:49 (Serilog and log4net alike).
+    private static bool StartsWithDate(string line) =>
+        line.Length >= 10 && char.IsDigit(line[0]) && line[4] == '-' && line[7] == '-';
 
     /// <summary>The extension packages DNN installs with itself - one progress line each.</summary>
     private static int CountPackages(string siteDirectory)

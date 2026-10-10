@@ -103,12 +103,12 @@ public partial class TroubleshootPage : UserControl
         if (measuring != _measuring) return;
         var details = new[]
         {
-            "the activity log, one file per day",
-            "downloaded DNN install packages, kept to install the same version again without downloading",
+            "one file per day",
+            "to install a version again offline",
 
-            "every project's backups",
-            "the packages made for a live server",
-            "what older versions left in it"
+            "every project's .zip and .bacpac",
+            "made by Export for deployment",
+            "left by versions before 1.8"
         };
         for (var i = 0; i < sizes.Length; i++)
             Choices[i].Box.Content = $"{Choices[i].Name} - {details[i]} ({ByteSize.Format(sizes[i])})";

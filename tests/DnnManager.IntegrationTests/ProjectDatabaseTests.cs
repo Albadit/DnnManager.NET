@@ -56,6 +56,30 @@ public sealed class ProjectDatabaseTests
     }
 
     [TestMethod]
+    public async Task ANewProject_NamedLikeOneRenamedSince_GetsALoginOfItsOwn_NotTheRenamedSitesLogin()
+    {
+        // "shop" was renamed "store": its web.config still signs in as dnn_shop.
+        var store = Site(Path.Combine(_run, "projects", "store"), "localhost,1433", "store", login: "dnn_shop");
+        var iis = new UntouchedIis();
+        iis.Sites["store"] = new IisSiteRuntime(1, "Started", "store", "Started", [], [], store);
+        var exported = Site(Path.Combine(_run, "exported"), "localhost,1433", "shop");
+        var zip = Path.Combine(_run, "shop.zip");
+        ZipFile.CreateFromDirectory(exported, zip);
+        var backup = Path.Combine(_run, "shop.bak");
+        await File.WriteAllTextAsync(backup, "a backup");
+        var sql = new RecordingSql("store");
+
+        var (result, reporter, _, _) = await RunAsync(sql, iis, (sp, r) => sp.GetRequiredService<ImportProjectUseCase>()
+            .ExecuteAsync(new ImportProjectRequest { ProjectName = "shop", ZipPath = zip, BackupFilePath = backup }, r, CancellationToken.None));
+
+        Assert.IsTrue(result.Success, result.Error + Environment.NewLine + reporter.Text);
+        // A new password for dnn_shop would lock "store" out - and the undo of a failed run would drop its login.
+        Assert.IsFalse(sql.Calls.Any(c => c.StartsWith("Login dnn_shop ", StringComparison.Ordinal)), string.Join(", ", sql.Calls));
+        CollectionAssert.Contains(sql.Calls, "Login dnn_shop_2 shop");
+        StringAssert.Contains(await File.ReadAllTextAsync(Path.Combine(_run, "projects", "shop", "web.config")), "User ID=dnn_shop_2");
+    }
+
+    [TestMethod]
     public async Task Host_DoesNotTakeOverTheDatabaseOfAnotherSite()
     {
         // "copy" is a copy of "shop"'s folder: both web.configs name [shop] - written two ways.
@@ -195,10 +219,10 @@ public sealed class ProjectDatabaseTests
     // ─── The run ──────────────────────────────────────────────────────────
 
     /// <summary>A DNN site's folder with a web.config naming <paramref name="database"/> on <paramref name="server"/>.</summary>
-    private static string Site(string folder, string server, string database)
+    private static string Site(string folder, string server, string database, string login = "sa")
     {
         Directory.CreateDirectory(folder);
-        var connection = $"Data Source={server};Initial Catalog={database};User ID=sa;Password=Not-A-Password-1";
+        var connection = $"Data Source={server};Initial Catalog={database};User ID={login};Password=Not-A-Password-1";
         File.WriteAllText(Path.Combine(folder, "web.config"), $"""
             <?xml version="1.0" encoding="utf-8"?>
             <configuration>

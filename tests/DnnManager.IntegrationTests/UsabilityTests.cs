@@ -128,6 +128,25 @@ public sealed class UsabilityTests
     // ─── Toasts ───────────────────────────────────────────────────────────
 
     [TestMethod]
+    public void A_toast_says_a_long_message_in_its_first_sentence()
+    {
+        // Short: as it is.
+        Assert.AreEqual("Settings saved", Toast.Summary("Settings saved"));
+        // The first sentence - not cut at the dot of a file name or a version.
+        Assert.AreEqual(
+            @"DNN Manager is installed in C:\work\publish\DnnManager_Portable-1.8.1-x64.exe, which others can change.",
+            Toast.Summary(@"DNN Manager is installed in C:\work\publish\DnnManager_Portable-1.8.1-x64.exe, which others can change. " +
+                          "Install it for all users: run its Setup from GitHub, which installs it in Program Files."));
+        // A long first sentence: up to its first " - ".
+        Assert.AreEqual("SQL Server at localhost,1433 is up, but doesn't take the sa password in Settings → Database server.",
+            Toast.Summary("SQL Server at localhost,1433 is up, but doesn't take the sa password in Settings → Database server - the data " +
+                          "volume 'dnn_sqlserver_data' keeps the sa password it was first created with, whatever the settings say now, so put it back."));
+        // Nothing to cut it at: its first words, at most about two lines.
+        var words = Toast.Summary(string.Join(' ', Enumerable.Repeat("word", 60)));
+        Assert.IsTrue(words.Length <= 141 && words.EndsWith('…'), words);
+    }
+
+    [TestMethod]
     public void Toasts_that_stay_wait_their_turn_and_none_is_lost()
     {
         var queue = new ToastQueue();

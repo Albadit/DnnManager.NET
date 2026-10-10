@@ -2,6 +2,81 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## Unreleased
+
+### Changed
+
+- **Closing the window no longer shows a Windows notification** that DNN
+  Manager is still running - its icon by the clock stays. An operation that
+  fails while the window is hidden still says so in one.
+- **Shorter messages**: a toast says a long message in its first sentence; the
+  whole of it is in the log file and behind **Details** (or **Show output**).
+  Settings' and Troubleshoot's explanations are one line each.
+- **Menus and drop-down lists look like the toasts**: the gear menu, right-click
+  menus, the tray icon's menu and drop-down lists have the card's quiet border
+  and a soft shadow instead of a light grey border. Text boxes and drop-downs
+  have a quieter border too; the focused one still shows the blue one.
+- **Sharper text in the tour, Settings, toasts and the command palette**: their
+  shadow was an effect on the box itself, which drew all its text as a soft
+  bitmap without ClearType; it is a layer behind them now, and the tour's card
+  sits on whole pixels.
+- **Settings → Keyboard shortcuts opens faster**: its 70-odd rows are kept
+  instead of made again each time the category is shown.
+
+### Fixed
+
+- **Programs in Program Files and Windows start again with administrator
+  rights**: since 1.8.1, DNN Manager had a wrong ID for Windows' TrustedInstaller
+  account - which owns them - and refused every one of them as "programs without
+  administrator rights could change it": `dotnet` (so SqlPackage, and with it the
+  backup before an upgrade, Back up and Export for deployment), PowerShell,
+  `schtasks`. A refused program's message now says why it was refused.
+- **Docker Desktop installed for your account only works**: it was taken for
+  *Not installed*, and every docker step failed. Its `docker` now runs as you,
+  without administrator rights; backups go in and out of the container through
+  `docker exec` instead of `docker cp`. Another program found only on your own
+  PATH is named as such instead of "isn't installed".
+- **The SQL container answers at `localhost` again**: since 1.8.1 it was
+  published on `127.0.0.1` only, and Windows tries `localhost` as `::1` first -
+  DNN Manager (and sites whose web.config says `localhost,1433`) waited until
+  their time ran out. It is published on `[::1]` too now; **Set up
+  docker-compose** once to get it.
+- **"DNN couldn't connect to its database" says why**: DNN Manager tries the
+  site's own connection string and names SQL Server's answer (or that it works
+  from DNN Manager, so the site's own process can't reach it), and shows what
+  DNN logged - its log4net files, or the Serilog ones of DNN 10.4.
+- **New sites on the SQL container install again**: since the container is
+  published on this PC's loopback only (1.8.1), a site's `localhost,1433` wasn't
+  reached - .NET Framework's SqlClient, DNN's, goes to localhost by this
+  computer's name and network address - and DNN's installation failed with
+  *Could not connect to database*. Sites get `127.0.0.1,1433` now, DNN Manager's
+  own connections use it too, and **Set up docker-compose** points existing
+  sites that say `localhost,1433` at it.
+- **Remove…** drops the site's login while a session of it is still open.
+- **Set up docker-compose with a volume made by 1.7.1 or older** finds its old
+  default `sa` password (`Admin@123`), takes it into Settings → Database server
+  and makes the container again with it - instead of waiting three minutes and
+  reporting a network error. It says when the data volume exists already.
+- **Set up docker-compose** is off until the Docker card's test finds Docker's
+  engine running, and says what is missing; the card tests by itself when it is
+  first shown. **Install Docker Desktop** says when winget finds it already
+  installed.
+- **Restore backup** tries a file that is still in use again, as it was meant
+  to: the retry never ran, so a DLL the worker process or `bin\roslyn`'s
+  compiler still held failed the restore - and an upgrade's way back - at once,
+  with the site's files half put back. A damaged file in the backup's zip fails
+  the restore with a message instead of an unexpected error.
+- **Export for deployment** of a site whose file is `Web.config` puts one
+  web.config in the package - the prepared one. The local one, with this PC's
+  connection string and debug on, stayed next to it.
+- **Reset to defaults** gets past an `sa` password encrypted by another Windows
+  account or on another PC: it was kept, and the next start stopped on it again.
+  Enter the container's password again in **Settings → Database server**.
+- **A new project named like one renamed since** gets a login of its own
+  (`dnn_shop_2`): it gave the renamed site's `dnn_shop` a new password - locking
+  that site out - and a failed or cancelled run dropped it. **Remove…** drops a
+  renamed site's own login too, which it left behind.
+
 ## v1.8.2
 
 ### Upgrading

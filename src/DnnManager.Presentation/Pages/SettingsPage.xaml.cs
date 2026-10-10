@@ -113,13 +113,22 @@ public partial class SettingsPage : UserControl
             ["About"] = (AboutPanel, "about version build commit release channel update upgrade install new latest license mit repository github documentation docs runtime .net framework windows architecture administrator iis docker components libraries your files folders settings backups logs packages"),
         };
 
-        KeepDnnPackagesHint.Text = $"Saved in {paths.PackagesDirectory} and used again when a new project picks the same " +
-                                   "version - no download. Off: each new project downloads its package and deletes it after installing.";
+        KeepDnnPackagesHint.Text = "Installs the same version again without downloading it.";
+        KeepDnnPackagesHint.ToolTip = paths.PackagesDirectory;
         // Test and set up what the settings describe - working with the saved settings.
         DockerCard.Attach(services);
         SqlCard.Attach(services);
         IisCard.Attach(services);
         DockerCard.ContainerChanged += (_, _) => SqlCard.Test();
+        // The data volume's own sa password, saved by Set up docker-compose: shown here too - a Save would put the old one back.
+        DockerCard.PasswordAdopted += (_, password) =>
+        {
+            var clean = !HasUnsavedChanges;
+            _savedSaPassword = password;
+            SaPassword.Password = password;
+            if (clean) _savedForm = FormSnapshot();
+            Edited();
+        };
         Folders.ItemsSource = new KeyValuePair<string, string>[]
         {
             new("Settings", paths.Root),
@@ -140,10 +149,8 @@ public partial class SettingsPage : UserControl
         foreach (var template in DnnAccountRules.Templates) DnnTemplate.Items.Add(new ComboBoxItem { Content = template, Tag = template });
         foreach (var minutes in KeepWarmSettings.PingIntervals) KeepWarmInterval.Items.Add(KeepWarmIntervalItem(minutes));
         foreach (var days in BackupSettings.KeepDayChoices) BackupKeepDays.Items.Add(BackupKeepDaysItem(days));
-        BackupsHint.Text = $"Project backups ({paths.BackupsDirectory}) - each one's site .zip and database copy, and the copy of the source " +
-                           $"database a clone keeps - and the packages Export for deployment made ({paths.DeploymentsDirectory}), each with a whole " +
-                           "database. Kept for good, they stay until you delete them in Troubleshoot → Clean up data. Otherwise, those older " +
-                           "than this are deleted each time DNN Manager starts - they can't be brought back.";
+        BackupsHint.Text = "Older ones are deleted at each start - they can't be brought back.";
+        BackupsHint.ToolTip = $"Project backups: {paths.BackupsDirectory}\nDeployment packages: {paths.DeploymentsDirectory}";
         foreach (var box in new[] { SsmsRememberPassword, KeepDnnPackages, KeepRunningWhenClosed, CheckForUpdatesAtStart })
         {
             box.Checked += (_, _) => Edited();
@@ -363,7 +370,12 @@ public partial class SettingsPage : UserControl
             // only to be switched off.
             var refusal = Environment.ProcessPath is { } self ? await Task.Run(() => StartupTask.Refusal(self)) : null;
             StartAtSignIn.IsEnabled = refusal is null || target is not null;
-            if (refusal is not null) StartAtSignInHint.Text = refusal;
+            // One line here; why, in full, on hover.
+            if (refusal is not null)
+            {
+                StartAtSignInHint.Text = "Needs DNN Manager installed for all users (its Setup).";
+                StartAtSignInHint.ToolTip = refusal;
+            }
             Edited();
             if (refusal is not null) return;
             var other = target is { Length: > 0 } && Environment.ProcessPath is { } exe &&
@@ -397,7 +409,7 @@ public partial class SettingsPage : UserControl
             if (result.Success)
             {
                 _startsAtSignIn = enable;
-                if (enable) StartAtSignInHint.Text = "With its administrator rights, without Windows asking for them at every sign-in (a scheduled task).";
+                if (enable) StartAtSignInHint.Text = "As Administrator, without a prompt at every sign-in (a scheduled task).";
                 return true;
             }
             StartAtSignIn.IsChecked = !enable;
@@ -938,9 +950,8 @@ public partial class SettingsPage : UserControl
         if (DnnDefaultsHint is null) return; // raised during InitializeComponent
         var suffix = HostnameSuffix.Text.Trim().Trim('.');
         var language = (DnnLanguage.SelectedItem as ComboBoxItem)?.Tag as string ?? "en-US";
-        DnnDefaultsHint.Text = $"An empty e-mail is host@{suffix}; an empty website name is the project's name. The password is kept in the " +
-                               "Windows Credential Manager of your account, not with the other settings - empty: New project asks for one." +
-                               (language == "en-US" ? "" : $" {Languages.Name(language)}: DNN downloads its language pack while installing (needs internet).");
+        DnnDefaultsHint.Text = $"Empty e-mail: host@{suffix}. Empty password: New project asks." +
+                               (language == "en-US" ? "" : $" {Languages.Name(language)} needs internet while installing.");
     }
 
     private void ShowError(string? error)

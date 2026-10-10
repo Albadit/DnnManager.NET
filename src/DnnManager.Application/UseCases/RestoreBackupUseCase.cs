@@ -158,7 +158,7 @@ public sealed class RestoreBackupUseCase(
             {
                 return await _copier.ExtractZipAsync(zip, directory, reporter, CancellationToken.None);
             }
-            catch (IOException ex) when (IsInUse(ex) && attempt < 10)
+            catch (IOException ex) when (FileInUse.Is(ex) && attempt < 10)
             {
                 reporter.Progress($"A file of the site is still in use - trying again ({attempt} of 9)…");
             }
@@ -170,12 +170,6 @@ public sealed class RestoreBackupUseCase(
             await StopSiteProgramsAsync(directory, reporter);
         }
     }
-
-    /// <summary>
-    /// A file another program has open: a sharing or lock violation, or a DLL a process has mapped (the worker process
-    /// letting go) - what goes away by itself.
-    /// </summary>
-    internal static bool IsInUse(IOException ex) => (ex.HResult & 0xFFFF) is 32 or 33 or 1224;
 
     /// <summary>
     /// Why <paramref name="zip"/> can't be put back into <paramref name="directory"/> - or null when every file in it can:

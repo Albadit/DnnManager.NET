@@ -22,25 +22,34 @@ public sealed class ProcessRunner
     /// How long it may run - then it is ended, with its child processes, and the run fails (exit code -1). None: until it
     /// ends or is cancelled. For a quick question to a program that can hang (docker while Docker Desktop is half started).
     /// </param>
+    /// <param name="input">Written to the process's standard input as it is (bytes), then closed - instead of <paramref name="stdin"/>.</param>
+    /// <param name="output">The process's standard output as it is (bytes, e.g. a file) - instead of <see cref="ProcessResult.StdOut"/>.</param>
     public async Task<ProcessResult> RunAsync(string fileName, IReadOnlyList<string> args, CancellationToken ct = default,
-        IDictionary<string, string?>? env = null, Action<string>? onOutput = null, string? stdin = null, TimeSpan? timeout = null)
+        IDictionary<string, string?>? env = null, Action<string>? onOutput = null, string? stdin = null, TimeSpan? timeout = null,
+        Stream? input = null, Stream? output = null)
     {
         // Run as Administrator: only a copy of the program that nobody else can change.
-        if (TrustedPrograms.Find(fileName, out var refused) is not { } program)
+        var resolved = TrustedPrograms.Resolve(fileName);
+        if (resolved.Path is not { } program)
+        {
+            // Docker Desktop installed for this account only: run as the user instead - their copy, their rights.
+            if (AsUser(fileName, resolved) is { } own)
+                return await UserProcess.RunAsync(own, args, env, onOutput, stdin, input, output, timeout, ct);
             return new ProcessResult
             {
                 ExitCode = -1,
-                StdErr = refused is null
+                // Why it was refused, as the check found it: a copy others can change, or one it couldn't open or read.
+                StdErr = resolved.Refused is null
                     ? $"Could not start '{fileName}': it isn't installed (or not on PATH)."
-                    : $"Didn't start {refused}: programs without administrator rights could change it, and DNN Manager runs it as " +
-                      "Administrator. Install it for all users (in Program Files) - DNN Manager uses that copy."
+                    : resolved.Problem(fileName)
             };
+        }
         var psi = new ProcessStartInfo
         {
             FileName = program,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            RedirectStandardInput = stdin is not null,
+            RedirectStandardInput = stdin is not null || input is not null,
             UseShellExecute = false,
             CreateNoWindow = true
         };
@@ -68,18 +77,25 @@ public sealed class ProcessRunner
         }
         // Ended with DNN Manager, however it ends (a crash, Windows signing out): never left running on its own.
         ChildJob.Add(p);
-        p.BeginOutputReadLine();
+        var copying = output is not null ? p.StandardOutput.BaseStream.CopyToAsync(output, CancellationToken.None) : Task.CompletedTask;
+        if (output is null) p.BeginOutputReadLine();
         p.BeginErrorReadLine();
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
         if (timeout is { } after) limit.CancelAfter(after);
         try
         {
-            if (stdin is not null)
+            if (input is not null)
+            {
+                await input.CopyToAsync(p.StandardInput.BaseStream, limit.Token);
+                p.StandardInput.Close();
+            }
+            else if (stdin is not null)
             {
                 await p.StandardInput.WriteAsync(stdin.AsMemory(), limit.Token);
                 p.StandardInput.Close();
             }
             await p.WaitForExitAsync(limit.Token);
+            await copying;
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
@@ -111,6 +127,24 @@ public sealed class ProcessRunner
         }
         return new ProcessResult { ExitCode = p.ExitCode, StdOut = stdout.ToString(), StdErr = stderr.ToString() };
     }
+
+    // Programs DNN Manager runs as the user when the only copy is one others can change (installed for this account
+    // only): talking to a service of the user's own (Docker Desktop's engine), they need no administrator rights.
+    private static readonly string[] RunsAsUser = ["docker"];
+
+    /// <summary>
+    /// The copy of <paramref name="fileName"/> to run as the user (<see cref="UserProcess"/>) - one others could change,
+    /// of a program that needs no administrator rights - or null: not run at all.
+    /// </summary>
+    private static string? AsUser(string fileName, TrustedPrograms.Resolved resolved) =>
+        TrustedPrograms.IsElevated && resolved.Refused is { } copy && Path.IsPathFullyQualified(copy) && File.Exists(copy) &&
+        RunsAsUser.Contains(Path.GetFileNameWithoutExtension(fileName), StringComparer.OrdinalIgnoreCase)
+            ? copy
+            : null;
+
+    /// <summary>Whether <paramref name="fileName"/> runs as the user - its only copy one installed for this account.</summary>
+    public static bool StartsAsUser(string fileName) => TrustedPrograms.IsElevated && TrustedPrograms.Resolve(fileName) is { Path: null } resolved &&
+                                                       AsUser(fileName, resolved) is not null;
 }
 
 /// <summary>

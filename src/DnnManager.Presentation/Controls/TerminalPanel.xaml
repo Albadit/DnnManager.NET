@@ -313,12 +313,14 @@
             </Grid>
 
             <!-- Search (Ctrl+F): over the top right of the shown tab, like VS Code's. -->
-            <Border x:Name="SearchBar" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,20,0" Padding="4"
-                    Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource InputBorder}" BorderThickness="1" CornerRadius="4"
-                    Panel.ZIndex="10" Visibility="Collapsed">
-                <Border.Effect>
-                    <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.3" />
-                </Border.Effect>
+            <Grid x:Name="SearchBar" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,20,0" Panel.ZIndex="10" Visibility="Collapsed">
+                <!-- The shadow a layer of its own: an effect on the bar would draw its text as a bitmap, without ClearType. -->
+                <Border Background="{DynamicResource CardBg}" CornerRadius="4" IsHitTestVisible="False">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.3" />
+                    </Border.Effect>
+                </Border>
+                <Border Padding="4" Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="4">
                 <StackPanel Orientation="Horizontal">
                     <!-- The text, with the three options inside the box on its right, as in VS Code. -->
                     <Grid>
@@ -345,7 +347,8 @@
                     <Button AutomationProperties.Name="Next match" Style="{StaticResource PanelButton}" Content="{StaticResource GlyphChevronDown}" ToolTip="Next match (Enter)" Click="SearchNext_Click" />
                     <Button AutomationProperties.Name="Close" Style="{StaticResource PanelButton}" FontSize="10" Content="{StaticResource GlyphClose}" ToolTip="Close (Esc)" Click="SearchClose_Click" />
                 </StackPanel>
-            </Border>
+                </Border>
+            </Grid>
         </Grid>
     </DockPanel>
 </UserControl>

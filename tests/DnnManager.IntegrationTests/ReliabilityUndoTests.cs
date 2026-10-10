@@ -1,6 +1,8 @@
 using System.IO.Compression;
+using DnnManager.Application;
 using DnnManager.Application.UseCases;
 using DnnManager.Domain;
+using DnnManager.Infrastructure.Files;
 using DnnManager.Infrastructure.Processes;
 using DnnManager.IntegrationTests.Support;
 
@@ -186,9 +188,43 @@ public sealed class ReliabilityUndoTests
     [TestMethod]
     public void OnlyAFileInUse_IsTriedAgain()
     {
-        Assert.IsTrue(RestoreBackupUseCase.IsInUse(new IOException("in use", unchecked((int)0x80070020))));
-        Assert.IsTrue(RestoreBackupUseCase.IsInUse(new IOException("mapped", unchecked((int)0x800704C8))));
-        Assert.IsFalse(RestoreBackupUseCase.IsInUse(new IOException("disk full", unchecked((int)0x80070070))));
+        Assert.IsTrue(FileInUse.Is(new IOException("in use", unchecked((int)0x80070020))));
+        Assert.IsTrue(FileInUse.Is(new IOException("mapped", unchecked((int)0x800704C8))));
+        Assert.IsFalse(FileInUse.Is(new IOException("disk full", unchecked((int)0x80070070))));
+    }
+
+    [TestMethod]
+    public async Task AFileInUse_ReachesTheRestore_SoItIsTriedAgain()
+    {
+        var folder = NewFolder();
+        try
+        {
+            var site = Path.Combine(folder, "site");
+            Directory.CreateDirectory(site);
+            var held = Path.Combine(site, "web.config");
+            File.WriteAllText(held, "the site's");
+            var zip = Path.Combine(folder, "backup.zip");
+            using (var archive = ZipFile.Open(zip, ZipArchiveMode.Create))
+            using (var writer = new StreamWriter(archive.CreateEntry("web.config").Open()))
+                writer.Write("<configuration />");
+
+            // The worker process or bin\roslyn's compiler still has it open.
+            using (new FileStream(held, FileMode.Open, FileAccess.Read, FileShare.None))
+            {
+                // Returned as a failed result, Restore's retry would never see it and give up at the first try.
+                var ex = await Assert.ThrowsAsync<IOException>(() =>
+                    new ProjectFileCopier().ExtractZipAsync(zip, site, new RecordingReporter(), CancellationToken.None));
+                Assert.IsTrue(FileInUse.Is(ex), ex.Message);
+            }
+
+            var retried = await new ProjectFileCopier().ExtractZipAsync(zip, site, new RecordingReporter(), CancellationToken.None);
+            Assert.IsTrue(retried.Success, retried.Error);
+            Assert.AreEqual("<configuration />", File.ReadAllText(held));
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
     }
 
     private static string NewFolder()

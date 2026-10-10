@@ -159,6 +159,19 @@ coding rules that keep it that way are in
     plugin then comes from `%ProgramData%\Docker\cli-plugins` or Docker
     Desktop's own folder in Program Files, held to the rule above.
 
+  One exception: **Docker Desktop installed for your account only** (its
+  `docker` in `%LOCALAPPDATA%\Programs\DockerDesktop`, on your own PATH). Its
+  `docker` isn't refused but run **as you, without administrator rights** - the
+  terminals' token (below), inheriting its three pipes and nothing else, in the
+  same job object
+  ([`Processes/UserProcess.cs`](../src/DnnManager.Infrastructure/Processes/UserProcess.cs)).
+  Swapped by a program of yours, it gets no more than that program has. It
+  reads your own `.docker`, and its compose plugin isn't checked: it runs with
+  your rights too. Backups are copied in and out of the container as a stream
+  through `docker exec` that DNN Manager reads and writes itself - such a
+  `docker` can't reach the admin-only temporary folder. Only `docker` is run
+  this way (`ProcessRunner.RunsAsUser`): it needs no administrator rights.
+
   SSMS, an IDE started directly, and DNN Manager's own restarts (the update
   helper, Setup, the new version) start the same way. SqlPackage is installed
   only from nuget.org, with a NuGet.Config of DNN Manager's own - not yours.
@@ -289,7 +302,7 @@ offline too. Unpacking goes through `SafeZip` (above).
 | The SQL container's `sa` password | The settings (the `settings` table in `Documents\DnnManager\dnnmanager.db`) → the row `sqlServer.saPassword`, encrypted for your Windows account (DPAPI, `dpapi:…`). A new installation makes up its own (24 characters); resetting the settings keeps it. The container has it in its environment (`MSSQL_SA_PASSWORD` - Microsoft's image reads it from nowhere else) |
 | The default DNN host password for new projects | Windows Credential Manager, `DnnManager/dnn-defaults/host-password` - none until you set one: New project asks for it |
 | The database server login's password (**Settings → Database server**, SQL authentication) | Windows Credential Manager, `DnnManager/database-server/password` |
-| A site's database login | The site's own `web.config` (`SiteSqlServer`), as DNN needs it. A site on the local container made by New project (automatic), Clone, Import or Host project signs in with a login of its own - `dnn_<project>`, owner of its database only, a new password each time - not with `sa` |
+| A site's database login | The site's own `web.config` (`SiteSqlServer`), as DNN needs it. A site on the local container made by New project (automatic), Clone, Import or Host project signs in with a login of its own - `dnn_<project>` (`dnn_<project>_2`, … when another site, one renamed since, signs in with that one), owner of its database only, a new password each time - not with `sa`. A login another site signs in with is never given a new password or dropped |
 | A live server's connection string (**Export for deployment**) | The package's `web.config`, in `Documents\DnnManager\deployments\` - the Output tab says so; **Troubleshoot → Clean up data → Deployment packages** deletes them |
 | A database password put on the clipboard (**Open in SSMS** when SSMS can't be signed in) | The clipboard, for 60 seconds - left out of Windows' clipboard history and cloud clipboard, and marked for clipboard managers to ignore; then taken off again unless something else was copied - and when DNN Manager quits ([`SecretClipboard.cs`](../src/DnnManager.Presentation/Services/SecretClipboard.cs)) |
 
@@ -313,7 +326,7 @@ into SQL text is quoted by
 |---|---|---|
 | **Remove…** | The IIS site; its app pool (and the pool's Windows profile) | A pool other sites still use is kept |
 | | The site's folder | Only a folder in the projects folder - which can't be a drive or a system folder. What is still in use is deleted by Windows at the next restart: first every folder in it is made Administrators' and SYSTEM's only, so nothing can put a junction on the way meanwhile, and a link in it is deleted itself, never followed |
-| | The site's database, and its own login (`dnn_<project>`) | Only a database on this PC (the container, LocalDB, a local SQL Server) that no other IIS site's `web.config` names; one on another server, or another site's too, is kept and named in the confirmation. One that isn't the project's own (named like it) is dropped only after a question naming both. A drop that fails is named in the result |
+| | The site's database, and its own login (`dnn_…`, unless another site signs in with it) | Only a database on this PC (the container, LocalDB, a local SQL Server) that no other IIS site's `web.config` names; one on another server, or another site's too, is kept and named in the confirmation. One that isn't the project's own (named like it) is dropped only after a question naming both. A drop that fails is named in the result |
 | | Programs holding files in the folder | Closed only after you confirm - **Close and delete** isn't the default |
 | | Its backups | Only when you answer *Delete backups* to the second question - *Keep backups* is the default |
 | **At each start**, with `backups.keepDays` set | Project backups and deployment packages older than that | Off (0) by default; only the dated folders in `backups\<project>\` and `deployments\`, never through a junction or link |
@@ -331,9 +344,10 @@ or written. `sqlcmd` runs with `-x -X`: a database name read from a site's
 
 ## Network exposure
 
-- **The SQL container** is published on `127.0.0.1` only when
-  `sqlServer.host` is `localhost` (the default) - from the next **Set up
-  docker-compose**. With another host it is published on every network
+- **The SQL container** is published on this PC's loopback addresses only -
+  `127.0.0.1` and, with IPv6, `[::1]` (Windows resolves `localhost` to `::1`
+  first) - when `sqlServer.host` is `localhost` (the default), from the next
+  **Set up docker-compose**. With another host it is published on every network
   interface, with the `sa` login. Its image is pinned by digest
   (`mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04@sha256:4402d880…`,
   [`Docker/DockerComposeService.cs`](../src/DnnManager.Infrastructure/Docker/DockerComposeService.cs)),

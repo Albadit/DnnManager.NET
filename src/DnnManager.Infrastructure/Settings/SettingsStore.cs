@@ -130,11 +130,27 @@ public sealed class SettingsStore(AppDataPaths paths)
             var sa = AppDatabase.KeyValues(connection, "SELECT key, value FROM settings WHERE key = $key", ("$key", SaPasswordKey));
             AppDatabase.Execute(connection, "DELETE FROM settings");
             AppDatabase.InsertAll(connection, "INSERT INTO settings (key, value) VALUES ($key, $value)", Rows(new UserSettings()));
-            if (sa.TryGetValue(SaPasswordKey, out var kept))
+            // But not one that can't be decrypted (another Windows user, another PC): kept, it would fail the next start the
+            // same way, and the reset would never get past it. Entered again in Settings → Database server.
+            if (sa.TryGetValue(SaPasswordKey, out var kept) && Decrypts(kept))
                 AppDatabase.Execute(connection, "UPDATE settings SET value = $value WHERE key = $key", ("$value", kept), ("$key", SaPasswordKey));
             AppDatabase.Execute(connection, "COMMIT");
         }
         catch (SqliteException ex) { throw new IOException(ex.Message, ex); }
+    }
+
+    /// <summary>Whether this Windows user can read the saved <paramref name="value"/> - as <see cref="Parse"/> must.</summary>
+    private static bool Decrypts(string value)
+    {
+        try
+        {
+            SecretProtector.Unprotect(value);
+            return true;
+        }
+        catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or FormatException)
+        {
+            return false;
+        }
     }
 
     /// <summary>The settings as saved - one value per key - empty when there are none yet. Throws <see cref="SettingsException"/>.</summary>

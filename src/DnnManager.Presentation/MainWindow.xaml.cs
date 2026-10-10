@@ -878,8 +878,6 @@ public partial class MainWindow : Window
     private TrayIcon? _tray;
     // Closing quits DNN Manager now, not hides it: Quit, or Windows signing out.
     private bool _quitting;
-    // The notice that DNN Manager is still running is given once per start.
-    private bool _toldRunning;
 
     /// <summary>The notification area's icon there while the setting is on - from the start, and as soon as it is saved.</summary>
     private void FollowKeepRunning()
@@ -945,12 +943,8 @@ public partial class MainWindow : Window
             e.Cancel = true;
             // Kept as it is now, should Windows end DNN Manager while it is hidden.
             _workspace.SaveNow();
+            // Without a Windows notification: the icon by the clock says it is still there.
             Hide();
-            if (!_toldRunning)
-            {
-                _toldRunning = true;
-                _tray.ShowNotice("DNN Manager is still running", "Click its icon to open it again; right-click it to quit.");
-            }
             return;
         }
         // Quit now: the running operation, or its undo, is left as it is - the next start says what was left.

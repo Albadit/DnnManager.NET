@@ -199,8 +199,7 @@ public sealed class PrivateTemp : IPrivateTemp
 
     private static bool IsTrusted(SecurityIdentifier? owner) =>
         owner is not null && (owner.IsWellKnown(WellKnownSidType.BuiltinAdministratorsSid) || owner.IsWellKnown(WellKnownSidType.LocalSystemSid) ||
-        // TrustedInstaller
-        owner.Value == "S-1-5-80-956008885-3425870976-2436764453-2556521931-1409716564");
+        owner.Value == Processes.TrustedPrograms.TrustedInstallerSid);
 
     private static bool IsElevated()
     {

@@ -626,9 +626,9 @@ With **Settings → General → Keep DNN Manager running when you close the wind
 instead of quitting, as Docker Desktop does. A running operation goes on, the
 terminals keep their shells, and your sites are still followed and
 [kept warm](#keep-warm); what was typed and the page you were on are there when
-the window comes back. The first close after each start says so in a Windows
-notification, and an operation that fails while the window is hidden says so in
-one too.
+the window comes back. Closing it shows no notification - the icon by the clock
+stays - but an operation that fails while the window is hidden says so in a
+Windows notification.
 
 While the setting is on, DNN Manager has an icon in the notification area (by
 the clock - on Windows 11 it may be under the **^** until you drag it out):

@@ -89,6 +89,34 @@ public sealed class SettingsRowsTests
     }
 
     [TestMethod]
+    public void A_reset_drops_an_sa_password_another_windows_user_encrypted_so_the_next_start_works()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "DnnManagerTests", "sa-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var paths = new AppDataPaths(root);
+            var store = new SettingsStore(paths);
+            store.Load();
+            using (var connection = new AppDatabase(paths).Open())
+            {
+                // As Documents\DnnManager copied from another account (or PC): DPAPI there, unreadable here.
+                var foreign = "dpapi:" + Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(64));
+                AppDatabase.Execute(connection, "UPDATE settings SET value = $value WHERE key = 'sqlServer.saPassword'", ("$value", foreign));
+            }
+            Assert.ThrowsExactly<SettingsException>(() => store.Load());
+
+            // Kept, it would stop the next start the same way: the start-up dialog's Reset would never get past it.
+            store.ResetToDefaults();
+            var settings = store.Load().Settings;
+            Assert.IsFalse(string.IsNullOrEmpty(settings.SqlServer.SaPassword));
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch (IOException) { }
+        }
+    }
+
+    [TestMethod]
     public void A_made_up_sql_password_meets_sql_servers_policy_and_needs_no_quoting()
     {
         for (var i = 0; i < 200; i++)

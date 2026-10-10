@@ -85,8 +85,15 @@ public sealed class WindowsPrerequisiteChecker(ProcessRunner proc, IOptions<AppO
             StringComparer.OrdinalIgnoreCase);
     }
 
-    private static string DockerDesktopExe => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Docker", "Docker", "Docker Desktop.exe");
+    // Installed for all users (Program Files), or for this account only (%LOCALAPPDATA%\Programs) - whose docker DNN
+    // Manager runs as the user (ProcessRunner).
+    private static string DockerDesktopExe =>
+        new[]
+        {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Docker", "Docker", "Docker Desktop.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "DockerDesktop", "Docker Desktop.exe")
+        }.FirstOrDefault(File.Exists) ??
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Docker", "Docker", "Docker Desktop.exe");
 
     public async Task<DockerStatus> GetDockerStatusAsync(string containerName, CancellationToken ct)
     {
@@ -126,7 +133,10 @@ public sealed class WindowsPrerequisiteChecker(ProcessRunner proc, IOptions<AppO
             var output = (r.StdOut + r.StdErr).Trim();
             // winget exits non-zero when the package is already installed and there is no newer version.
             if (output.Contains("already installed", StringComparison.OrdinalIgnoreCase))
+            {
+                reporter.Info("winget says Docker Desktop is already installed - nothing to install.");
                 return Result.Ok();
+            }
             return Result.Fail($"winget couldn't install Docker Desktop (exit {r.ExitCode}): " +
                                string.Join(" ", output.Split('\n').TakeLast(3).Select(l => l.Trim())));
         }

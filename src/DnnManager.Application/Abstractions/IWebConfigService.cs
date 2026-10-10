@@ -23,6 +23,12 @@ public interface IWebConfigService
     Result<DatabaseConnection> ReadDatabaseConnection(string webConfigPath);
 
     /// <summary>
+    /// SiteSqlServer's <c>localhost,&lt;port&gt;</c> as <c>127.0.0.1,&lt;port&gt;</c> - the rest of the connection string as
+    /// it is. True when it was changed; false when it doesn't name localhost with a port.
+    /// </summary>
+    Result<bool> UseLoopbackAddress(string webConfigPath);
+
+    /// <summary>
     /// Removes the IIS URL Rewrite section (system.webServer/rewrite). Those rules are
     /// production-only (HTTPS redirects, request blocking) and require the URL Rewrite module,
     /// which is usually absent locally - otherwise IIS returns HTTP 500.19. Safe no-op if absent.

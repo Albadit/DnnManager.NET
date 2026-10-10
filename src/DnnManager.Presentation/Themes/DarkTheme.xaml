@@ -10,6 +10,7 @@
     <SolidColorBrush x:Key="CardBorder"       Color="#2B2B2B" />  <!-- panel.border -->
     <SolidColorBrush x:Key="InputBg"          Color="#313131" />  <!-- input.background -->
     <SolidColorBrush x:Key="InputBorder"      Color="#6B6B6B" />  <!-- input.border -->
+    <SolidColorBrush x:Key="FieldBorder"      Color="#3C3C3C" />  <!-- text boxes and drop-downs: VS Code Dark Modern's input.border - focus shows FocusBorder -->
     <SolidColorBrush x:Key="HoverBg"          Color="#2A2D2E" />  <!-- list.hoverBackground -->
     <SolidColorBrush x:Key="SelectionBg"      Color="#04395E" />  <!-- list.activeSelectionBackground -->
     <SolidColorBrush x:Key="HeaderBg"         Color="#181818" />  <!-- sideBarSectionHeader.background -->

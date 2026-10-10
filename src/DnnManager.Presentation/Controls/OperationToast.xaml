@@ -4,11 +4,15 @@
              Visibility="Collapsed" Width="340" Margin="0,0,0,8">
     <!-- The running operation, as VS Code shows a task in progress: over the bottom-right corner while it runs - its name
          (a click opens the Output tab), Cancel, and a bar moving along its bottom edge. -->
-    <Border Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1"
-            CornerRadius="6" ClipToBounds="True">
+    <!-- The shadow a layer of its own: an effect on the card would draw its text as a bitmap, without ClearType - soft. -->
+    <Grid>
+    <Border Background="{DynamicResource CardBg}" CornerRadius="6" IsHitTestVisible="False">
         <Border.Effect>
             <DropShadowEffect BlurRadius="18" ShadowDepth="3" Opacity="0.3" />
         </Border.Effect>
+    </Border>
+    <Border Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1"
+            CornerRadius="6" ClipToBounds="True">
         <DockPanel>
             <!-- Only moves while it is shown, and not while the window is minimized (ShowProgress). -->
             <ProgressBar x:Name="OperationProgress" DockPanel.Dock="Bottom" Height="2" Margin="6,0,6,0"
@@ -21,4 +25,5 @@
             </DockPanel>
         </DockPanel>
     </Border>
+    </Grid>
 </UserControl>

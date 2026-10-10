@@ -15,7 +15,9 @@ public static class ConnectionStrings
     /// </summary>
     public static string ForSite(DatabaseConnection connection)
     {
-        var builder = new SqlConnectionStringBuilder { DataSource = connection.Server };
+        // localhost,<port> as 127.0.0.1: the site's SqlClient (.NET Framework's) reaches localhost by this computer's name
+        // and network address, where the SQL container - published on this PC's loopback only - doesn't listen.
+        var builder = new SqlConnectionStringBuilder { DataSource = Reachable(connection.Server) };
         if (connection.Kind == DatabaseKind.LocalDbFile)
         {
             // DNN's "SQL Server Express File", but without User Instance - LocalDB refuses that.
@@ -65,7 +67,7 @@ public static class ConnectionStrings
     {
         var builder = new SqlConnectionStringBuilder
         {
-            DataSource = server,
+            DataSource = Reachable(server),
             Encrypt = IsLocalDb(server) ? SqlConnectionEncryptOption.Optional : SqlConnectionEncryptOption.Mandatory,
             TrustServerCertificate = TrustServerCertificate(server),
             ConnectTimeout = timeoutSeconds
@@ -81,6 +83,25 @@ public static class ConnectionStrings
             builder.Password = password ?? "";
         }
         return builder;
+    }
+
+    /// <summary>
+    /// <paramref name="server"/> as it is connected to: <c>localhost</c> with a port as <c>127.0.0.1</c>. A server published
+    /// on this PC's loopback only (the SQL container) isn't reached as localhost: Microsoft.Data.SqlClient waits at ::1
+    /// when it listens on IPv4 only, and .NET Framework's SqlClient - a DNN site's - connects to localhost through this
+    /// computer's name and network address, where nothing listens (measured: 15 s, then "not found or not accessible";
+    /// 127.0.0.1 answers at once). A named instance without a port (<c>localhost\SQLEXPRESS</c>) is left as it is: it is
+    /// found through SQL Browser, or shared memory.
+    /// </summary>
+    internal static string Reachable(string server)
+    {
+        var trimmed = server.Trim();
+        var protocol = trimmed.StartsWith("tcp:", StringComparison.OrdinalIgnoreCase) ? trimmed[..4] : "";
+        var rest = trimmed[protocol.Length..];
+        var comma = rest.IndexOf(',');
+        return comma > 0 && rest[..comma].Trim().Equals("localhost", StringComparison.OrdinalIgnoreCase) && int.TryParse(rest[(comma + 1)..].Trim(), out var port)
+            ? $"{protocol}127.0.0.1,{port}"
+            : server;
     }
 
     /// <summary>True for a LocalDB instance, e.g. <c>(LocalDB)\MSSQLLocalDB</c>.</summary>

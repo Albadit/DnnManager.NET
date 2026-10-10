@@ -33,7 +33,9 @@ public sealed class DockerComposeService(ProcessRunner proc) : IDockerComposeSer
     /// </summary>
     private static string? UntrustedComposePlugin()
     {
-        if (!TrustedPrograms.IsElevated) return null;
+        // Not elevated, or docker itself runs as the user (installed for this account only): a plugin it loads gets no
+        // more rights than the user has.
+        if (!TrustedPrograms.IsElevated || ProcessRunner.StartsAsUser("docker")) return null;
         string config;
         try
         {
@@ -73,6 +75,11 @@ public sealed class DockerComposeService(ProcessRunner proc) : IDockerComposeSer
         if ((DockerNames.Refusal(docker.ContainerName, "container") ?? DockerNames.Refusal(docker.VolumeName, "volume")) is { } refused)
             return Result.Fail(refused);
         await RemoveOldProjectContainerAsync(docker.ContainerName, reporter, ct);
+        // There already: its databases are kept - and so is the sa password it was first made with.
+        var volume = await _proc.RunAsync("docker", new[] { "volume", "inspect", "--format", "{{.Name}}", docker.VolumeName }, ct,
+            timeout: TimeSpan.FromSeconds(30));
+        if (volume.Success)
+            reporter.Info($"The data volume '{docker.VolumeName}' exists already - its databases are kept, and its sa password is the one it was made with.");
 
         // "-f -": the definition comes on standard input. The first run pulls the SQL Server image (well over a GB) -
         // show docker's progress as it comes.
@@ -86,8 +93,11 @@ public sealed class DockerComposeService(ProcessRunner proc) : IDockerComposeSer
             stdin: Build(docker, withPassword: true));
         if (r.Success) return Result.Ok();
 
+        // Not started: why, as ProcessRunner found it - not there at all, or a copy DNN Manager doesn't run (yours only).
         if (r.ExitCode == -1)
-            return Result.Fail("Docker is not installed or not on PATH - install Docker Desktop, start it and try again.");
+            return Result.Fail(r.StdErr.Trim() is { Length: > 0 } why
+                ? why
+                : "Docker is not installed or not on PATH - install Docker Desktop, start it and try again.");
         var error = r.StdErr.Trim();
         return Result.Fail($"docker compose up failed: {(error.Length > 0 ? error : r.StdOut.Trim())}");
     }
@@ -115,13 +125,21 @@ public sealed class DockerComposeService(ProcessRunner proc) : IDockerComposeSer
     }
 
     /// <summary>
-    /// Where the container's port is published. Reached as localhost (the default), only this PC can reach it - the sa
-    /// login with its default password isn't offered to the rest of the network. Another host in the settings (this
-    /// PC's address on the network, for a VM) publishes it on every network interface, as before.
+    /// Where the container's port is published, as compose's <c>ports</c> items. Reached as localhost (the default), only
+    /// this PC can reach it - the sa login with its default password isn't offered to the rest of the network - on both
+    /// loopback addresses: Windows resolves localhost to ::1 first, and SqlClient (DNN Manager's, and a site's) waits its
+    /// whole timeout there instead of going on to 127.0.0.1. Another host in the settings (this PC's address on the
+    /// network, for a VM) publishes it on every network interface, as before.
     /// </summary>
-    private static string PublishedOn(DockerOptions docker) =>
-        docker.ContainerIp.Trim() is var host && (host.Equals("localhost", StringComparison.OrdinalIgnoreCase) || host is "127.0.0.1" or ".")
-            ? "127.0.0.1:" : "";
+    internal static IReadOnlyList<string> PublishedOn(DockerOptions docker, bool ipv6)
+    {
+        var port = $"{docker.DefaultPort}:1433";
+        var local = docker.ContainerIp.Trim() is var host &&
+                    (host.Equals("localhost", StringComparison.OrdinalIgnoreCase) || host is "127.0.0.1" or "." or "::1");
+        if (!local) return [port];
+        // Without IPv6 on Windows, compose would fail on [::1] - and localhost is 127.0.0.1 only then anyway.
+        return ipv6 ? [$"127.0.0.1:{port}", $"[::1]:{port}"] : [$"127.0.0.1:{port}"];
+    }
 
     private static string Build(DockerOptions docker, bool withPassword)
     {
@@ -148,7 +166,7 @@ public sealed class DockerComposeService(ProcessRunner proc) : IDockerComposeSer
                   MSSQL_PID: {{Q(docker.MssqlPid)}}
                   MSSQL_COLLATION: {{Q(docker.Collation)}}
                 ports:
-                  - "{{PublishedOn(docker)}}{{docker.DefaultPort}}:1433"
+                  - {{string.Join("\n      - ", PublishedOn(docker, System.Net.Sockets.Socket.OSSupportsIPv6).Select(p => $"\"{p}\""))}}
                 volumes:
                   - {{Q(docker.VolumeName + ":/var/opt/mssql")}}
                 restart: unless-stopped
