@@ -212,7 +212,8 @@ public partial class GuidedTour : UserControl
             (x, y) = (hole.Left - Gap - card.Width, hole.Top);
         else
             (x, y) = (hole.Left + (hole.Width - card.Width) / 2, hole.Top + (hole.Height - card.Height) / 2);
-        Canvas.SetLeft(Callout, Math.Clamp(x, Edge, Math.Max(Edge, size.Width - card.Width - Edge)));
-        Canvas.SetTop(Callout, Math.Clamp(y, Edge, Math.Max(Edge, size.Height - card.Height - Edge)));
+        // On whole pixels: between two, its text is drawn across both - blurred.
+        Canvas.SetLeft(Callout, Math.Round(Math.Clamp(x, Edge, Math.Max(Edge, size.Width - card.Width - Edge))));
+        Canvas.SetTop(Callout, Math.Round(Math.Clamp(y, Edge, Math.Max(Edge, size.Height - card.Height - Edge))));
     }
 }

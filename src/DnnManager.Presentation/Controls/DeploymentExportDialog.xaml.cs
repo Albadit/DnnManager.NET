@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using DnnManager.Application;
 using DnnManager.Application.UseCases;
 using DnnManager.Presentation.Services;
 using Microsoft.Win32;
@@ -102,13 +103,11 @@ public partial class DeploymentExportDialog : Window
         if (!Path.IsPathFullyQualified(folder)) return @"Enter the folder's full path, e.g. C:\Deploy.";
         try
         {
-            var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
+            // A path Windows can't use throws here, for the message below.
+            Path.GetFullPath(folder);
             if (_directory.Length == 0) return null;
             // The site's folder itself, or any folder in it: the package would be part of the site it packs.
-            var site = Path.TrimEndingDirectorySeparator(Path.GetFullPath(_directory));
-            return full.Equals(site, StringComparison.OrdinalIgnoreCase) || full.StartsWith(site + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-                ? "Choose a folder outside the site's folder."
-                : null;
+            return SafePath.IsSameOrInside(folder, _directory) ? "Choose a folder outside the site's folder." : null;
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
         {

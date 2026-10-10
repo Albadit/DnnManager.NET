@@ -56,6 +56,30 @@ public sealed class ProjectDatabaseTests
     }
 
     [TestMethod]
+    public async Task ANewProject_NamedLikeOneRenamedSince_GetsALoginOfItsOwn_NotTheRenamedSitesLogin()
+    {
+        // "shop" was renamed "store": its web.config still signs in as dnn_shop.
+        var store = Site(Path.Combine(_run, "projects", "store"), "localhost,1433", "store", login: "dnn_shop");
+        var iis = new UntouchedIis();
+        iis.Sites["store"] = new IisSiteRuntime(1, "Started", "store", "Started", [], [], store);
+        var exported = Site(Path.Combine(_run, "exported"), "localhost,1433", "shop");
+        var zip = Path.Combine(_run, "shop.zip");
+        ZipFile.CreateFromDirectory(exported, zip);
+        var backup = Path.Combine(_run, "shop.bak");
+        await File.WriteAllTextAsync(backup, "a backup");
+        var sql = new RecordingSql("store");
+
+        var (result, reporter, _, _) = await RunAsync(sql, iis, (sp, r) => sp.GetRequiredService<ImportProjectUseCase>()
+            .ExecuteAsync(new ImportProjectRequest { ProjectName = "shop", ZipPath = zip, BackupFilePath = backup }, r, CancellationToken.None));
+
+        Assert.IsTrue(result.Success, result.Error + Environment.NewLine + reporter.Text);
+        // A new password for dnn_shop would lock "store" out - and the undo of a failed run would drop its login.
+        Assert.IsFalse(sql.Calls.Any(c => c.StartsWith("Login dnn_shop ", StringComparison.Ordinal)), string.Join(", ", sql.Calls));
+        CollectionAssert.Contains(sql.Calls, "Login dnn_shop_2 shop");
+        StringAssert.Contains(await File.ReadAllTextAsync(Path.Combine(_run, "projects", "shop", "web.config")), "User ID=dnn_shop_2");
+    }
+
+    [TestMethod]
     public async Task Host_DoesNotTakeOverTheDatabaseOfAnotherSite()
     {
         // "copy" is a copy of "shop"'s folder: both web.configs name [shop] - written two ways.
@@ -156,13 +180,49 @@ public sealed class ProjectDatabaseTests
         Assert.IsFalse(sql.Calls.Contains("Drop shop"), string.Join(", ", sql.Calls));
     }
 
+    [TestMethod]
+    public async Task Restore_AsksBeforeSigningInAsYouToAServerWebConfigNames_AndChangesNothingOnNo()
+    {
+        // The site's web.config (its app pool can change it) names a server elsewhere, with Windows authentication.
+        var site = Path.Combine(_run, "projects", "shop");
+        Directory.CreateDirectory(site);
+        File.WriteAllText(Path.Combine(site, "web.config"), """
+            <?xml version="1.0" encoding="utf-8"?>
+            <configuration>
+              <connectionStrings>
+                <add name="SiteSqlServer" connectionString="Data Source=sql.elsewhere.example;Initial Catalog=shop;Integrated Security=True" providerName="System.Data.SqlClient" />
+              </connectionStrings>
+            </configuration>
+            """);
+        var backupFiles = Path.Combine(_run, "backup-files");
+        Directory.CreateDirectory(backupFiles);
+        File.WriteAllText(Path.Combine(backupFiles, "Default.aspx"), "backup");
+        var zip = Path.Combine(_run, "shop.zip");
+        ZipFile.CreateFromDirectory(backupFiles, zip);
+        var bacpac = Path.Combine(_run, "shop.bacpac");
+        File.WriteAllText(bacpac, "not read");
+        var sql = new RecordingSql("shop");
+        var iis = new UntouchedIis();
+
+        var (result, reporter, prompt, _) = await RunAsync(sql, iis, (sp, r) => sp.GetRequiredService<RestoreBackupUseCase>()
+            .ExecuteAsync(new RestoreBackupRequest { SiteName = "shop", Directory = site, SiteZip = zip, Database = bacpac }, r, CancellationToken.None));
+
+        Assert.IsFalse(result.Success, reporter.Text);
+        StringAssert.Contains(result.Error, "Not signed in to sql.elsewhere.example");
+        Assert.IsTrue(prompt.Questions.Any(q => q.Contains("sql.elsewhere.example", StringComparison.Ordinal) && q.Contains("Windows account", StringComparison.Ordinal)),
+            string.Join(Environment.NewLine, prompt.Questions));
+        Assert.AreEqual(0, iis.Changes.Count, string.Join(", ", iis.Changes));
+        Assert.AreEqual(0, sql.Calls.Count, string.Join(", ", sql.Calls));
+        Assert.IsFalse(File.Exists(Path.Combine(site, "Default.aspx")), "The backup's files went in although nothing should have changed.");
+    }
+
     // ─── The run ──────────────────────────────────────────────────────────
 
     /// <summary>A DNN site's folder with a web.config naming <paramref name="database"/> on <paramref name="server"/>.</summary>
-    private static string Site(string folder, string server, string database)
+    private static string Site(string folder, string server, string database, string login = "sa")
     {
         Directory.CreateDirectory(folder);
-        var connection = $"Data Source={server};Initial Catalog={database};User ID=sa;Password=Not-A-Password-1";
+        var connection = $"Data Source={server};Initial Catalog={database};User ID={login};Password=Not-A-Password-1";
         File.WriteAllText(Path.Combine(folder, "web.config"), $"""
             <?xml version="1.0" encoding="utf-8"?>
             <configuration>

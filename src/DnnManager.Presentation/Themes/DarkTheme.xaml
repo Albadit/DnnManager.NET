@@ -10,6 +10,7 @@
     <SolidColorBrush x:Key="CardBorder"       Color="#2B2B2B" />  <!-- panel.border -->
     <SolidColorBrush x:Key="InputBg"          Color="#313131" />  <!-- input.background -->
     <SolidColorBrush x:Key="InputBorder"      Color="#6B6B6B" />  <!-- input.border -->
+    <SolidColorBrush x:Key="FieldBorder"      Color="#3C3C3C" />  <!-- text boxes and drop-downs: VS Code Dark Modern's input.border - focus shows FocusBorder -->
     <SolidColorBrush x:Key="HoverBg"          Color="#2A2D2E" />  <!-- list.hoverBackground -->
     <SolidColorBrush x:Key="SelectionBg"      Color="#04395E" />  <!-- list.activeSelectionBackground -->
     <SolidColorBrush x:Key="HeaderBg"         Color="#181818" />  <!-- sideBarSectionHeader.background -->
@@ -18,7 +19,9 @@
     <SolidColorBrush x:Key="ScrollThumbHover" Color="#B3646464" /> <!-- scrollbarSlider.hoverBackground -->
 
     <SolidColorBrush x:Key="TextPrimary"      Color="#CCCCCC" />  <!-- foreground -->
-    <SolidColorBrush x:Key="TextMuted"        Color="#9D9D9D" />  <!-- descriptionForeground -->
+    <!-- A touch lighter than VS Code's descriptionForeground (#9D9D9D): 4.5:1 also on a selected row (SelectionBg) and
+         the selected sidebar entry (WCAG 1.4.3). -->
+    <SolidColorBrush x:Key="TextMuted"        Color="#A3A3A3" />  <!-- descriptionForeground, lighter -->
     <SolidColorBrush x:Key="ErrorText"        Color="#FF6B61" />  <!-- errorForeground -->
     <SolidColorBrush x:Key="SuccessText"      Color="#73C991" />  <!-- testing.iconPassed -->
     <!-- Keep warm's flame while a site is kept warm. -->
@@ -27,6 +30,9 @@
     <SolidColorBrush x:Key="Accent"           Color="#0078D4" />  <!-- button.background, focusBorder -->
     <!-- The border of a field or check box under the mouse or with the focus: 3:1 against the field (WCAG 1.4.11). -->
     <SolidColorBrush x:Key="FocusBorder"      Color="#3794FF" />  <!-- a focusBorder with 3:1 against the fields -->
+    <!-- Text that is a link or acts like one (LinkButton, links in text, accent icons in rows): 4.5:1 on the cards, a
+         hovered and a selected row - the button blue (Accent) has 3.6:1 on the page and 2.7:1 on a selected row. -->
+    <SolidColorBrush x:Key="LinkFg"           Color="#4DAAFC" />  <!-- textLink.foreground -->
     <!-- Text and marks on an accent fill: a primary button, a ticked check box, a switch that is on. -->
     <SolidColorBrush x:Key="OnAccent"         Color="#FFFFFF" />
     <SolidColorBrush x:Key="AccentHover"      Color="#026EC1" />  <!-- button.hoverBackground -->
@@ -65,8 +71,14 @@
 
     <SolidColorBrush x:Key="LogBg"            Color="#181818" />  <!-- panel.background -->
     <!-- Search (Ctrl+F in the bottom panel): every match, and the current one. -->
-    <SolidColorBrush x:Key="SearchMatchBg"    Color="#55EA5C00" /> <!-- editor.findMatchHighlightBackground -->
-    <SolidColorBrush x:Key="SearchCurrentBg"  Color="#9E6A03" />  <!-- editor.findMatchBackground -->
+    <!-- Every match: opaque, under the text - VS Code's findMatchHighlightBackground (#55EA5C00, #5E2F10 on the panel)
+         darker, so text that reads at 5.5:1 or more on the panel still does at 4.5:1 on a match (LogFg 8.9:1, LogMuted
+         5.3:1, OutDim 4.7:1); it stands out from the panel by its colour (1.24:1). -->
+    <SolidColorBrush x:Key="SearchMatchBg"    Color="#481E04" />  <!-- editor.findMatchHighlightBackground, darker -->
+    <!-- The current one darker than VS Code's findMatchBackground (#9E6A03, 2.9:1 under the text): 6.2:1 under LogFg -
+         and outlined (SearchCurrentBorder), so it stands out from the other matches by more than its colour. -->
+    <SolidColorBrush x:Key="SearchCurrentBg"  Color="#3F2A00" />  <!-- told apart by SearchCurrentBorder; muted text on it 5.0:1 -->
+    <SolidColorBrush x:Key="SearchCurrentBorder" Color="#CCA700" /> <!-- editorWarning.foreground -->
     <SolidColorBrush x:Key="LogHeaderBg"      Color="#181818" />  <!-- panel.background -->
     <SolidColorBrush x:Key="LogHeaderFg"      Color="#FFFFFF" />  <!-- list.activeSelectionForeground -->
     <SolidColorBrush x:Key="LogFg"            Color="#CCCCCC" />  <!-- terminal.foreground -->

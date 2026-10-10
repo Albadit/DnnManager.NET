@@ -100,7 +100,7 @@ internal static partial class MarkdownDocument
             {
                 var target = link(m.Groups["url"].Value);
                 var hyperlink = new Hyperlink(new Run(m.Groups["text"].Value)) { ToolTip = target };
-                hyperlink.SetResourceReference(TextElement.ForegroundProperty, "Accent");
+                hyperlink.SetResourceReference(TextElement.ForegroundProperty, "LinkFg");
                 hyperlink.Click += (_, _) => Shell.Open(target);
                 inlines.Add(hyperlink);
             }

@@ -70,7 +70,7 @@
         <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1" Padding="28,14,20,14">
             <DockPanel>
                 <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="{StaticResource GlyphClose}" FontSize="12"
-                        Foreground="{DynamicResource Accent}" ToolTip="Close (Esc)" Click="Close_Click" />
+                        Foreground="{DynamicResource LinkFg}" ToolTip="Close (Esc)" Click="Close_Click" />
                 <TextBlock Text="Settings" FontSize="{DynamicResource TextLarge}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" />
             </DockPanel>
         </Border>
@@ -152,16 +152,18 @@
                         <StackPanel x:Name="GeneralPanel">
                             <TextBlock Style="{StaticResource CategoryTitle}" Text="General" />
 
+                            <!-- The hint below says why it can't be ticked, when it can't: screen readers get it with the box. -->
                             <CheckBox x:Name="StartAtSignIn" Content="Start DNN Manager when you sign in to your computer" Margin="0,18,0,0"
-                                      IsEnabled="False" Click="StartAtSignIn_Click" />
+                                      IsEnabled="False" Click="StartAtSignIn_Click"
+                                      AutomationProperties.HelpText="{Binding Text, ElementName=StartAtSignInHint}" />
                             <TextBlock x:Name="StartAtSignInHint" Style="{StaticResource Hint}" Margin="22,2,0,0"
-                                       Text="With its Administrator rights, without Windows asking for them at every sign-in (a scheduled task)." />
+                                       Text="As Administrator, without a prompt at every sign-in (a scheduled task)." />
                             <CheckBox x:Name="KeepRunningWhenClosed" Content="Keep DNN Manager running when you close the window" Margin="0,12,0,0" />
                             <CheckBox x:Name="CheckForUpdatesAtStart" Content="Look for a newer DNN Manager when it starts" Margin="0,12,0,0" />
                             <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
-                                       Text="Asks GitHub once, a moment after the start - it is sent this PC's address and the name DnnManager, nothing else. Off, only Settings → About asks, when you click Check for updates." />
+                                       Text="Asks GitHub once at start. Off: only when you check for updates yourself." />
                             <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
-                                       Text="Closing the window hides it: running operations go on and your sites are still followed and kept warm. The DNN Manager icon in the notification area (by the clock) opens it again - or right-click it to quit." />
+                                       Text="Closing hides it by the clock; operations and keep warm go on. Right-click its icon to quit." />
 
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Scale and font size" />
                             <StackPanel Orientation="Horizontal">
@@ -175,20 +177,20 @@
                                 </StackPanel>
                             </StackPanel>
                             <TextBlock Style="{StaticResource Hint}"
-                                       Text="UI scale makes everything bigger or smaller - text, icons and spacing - like zooming in a browser. Font size changes only the text; the terminal has its own below. Both apply when you save." />
+                                       Text="UI scale zooms everything; font size changes only the text. Applies when you save." />
 
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Animations" />
                             <CheckBox x:Name="Animations" Content="Play animations" Click="Animations_Click" />
                             <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
-                                       Text="The panel and the sidebar slide, toasts and menus fade, switches slide, and a site that is starting or stopping pulses. Off, everything changes at once. They are off while Windows' animation effects are off too (Settings → Accessibility → Visual effects). Applies when you save." />
+                                       Text="Slides and fades. Also off while Windows' animation effects are off." />
 
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Terminal" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4"
-                                       Text="Shells on the Terminal tab of the panel at the bottom of the window - opened with its + button. They run with Administrator rights, like DNN Manager." />
+                                       Text="Terminals run as you. The arrow beside + opens an Administrator one." />
                             <StackPanel x:Name="TerminalOptions">
                                 <TextBlock Style="{StaticResource FieldLabel}" Text="Default shell" />
                                 <ComboBox AutomationProperties.Name="Default shell" x:Name="DefaultShell" Width="240" HorizontalAlignment="Left" SelectionChanged="Terminal_Changed" />
-                                <TextBlock Style="{StaticResource Hint}" Text="What + opens; the arrow next to it offers the other shells installed on this PC." />
+                                <TextBlock Style="{StaticResource Hint}" Text="What + opens." />
                                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                     <StackPanel>
                                         <TextBlock Style="{StaticResource FieldLabel}" Text="Font family" />
@@ -278,7 +280,7 @@
 
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Keep warm" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4"
-                                       Text="For the sites switched on with the flame in their row: while DNN Manager runs, it requests them before IIS would shut them down for being idle, and warms them up again after a recycle - their next page opens at once. A site's overview (IIS) can give it values of its own." />
+                                       Text="Sites with the flame on are requested before IIS idles them, so their next page opens at once." />
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="180" />
@@ -301,7 +303,14 @@
                                 </StackPanel>
                             </Grid>
                             <TextBlock Style="{StaticResource Hint}"
-                                       Text="The interval is the longest wait between two requests - shorter for a site whose app pool shuts down sooner, and no request is sent while a site is in use anyway. The keep-alive page is DNN's own KeepAlive.aspx: tiny, no database work (/ keeps the home page's caches warm too, as Azure's Always On does). The warm-up page is requested when a site has no worker process - after a recycle, or IIS starting." />
+                                       Text="Keep-alive is requested every interval; warm-up after a recycle or an IIS start." />
+
+                            <TextBlock Style="{StaticResource GroupLabel}" Text="Backups" />
+                            <TextBlock x:Name="BackupKeepDaysLabel" Style="{StaticResource FieldLabel}" Text="Keep backups and deployment packages" />
+                            <ComboBox x:Name="BackupKeepDays" Width="280" HorizontalAlignment="Left" SelectionChanged="BackupKeepDays_Changed"
+                                      AutomationProperties.Name="Keep backups and deployment packages"
+                                      AutomationProperties.HelpText="{Binding Text, ElementName=BackupsHint}" />
+                            <TextBlock x:Name="BackupsHint" Style="{StaticResource Hint}" />
                         </StackPanel>
 
                         <StackPanel x:Name="ReleasesPanel" Visibility="Collapsed">
@@ -319,7 +328,7 @@
                         <StackPanel x:Name="SqlPanel" Visibility="Collapsed">
                             <TextBlock Style="{StaticResource CategoryTitle}" Text="Database server" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0"
-                                       Text="The SQL Server new projects get their database on - named like the project. Only the chosen connection type's settings are saved; projects you already have keep the database they have." />
+                                       Text="Where new projects get their database. Existing projects keep theirs." />
 
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Connection type" />
                             <RadioButton x:Name="ServerContainer" GroupName="ServerType" Tag="container" Checked="ServerType_Checked">
@@ -374,7 +383,7 @@
                                     </StackPanel>
                                 </Grid>
                                 <TextBlock Style="{StaticResource Hint}"
-                                           Text="The Docker container publishes SQL Server on this port; DNN Manager signs in to it with this username (sa by default). Set up docker-compose creates the container with sa and this password. Test the connection below." />
+                                           Text="Set up docker-compose makes the container with this port and sa password." />
                             </StackPanel>
 
                             <StackPanel x:Name="ServerFields">
@@ -460,7 +469,7 @@
                         <StackPanel x:Name="IisPanel" Visibility="Collapsed">
                             <TextBlock Style="{StaticResource CategoryTitle}" Text="IIS" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0"
-                                       Text="The Windows features DNN Manager needs - Test shows which are enabled, Set up IIS enables the missing ones, Edit… adds or removes features. These buttons act at once - nothing here waits for Save." />
+                                       Text="The Windows features DNN Manager needs. These buttons act at once, without Save." />
                             <c:IisCard x:Name="IisCard" Margin="0,16,0,0" />
                         </StackPanel>
 
@@ -468,7 +477,7 @@
                         <StackPanel x:Name="KeyboardPanel" Visibility="Collapsed">
                             <TextBlock Style="{StaticResource CategoryTitle}" Text="Keyboard shortcuts" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,14"
-                                       Text="What each key does, and the part of DNN Manager it belongs to. Select a shortcut (or press Enter on it) and press the new keys - Esc cancels, Backspace removes it. Changes apply and are saved at once, no Save needed. Ctrl+Shift+P lists every command to run." />
+                                       Text="Click a shortcut and press the new keys - Esc cancels, Backspace removes it. Saved at once." />
                             <DockPanel Margin="0,0,0,12">
                                 <Button x:Name="ResetAllShortcutsButton" DockPanel.Dock="Right" Content="Reset all to defaults" Margin="12,0,0,0"
                                         Click="ResetAllShortcuts_Click" ToolTip="Reset all to defaults" />
@@ -550,7 +559,7 @@
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource HelpTitle}" Text="Help for the page you are on" />
                                     <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
-                                               Text="Press F1, or click the ? at the top right of the window, to see what the page you are on is for and what its buttons do. Pointing at a button with the mouse says what it does." />
+                                               Text="F1, or the ? at the top right, explains the page you are on." />
                                 </StackPanel>
                             </Border>
                             <!-- Not for a new user (MainWindow.IsNewUser): release notes of changes they never saw confuse. -->

@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Automation;
 using System.Windows.Media;
 using System.Windows.Threading;
 using DnnManager.Application.Configuration;
@@ -41,6 +42,8 @@ public partial class TerminalPanel : UserControl
         public IReadOnlyList<KeyValuePair<string, string>> Details { get; init; } = [];
         /// <summary>Which icon it has: "powershell", "cmd" or "bash" (ShellIcon).</summary>
         public string Icon { get; init; } = "powershell";
+        /// <summary>Runs with administrator rights: marked in its name, and warned about above the terminal.</summary>
+        public bool IsAdministrator { get; init; }
         public required TerminalSession Session { get; init; }
         public required TerminalView View { get; init; }
 
@@ -212,24 +215,42 @@ public partial class TerminalPanel : UserControl
     /// Opens a terminal with <paramref name="shell"/> (the default one when null) in <paramref name="directory"/>
     /// (the projects folder when null) and shows it.
     /// </summary>
+    /// <remarks>
+    /// A terminal runs as the signed-in user, without DNN Manager's administrator rights - unless the shell is one of
+    /// <see cref="TerminalService.AdministratorShells"/> (<see cref="NewAdministratorTerminal"/>). When it can't start
+    /// without them, that is said, and nothing starts in its place.
+    /// </remarks>
     public void NewTerminal(TerminalShell? shell = null, string? directory = null)
     {
         shell ??= _service.DefaultShell;
+        if (shell.Refusal is { } refusal)
+        {
+            Dialogs.Error(refusal);
+            return;
+        }
         var inProject = directory is not null;
         directory ??= _service.WorkingDirectory;
         if (!Directory.Exists(directory)) directory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
-        // "PowerShell", "PowerShell (2)"… - or the folder's name for a terminal opened on a project.
-        var name = inProject ? $"{Path.GetFileName(directory.TrimEnd('\\'))} - {shell.Name}" : shell.Name;
+        // "PowerShell", "PowerShell (2)"… - or the folder's name for a terminal opened on a project; "Administrator: …"
+        // for one with those rights, as Windows titles its windows.
+        var shellName = shell.AsAdministrator ? $"Administrator: {shell.Name}" : shell.Name;
+        var name = inProject ? $"{Path.GetFileName(directory.TrimEnd('\\'))} - {shellName}" : shellName;
         var title = name;
         for (var n = 2; _tabs.Any(t => t.Title == title); n++) title = $"{name} ({n})";
 
         TerminalSession session;
         try
         {
-            session = new TerminalSession(shell.CommandLine, directory, 100, 24);
+            session = new TerminalSession(shell.CommandLine, directory, 100, 24, shell.AsAdministrator);
         }
-        catch (Exception ex) when (ex is Win32Exception or IOException or ArgumentException)
+        catch (Infrastructure.Terminal.UnelevatedUnavailableException ex)
+        {
+            Dialogs.Error($"{ex.Message}{Environment.NewLine}{Environment.NewLine}Nothing was started with administrator rights in its place - " +
+                          "for a terminal with them, choose New Administrator terminal (the arrow beside +).");
+            return;
+        }
+        catch (Exception ex) when (ex is Win32Exception or IOException or ArgumentException or InvalidOperationException)
         {
             Dialogs.Error($"Could not start {shell.Name}: {ex.Message}");
             return;
@@ -240,6 +261,7 @@ public partial class TerminalPanel : UserControl
         var details = new List<KeyValuePair<string, string>>
         {
             new("Terminal", shell.Name),
+            new("Runs as", shell.AsAdministrator ? "Administrator - every command has DNN Manager's administrator rights" : "You, without administrator rights"),
             new("Process ID", session.ProcessId.ToString()),
             new("Program", shell.ExePath),
         };
@@ -249,7 +271,7 @@ public partial class TerminalPanel : UserControl
         var tab = new Tab
         {
             Title = title, Description = "Click again or Enter: type in it · Del: close it · F2 or double-click: rename · drag or Alt+↑/↓: move",
-            Details = details, Session = session, View = view, Icon = IconOf(shell)
+            Details = details, Session = session, View = view, Icon = IconOf(shell), IsAdministrator = shell.AsAdministrator
         };
         // The shell ended by itself ("exit"): its tab goes too.
         session.Exited += (_, _) => Close(tab);
@@ -260,6 +282,12 @@ public partial class TerminalPanel : UserControl
         if (_pane != Pane.Terminal) ShowPane(Pane.Terminal);
         ShowTerminalState();
     }
+
+    /// <summary>
+    /// Opens a terminal with administrator rights - the shell the settings name when it may run so, otherwise Command
+    /// Prompt - in <paramref name="directory"/> (the projects folder when null).
+    /// </summary>
+    public void NewAdministratorTerminal(string? directory = null) => NewTerminal(_service.DefaultAdministratorShell, directory);
 
     /// <summary>The icon of <paramref name="shell"/>: PowerShell (5 and 7), Command Prompt, or Bash.</summary>
     private static string IconOf(TerminalShell shell) => shell.Key switch
@@ -325,6 +353,8 @@ public partial class TerminalPanel : UserControl
         var none = _tabs.Count == 0;
         NoTerminal.Visibility = none ? Visibility.Visible : Visibility.Collapsed;
         TerminalScroll.Visibility = none ? Visibility.Collapsed : Visibility.Visible;
+        // One line over an Administrator terminal: what is typed there runs with DNN Manager's rights.
+        AdministratorWarning.Visibility = ShownTab is { IsAdministrator: true } ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>Puts the keyboard in the shown terminal, once it is laid out.</summary>
@@ -345,22 +375,38 @@ public partial class TerminalPanel : UserControl
 
     private void New_Click(object sender, RoutedEventArgs e) => NewTerminal();
 
-    // The installed shells, the default one marked.
+    // The installed shells, the default one marked - as you; then the same as Administrator, those that may not run so
+    // greyed with why.
     private void Shells_Click(object sender, RoutedEventArgs e)
     {
         var menu = new ContextMenu { PlacementTarget = ShellsButton, Placement = PlacementMode.Bottom };
         foreach (var shell in _service.Shells)
+            menu.Items.Add(ShellItem(shell, shell == _service.DefaultShell ? $"{shell.Name}  (default)" : shell.Name));
+        menu.Items.Add(new Separator());
+        var administrator = new MenuItem
         {
-            var item = new MenuItem
-            {
-                Header = shell == _service.DefaultShell ? $"{shell.Name}  (default)" : shell.Name,
-                ToolTip = shell.ExePath,
-                Icon = new ContentControl { Content = IconOf(shell), ContentTemplate = (DataTemplate)FindResource("ShellIcon"), Focusable = false }
-            };
-            item.Click += (_, _) => NewTerminal(shell);
-            menu.Items.Add(item);
-        }
+            Header = "New Administrator terminal",
+            ToolTip = "Every command typed in it runs with DNN Manager's administrator rights - only for what needs them."
+        };
+        foreach (var shell in _service.AdministratorShells) administrator.Items.Add(ShellItem(shell, shell.Name));
+        menu.Items.Add(administrator);
         menu.IsOpen = true;
+    }
+
+    private MenuItem ShellItem(TerminalShell shell, string header)
+    {
+        var item = new MenuItem
+        {
+            Header = header,
+            ToolTip = shell.Refusal ?? shell.ExePath,
+            IsEnabled = shell.Refusal is null,
+            Icon = new ContentControl { Content = IconOf(shell), ContentTemplate = (DataTemplate)FindResource("ShellIcon"), Focusable = false }
+        };
+        // Greyed, it still says why - to the mouse and to a screen reader.
+        ToolTipService.SetShowOnDisabled(item, true);
+        if (shell.Refusal is not null) AutomationProperties.SetHelpText(item, shell.Refusal);
+        item.Click += (_, _) => NewTerminal(shell);
+        return item;
     }
 
 

@@ -38,7 +38,15 @@ They need nothing installed and take about 40 seconds:
 | `SearchQueryTests.cs` | The panel's search stops within its time on a pattern that backtracks for ever |
 | `AccessibilityTests.cs` | Names for password fields and icon buttons, the Logs view read by a screen reader, both themes with the same colours, a Contrast theme's colours, and every control that needs nothing else loading |
 | `PagesLoadTests.cs` | The main window and every page, made as the app makes them - their XAML, bindings and resources - over a stand-in IIS |
-| `LayeringTests.cs` | The layers' rule: Domain uses nothing of DNN Manager's, Application no Infrastructure or Presentation, Infrastructure no Presentation |
+| `LayeringTests.cs` | The layers' rule: Domain uses nothing of DNN Manager's, Application no Infrastructure or Presentation, Infrastructure no Presentation; Presentation only the Infrastructure namespaces on its list; `Process.Start` and `new ProcessStartInfo` only in the files allowed to start a process (`ProcessRunner`, `ElevatedStart`, DNN Manager's own restarts and update) - a source scan |
+| `ElevationBoundaryTests.cs` | What the user's account can change doesn't widen DNN Manager's rights: the projects folder never a system folder, release sources and names that go into SQL held to their rules, `DNNMANAGER_*` overrides held to the saved settings' rules, the folder guard leaving a system folder alone, a restore or **Clear website cache** never going through a junction, a DNN package that isn't GitHub's file refused, IIS feature names only, an elevated program getting none of the user's code-loading variables, which servers count as this PC, IIS's rights lowered on an older site |
+| `SecurityHardeningTests.cs` | `SafePath` and `SafeZip`: `Under` strictly inside, links found on the way, `DeleteTree` unlinking a junction, a hard-linked file replaced rather than written into, zip entries on another file's stream or outside refused, short names (`WEB~1.CON`), a zip bigger than the disk refused, a package with an unsafe path writing nothing; a `web.config` with a DTD not read; the SHA-256s kept for offline use; a redirect to http said so; this PC's addresses cached; signing in as you only on this PC and the chosen server; a program found by its own path; a quick question's time limit; a terminal without administrator rights running and answering |
+| `SettingsResilienceTests.cs` | Saved values that aren't allowed going back to their defaults (a login taking its authentication along), settings of a newer version still stopping the start, overrides normalised and held to every rule, the hostname suffix's RFC 1123 labels, the projects folder's refused places, Docker names, old backups and packages deleted - never through a link -, **Old settings files** cleaned up, a data folder in OneDrive or on a share told apart |
+| `ReliabilityUndoTests.cs` | Undo steps that never return given up on, a step honouring its token cancelled after its time, **Stop undoing** naming what is left, `Pending` (the unfinished-operation record), a cancelled run ending its process, a restore `.zip` with a path outside the site or a link refused before anything is written, only "file in use" tried again |
+| `SqlTextTests.cs` | `SqlText`'s quoting (`Identifier`, `Literal`, `EscapeLike`), `ConnectionStrings`' certificate policy (another computer must show one Windows trusts), LocalDB and Windows authentication, a server's backup folder used only when local, stopping a tagged session (`KILL`), a drop retried only while the database is in use, Docker names, the pinned SQL image and its health check without a password on its command line |
+| `UsabilityTests.cs` | Contrast of text, links and focus rings in both themes (WCAG's ratio), icon buttons taking the keyboard, the password eye's name, a field's error as its help text, the toast queue (none lost, a passing one first, the next shown when one is closed), the Output tab's cap on a long stage (its first and newest lines, every warning) |
+| `LauncherEnvironmentTests.cs` | The launcher's environment: every .NET variable dropped whatever its case, diagnostics kept off, the launcher used only beside an installed `DnnManager.exe`, the sign-in task starting the launcher and counting as the exe beside it |
+| `OpsLogAndUpdateTests.cs` | The log file's batches (warnings, errors and an operation's end at once; the rest written on close), the 200 MB cap (the oldest first), a failed update's logs kept together (the newest two) and **Show log** pointing at them |
 | `DailyLogFileTests.cs` | The day's log file (`dnnmanager-yyyymmdd.log`, the old name deleted) survives being deleted; warnings and errors reach it once, with their stack trace |
 | `ProcessSamplerTests.cs` | Worker-process memory read from the process handle |
 | `TerminalScrollbackTests.cs` | The terminal's scrollback keeps the newest lines in order |
@@ -117,6 +125,11 @@ pure interfaces, and the stand-ins are in its `Support\` folder
 (`UntouchedIis`, `TestPrompt` - which never says yes -, `RecordingReporter`,
 IIS Express as `IIisManager`…). A test that needs IIS Express, LocalDB or
 Docker gets `[TestCategory("Integration")]` and is inconclusive without them.
+A test outside that category must never be skipped: CI fails the run when one
+is, and when more integration tests are skipped than the repository variable
+`CI_MAX_SKIPPED_TESTS` allows (14 when unset) - see
+[the build workflow](releasing.md#the-build-workflow). Raise it when you add an
+integration test the runner can't run.
 
 A test that builds WPF controls runs them through `Support\WpfUi.Run`: one UI
 thread for the whole run, with DNN Manager's own `App` and App.xaml's resources -

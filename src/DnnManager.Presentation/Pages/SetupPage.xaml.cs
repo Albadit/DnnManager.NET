@@ -577,8 +577,15 @@ public partial class SetupPage : UserControl, IRefreshable
         // An empty name isn't an error yet - the database name follows it.
         DatabaseError.Text = problem is not null ? (started || _dbEdited ? problem : "")
             : _dbAnswer == DbAnswer.Exists && Automatic ? $"Database {database} already exists - choose another name, or remove that database first."
-            : _dbAnswer == DbAnswer.NoAnswer ? $"Can't check the database on {DbServerBox.Text.Trim()}: {_dbAnswerDetail} Asked again every {AskAgainAfter.TotalSeconds:0} seconds."
+            : _dbAnswer == DbAnswer.NoAnswer
+                ? _dbAnswerDetail?.Contains("Login failed", StringComparison.OrdinalIgnoreCase) == true
+                    ? $"SQL Server at {DbServerBox.Text.Trim()} refuses the login."
+                    : $"Can't reach SQL Server at {DbServerBox.Text.Trim()}."
             : "";
+        // One line here; SqlClient's own words on hover (and asked again every few seconds).
+        DatabaseError.ToolTip = _dbAnswer == DbAnswer.NoAnswer && problem is null
+            ? $"{_dbAnswerDetail}\n\nAsked again every {AskAgainAfter.TotalSeconds:0} seconds."
+            : null;
         DatabaseError.Visibility = DatabaseError.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         var answer = problem is not null ? "" : _dbAnswer switch
         {
@@ -587,12 +594,11 @@ public partial class SetupPage : UserControl, IRefreshable
             DbAnswer.Exists when !Automatic => $"Database {database} already exists - the setup asks whether to drop it or install into it. ",
             _ => ""
         };
-        DatabaseHint.Text = answer + (_dbType == LocalDbType
-                ? $@"The site's own App_Data\{DatabaseConnection.LocalDbFileName}, attached by LocalDB. "
-                : "Named like the project until you type another name. ") +
-            (_dbEdited ? "Changed for this project only - Settings → Database server stays as it is."
-                : "From Settings → Database server - change it here for this project only.") +
-            " It is tested before anything is created.";
+        DatabaseHint.Text = (answer + (_dbType == LocalDbType
+                ? $@"The site's own App_Data\{DatabaseConnection.LocalDbFileName}. "
+                : "") +
+            (_dbEdited ? "For this project only." : "")).Trim();
+        DatabaseHint.Visibility = DatabaseHint.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // ─── State and running ────────────────────────────────────────────────

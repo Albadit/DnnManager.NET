@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    DnnManager-launcher.exe: starts DnnManager.exe from its own folder with .NET's variables taken out of the environment
+    (src/DnnManager.Infrastructure/Startup/LaunchEnvironment.cs). The sign-in task starts it, and so does Windows'
+    administrator prompt when DNN Manager asks for its rights (AdminElevation) - both would otherwise start DNN Manager,
+    elevated, with whatever the user's environment tells CoreCLR to load before Main. Published with Native AOT: a
+    native exe without CoreCLR, which has no profiling API to load a profiler with, and no EventPipe or diagnostic port
+    with EventSourceSupport off (https://learn.microsoft.com/dotnet/core/deploying/native-aot/diagnostics).
+
+    Only an installed DNN Manager has it (src/DnnManager.Installer/build.ps1 publishes it into Setup); a portable one
+    starts as before. Native AOT needs the C++ build tools (MSVC's linker) to publish; a plain build doesn't.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <AssemblyName>DnnManager-launcher</AssemblyName>
+    <RootNamespace>DnnManager.Launcher</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <!-- No EventPipe in the exe, so no diagnostic port or EventPipe file either. -->
+    <EventSourceSupport>false</EventSourceSupport>
+    <StackTraceSupport>false</StackTraceSupport>
+    <DebuggerSupport>false</DebuggerSupport>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <DebugType>none</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+
+    <!-- Windows' administrator prompt shows a signed exe's description: it asks for DNN Manager. -->
+    <AssemblyTitle>DNN Manager</AssemblyTitle>
+    <Product>DNN Manager</Product>
+    <Company>Albadit</Company>
+    <ApplicationIcon>..\DnnManager.Presentation\Assets\dnn.ico</ApplicationIcon>
+    <!-- A release passes its own (-p:Version, -p:FileVersion), as for DnnManager.exe. -->
+    <Version Condition="'$(Version)' == ''">0.0.0</Version>
+
+    <!-- The packages (the Native AOT compiler among them) are the ones in packages.lock.json, with their hashes. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The environment it starts DNN Manager with - the same code the app's tests check. -->
+    <Compile Include="..\DnnManager.Infrastructure\Startup\LaunchEnvironment.cs" Link="LaunchEnvironment.cs" />
+  </ItemGroup>
+
+</Project>

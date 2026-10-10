@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 namespace DnnManager.Presentation;
 
 /// <summary>
-/// Starts a program as the signed-in user - not with DNN Manager's Administrator rights: handed to the desktop's shell
+/// Starts a program as the signed-in user - not with DNN Manager's administrator rights: handed to the desktop's shell
 /// (Explorer, which runs as the user), as Windows' own "run as the user" does. For programs DNN Manager opens for the
 /// user (an editor), which have no need of its rights - and which, installed in the user's own folders, any program of
 /// theirs could have changed.

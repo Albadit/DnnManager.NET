@@ -115,8 +115,7 @@ public partial class IisFeaturesDialog : Window
             var name = row.FeatureName;
             if (name.Length == 0)
                 return row.Label.Text.Trim().Length == 0 ? "Fill in or remove the empty row." : $"'{row.FeatureLabel}' needs its Windows feature name.";
-            // What dism and Enable-WindowsOptionalFeature know: letters, digits, '-', '_' and '.'.
-            if (!name.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.'))
+            if (!SettingRules.IsIisFeatureName(name))
                 return $"'{name}' isn't a Windows feature name: letters, digits, '-', '_' and '.' only.";
             if (!seen.Add(name)) return $"{name} is there twice.";
         }

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DnnManager.Infrastructure.Processes;
 
 namespace DnnManager.Infrastructure.Updates;
 
@@ -26,6 +27,11 @@ public sealed record UpdatePlan
     public required string LogFile { get; init; }
     /// <summary>Where the helper writes the <see cref="UpdateResult"/> the started DNN Manager reads.</summary>
     public required string ResultFile { get; init; }
+    /// <summary>
+    /// When the update fails: where the helper keeps its log and Setup's (the user's logs folder) - the update's own
+    /// folder is cleaned up after the next start. Null: not kept (a plan of 1.8.1 or older has none).
+    /// </summary>
+    public string? FailedLogFile { get; init; }
 
     public void Write(string path) => File.WriteAllText(path, JsonSerializer.Serialize(this, UpdateJson.Options));
 
@@ -79,7 +85,12 @@ public static class UpdateHelper
         UpdatePlan plan;
         try { plan = UpdatePlan.Read(args[1]); }
         catch (Exception) { return 2; }
-        return Run(plan, start => Process.Start(start), Watch, TimeSpan.FromMinutes(2));
+        // Setup and the new version: without the variables that would make them load other code.
+        return Run(plan, start =>
+        {
+            ChildEnvironment.ForSelf(start.Environment);
+            return Process.Start(start);
+        }, Watch, TimeSpan.FromMinutes(2));
     }
 
     /// <param name="start">Starts a process (Setup, DNN Manager) - replaced in tests.</param>
@@ -253,16 +264,31 @@ public static class UpdateHelper
         }
     }
 
-    /// <summary>Runs Setup over the installation - its progress window shows, it asks nothing. Null when it worked.</summary>
+    /// <summary>How often the helper notes in its log that Setup is still running.</summary>
+    private static readonly TimeSpan SetupNotice = TimeSpan.FromMinutes(30);
+
+    /// <summary>Setup's log, beside the helper's.</summary>
+    private static string SetupLogOf(UpdatePlan plan) => Path.ChangeExtension(plan.LogFile, ".setup.log");
+
+    /// <summary>
+    /// Runs Setup over the installation - its progress window shows, it asks nothing - and waits for it as long as it
+    /// runs: DNN Manager is started only once Setup has ended, never while it may still be replacing its files (a slow
+    /// disk, an antivirus scan). Ending a Setup half way would leave less than either version. Null when it worked.
+    /// </summary>
     private static string? RunSetup(UpdatePlan plan, Func<ProcessStartInfo, Process?> start, HelperLog log)
     {
-        var setupLog = Path.ChangeExtension(plan.LogFile, ".setup.log");
+        var setupLog = SetupLogOf(plan);
         var info = new ProcessStartInfo(plan.Package) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(plan.Package)! };
         foreach (var argument in SetupArguments(plan.AllUsers, setupLog)) info.ArgumentList.Add(argument);
         log.Write($"Running {plan.Package} {string.Join(' ', info.ArgumentList)}");
         using var setup = start(info);
         if (setup is null) return "Setup couldn't be started.";
-        if (!setup.WaitForExit(TimeSpan.FromMinutes(30))) return $"Setup was still running after 30 minutes - see {setupLog}.";
+        var waited = TimeSpan.Zero;
+        while (!setup.WaitForExit(SetupNotice))
+        {
+            waited += SetupNotice;
+            log.Write($"Setup is still running after {waited.TotalMinutes:0} minutes - waiting for it; DNN Manager starts once it has ended (see {setupLog}).");
+        }
         log.Write($"Setup ended with exit code {setup.ExitCode}.");
         return setup.ExitCode switch
         {
@@ -273,7 +299,11 @@ public static class UpdateHelper
         };
     }
 
-    /// <summary>Inno Setup's switches: no questions, its progress window, no reboot, into the installation it updates.</summary>
+    /// <summary>
+    /// Inno Setup's switches: no questions, its progress window, no reboot, into the installation it updates - always
+    /// with <c>/ALLUSERS</c> or <c>/CURRENTUSER</c>: Setup installs for all users unless told otherwise (from 1.8.2), so
+    /// an installation for the current user only is updated where it is, not joined by a second one in Program Files.
+    /// </summary>
     public static IReadOnlyList<string> SetupArguments(bool allUsers, string setupLog) =>
         ["/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/NOCANCEL", "/SP-", allUsers ? "/ALLUSERS" : "/CURRENTUSER", $"/LOG={setupLog}"];
 
@@ -295,9 +325,67 @@ public static class UpdateHelper
     private static void Finish(UpdatePlan plan, HelperLog log, bool installed, string message)
     {
         log.Write(message);
-        try { new UpdateResult(installed, message, plan.LogFile).Write(plan.ResultFile); }
+        // A failed update's evidence outlives the update's folder: "Show log" opens the kept copy.
+        var logFile = plan.LogFile;
+        if (!installed && plan.FailedLogFile is { } kept)
+        {
+            if (KeepFailedLog(plan.LogFile, SetupLogOf(plan), kept, out var problem)) logFile = kept;
+            else log.Write($"Couldn't keep the log as {kept}: {problem}");
+        }
+        try { new UpdateResult(installed, message, logFile).Write(plan.ResultFile); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { log.Write($"Couldn't write {plan.ResultFile}: {ex.Message}"); }
     }
+
+    /// <summary>How many failed updates' logs are kept in the logs folder - the newest.</summary>
+    internal const int FailedLogsKept = 2;
+
+    /// <summary>
+    /// Copies a failed update's log, and Setup's when there is one, into <paramref name="destination"/>
+    /// (<c>logs\update-failed-&lt;version&gt;.log</c>), and deletes all but the newest <see cref="FailedLogsKept"/> such
+    /// files beside it. The logs folder is the user's, and this runs with administrator rights: a file already there is
+    /// deleted (a link removed is only the link) and the copy made new - never written through whatever was there.
+    /// </summary>
+    public static bool KeepFailedLog(string updateLog, string? setupLog, string destination, out string? problem)
+    {
+        problem = null;
+        try
+        {
+            if (!File.Exists(updateLog) && (setupLog is null || !File.Exists(setupLog)))
+            {
+                problem = "there is no log to keep";
+                return false;
+            }
+            var folder = Path.GetDirectoryName(destination)!;
+            Directory.CreateDirectory(folder);
+            if (File.Exists(destination)) File.Delete(destination);
+            using (var writer = new StreamWriter(new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.Read), new System.Text.UTF8Encoding(false)))
+            {
+                writer.WriteLine("# DNN Manager update that failed");
+                foreach (var (title, file) in new[] { ("The update helper's log", updateLog), ("Setup's log", setupLog) })
+                {
+                    if (file is null || !File.Exists(file)) continue;
+                    writer.WriteLine();
+                    writer.WriteLine($"## {title} ({file})");
+                    writer.WriteLine();
+                    using var reader = new StreamReader(new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete));
+                    writer.Write(reader.ReadToEnd());
+                }
+            }
+            foreach (var old in new DirectoryInfo(folder).GetFiles("update-failed-*.log")
+                         .OrderByDescending(f => f.LastWriteTimeUtc).Skip(FailedLogsKept))
+                try { old.Delete(); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* next time */ }
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            problem = ex.Message;
+            return false;
+        }
+    }
+
+    /// <summary>The file a failed update to <paramref name="toVersion"/> keeps its logs in, in <paramref name="logsDirectory"/>.</summary>
+    public static string FailedLogPath(string logsDirectory, string toVersion) =>
+        Path.Combine(logsDirectory, $"update-failed-{toVersion}.log");
 
     private static void TryDelete(string path, HelperLog log)
     {

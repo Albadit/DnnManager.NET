@@ -146,7 +146,8 @@ public sealed class InstallerUnitTests
         Assert.IsFalse(site.Contains("Trust Server Certificate", StringComparison.OrdinalIgnoreCase), "DNN's System.Data.SqlClient doesn't know that keyword.");
 
         var roundTrip = ConnectionStrings.Parse(site)!;
-        Assert.AreEqual(connection with { Kind = DatabaseKind.SqlServer }, roundTrip);
+        // localhost,<port> is written as 127.0.0.1,<port> - the site's SqlClient reaches only that (ConnectionStrings.Reachable).
+        Assert.AreEqual(connection with { Kind = DatabaseKind.SqlServer, Server = "127.0.0.1,1433" }, roundTrip);
     }
 
     [TestMethod]

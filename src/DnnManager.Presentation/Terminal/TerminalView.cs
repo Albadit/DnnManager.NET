@@ -158,48 +158,56 @@ internal sealed class TerminalView : FrameworkElement, Controls.ISearchTarget
             var line = Buffer.Line(lineIndex);
             var y = Padding.Top + row * _cellHeight;
 
-            // Runs of cells that look the same are drawn in one go: the background first, then the text on it.
-            var start = 0;
-            while (start < line.Length)
+            // Runs of cells that look the same are drawn in one go - in three layers: the cells' backgrounds, then the search's
+            // matches on them, then the text over both (a match drawn over the text would wash it out).
+            for (var pass = 0; pass < 2; pass++)
             {
-                var first = line[start];
-                var end = start + 1;
-                while (end < line.Length && line[end].Foreground == first.Foreground && line[end].Background == first.Background &&
-                       line[end].Style == first.Style)
-                    end++;
-
-                var inverse = (first.Style & CellStyle.Inverse) != 0;
-                var fg = first.Foreground == 0 ? foreground : BrushFor(first.Foreground);
-                var bg = first.Background == 0 ? null : BrushFor(first.Background);
-                if (inverse) (fg, bg) = (bg ?? background, fg);
-
-                var x = Padding.Left + start * _cellWidth;
-                if (bg is not null) dc.DrawRectangle(bg, null, new Rect(x, y, (end - start) * _cellWidth, _cellHeight));
-
-                run.Clear();
-                var blank = true;
-                for (var i = start; i < end; i++)
+                if (pass == 1) DrawMatches(dc, lineIndex, y);
+                var start = 0;
+                while (start < line.Length)
                 {
-                    var c = line[i].Char;
-                    if (c != '\0' && c != ' ') blank = false;
-                    run.Append(c == '\0' ? ' ' : c);
+                    var first = line[start];
+                    var end = start + 1;
+                    while (end < line.Length && line[end].Foreground == first.Foreground && line[end].Background == first.Background &&
+                           line[end].Style == first.Style)
+                        end++;
+
+                    var inverse = (first.Style & CellStyle.Inverse) != 0;
+                    var fg = first.Foreground == 0 ? foreground : BrushFor(first.Foreground);
+                    var bg = first.Background == 0 ? null : BrushFor(first.Background);
+                    if (inverse) (fg, bg) = (bg ?? background, fg);
+
+                    var x = Padding.Left + start * _cellWidth;
+                    if (pass == 0)
+                    {
+                        if (bg is not null) dc.DrawRectangle(bg, null, new Rect(x, y, (end - start) * _cellWidth, _cellHeight));
+                        start = end;
+                        continue;
+                    }
+
+                    run.Clear();
+                    var blank = true;
+                    for (var i = start; i < end; i++)
+                    {
+                        var c = line[i].Char;
+                        if (c != '\0' && c != ' ') blank = false;
+                        run.Append(c == '\0' ? ' ' : c);
+                    }
+                    if (!blank)
+                    {
+                        var typeface = (first.Style & (CellStyle.Bold | CellStyle.Italic)) == 0 ? _typeface
+                            : new Typeface(_typeface.FontFamily,
+                                (first.Style & CellStyle.Italic) != 0 ? FontStyles.Italic : FontStyles.Normal,
+                                (first.Style & CellStyle.Bold) != 0 ? FontWeights.Bold : FontWeights.Normal, FontStretches.Normal);
+                        var text = Text(run.ToString(), fg, typeface);
+                        if ((first.Style & CellStyle.Underline) != 0) text.SetTextDecorations(TextDecorations.Underline);
+                        if ((first.Style & CellStyle.Dim) != 0) dc.PushOpacity(0.6);
+                        dc.DrawText(text, new Point(x, y));
+                        if ((first.Style & CellStyle.Dim) != 0) dc.Pop();
+                    }
+                    start = end;
                 }
-                if (!blank)
-                {
-                    var typeface = (first.Style & (CellStyle.Bold | CellStyle.Italic)) == 0 ? _typeface
-                        : new Typeface(_typeface.FontFamily,
-                            (first.Style & CellStyle.Italic) != 0 ? FontStyles.Italic : FontStyles.Normal,
-                            (first.Style & CellStyle.Bold) != 0 ? FontWeights.Bold : FontWeights.Normal, FontStretches.Normal);
-                    var text = Text(run.ToString(), fg, typeface);
-                    if ((first.Style & CellStyle.Underline) != 0) text.SetTextDecorations(TextDecorations.Underline);
-                    if ((first.Style & CellStyle.Dim) != 0) dc.PushOpacity(0.6);
-                    dc.DrawText(text, new Point(x, y));
-                    if ((first.Style & CellStyle.Dim) != 0) dc.Pop();
-                }
-                start = end;
             }
-
-            DrawMatches(dc, lineIndex, y);
 
             if (selFrom is { } from && selTo is { } to && lineIndex >= from.Line && lineIndex <= to.Line)
             {
@@ -234,7 +242,8 @@ internal sealed class TerminalView : FrameworkElement, Controls.ISearchTarget
         }
     }
 
-    // The search's matches on this line, under the text's colours: the current one stronger.
+    // The search's matches on this line, between the cells' backgrounds and the text - the text keeps its full contrast
+    // on them: the current one stronger.
     private void DrawMatches(DrawingContext dc, int lineIndex, double y)
     {
         if (_matches.Count == 0) return;
@@ -248,10 +257,11 @@ internal sealed class TerminalView : FrameworkElement, Controls.ISearchTarget
         for (var i = lo; i < _matches.Count && _matches[i].Line == lineIndex; i++)
         {
             var (_, column, length) = _matches[i];
-            dc.PushOpacity(0.55);
-            dc.DrawRectangle((Brush)FindResource(i == _currentMatch ? "SearchCurrentBg" : "SearchMatchBg"), null,
+            // The current one outlined too: it stands out from the others by more than its colour (WCAG 1.4.1).
+            var current = i == _currentMatch;
+            dc.DrawRectangle((Brush)FindResource(current ? "SearchCurrentBg" : "SearchMatchBg"),
+                current ? new Pen((Brush)FindResource("SearchCurrentBorder"), 1) : null,
                 new Rect(Padding.Left + column * _cellWidth, y, length * _cellWidth, _cellHeight));
-            dc.Pop();
         }
     }
 

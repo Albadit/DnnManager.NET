@@ -19,25 +19,74 @@ places tell you most of what went wrong:
   declined, or the account can't elevate.
 - **Fix:** start it again and accept the prompt, or sign in with an account
   that can run programs as Administrator. **Settings → General → Start DNN
-  Manager when you sign in** starts it elevated without a prompt at sign-in.
+  Manager when you sign in** starts it elevated without a prompt at sign-in -
+  only for DNN Manager installed for all users, in Program Files (Setup's
+  default; a per-user installation is offered the move by a new Setup).
 
 ### "DNN Manager can't use its settings" at start
 
 - **Cause:** `Documents\DnnManager\dnnmanager.db` can't be opened or read
   (another program has it open - a SQLite browser, say -, or Windows Security's
   *Controlled folder access* blocks DNN Manager), the settings were saved by a
-  newer DNN Manager, the `sa` password was encrypted by another Windows account
-  or on another PC, or a setting has a value that can't be read or isn't
-  allowed (one changed by hand in the database, say). A **damaged** file isn't
-  among them any more: it is put aside at the start and DNN Manager goes on
-  from its last copy or the defaults (see
+  newer DNN Manager, or the `sa` password was encrypted by another Windows
+  account or on another PC. A value that can't be read or isn't allowed doesn't
+  stop the start any more - it goes back to its default (below). A **damaged**
+  file isn't among them either: it is put aside at the start and DNN Manager
+  goes on from its last copy or the defaults (see
   [configuration.md](configuration.md#where-your-files-are)).
 - **Fix:** the dialog names the problem. Fix what it names (close the other
   program, allow `DnnManager.exe` through Controlled folder access, update DNN
   Manager) and press **Try again** - or **Reset to defaults**, which starts
-  with the defaults (the current settings aren't kept). **Exit** changes
+  with the defaults (the current settings aren't kept). An `sa` password from
+  another account or PC goes with them: enter the container's password again
+  in **Settings → Database server**. **Exit** changes
   nothing. See
   [configuration.md](configuration.md#when-the-settings-cant-be-used).
+
+### Warnings at the start
+
+Something found while DNN Manager starts shows as a toast - several are
+counted in one - with **Show output**, and stays on the Output tab and in the
+log file. What each means and what to do:
+
+- **"A saved setting isn't allowed by this version of DNN Manager and is back
+  at the default"** - the value (named, with why) was changed by hand, by
+  another program, or is refused by a rule this version added (a projects
+  folder in `AppData\Local\Programs`, say). The other settings are as you saved
+  them. Check the named ones in **Settings** and save a value that is allowed
+  ([configuration.md](configuration.md#the-settings)).
+- **`DNNMANAGER_*` variables ignored** - one of them breaks a rule (named, with
+  its settings key), so none is used. Fix or remove it in Windows' environment
+  variables and start DNN Manager again
+  ([configuration.md](configuration.md#environment-variables)).
+- **"DNN Manager's data folder … is in OneDrive"** (or **on a network share**)
+  - your Documents is backed up to OneDrive (or redirected), so your backups,
+  deployment packages, logs and settings database are copied there. To keep
+  them on this PC, stop backing up Documents (OneDrive → Settings → Sync and
+  back up → Manage back up), or delete what you don't need in **Troubleshoot →
+  Clean up data**; **Settings → Projects → Backups** can delete old backups by
+  themselves.
+- **"Windows' Developer Mode is on"** - programs without administrator rights
+  can make symbolic links, which one could put where DNN Manager deletes or
+  writes. DNN Manager doesn't follow them, but unless you need it, turn
+  Developer Mode off (Settings → System → For developers).
+- **"This Windows doesn't have the protection that keeps DNN Manager from
+  following junctions other programs made (redirection trust)"** - run Windows
+  Update and install the latest updates, then restart DNN Manager.
+- **"DNN Manager started with environment variables that make .NET load other
+  code"** - the variables are named (`CORECLR_PROFILER`,
+  `DOTNET_DiagnosticPorts`, …). Unless you set them yourself, remove them
+  (System → About → Advanced system settings → Environment Variables) and check
+  the PC for malware. An installed DNN Manager is started through its launcher,
+  which leaves them out; the portable exe isn't.
+- **"'…' didn't finish - DNN Manager ended while it ran"** - DNN Manager
+  crashed, Windows shut down, or you chose **Quit now** while an operation ran.
+  The message lists what it would have undone: look at those (a folder, an IIS
+  site, a database) and remove what is half made - **Remove…** for a project.
+- **"Start DNN Manager when you sign in" is switched off** - its task would
+  start DNN Manager from a folder programs without administrator rights can
+  change (a per-user installation). Let a new Setup move DNN Manager to Program
+  Files, then turn it on again.
 
 ### My settings are gone
 
@@ -82,8 +131,10 @@ places tell you most of what went wrong:
   a release GitHub lists no SHA-256 for. A download that stops getting anything for
   a minute counts as failed.
 - **It closed and the old version came back** with *The update to vX wasn't
-  installed*: **Show log** opens `%ProgramData%\DnnManager\temp\update\<version>\update.log`
-  (and `update.setup.log` for Setup). For a portable exe in a folder you can't
+  installed*: **Show log** opens `Documents\DnnManager\logs\update-failed-<version>.log`
+  - the update helper's log and Setup's, copied there from
+  `%ProgramData%\DnnManager\temp\update\<version>\` (which is cleaned up); the
+  newest two such files are kept. For a portable exe in a folder you can't
   write to, move it somewhere you can. You can always install the release by hand
   from GitHub - your settings are in `Documents\DnnManager` either way.
 
@@ -157,8 +208,28 @@ site runs in IIS.
   - *Login failed* for `sa` on the container: the container keeps the `sa`
     password its data volume was created with - changing **SA password** in
     Settings doesn't change it. Put the password the volume was created with
-    back in **Settings → Database server**.
+    back in **Settings → Database server**. A volume made by DNN Manager 1.7.1
+    or older has `Admin@123` - **Set up docker-compose** finds it and takes it
+    into Settings by itself.
+  - *A network-related or instance-specific error* (*The remote computer
+    refused the network connection*) for `localhost,1433` while
+    `127.0.0.1,1433` works: the container is published on this PC's loopback
+    only, and .NET Framework's SqlClient - a DNN site's - goes to `localhost`
+    by this computer's name and network address. **Set up docker-compose**
+    again: it points sites that say `localhost,1433` at `127.0.0.1,1433`.
 - **Verify:** the SQL column turns **Live** within 10 seconds.
+
+### No SQL state for a site on another server
+
+- **Cause:** the site signs in with Windows authentication to a SQL Server
+  that isn't on this PC and isn't the one in **Settings → Database server**.
+  The site's `web.config` names that server, and its app pool can change it,
+  so DNN Manager doesn't send your Windows sign-in there every 10 seconds
+  ([security.md](security.md#administrator-rights)).
+- **Fix:** choose that server in **Settings → Database server**, or let the
+  site sign in with SQL authentication. **Open in SSMS**, **Upgrade DNN**,
+  **Restore backup** and portal-alias edits ask before they sign in there -
+  *Don't sign in* stops them with nothing changed.
 
 ### Database shows *not set*
 
@@ -240,24 +311,98 @@ site runs in IIS.
   Windows itself, services and Explorer are never closed: what they still hold
   is deleted at the next Windows restart.
 
-### "Didn't start …: programs without administrator rights could change it"
+### "DNN Manager doesn't start … as Administrator: programs without administrator rights could change it"
 
 DNN Manager runs as Administrator, and runs a program with those rights only
 when nobody but administrators can change it - a copy in your own folders, or on
 your own PATH, could be swapped by any program you run
 ([security.md](security.md#administrator-rights)). The message names the copy it
-found. Install that program **for all users** (into Program Files):
+found.
 
-- **docker**: Docker Desktop installs for all users by default.
+The copy it names is already in Program Files or Windows
+(`C:\Program Files\dotnet\dotnet.exe`, `powershell.exe`)? DNN Manager 1.8.1 and
+1.8.2 refused every program there - a wrong ID for Windows' TrustedInstaller
+account, which owns them. Update DNN Manager.
+
+Otherwise, install that program **for all users** (into Program Files):
+
+- **docker**: Docker Desktop installs for all users by default. One installed
+  for your account only (in `%LOCALAPPDATA%\Programs\DockerDesktop`) is used
+  too: DNN Manager runs its `docker` as you, without administrator rights
+  ([security.md](security.md#administrator-rights)).
 - **dotnet** (to install SqlPackage): the .NET SDK installer, not a user-only
   `dotnet-install` script.
 - **winget**: comes with Windows' App Installer; if it is refused, install Docker
   Desktop from its website instead.
-- **A terminal shell** missing from the terminal's list: PowerShell 7 and Git for
-  Windows installed *for all users* are offered; per-user installs aren't.
+- **SQL Server Management Studio** greyed in **Open with…**, with this in its
+  tooltip: install SSMS in its default folder, in Program Files.
+- **A shell greyed under New Administrator terminal**: PowerShell 7 and Git for
+  Windows installed *for all users* are offered there; per-user installs are
+  only offered for ordinary terminals, which run as you.
+- **"Didn't run docker compose: Docker would use …docker-compose.exe"** -
+  Docker found a compose plugin in a folder your account can change (usually
+  `%ProgramData%\Docker\cli-plugins`, which any user may make when Docker
+  didn't). Remove that copy - Docker Desktop has its
+  own, in Program Files - and **Set up docker-compose** again.
 
 Editors (VS Code's user installer, Rider…) are not affected: DNN Manager opens
-them as you, without its rights.
+them as you, without its rights. DNN Manager looks programs up on the
+computer's PATH only - a folder you added to your own PATH isn't used.
+
+### A terminal "couldn't be started" without administrator rights
+
+The terminals run as you: DNN Manager makes a copy of its own sign-in without
+the administrator rights. When Windows refuses that (the message says which
+step failed), no terminal is started - and none with administrator rights in
+its place. Restart DNN Manager and try again. For a terminal with those rights,
+choose **New Administrator terminal** (the arrow beside **+**). A drive letter
+missing in a terminal is one mapped in your everyday session: DNN Manager's
+runs separately - map it again there (`net use`).
+
+### "untrusted mount point", or "is reached through a link or junction"
+
+A folder DNN Manager deletes or writes in - a site's `bin`, its
+`Portals\_default\Cache`, a folder in `Documents\DnnManager` - is a junction (or
+a symbolic link) that was made without administrator rights. With its
+Administrator rights DNN Manager would delete or write wherever the junction
+points, so it doesn't follow it
+([security.md](security.md#administrator-rights)). A common case is a module's
+source folder linked into `DesktopModules` while developing: IIS still serves
+it, but DNN Manager's copy, backup or restore stops there. The message ends
+with a `Hint:` line - the Output tab shows it under the error as what to do.
+Make the junction again from an administrator prompt (`mklink /J <link>
+<target>`), or copy the files in instead. **Clone** doesn't stop: it leaves
+the linked folders out and names them in a warning - copy what they point to
+into the clone, or make the links again there. **Clear website cache** refuses
+a site whose folder itself is a link.
+
+### "The kept package … isn't the file GitHub lists for the release any more"
+
+A DNN package kept in `Documents\DnnManager\packages` no longer has the SHA-256
+GitHub listed for it (saved with the version list, so this is checked offline
+too) - something changed the file. It has been deleted: try again, and it is
+downloaded anew (that needs internet).
+
+### A package or backup is refused: not enough disk space, or an unsafe path
+
+- **Disk space**: DNN Manager refuses to unpack a zip that would leave less
+  than 512 MB free on the drive - before anything is written. Free space on
+  the projects folder's drive (**Troubleshoot → Clean up data**, old backups)
+  and try again.
+- **An unsafe path**: an entry that would land outside the site, on another
+  file's stream (a name with `:`), or through a link refuses the whole package
+  or backup - nothing of it is written. It wasn't made by DNN or DNN Manager;
+  use another copy.
+
+### A remote SQL Server: "The certificate chain was issued by an authority that is not trusted"
+
+DNN Manager checks the certificate of a SQL Server on another computer (a
+clone's live source, Azure SQL): without that check anyone on the way could
+read the login and change the data. Connect by the name the certificate is
+made out to - for Azure SQL, `<server>.database.windows.net` - or, for a
+server of your own with a self-signed certificate, import that certificate into
+this PC's **Trusted Root Certification Authorities** (`certlm.msc`). Servers on
+this PC (the container, LocalDB) are not affected.
 
 ### The hosts file got damaged
 
@@ -277,3 +422,10 @@ an elevated prompt: `copy /y %SystemRoot%\System32\drivers\etc\hosts.dnnmanager.
 
 The app is still running from `publish\` - close it and publish again
 ([releasing.md](releasing.md)).
+
+### "Publishing the launcher failed" when building the installer
+
+The launcher is compiled with Native AOT, which links with Visual Studio's C++
+tools. Install *Desktop development with C++* (or the Build Tools for Visual
+Studio with it), or build without the launcher: `build.ps1 -NoLauncher` - never
+for a release ([Build the installer](releasing.md#build-the-installer)).

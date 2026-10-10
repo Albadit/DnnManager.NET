@@ -40,16 +40,10 @@ public static class LocalDbFiles
         // Administrators group, so a file the site's instance had last may not let this one in - the folder's first.
         TryResetPermissions(file);
         TryResetPermissions(log);
-        var builder = new SqlConnectionStringBuilder
-        {
-            DataSource = server,
-            AttachDBFilename = file,
-            IntegratedSecurity = true,
-            Encrypt = SqlConnectionEncryptOption.Optional,
-            ConnectTimeout = 60,
-            // Pooled, the connection would keep the database open after this and stop it from being detached.
-            Pooling = false
-        };
+        var builder = ConnectionStrings.For(server, null, "", null, 60);
+        builder.AttachDBFilename = file;
+        // Pooled, the connection would keep the database open after this and stop it from being detached.
+        builder.Pooling = false;
         try
         {
             while (true)
@@ -124,16 +118,20 @@ public static class LocalDbFiles
         }
     }
 
+    /// <summary>The LocalDB instance <paramref name="server"/>'s master database, as you, not pooled.</summary>
+    private static string Master(string server)
+    {
+        var builder = ConnectionStrings.For(server, "master", "", null, 60);
+        builder.Pooling = false;
+        return builder.ConnectionString;
+    }
+
     /// <summary>The major version (15, 17…) of the LocalDB instance <paramref name="server"/>; null when it doesn't start.</summary>
     private static async Task<int?> MajorVersionOfAsync(string server, CancellationToken ct)
     {
         try
         {
-            await using var conn = new SqlConnection(new SqlConnectionStringBuilder
-            {
-                DataSource = server, InitialCatalog = "master", IntegratedSecurity = true, Encrypt = SqlConnectionEncryptOption.Optional,
-                ConnectTimeout = 60, Pooling = false
-            }.ConnectionString);
+            await using var conn = new SqlConnection(Master(server));
             await conn.OpenAsync(ct);
             using var version = new SqlCommand("SELECT CAST(SERVERPROPERTY('ProductMajorVersion') AS int)", conn);
             return await version.ExecuteScalarAsync(ct) as int?;
@@ -164,15 +162,7 @@ public static class LocalDbFiles
     {
         try
         {
-            await using var conn = new SqlConnection(new SqlConnectionStringBuilder
-            {
-                DataSource = server,
-                InitialCatalog = "master",
-                IntegratedSecurity = true,
-                Encrypt = SqlConnectionEncryptOption.Optional,
-                ConnectTimeout = 60,
-                Pooling = false
-            }.ConnectionString);
+            await using var conn = new SqlConnection(Master(server));
             await conn.OpenAsync(ct);
             // Attached by its path the database is named after it - or, for a long path, a shortened name: find it by its file.
             using var find = new SqlCommand(

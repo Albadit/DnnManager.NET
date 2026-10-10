@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Domain;
@@ -86,8 +85,15 @@ public sealed class WindowsPrerequisiteChecker(ProcessRunner proc, IOptions<AppO
             StringComparer.OrdinalIgnoreCase);
     }
 
-    private static string DockerDesktopExe => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Docker", "Docker", "Docker Desktop.exe");
+    // Installed for all users (Program Files), or for this account only (%LOCALAPPDATA%\Programs) - whose docker DNN
+    // Manager runs as the user (ProcessRunner).
+    private static string DockerDesktopExe =>
+        new[]
+        {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Docker", "Docker", "Docker Desktop.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "DockerDesktop", "Docker Desktop.exe")
+        }.FirstOrDefault(File.Exists) ??
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Docker", "Docker", "Docker Desktop.exe");
 
     public async Task<DockerStatus> GetDockerStatusAsync(string containerName, CancellationToken ct)
     {
@@ -127,7 +133,10 @@ public sealed class WindowsPrerequisiteChecker(ProcessRunner proc, IOptions<AppO
             var output = (r.StdOut + r.StdErr).Trim();
             // winget exits non-zero when the package is already installed and there is no newer version.
             if (output.Contains("already installed", StringComparison.OrdinalIgnoreCase))
+            {
+                reporter.Info("winget says Docker Desktop is already installed - nothing to install.");
                 return Result.Ok();
+            }
             return Result.Fail($"winget couldn't install Docker Desktop (exit {r.ExitCode}): " +
                                string.Join(" ", output.Split('\n').TakeLast(3).Select(l => l.Trim())));
         }
@@ -141,7 +150,7 @@ public sealed class WindowsPrerequisiteChecker(ProcessRunner proc, IOptions<AppO
         try
         {
             // Through Explorer, so it runs as the signed-in user rather than elevated like DNN Manager.
-            using var _ = Process.Start(new ProcessStartInfo("explorer.exe", $"\"{DockerDesktopExe}\"") { UseShellExecute = false });
+            ElevatedStart.Explorer(DockerDesktopExe);
             return Result.Ok();
         }
         catch (Exception ex)
@@ -157,10 +166,16 @@ public sealed class WindowsPrerequisiteChecker(ProcessRunner proc, IOptions<AppO
     private async Task<Dictionary<string, string>> RunPerFeatureAsync(
         IEnumerable<IisFeatureSetting> features, string perFeature, CancellationToken ct)
     {
-        // Names come from the settings (iis.requiredFeatures), typed by the user - quote them as PowerShell single-quoted literals.
-        var names = string.Join(",", features.Select(f => "'" + f.Name.Replace("'", "''") + "'"));
-        var script = $"foreach ($n in @({names})) {{ $r = {perFeature}; \"$n=$r\" }}";
-        var run = await _proc.RunAsync("powershell.exe", new[] { "-NoProfile", "-NonInteractive", "-Command", script }, ct);
+        // Names come from the settings (iis.requiredFeatures), which any program of the user can change: never part of
+        // the script's text (PowerShell takes more quote characters than ' for one), but data it reads from its
+        // environment - and only Windows feature names, also when a value got past the settings' own rules.
+        var valid = features.Where(f => SettingRules.IsIisFeatureName(f.Name)).Select(f => f.Name).ToList();
+        foreach (var f in features.Where(f => !SettingRules.IsIisFeatureName(f.Name)))
+            _log.LogWarning("Skipped the IIS feature '{Name}': not a Windows feature name", f.Name);
+        if (valid.Count == 0) return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var script = $"foreach ($n in ($env:DNNMANAGER_FEATURES -split ';')) {{ $r = {perFeature}; \"$n=$r\" }}";
+        var run = await _proc.RunAsync("powershell.exe", new[] { "-NoProfile", "-NonInteractive", "-Command", script }, ct,
+            env: new Dictionary<string, string?> { ["DNNMANAGER_FEATURES"] = string.Join(";", valid) });
         if (!run.Success) _log.LogWarning("IIS feature script failed: {Error}", run.StdErr);
 
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

@@ -84,11 +84,14 @@
             </Grid>
 
             <WrapPanel Margin="0,10,0,0">
+                <!-- Off until Test finds a Docker DNN Manager can use, its engine running - why, beside it. -->
                 <Button x:Name="SetupComposeButton" Style="{StaticResource Primary}" Content="Set up docker-compose"
-                        Margin="0,0,8,0" Click="SetupCompose_Click"
-                        ToolTip="Set up docker-compose" />
+                        Margin="0,0,8,0" Click="SetupCompose_Click" IsEnabled="False"
+                        ToolTip="Set up docker-compose" ToolTipService.ShowOnDisabled="True" />
                 <Button x:Name="ShowYamlButton" Content="Show docker-compose.yml" Click="ShowYaml_Click"
                         ToolTip="Show docker-compose.yml" />
+                <TextBlock x:Name="SetupComposeHint" Style="{StaticResource Hint}" Margin="8,0,0,0" VerticalAlignment="Center"
+                           TextWrapping="Wrap" Visibility="Collapsed" />
             </WrapPanel>
             <StackPanel x:Name="YamlPanel" Visibility="Collapsed" Margin="0,10,0,0">
                 <Grid>

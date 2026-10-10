@@ -9,6 +9,7 @@ using DnnManager.Infrastructure.Sql;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
+using DnnManager.Infrastructure.WebConfigs;
 
 namespace DnnManager.Infrastructure.Dnn;
 
@@ -237,7 +238,7 @@ public sealed class DnnSiteInspector(IIisManager iis, AppDataPaths paths, ILogge
         if (!File.Exists(path)) return facts;
         try
         {
-            var root = XDocument.Load(path).Root;
+            var root = SiteXml.Load(path).Root;
             var settings = root?.Element("appSettings")?.Elements("add")
                 .Select(a => ((string?)a.Attribute("key") ?? "", (string?)a.Attribute("value"))).ToList() ?? [];
             return facts with

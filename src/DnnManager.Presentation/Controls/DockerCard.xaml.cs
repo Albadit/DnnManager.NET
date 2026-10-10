@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Application.UseCases;
+using DnnManager.Infrastructure.Settings;
 using DnnManager.Presentation.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -20,10 +21,17 @@ public partial class DockerCard : UserControl
     private AppOptions _options = null!;
     private IPrerequisiteChecker _prereq = null!;
     private IDockerComposeService _compose = null!;
+    private SettingsStore _store = null!;
+    private LiveSettings _live = null!;
     // Which Test the shown result belongs to - an answer for an older one is dropped.
     private int _version;
 
-    public DockerCard() => InitializeComponent();
+    public DockerCard()
+    {
+        InitializeComponent();
+        // Set up docker-compose waits for a test: the first time the card is shown, it tests by itself.
+        IsVisibleChanged += (_, e) => { if (e.NewValue is true && _version == 0 && _runner is not null) Test(); };
+    }
 
     /// <summary>
     /// The container was set up or the engine came up - what depends on it (the database server's test) may want to
@@ -37,6 +45,8 @@ public partial class DockerCard : UserControl
         _options = services.GetRequiredService<IOptions<AppOptions>>().Value;
         _prereq = services.GetRequiredService<IPrerequisiteChecker>();
         _compose = services.GetRequiredService<IDockerComposeService>();
+        _store = services.GetRequiredService<SettingsStore>();
+        _live = services.GetRequiredService<LiveSettings>();
     }
 
     private void Test_Click(object sender, RoutedEventArgs e) => Test();
@@ -49,6 +59,9 @@ public partial class DockerCard : UserControl
         TestButton.Content = "Testing…";
         foreach (var status in new[] { DockerStatus, EngineStatus, ContainerStatus })
             status.SetResourceReference(TextBlock.ForegroundProperty, "TextMuted");
+        SetupComposeButton.IsEnabled = false;
+        SetupComposeHint.Text = "Testing Docker…";
+        SetupComposeHint.Visibility = Visibility.Visible;
         try
         {
             var d = await _prereq.GetDockerStatusAsync(_options.Docker.ContainerName, CancellationToken.None);
@@ -56,7 +69,11 @@ public partial class DockerCard : UserControl
         }
         catch (Exception ex)
         {
-            if (version == _version) Dialogs.Error($"Could not test Docker: {ex.Message}");
+            if (version != _version) return;
+            // Not known: not held back - Set up says itself what is missing.
+            SetupComposeButton.IsEnabled = true;
+            SetupComposeHint.Visibility = Visibility.Collapsed;
+            Dialogs.Error($"Could not test Docker: {ex.Message}");
         }
         finally
         {
@@ -71,6 +88,7 @@ public partial class DockerCard : UserControl
     private void Show(DockerStatus d)
     {
         var container = _options.Docker.ContainerName;
+        ShowSetUp(d);
 
         if (d.DesktopInstalled)
             StatusTone.Set(DockerStatus, DockerDetail, "Installed", StatusTone.Good, d.ClientVersion is { } v ? $"docker {v}" : "Docker Desktop");
@@ -97,6 +115,21 @@ public partial class DockerCard : UserControl
         else
             StatusTone.Set(ContainerStatus, ContainerDetail, "Stopped", StatusTone.Bad,
                 $"'{container}' - {d.ContainerStatus ?? d.ContainerState}. Start it with Set up docker-compose below.");
+    }
+
+    /// <summary>
+    /// Set up docker-compose only with Docker's engine running - otherwise off, with what is missing beside it (and as its
+    /// tooltip, which a disabled button still shows).
+    /// </summary>
+    private void ShowSetUp(DockerStatus d)
+    {
+        var missing = d.CanSetUp ? null
+            : !d.DesktopInstalled ? "Needs Docker Desktop - install it above."
+            : "Needs the Docker engine running - start Docker Desktop above.";
+        SetupComposeButton.IsEnabled = missing is null;
+        SetupComposeButton.ToolTip = missing ?? "Set up docker-compose";
+        SetupComposeHint.Text = missing ?? "";
+        SetupComposeHint.Visibility = missing is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
     // ─── Actions ──────────────────────────────────────────────────────────
@@ -147,10 +180,28 @@ public partial class DockerCard : UserControl
     {
         var docker = _options.Docker;
         await _runner.RunAsync("Set up docker-compose",
-            (sp, reporter, ct) => sp.GetRequiredService<SetupSqlContainerUseCase>().ExecuteAsync(docker, reporter, ct));
+            (sp, reporter, ct) => sp.GetRequiredService<SetupSqlContainerUseCase>().ExecuteAsync(docker, reporter, ct, AdoptPassword));
         Test();
         ContainerChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    /// <summary>The sa password the data volume has (an old installation's) - in the settings now, and used at once.</summary>
+    public event EventHandler<string>? PasswordAdopted;
+
+    private Domain.Result AdoptPassword(string password) => Dispatcher.Invoke(() =>
+    {
+        try
+        {
+            var saved = _store.Update(s => s.SqlServer.SaPassword = password);
+            _live.Apply(saved);
+            PasswordAdopted?.Invoke(this, password);
+            return Domain.Result.Ok();
+        }
+        catch (Exception ex) when (ex is SettingsException or IOException or UnauthorizedAccessException)
+        {
+            return Domain.Result.Fail(ex.Message);
+        }
+    });
 
     // ─── docker-compose.yml ───────────────────────────────────────────────
 

@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Net;
 using System.Reflection;
 using System.Security;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
@@ -10,6 +12,7 @@ using DnnManager.Domain;
 using DnnManager.Infrastructure.Sql;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using DnnManager.Infrastructure.WebConfigs;
 
 using static DnnManager.Infrastructure.Dnn.DnnLogFiles;
 
@@ -90,7 +93,8 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
         try
         {
             // Written right before the request: while DNN isn't installed its installer asks nobody for a password.
-            DnnInstallTemplate.Write(site.Directory, account, site.Alias);
+            var template = DnnInstallTemplate.Write(site.Directory, account, site.Alias);
+            KeepToOwnAppPool(template, site.Directory);
             return await RunAsync(site, "/Install/Install.aspx?mode=install", "installation", output => output.Outcome(),
                 CountPackages(site.Directory), secrets, reporter, ct);
         }
@@ -176,6 +180,7 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
         using var http = CreateClient();
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
         limit.CancelAfter(InstallLimit);
+        var started = DateTime.UtcNow;
 
         var output = new DnnInstallOutput();
         var installed = 0;
@@ -263,6 +268,9 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
         }
 
         var result = outcome(output);
+        // DNN says only that it couldn't connect: what SQL Server answers its connection string, and what DNN logged.
+        if (!result.Success && output.Body.Contains("Could not connect to database", StringComparison.OrdinalIgnoreCase))
+            await DiagnoseConnectionAsync(site.Directory, started, secrets, reporter);
         return result.Success ? result : Result.Fail(secrets.Hide(result.Error!));
 
         void Report(DnnInstallStep step)
@@ -287,6 +295,63 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
             else if (!StartsWith(text, "Installation Complete")) reporter.Progress($"Running DNN {what}: {text}…");
         }
     }
+
+    /// <summary>
+    /// When DNN couldn't connect to its database: the site's own connection string (web.config) tried from here - its
+    /// SQL Server's answer, or that it works here, so that it is the site's process that can't - and the errors DNN
+    /// logged since <paramref name="sinceUtc"/>, in its log4net or (DNN 10.4 on) Serilog files.
+    /// </summary>
+    private static async Task DiagnoseConnectionAsync(string siteDirectory, DateTime sinceUtc, Secrets secrets, IProgressReporter reporter)
+    {
+        var read = new WebConfigs.WebConfigService(Microsoft.Extensions.Logging.Abstractions.NullLogger<WebConfigs.WebConfigService>.Instance)
+            .ReadDatabaseConnection(Path.Combine(siteDirectory, "web.config"));
+        if (read is { Success: true, Value: { Kind: not DatabaseKind.LocalDbFile } site })
+        {
+            var who = site.UsesWindowsAuthentication ? "with Windows authentication" : $"as {site.User}";
+            try
+            {
+                var builder = Sql.ConnectionStrings.For(site.Server, site.Database, site.UsesWindowsAuthentication ? "" : site.User, site.Password, 10);
+                // Not kept open in the pool: a session of the site's login would stop Remove from dropping that login.
+                builder.Pooling = false;
+                await using var connection = new SqlConnection(builder.ConnectionString);
+                await connection.OpenAsync(CancellationToken.None);
+                reporter.Warn($"The site's connection string works from DNN Manager ([{site.Database}] on {site.Server}, {who}) - " +
+                              "so it is the site's own process that can't reach it: its app pool's identity, or the address as it resolves there.");
+            }
+            catch (Exception ex) when (ex is SqlException or InvalidOperationException)
+            {
+                reporter.Warn($"The site's connection string ([{site.Database}] on {site.Server}, {who}) fails from DNN Manager too: {secrets.Hide(FirstLine(ex.Message))}");
+            }
+        }
+
+        // What DNN logged meanwhile: log4net's [ERROR]/[FATAL], Serilog's [ERR]/[FTL].
+        var logs = Path.Combine(siteDirectory, "Portals", "_default", "Logs");
+        if (!Directory.Exists(logs)) return;
+        var found = 0;
+        foreach (var file in Directory.EnumerateFiles(logs).Where(f => File.GetLastWriteTimeUtc(f) >= sinceUtc.AddMinutes(-1)))
+        {
+            var lines = ReadShared(file).ToList();
+            for (var i = 0; i < lines.Count; i++)
+            {
+                var line = lines[i];
+                if (!(line.Contains("[ERROR]", StringComparison.Ordinal) || line.Contains("[FATAL]", StringComparison.Ordinal) ||
+                      line.Contains("[ERR]", StringComparison.Ordinal) || line.Contains("[FTL]", StringComparison.Ordinal)))
+                    continue;
+                // The exception is on the lines after it, up to the next entry (which starts with its date): its type and
+                // message say what failed - the entry's own text is often empty.
+                var exception = lines.Skip(i + 1).TakeWhile(l => !StartsWithDate(l)).Select(l => l.Trim())
+                    .Where(l => l.Length > 0 && !l.StartsWith("at ", StringComparison.Ordinal)).Take(3);
+                var detail = string.Join(" | ", exception);
+                reporter.Warn($"DNN logged: {secrets.Hide(Short(line))}{(detail.Length > 0 ? $" → {secrets.Hide(detail)}" : "")} " +
+                              $"(Portals\\_default\\Logs\\{Path.GetFileName(file)})");
+                if (++found == 3) return;
+            }
+        }
+    }
+
+    // A log entry's first line starts with its date: 2026-10-10 18:01:49 (Serilog and log4net alike).
+    private static bool StartsWithDate(string line) =>
+        line.Length >= 10 && char.IsDigit(line[0]) && line[4] == '-' && line[7] == '-';
 
     /// <summary>The extension packages DNN installs with itself - one progress line each.</summary>
     private static int CountPackages(string siteDirectory)
@@ -527,7 +592,7 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
         public static Membership? Read(string webConfig)
         {
             if (!File.Exists(webConfig)) return null;
-            var membership = XDocument.Load(webConfig).Root?.Element("system.web")?.Element("membership");
+            var membership = SiteXml.Load(webConfig).Root?.Element("system.web")?.Element("membership");
             if (membership is null) return null;
             var name = (string?)membership.Attribute("defaultProvider");
             var provider = membership.Element("providers")?.Elements("add")
@@ -586,7 +651,7 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
     {
         var settings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (!File.Exists(webConfig)) return settings;
-        foreach (var add in XDocument.Load(webConfig).Root?.Element("appSettings")?.Elements("add") ?? [])
+        foreach (var add in SiteXml.Load(webConfig).Root?.Element("appSettings")?.Elements("add") ?? [])
             if ((string?)add.Attribute("key") is { } key) settings[key] = (string?)add.Attribute("value") ?? "";
         return settings;
     }
@@ -639,6 +704,51 @@ public sealed partial class DnnInstaller(ILogger<DnnInstaller> log) : IDnnInstal
     internal static DateTime? LogTime(string line) =>
         line.Length >= 19 && DateTime.TryParseExact(line[..19], "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture,
             DateTimeStyles.AssumeLocal, out var at) ? at : null;
+
+    /// <summary>
+    /// The install template holds the host password in plain text while DNN installs. The site's folder lets IIS_IUSRS
+    /// read it - every app pool on this computer, any other site's included: the template gets the rights of
+    /// administrators, SYSTEM and this site's own app pool only (the one IIS AppPool account that may change the site's
+    /// folder). A site run as another account keeps the folder's rights - its installer must read the template.
+    /// </summary>
+    private void KeepToOwnAppPool(string template, string siteDirectory)
+    {
+        try
+        {
+            var poolAccount = new SecurityIdentifier("S-1-5-82");
+            var own = new DirectoryInfo(siteDirectory).GetAccessControl()
+                .GetAccessRules(includeExplicit: true, includeInherited: false, typeof(SecurityIdentifier))
+                .Cast<FileSystemAccessRule>()
+                .Where(r => r.AccessControlType == AccessControlType.Allow &&
+                            (r.FileSystemRights & FileSystemRights.Modify) == FileSystemRights.Modify &&
+                            ((SecurityIdentifier)r.IdentityReference).Value.StartsWith(poolAccount.Value + "-", StringComparison.Ordinal))
+                .Select(r => (SecurityIdentifier)r.IdentityReference)
+                .Distinct()
+                .ToList();
+            if (own.Count != 1) return;
+            // Rights set on a link, or on a file with other names, would be set on another file: not done then.
+            if (DnnManager.Application.SafePath.HasLink(siteDirectory, template) || DnnManager.Application.SafePath.IsHardLinked(template))
+            {
+                _log.LogWarning("The install template {Template} is a link, reached through one, or has other names - its rights are left as they are", template);
+                return;
+            }
+            var security = new FileSecurity();
+            security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+            foreach (var sid in new[]
+                     {
+                         new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+                         new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
+                         own[0]
+                     })
+                security.AddAccessRule(new FileSystemAccessRule(sid,
+                    FileSystemRights.FullControl, AccessControlType.Allow));
+            new FileInfo(template).SetAccessControl(security);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            _log.LogWarning(ex, "Could not keep the install template {Template} to the site's own app pool", template);
+        }
+    }
 
     private static void TryDelete(string file)
     {

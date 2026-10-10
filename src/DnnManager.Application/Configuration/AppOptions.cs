@@ -40,8 +40,41 @@ public sealed class AppOptions
         Terminal = other.Terminal;
         KeepRunningWhenClosed = other.KeepRunningWhenClosed;
         CheckForUpdatesAtStart = other.CheckForUpdatesAtStart;
+        BackupKeepDays = other.BackupKeepDays;
         Changed?.Invoke();
     }
+
+    /// <summary>
+    /// Puts the values as the app uses them, as <see cref="UserSettings.ToAppOptions"/> does for the saved settings - for
+    /// values bound from somewhere else (<c>DNNMANAGER_*</c> environment variables): the hostname suffix without spaces
+    /// and dots around it, keep warm's pages starting with <c>/</c>, the database server's names trimmed. Before
+    /// <see cref="Problems"/>, so what is checked is what is used.
+    /// </summary>
+    public AppOptions Normalize()
+    {
+        HostnameSuffix = (HostnameSuffix ?? "").Trim().Trim('.');
+        BaseDirectory = (BaseDirectory ?? "").Trim();
+        KeepWarm = new KeepWarmSettings
+        {
+            PingMinutes = KeepWarm.PingMinutes,
+            WarmUpPath = KeepWarmSettings.NormalizePath(KeepWarm.WarmUpPath),
+            PingPath = KeepWarmSettings.NormalizePath(KeepWarm.PingPath)
+        };
+        DatabaseServer.Server = (DatabaseServer.Server ?? "").Trim();
+        DatabaseServer.UserName = (DatabaseServer.UserName ?? "").Trim();
+        return this;
+    }
+
+    /// <summary>
+    /// What isn't allowed in these options by every rule the saved settings are held to (<see cref="UserSettings.Validate"/>,
+    /// <see cref="SettingRules"/>) - for values that came from somewhere else: <c>DNNMANAGER_*</c> environment variables.
+    /// <paramref name="basis"/> gives what the options don't have (the UI scale, say) - the saved settings. Each problem
+    /// names the option (as its environment variable does) and the settings key. Empty when they are usable.
+    /// </summary>
+    public IReadOnlyList<string> Problems(UserSettings? basis = null) =>
+        (basis ?? new UserSettings()).WithOptions(this).Validate()
+        .Select(p => UserSettings.OptionNameOf(p.Key) is { } name ? $"{name} ({p.Key}) {p.Message}" : p.ToString())
+        .ToList();
 
     public string BaseDirectory { get; set; } = @"C:\DNN";
     public int SitePort { get; set; } = 80;
@@ -84,6 +117,12 @@ public sealed class AppOptions
 
     /// <summary>GitHub is asked for a newer DNN Manager a moment after the start; set in Settings - General.</summary>
     public bool CheckForUpdatesAtStart { get; set; } = true;
+
+    /// <summary>
+    /// Project backups and deployment packages older than this many days are deleted at the start; 0 (the default) keeps
+    /// them for good. Set in Settings - Projects.
+    /// </summary>
+    public int BackupKeepDays { get; set; }
 
     /// <summary>The host header a project's IIS site is bound to: <c>{project}.{HostnameSuffix}</c>.</summary>
     public string HostnameFor(string projectName) => $"{projectName}.{HostnameSuffix}";
@@ -132,6 +171,13 @@ public sealed class DockerOptions
     public int DefaultPort { get; set; } = Abstractions.SqlServerAddress.DefaultPort;
     public string Collation { get; set; } = "Latin1_General_CI_AS";
     public string MssqlPid { get; set; } = "Developer";
+
+    /// <summary>These options with another sa password - the one a data volume already has.</summary>
+    public DockerOptions WithSaPassword(string password) => new()
+    {
+        ContainerName = ContainerName, ContainerIp = ContainerIp, VolumeName = VolumeName, SqlUser = SqlUser,
+        SaPassword = password, DefaultPort = DefaultPort, Collation = Collation, MssqlPid = MssqlPid
+    };
 }
 
 /// <summary>The kind of SQL Server new projects get their database on - see <see cref="SqlServerSettings"/>.</summary>

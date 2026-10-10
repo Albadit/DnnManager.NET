@@ -9,12 +9,16 @@
         <Path x:Name="Backdrop" Fill="{DynamicResource TourBackdrop}" IsHitTestVisible="False" />
         <Canvas x:Name="Stage">
             <Border x:Name="Ring" BorderBrush="{DynamicResource Accent}" BorderThickness="2" CornerRadius="6" IsHitTestVisible="False" />
-            <!-- Over the title bar too: its buttons take the click there, not the window's drag. -->
-            <Border x:Name="Callout" Width="340" Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}"
-                    BorderThickness="1" CornerRadius="8" Padding="18,14,18,14" WindowChrome.IsHitTestVisibleInChrome="True">
-                <Border.Effect>
-                    <DropShadowEffect BlurRadius="24" ShadowDepth="4" Opacity="0.35" />
-                </Border.Effect>
+            <!-- Over the title bar too: its buttons take the click there, not the window's drag. The shadow is a layer of its
+                 own behind the card: an effect on the card itself would draw its text as a bitmap, without ClearType - soft. -->
+            <Grid x:Name="Callout" Width="340" WindowChrome.IsHitTestVisibleInChrome="True" UseLayoutRounding="True">
+                <Border Background="{DynamicResource CardBg}" CornerRadius="8" IsHitTestVisible="False">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="24" ShadowDepth="4" Opacity="0.35" />
+                    </Border.Effect>
+                </Border>
+                <Border Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}"
+                        BorderThickness="1" CornerRadius="8" Padding="18,14,18,14">
                 <StackPanel>
                     <TextBlock x:Name="CountText" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextCaption}" />
                     <TextBlock x:Name="TitleText" Foreground="{DynamicResource TextPrimary}" FontSize="{DynamicResource TextMedium}" FontWeight="SemiBold"
@@ -29,7 +33,8 @@
                                 Click="Skip_Click" ToolTip="End the tour (Esc) - Help opens it again" />
                     </DockPanel>
                 </StackPanel>
-            </Border>
+                </Border>
+            </Grid>
         </Canvas>
     </Grid>
 </UserControl>

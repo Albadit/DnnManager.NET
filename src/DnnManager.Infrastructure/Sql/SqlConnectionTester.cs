@@ -11,18 +11,10 @@ public sealed class SqlConnectionTester : ISqlConnectionTester
         if (string.IsNullOrWhiteSpace(connection.Server)) return Result<string>.Fail("SQL server is empty.");
         try
         {
-            using var conn = new SqlConnection(new SqlConnectionStringBuilder
-            {
-                DataSource = connection.Server,
-                InitialCatalog = string.IsNullOrWhiteSpace(connection.Database) ? "master" : connection.Database,
-                UserID = connection.User,
-                Password = connection.Password,
-                // No user: Windows authentication, as DNN Manager's own account.
-                IntegratedSecurity = connection.User.Length == 0,
-                Encrypt = true,                  // Azure SQL requires TLS.
-                TrustServerCertificate = true,
-                ConnectTimeout = timeoutSeconds
-            }.ConnectionString);
+            // No user: Windows authentication, as DNN Manager's own account.
+            using var conn = new SqlConnection(ConnectionStrings.For(connection.Server,
+                string.IsNullOrWhiteSpace(connection.Database) ? "master" : connection.Database,
+                connection.User, connection.Password, timeoutSeconds).ConnectionString);
             await conn.OpenAsync(ct);
 
             using var cmd = new SqlCommand(
@@ -37,7 +29,7 @@ public sealed class SqlConnectionTester : ISqlConnectionTester
         }
         catch (Exception ex)
         {
-            return Result<string>.Fail(ex.Message);
+            return Result<string>.Fail(ConnectionStrings.Explained(ex.Message));
         }
     }
 
@@ -46,21 +38,11 @@ public sealed class SqlConnectionTester : ISqlConnectionTester
         if (string.IsNullOrWhiteSpace(server.Server)) return Result<IReadOnlyList<string>>.Fail("SQL server is empty.");
         try
         {
-            using var conn = new SqlConnection(new SqlConnectionStringBuilder
-            {
-                DataSource = server.Server,
-                InitialCatalog = "master",
-                UserID = server.User,
-                Password = server.Password,
-                IntegratedSecurity = server.User.Length == 0,
-                Encrypt = true,
-                TrustServerCertificate = true,
-                ConnectTimeout = timeoutSeconds,
-                // Asked again every few seconds to see whether the server is there (ServerStateMonitor): each time
-                // for real, not answered from the last failure for up to a minute - so a server that comes back is
-                // seen at the next look.
-                PoolBlockingPeriod = PoolBlockingPeriod.NeverBlock
-            }.ConnectionString);
+            var builder = ConnectionStrings.For(server.Server, "master", server.User, server.Password, timeoutSeconds);
+            // Asked again every few seconds to see whether the server is there (ServerStateMonitor): each time for real,
+            // not answered from the last failure for up to a minute - so a server that comes back is seen at the next look.
+            builder.PoolBlockingPeriod = PoolBlockingPeriod.NeverBlock;
+            using var conn = new SqlConnection(builder.ConnectionString);
             await conn.OpenAsync(ct);
 
             using var cmd = new SqlCommand("SELECT name FROM sys.databases", conn);
@@ -71,7 +53,7 @@ public sealed class SqlConnectionTester : ISqlConnectionTester
         }
         catch (Exception ex)
         {
-            return Result<IReadOnlyList<string>>.Fail(ex.Message);
+            return Result<IReadOnlyList<string>>.Fail(ConnectionStrings.Explained(ex.Message));
         }
     }
 }

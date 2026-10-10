@@ -10,7 +10,9 @@ public interface IProjectFileCopier
 
     /// <summary>
     /// Extracts a zipped DNN site into <paramref name="destinationDirectory"/>. The site root is the zip's
-    /// shallowest folder holding a <c>web.config</c>, so a zip with everything under one top folder works too.
+    /// shallowest folder holding a <c>web.config</c>, so a zip with everything under one top folder works too. A file of
+    /// the folder another program has open is thrown as the <see cref="IOException"/> (<see cref="FileInUse.Is"/>), so the
+    /// caller can try again; any other failure is the result.
     /// </summary>
     Task<Result> ExtractZipAsync(string zipPath, string destinationDirectory, IProgressReporter reporter, CancellationToken ct);
 

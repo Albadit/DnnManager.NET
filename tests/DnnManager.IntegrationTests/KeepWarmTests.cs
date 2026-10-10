@@ -399,8 +399,9 @@ public sealed class KeepWarmTests
             CollectionAssert.Contains(KeepWarmRequester.RunningDebuggers().ToList(), id);
             debugger.Kill();
             debugger.WaitForExit();
-            await Task.Delay(TimeSpan.FromSeconds(5.5));
-            CollectionAssert.DoesNotContain(KeepWarmRequester.RunningDebuggers().ToList(), id, "Looked for again once the last look is 5 s old.");
+            // Looked for again once the last look is 5 s old.
+            await WaitUntilAsync(() => !KeepWarmRequester.RunningDebuggers().Contains(id), "the debugger to be looked for again",
+                within: TimeSpan.FromSeconds(30));
         }
         finally
         {
@@ -464,9 +465,8 @@ public sealed class KeepWarmTests
         List<string> Paths() => server.Requests.Select(r => r.Path).ToList();
 
         feed.Raise(new RuntimeChanged(IisServerState.Running), new ProjectAdded(Shop("Started", worker)));
-        await Task.Delay(300);
-        Assert.AreEqual(KeepWarmState.Off, service.StatusOf("shop").State);
-        Assert.AreEqual(0, server.Requests.Count, "Not kept warm: nothing is sent.");
+        await StaysAsync(() => service.StatusOf("shop").State == KeepWarmState.Off && server.Requests.Count == 0,
+            "Not kept warm: nothing is sent.");
 
         // Switched on: it has a worker process, so its keep-alive page - at once.
         service.SetEnabled("shop", true);
@@ -482,13 +482,13 @@ public sealed class KeepWarmTests
         // Started again, without a worker process: warmed up with its home page - once: the worker process that started
         // isn't reported yet, so the sites are read again, and until then it isn't warmed up again.
         feed.Raise(new ProjectChanged(Shop("Started"), ProjectFacets.Site));
-        await WaitForAsync(service, KeepWarmState.Warm, after: 1);
-        await Task.Delay(500);
+        await WaitUntilAsync(() => server.Requests.Count >= 2, "the warm-up request");
+        await WaitForAsync(service, KeepWarmState.Warm);
+        await StaysAsync(() => server.Requests.Count == 2, "Warmed up once.");
         CollectionAssert.AreEqual(new[] { "/KeepAlive.aspx", "/" }, Paths());
         await WaitUntilAsync(() => Volatile.Read(ref feed.Syncs) == 1, "the sites to be read again");
         feed.Raise(new ProjectChanged(Shop("Started", worker), ProjectFacets.Site));
-        await Task.Delay(300);
-        Assert.AreEqual(2, server.Requests.Count, "The worker process the warm-up started is its own - no check of it.");
+        await StaysAsync(() => server.Requests.Count == 2, "The worker process the warm-up started is its own - no check of it.");
 
         // An operation on the site holds it back. One that never began (its question was answered no) changed nothing:
         // nothing to check afterwards.
@@ -496,14 +496,12 @@ public sealed class KeepWarmTests
         await WaitForAsync(service, KeepWarmState.Paused);
         service.Resume();
         await WaitForAsync(service, KeepWarmState.Warm);
-        await Task.Delay(300);
-        Assert.AreEqual(2, server.Requests.Count);
+        await StaysAsync(() => server.Requests.Count == 2, "Nothing to check after an operation that never began.");
         // One that ran gets it checked again once it has ended - not even Check now goes before.
         service.Pause(KeepWarmPause.For(["shop"]));
         await WaitForAsync(service, KeepWarmState.Paused);
         service.CheckNow("shop");
-        await Task.Delay(300);
-        Assert.AreEqual(2, server.Requests.Count, "Not even Check now while the operation runs.");
+        await StaysAsync(() => server.Requests.Count == 2, "Not even Check now while the operation runs.");
         service.Recheck(["shop"]);
         service.Resume();
         await WaitUntilAsync(() => server.Requests.Count == 3);
@@ -526,12 +524,13 @@ public sealed class KeepWarmTests
         var sent = server.Requests.Count;
         service.CheckNow("shop");
         await WaitForAsync(service, KeepWarmState.Waiting);
-        await Task.Delay(500);
-        Assert.AreEqual(sent + 1, server.Requests.Count, "Not again while the operation runs.");
+        await WaitUntilAsync(() => server.Requests.Count >= sent + 1, "the failing request");
+        await StaysAsync(() => server.Requests.Count == sent + 1, "Not again while the operation runs.");
         Assert.IsFalse(notices.Any(n => n.IsWarning), "Not counted as a failure: " + string.Join(" | ", notices.Select(n => n.Message)));
         Volatile.Write(ref failing, false);
         service.Resume();
         await WaitForAsync(service, KeepWarmState.Warm);
+        await WaitUntilAsync(() => server.Requests.Count >= sent + 2, "the request after the operation");
         Assert.AreEqual(sent + 2, server.Requests.Count);
 
         // Gone from IIS: its record goes with it - a new site of the same name starts cold.
@@ -604,10 +603,10 @@ public sealed class KeepWarmTests
             service.SetEnabled("a", true);
             await WaitUntilAsync(() => service.StatusOf("a").State == KeepWarmState.Warm && service.StatusOf("c").State == KeepWarmState.Warm,
                 "A and C to be warm");
-            await Task.Delay(1000);
-            Assert.AreEqual(1, SentTo("a"), "Switched on three times: one request, then the interval (minutes).");
-            Assert.AreEqual(1, SentTo("c"));
-            Assert.AreEqual(0, SentTo("b"), "B isn't kept warm.");
+            await WaitUntilAsync(() => SentTo("a") >= 1 && SentTo("c") >= 1, "A and C to be requested");
+            await StaysAsync(() => SentTo("a") == 1 && SentTo("c") == 1 && SentTo("b") == 0,
+                "Switched on three times: one request, then the interval (minutes) - and none to B, which isn't kept warm.",
+                TimeSpan.FromSeconds(1), () => $"A {SentTo("a")}, B {SentTo("b")}, C {SentTo("c")}");
             Assert.AreEqual(KeepWarmState.Off, service.StatusOf("b").State);
 
             // A goes down for a while: failing, not given up on - and warm again once it answers.
@@ -624,8 +623,7 @@ public sealed class KeepWarmTests
             await WaitUntilAsync(() => service.StatusOf("c").State == KeepWarmState.Off, "C to be off");
             var sentToC = SentTo("c");
             service.CheckNow("c");
-            await Task.Delay(500);
-            Assert.AreEqual(sentToC, SentTo("c"), "Switched off: nothing is sent.");
+            await StaysAsync(() => SentTo("c") == sentToC, "Switched off: nothing is sent.");
             Assert.IsTrue(records.Find("c") is null, "Off with nothing of its own: no record left.");
         }
         finally
@@ -641,26 +639,44 @@ public sealed class KeepWarmTests
         feed.Raise(Sites());
         await WaitUntilAsync(() => SentTo("a") > before.a, "A to be requested after the restart", () => restarted.StatusOf("a").Text);
         await WaitUntilAsync(() => restarted.StatusOf("a").State == KeepWarmState.Warm, "A to be warm after the restart");
-        await Task.Delay(500);
-        Assert.AreEqual(before.b, SentTo("b"));
-        Assert.AreEqual(before.c, SentTo("c"));
+        await StaysAsync(() => SentTo("b") == before.b && SentTo("c") == before.c, "B and C aren't kept warm after the restart.");
         Assert.AreEqual(KeepWarmState.Off, restarted.StatusOf("c").State);
     }
 
-    private static async Task WaitForAsync(KeepWarmService service, KeepWarmState state, int after = 0)
-    {
-        if (after > 0) await Task.Delay(50);
-        await WaitUntilAsync(() => service.StatusOf("shop").State == state, $"the status to be {state}", () => service.StatusOf("shop").Text);
-    }
+    private static Task WaitForAsync(KeepWarmService service, KeepWarmState state) =>
+        WaitUntilAsync(() => service.StatusOf("shop").State == state, $"the status to be {state}", () => service.StatusOf("shop").Text);
 
-    private static async Task WaitUntilAsync(Func<bool> condition, string what = "the condition", Func<string>? describe = null)
+    /// <summary>
+    /// Polls <paramref name="condition"/> until it holds - failing once <paramref name="within"/> (30 s by default: a slow CI
+    /// machine) has gone by without it. What happens is waited for, never a fixed time that may be too short.
+    /// </summary>
+    private static async Task WaitUntilAsync(Func<bool> condition, string what = "the condition", Func<string>? describe = null,
+        TimeSpan? within = null)
     {
-        var until = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        var deadline = Stopwatch.StartNew();
+        var limit = within ?? TimeSpan.FromSeconds(30);
         while (!condition())
         {
-            if (DateTime.UtcNow > until) Assert.Fail($"Timed out waiting for {what}. {describe?.Invoke()}");
+            if (deadline.Elapsed > limit) Assert.Fail($"Timed out waiting for {what}. {describe?.Invoke()}");
             await Task.Delay(20);
         }
+    }
+
+    /// <summary>
+    /// What mustn't happen: <paramref name="condition"/> keeps holding for <paramref name="during"/> (300 ms by default) -
+    /// polled all that time, failing the moment it doesn't. A slow machine can't make this fail when nothing is wrong:
+    /// it only gives what shouldn't happen less time to show.
+    /// </summary>
+    private static async Task StaysAsync(Func<bool> condition, string what, TimeSpan? during = null, Func<string>? describe = null)
+    {
+        var watch = Stopwatch.StartNew();
+        var limit = during ?? TimeSpan.FromMilliseconds(300);
+        do
+        {
+            if (!condition()) Assert.Fail($"{what} {describe?.Invoke()}");
+            await Task.Delay(20);
+        } while (watch.Elapsed < limit);
+        if (!condition()) Assert.Fail($"{what} {describe?.Invoke()}");
     }
 
     /// <summary>The monitor, played by the test: what it reports, and what a read of the sites then finds.</summary>

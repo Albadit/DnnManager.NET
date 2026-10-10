@@ -7,13 +7,14 @@
          its search over the title bar's. -->
     <Grid x:Name="Overlay" Background="Transparent" MouseLeftButtonDown="Outside_MouseLeftButtonDown" WindowChrome.IsHitTestVisibleInChrome="True">
         <!-- 600 wide, as VS Code's - narrower only when the window is; centred (stretched up to its MaxWidth). -->
-        <Border x:Name="Box" MaxWidth="600"
-                VerticalAlignment="Top" Margin="16,1,16,0" Padding="6,5,6,6"
-                Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="8"
-                MouseLeftButtonDown="Box_MouseLeftButtonDown">
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="24" ShadowDepth="4" Opacity="0.35" />
-            </Border.Effect>
+        <Grid x:Name="Box" MaxWidth="600" VerticalAlignment="Top" Margin="16,1,16,0" MouseLeftButtonDown="Box_MouseLeftButtonDown">
+            <!-- The shadow a layer of its own: an effect on the box would draw its text as a bitmap, without ClearType - soft. -->
+            <Border Background="{DynamicResource CardBg}" CornerRadius="8" IsHitTestVisible="False">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="24" ShadowDepth="4" Opacity="0.35" />
+                </Border.Effect>
+            </Border>
+            <Border Padding="6,5,6,6" Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="8">
             <DockPanel>
                 <!-- A list with a name of its own (Customize Layout): the name, Reset and close, as in VS Code. -->
                 <DockPanel x:Name="TitleRow" DockPanel.Dock="Top" Margin="0,0,0,5" Visibility="Collapsed">
@@ -120,6 +121,7 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
             </DockPanel>
-        </Border>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>

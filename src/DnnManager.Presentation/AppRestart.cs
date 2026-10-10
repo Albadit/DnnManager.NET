@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
+using DnnManager.Infrastructure.Processes;
 
 namespace DnnManager.Presentation;
 
@@ -50,6 +51,7 @@ internal static class AppRestart
                 start.ArgumentList.Add(AfterArgument);
                 start.ArgumentList.Add(Environment.ProcessId.ToString());
             }
+            ChildEnvironment.ForSelf(start.Environment);
             Process.Start(start);
         }
         catch (Exception ex)

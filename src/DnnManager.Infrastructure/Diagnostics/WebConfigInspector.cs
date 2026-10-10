@@ -95,7 +95,8 @@ public static class WebConfigInspector
         XElement root;
         try
         {
-            root = XDocument.Load(path).Root ?? throw new System.Xml.XmlException("the file is empty");
+            // The site's web.config, which its app pool can change: read without a DTD or a resolver.
+            root = WebConfigs.SiteXml.Load(path).Root ?? throw new System.Xml.XmlException("the file is empty");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Xml.XmlException)
         {

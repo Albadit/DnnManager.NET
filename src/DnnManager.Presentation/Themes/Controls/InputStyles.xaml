@@ -12,7 +12,7 @@
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Background" Value="{DynamicResource InputBg}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource InputBorder}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource FieldBorder}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CaretBrush" Value="{DynamicResource TextPrimary}" />
         <Setter Property="SelectionBrush" Value="{DynamicResource Accent}" />
@@ -49,7 +49,7 @@
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Background" Value="{DynamicResource InputBg}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource InputBorder}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource FieldBorder}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CaretBrush" Value="{DynamicResource TextPrimary}" />
         <Setter Property="SelectionBrush" Value="{DynamicResource Accent}" />
@@ -134,7 +134,7 @@
                                       IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
                             <ToggleButton.Template>
                                 <ControlTemplate TargetType="ToggleButton">
-                                    <Border x:Name="Bd" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource InputBorder}"
+                                    <Border x:Name="Bd" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource FieldBorder}"
                                             BorderThickness="1" CornerRadius="{StaticResource ControlRadius}" SnapsToDevicePixels="True">
                                         <TextBlock Text="{StaticResource GlyphChevronDown}" FontFamily="{StaticResource IconFont}" FontSize="10"
                                                    HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0"
@@ -161,13 +161,22 @@
                         <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True" Focusable="False"
                                PopupAnimation="{Binding (s:Motion.Off), RelativeSource={RelativeSource Self}, Converter={x:Static s:Motion.PopupFade}}"
                                IsOpen="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}">
-                            <Border Margin="0,2,0,0" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
-                                    MaxHeight="{TemplateBinding MaxDropDownHeight}" CornerRadius="{StaticResource ControlRadius}" BorderThickness="1"
-                                    Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource InputBorder}" LayoutTransform="{DynamicResource UiScale}">
-                                <ScrollViewer Margin="0,3">
-                                    <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
-                                </ScrollViewer>
-                            </Border>
+                            <!-- As a toast: the card's border, and a shadow of its own behind it (room for it on the right and
+                                 below) - an effect on the list itself would draw its text without ClearType. -->
+                            <Grid Margin="0,2,8,8" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                  MaxHeight="{TemplateBinding MaxDropDownHeight}" LayoutTransform="{DynamicResource UiScale}">
+                                <Border Background="{DynamicResource CardBg}" CornerRadius="{StaticResource ControlRadius}" IsHitTestVisible="False">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="18" ShadowDepth="3" Opacity="0.3" />
+                                    </Border.Effect>
+                                </Border>
+                                <Border CornerRadius="{StaticResource ControlRadius}" BorderThickness="1"
+                                        Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}">
+                                    <ScrollViewer Margin="0,3">
+                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                                    </ScrollViewer>
+                                </Border>
+                            </Grid>
                         </Popup>
                     </Grid>
                     <ControlTemplate.Triggers>

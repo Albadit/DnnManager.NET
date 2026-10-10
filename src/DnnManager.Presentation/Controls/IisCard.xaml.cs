@@ -101,7 +101,7 @@ public partial class IisCard : UserControl
         var missing = rows.Count(r => r.Status == "Missing");
         var unknown = rows.Count(r => r.Status == "Unknown");
         Summary.Text = unknown == rows.Count && rows.Count > 0
-            ? "Couldn't read the Windows features - DNN Manager needs to run as Administrator."
+            ? "Couldn't read the Windows features - DNN Manager needs administrator rights."
             : missing == 0 ? $"All {rows.Count} Windows features are enabled."
             : $"{rows.Count - missing - unknown} of {rows.Count} Windows features enabled - {missing} missing.";
     }

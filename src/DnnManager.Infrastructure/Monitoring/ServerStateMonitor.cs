@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO.Enumeration;
+using DnnManager.Application;
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
 using DnnManager.Application.UseCases;
@@ -796,7 +797,7 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
 
     private Folder ReadFolder(string name, string directory)
     {
-        var inProjectsFolder = IsInProjectsFolder(directory);
+        var inProjectsFolder = SafePath.IsInside(directory, _options.BaseDirectory);
         string? version = null, database = null, problem = null, server = null;
         var elsewhere = false;
         var isFile = false;
@@ -832,7 +833,10 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
                                     !LocalSqlContainer.IsContainerServer(c.Server, _options.Docker.ContainerIp, _options.Docker.DefaultPort);
                         // Asked as the site connects: its login - or Windows authentication, as DNN Manager's user. Not a
                         // LocalDB instance: connecting starts it, and asking every few seconds would keep it running for good.
-                        if (!isFile && !SqlServerAddress.Parse(c.Server).IsLocalDb)
+                        // And with Windows authentication only a server on this PC or the one in the settings: the site
+                        // can change its own web.config, and would otherwise have DNN Manager sign in as the user - every
+                        // few seconds, unasked - to a server of its choosing.
+                        if (!isFile && !SqlServerAddress.Parse(c.Server).IsLocalDb && (!c.UsesWindowsAuthentication || SqlServerAddress.MaySignInAsUser(c.Server, _options.DatabaseServer)))
                             connection = c.UsesWindowsAuthentication
                                 ? new SiteSqlConnection(c.Server, c.Database, "", "")
                                 : new SiteSqlConnection(c.Server, c.Database, c.User, c.Password);
@@ -848,20 +852,6 @@ public sealed class ServerStateMonitor : IServerStateFeed, IDisposable
         // Only a DNN site (or a project's folder) is expected to have one - any other site simply has no database.
         if (version is null && !inProjectsFolder) problem = null;
         return new Folder(version, database, inProjectsFolder, elsewhere, problem, server, isFile, connection);
-    }
-
-    private bool IsInProjectsFolder(string directory)
-    {
-        if (directory.Length == 0 || _options.BaseDirectory.Length == 0) return false;
-        try
-        {
-            var root = Path.GetFullPath(_options.BaseDirectory).TrimEnd('\\') + "\\";
-            return Path.GetFullPath(directory).StartsWith(root, StringComparison.OrdinalIgnoreCase);
-        }
-        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
-        {
-            return false;
-        }
     }
 
     /// <summary>

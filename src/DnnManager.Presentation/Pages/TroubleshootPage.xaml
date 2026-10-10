@@ -32,7 +32,7 @@
         <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1" Padding="28,14,20,14">
             <DockPanel>
                 <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="{StaticResource GlyphClose}" FontSize="12"
-                        Foreground="{DynamicResource Accent}" ToolTip="Close (Esc)" Click="Close_Click" />
+                        Foreground="{DynamicResource LinkFg}" ToolTip="Close (Esc)" Click="Close_Click" />
                 <TextBlock Text="Troubleshoot" FontSize="{DynamicResource TextLarge}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" />
             </DockPanel>
         </Border>
@@ -41,7 +41,7 @@
             <!-- Centred: as wide as there is room, up to 860. -->
             <StackPanel Margin="28,24,28,20" MaxWidth="860" HorizontalAlignment="Center">
                 <TextBlock Style="{StaticResource PageSubtitle}"
-                           Text="When DNN Manager doesn't behave: restart it, clean up the data it keeps, or put it back as it was installed. Your projects - their IIS sites, folders and databases - are never touched here." />
+                           Text="Restart, clean up or reset DNN Manager. Your projects are never touched here." />
 
                 <Border Style="{StaticResource ActionRow}" BorderThickness="0,1,0,1">
                     <DockPanel>
@@ -70,10 +70,14 @@
 
                             <CheckBox x:Name="CleanProjectBackups" Margin="0,6,0,0" Click="Selection_Changed" />
                             <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
-                                       Text="Each project's saved site .zip and database .bacpac - Export makes them, Import and New project restore them. They can't be brought back." />
+                                       Text="They can't be brought back." />
                             <CheckBox x:Name="CleanDeployments" Margin="0,6,0,0" Click="Selection_Changed" />
                             <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
-                                       Text="What Export for deployment made: each holds a whole database, and a web.config with the live server's connection string when you gave one. Delete them once they are deployed." />
+                                       Text="They can hold a live connection string - delete them once deployed." />
+                            <CheckBox x:Name="CleanOldSettings" Margin="0,6,0,0" Click="Selection_Changed"
+                                      AutomationProperties.HelpText="{Binding Text, ElementName=CleanOldSettingsHint}" />
+                            <TextBlock x:Name="CleanOldSettingsHint" Style="{StaticResource Hint}" Margin="22,2,0,0"
+                                       Text="They can hold the sa password in plain text." />
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -85,7 +89,7 @@
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Style="{StaticResource ActionTitle}" Text="Reset settings to defaults" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
-                                       Text="Every setting in every category back as DNN Manager is installed - the saved passwords and start at sign-in too. They apply at once, without a restart. The current settings aren't kept; your projects, logs and which sites are kept warm stay." />
+                                       Text="Every setting back to its default, passwords and start at sign-in too. Projects, logs and keep warm stay." />
                         </StackPanel>
                     </DockPanel>
                 </Border>
@@ -97,7 +101,7 @@
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Style="{StaticResource ActionTitle}" Text="Reset to factory defaults" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
-                                       Text="The settings, saved passwords, start at sign-in, which sites are kept warm, logs and kept DNN packages are removed, and DNN Manager restarts as just installed. Your projects and project backups are kept." />
+                                       Text="Removes settings, passwords, logs, kept packages and keep warm, then restarts. Projects and backups stay." />
                         </StackPanel>
                     </DockPanel>
                 </Border>

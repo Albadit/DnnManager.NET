@@ -40,7 +40,25 @@ public sealed class OutputLine(DateTime time, LineLevel level, string text, IRea
     public IReadOnlyList<string> Details { get; } = details ?? [];
     public string? Hint { get; } = hint;
 
-    /// <summary>Changes only for a progress line, which is rewritten in place.</summary>
+    /// <summary>The line that stands for the lines a long stage left out (<see cref="OutputCap"/>).</summary>
+    public bool IsElision { get; private init; }
+
+    private int _elided;
+
+    /// <summary>How many lines it stands for - its text says it.</summary>
+    public int Elided
+    {
+        get => _elided;
+        set
+        {
+            _elided = value;
+            Text = OutputCap.ElidedText(value);
+        }
+    }
+
+    internal static OutputLine Elision(DateTime time) => new(time, LineLevel.Info, "") { IsElision = true };
+
+    /// <summary>Changes only for a progress line, which is rewritten in place - and for <see cref="IsElision"/>'s count.</summary>
     public string Text
     {
         get => _text;
@@ -125,7 +143,7 @@ public sealed class OutputStage(string name, string title) : OutputItem
     }
 
     /// <summary>A line came in: a warning or error shows on the stage while it still runs.</summary>
-    public void Add(OutputLine line) => Lines.Add(line);
+    public void Add(OutputLine line) => OutputCap.Add(Lines, line);
 
     /// <summary>Time went on: the running stage's duration reads differently.</summary>
     public void Tick() => Raise(nameof(Duration), nameof(DurationText));
@@ -296,6 +314,52 @@ public sealed class OutputRun(string title, DateTime startedAt) : OutputItem
     {
         Raise(nameof(Duration), nameof(DurationText));
         Current?.Tick();
+    }
+}
+
+/// <summary>
+/// How many lines a stage (or a run's closing notes) keeps in the Output tab - its log isn't virtualized, and an
+/// operation can write thousands (a big copy, a chatty SqlPackage): the first <see cref="Head"/> and the newest
+/// <see cref="Tail"/>, with one line between them counting what was left out - all of it is in the day's log file.
+/// Warnings and errors are always kept: the stage's state, the run's counts and the error boxes come from them.
+/// </summary>
+public static class OutputCap
+{
+    public const int Head = 200;
+    public const int Tail = 300;
+
+    /// <summary>"… 1 234 more lines - all of them are in the log file (Show DNN Manager's log)".</summary>
+    internal static string ElidedText(int count) =>
+        $"… {count.ToString("N0", CultureInfo.CurrentCulture)} more {(count == 1 ? "line" : "lines")} - all of them are in the log file (Show DNN Manager's log)";
+
+    /// <summary>Adds <paramref name="line"/> - and, past the cap, leaves out the oldest line after the first ones.</summary>
+    public static void Add(IList<OutputLine> lines, OutputLine line, int head = Head, int tail = Tail)
+    {
+        lines.Add(line);
+        var marker = lines.Count > head && lines[head].IsElision ? lines[head] : null;
+        var first = head + (marker is null ? 0 : 1);
+        // More than the newest Tail after the first ones: the oldest of them that may go goes - never a warning, an error
+        // or the progress line being rewritten.
+        while (lines.Count - first > tail)
+        {
+            var at = -1;
+            for (var i = first; i < lines.Count - tail; i++)
+                if (lines[i] is { IsElision: false, Level: LineLevel.Info or LineLevel.Success })
+                {
+                    at = i;
+                    break;
+                }
+            if (at < 0) return;
+            if (marker is null)
+            {
+                marker = OutputLine.Elision(lines[at].Time);
+                lines.Insert(head, marker);
+                first++;
+                at++;
+            }
+            lines.RemoveAt(at);
+            marker.Elided++;
+        }
     }
 }
 

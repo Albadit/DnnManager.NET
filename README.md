@@ -52,7 +52,8 @@ project takes its IIS site, folder and database with it.
 
 1. Download `DnnManager_Setup-<version>-x64.exe` from
    [Releases](https://github.com/Albadit/DnnManager.NET/releases/latest)
-   and run it - installing needs no administrator rights.
+   and run it - it asks for administrator rights and installs for all users,
+   into Program Files.
 2. Start **DNN Manager** and accept the UAC prompt - it manages IIS, so it runs
    as Administrator. The **Getting started** guide opens and explains the rest -
    **Skip guide** if you know your way; the **?** at the top right opens it
@@ -120,7 +121,7 @@ code are in [.docs/architecture.md](.docs/architecture.md).
 | | [Architecture](.docs/architecture.md) | Layers, how an operation runs, live updates, project layout, design decisions, component map |
 | | [Upgrading DNN](.docs/dnn-upgrades.md) | DNN's upgrade path, the analyser, backups, each step, the checks, rollback, the knowledge base, what was tested |
 | | [Testing](.docs/testing.md) | The fast and the integration tests, adding a test |
-| | [Releasing](.docs/releasing.md) | Version, changelog, portable exe, installer, GitHub release, CI and checksums, what to do about a bad release |
+| | [Releasing](.docs/releasing.md) | Version, changelog, portable exe, installer and launcher; the release workflow (built, tested, tried and published from the tag, once a reviewer approves); code signing (off until set up); CI and checksums; what to do about a bad release |
 | | [Security](.docs/security.md) | Administrator rights, secrets, what DNN Manager deletes, network exposure, open risks |
 | Everyone | [Changelog](CHANGELOG.md) | What changed in each version |
 | | [Release notes](.docs/release-notes/) | The notes of every GitHub release, one file per version |

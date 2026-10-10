@@ -1,28 +1,32 @@
 <#
 .SYNOPSIS
-    Publishes a DNN Manager release from this PC: pick a release-notes file and a commit, and it builds, tags and
-    publishes the GitHub release.
+    Starts a DNN Manager release from this PC: pick a release-notes file and a commit, and it checks them, runs the
+    fast tests and pushes the version tag - GitHub builds, attests and publishes the release from that tag.
 
 .DESCRIPTION
     1. Lists .docs\release-notes\vX.Y.Z.md - the file's name is the version, the tag and the release title.
     2. Lists the recent commits of the current branch; the newest is the default.
-    3. Checks out that commit into a temporary worktree (your working copy is not touched), restores the packages
-       as CI does (locked mode: exactly packages.lock.json), runs the fast tests, and builds the portable exe and the installer with the version stamped in. (GitHub Actions only builds and
-       tests the pushed tag - .github\workflows\ci.yml.)
-    4. Checks both files report the version. They land in publish\vX.Y.Z.
-    5. After you confirm: tags the commit, pushes the tag, creates the GitHub release with the notes as a draft,
-       uploads the files (and SHA256SUMS.txt), checks each against GitHub's own SHA-256 of it, waits for the CI run
-       on the tag to pass, and only then publishes it - every DNN Manager is offered a release CI has tested. A
-       failed CI run leaves the draft, to look into.
+    3. Checks the tag is free and GitHub has no published release of it, and that the commit has the release notes
+       and the release workflow (.github\workflows\release.yml) - the release is built from that commit, notes
+       included.
+    4. Checks out that commit into a temporary worktree (your working copy is not touched), restores the packages
+       as GitHub does (locked mode: exactly packages.lock.json) and runs the fast tests - a problem shows here, before
+       the tag exists.
+    5. After you confirm: tags the commit and pushes the tag. Nothing built on this PC is uploaded: the release
+       workflow builds the portable exe and the installer from the tag, runs the whole test suite, signs the files
+       when signing is set up, attests their provenance, tries the installed and the portable exe, puts them on a
+       draft release, and publishes it only once all of that has passed and a reviewer has approved the publish job
+       (a failure leaves at most a draft). This script then follows that run on GitHub (-NoWait doesn't).
 
-    It signs in to GitHub with the credential Git already uses for this repository. The VS Code task
+    The only credential it uses is the one Git pushes the tag with. GitHub's public API is asked - without signing
+    in - whether the release is published already and how the workflow run is going. The VS Code task
     "release (GitHub)" asks for the notes file and the commit in VS Code's pickers (filled by -List); run directly,
     it asks in the terminal.
 
 .EXAMPLE
     .github\scripts\publish-release.ps1
 .EXAMPLE
-    .github\scripts\publish-release.ps1 -NotesFile .docs\release-notes\v1.7.0.md -Commit 9030c5f -SkipTests
+    .github\scripts\publish-release.ps1 -NotesFile .docs\release-notes\v1.7.0.md -Commit 9030c5f -SkipTests -NoWait
 .EXAMPLE
     .github\scripts\publish-release.ps1 -List commits
 #>
@@ -32,10 +36,10 @@ param(
     [string]$NotesFile,
     # The commit to release (a hash); asked for when omitted.
     [string]$Commit,
-    # Builds without running the fast tests first - a pre-release only.
+    # Tags without running the fast tests here first (the release workflow still runs every test before it publishes).
     [switch]$SkipTests,
-    # Publishes without waiting for CI on the tag - a pre-release only.
-    [switch]$SkipCi,
+    # Pushes the tag and stops, without following the release workflow's run on GitHub.
+    [switch]$NoWait,
     # Only prints the choices for VS Code's picker (Tasks Shell Input), one "value||label||description||detail" per line.
     [ValidateSet('notes', 'commits')]
     [string]$List
@@ -48,27 +52,11 @@ Set-StrictMode -Version Latest
 $root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $notesDir = Join-Path $root '.docs\release-notes'
 
-# --- Helpers ---
+# --- Helpers (Invoke-Tool, Invoke-Git, Confirm-Step, Write-Step, Invoke-GitHub and Get-PublishedRelease are in
+# ReleaseCommon.psm1, shared with redo-release.ps1) ---
 
-# Runs a program and throws when it fails. -Quiet returns its output instead of showing it as it runs.
-function Invoke-Tool([string]$exe, [string[]]$argv, [switch]$Quiet) {
-    $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-    try {
-        if ($Quiet) { $out = @(& $exe @argv 2>&1 | ForEach-Object { "$_" }) }
-        else {
-            Write-Host "> $exe $($argv -join ' ')" -ForegroundColor DarkGray
-            & $exe @argv 2>&1 | ForEach-Object { Write-Host "$_" }
-        }
-    }
-    finally { $ErrorActionPreference = $prev }
-    if ($LASTEXITCODE -ne 0) {
-        if ($Quiet) { $out | Write-Host }
-        throw "$exe $($argv | Select-Object -First 3) failed (exit code $LASTEXITCODE)."
-    }
-    if ($Quiet) { return $out }
-}
-
-function Invoke-Git([string[]]$argv) { Invoke-Tool git (@('-C', $root) + $argv) -Quiet }
+Import-Module (Join-Path $PSScriptRoot 'ReleaseCommon.psm1') -Force
+Set-ReleaseContext -Root $root
 
 function Read-Choice([string]$title, [string[]]$items, [int]$default) {
     Write-Host ''
@@ -86,45 +74,12 @@ function Read-Choice([string]$title, [string[]]$items, [int]$default) {
     }
 }
 
-function Confirm-Step([string]$question) {
-    $answer = Read-Host "$question [y/N]"
-    return $answer -match '^(y|yes)$'
-}
-
-function Write-Step([string]$text) { Write-Host ''; Write-Host "== $text" -ForegroundColor Cyan }
-
-# GitHub's REST API, signed in with the credential Git uses for github.com (never printed).
-$script:token = $null
-function Invoke-GitHub([string]$method, [string]$url, $body, [string]$inFile, [string]$contentType = 'application/json; charset=utf-8') {
-    if (-not $script:token) {
-        $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-        $env:GIT_TERMINAL_PROMPT = '0'
-        try { $cred = "protocol=https`nhost=github.com`n`n" | git credential fill 2>$null } finally { $ErrorActionPreference = $prev }
-        $script:token = ($cred | Where-Object { $_ -like 'password=*' } | Select-Object -First 1) -replace '^password=', ''
-        if (-not $script:token) { throw 'No GitHub credential found - sign in to GitHub with Git first (e.g. git push once).' }
-    }
-    if ($url -notmatch '^https://') { $url = "https://api.github.com/repos/$script:repo$url" }
-    $headers = @{ Authorization = "Bearer $script:token"; Accept = 'application/vnd.github+json'; 'X-GitHub-Api-Version' = '2022-11-28' }
-    $params = @{ Method = $method; Uri = $url; Headers = $headers; ContentType = $contentType; UseBasicParsing = $true }
-    if ($null -ne $body) { $params.Body = [Text.Encoding]::UTF8.GetBytes(($body | ConvertTo-Json -Depth 5)) }
-    if ($inFile) { $params.InFile = $inFile; $params.TimeoutSec = 1800 }
-    return Invoke-RestMethod @params
-}
-
-function Test-GitHubRelease([string]$tag) {
-    try { $null = Invoke-GitHub GET "/releases/tags/$tag"; return $true }
-    catch {
-        $response = $_.Exception.PSObject.Properties['Response']
-        if ($response -and $response.Value -and [int]$response.Value.StatusCode -eq 404) { return $false }
-        throw
-    }
-}
-
 # --- The choices: release-notes files and the commits on GitHub ---
 
 $origin = (Invoke-Git @('remote', 'get-url', 'origin')) | Select-Object -First 1
 if ($origin -notmatch 'github\.com[:/](.+?)(\.git)?$') { throw "origin ($origin) isn't a GitHub repository." }
 $script:repo = $Matches[1]
+Set-ReleaseContext -Repository $script:repo
 
 # The notes files - the not yet tagged ones first (the next release on top), then the released ones; newest first.
 function Get-NotesFiles([string[]]$tags) {
@@ -200,10 +155,7 @@ else {
 $tag = $notes.BaseName
 $version = $tag.Substring(1)
 $null = $version -match '^(\d+\.\d+\.\d+)(-.+)?$'
-$fileVersion = "$($Matches[1]).0"
 $prerelease = [bool]$Matches[2]
-# A release every DNN Manager is offered as an update is tested - here, and by CI on its tag before it is published.
-if (-not $prerelease -and ($SkipTests -or $SkipCi)) { throw '-SkipTests and -SkipCi are for a pre-release only (vX.Y.Z-something).' }
 
 # --- 2. The commit ---
 
@@ -220,22 +172,37 @@ else {
 }
 $branch = (Invoke-Git @('rev-parse', '--abbrev-ref', 'HEAD')) | Select-Object -First 1
 
-# --- 3. Checks before building ---
+# --- 3. Checks before tagging ---
 
 Write-Step 'Checks'
 $problems = @()
 $remoteTag = Invoke-Git @('ls-remote', '--tags', 'origin', "refs/tags/$tag")
 $localTag = if ($tags -contains $tag) { (Invoke-Git @('rev-parse', "refs/tags/$tag^{commit}")) | Select-Object -First 1 } else { $null }
 if ($localTag -and $localTag -ne $selected.Sha) { $problems += "Tag $tag already exists on another commit ($($localTag.Substring(0, 7)))." }
-if ($remoteTag -and -not $localTag) { $problems += "Tag $tag exists on GitHub but not here - fetch it and check." }
-if (Test-GitHubRelease $tag) { $problems += "GitHub already has a release $tag." }
-if ($problems) { $problems | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }; throw 'Nothing was built or published.' }
-Write-Host "  Tag $tag and its GitHub release are free."
+if ($remoteTag) { $problems += "Tag $tag is on GitHub already, so its release workflow has run - redo a draft with the task ""release: redo (GitHub)""." }
+try {
+    $published = Get-PublishedRelease $tag
+    if ($published) { $problems += "GitHub has published $tag already ($($published.html_url)) - release the change as the next version." }
+}
+catch {
+    # The release workflow refuses a published release anyway; this is only the early warning.
+    Write-Host "  GitHub couldn't be asked whether $tag is published ($($_.Exception.Message)) - the release workflow checks it." -ForegroundColor Yellow
+}
+# The release is built from the commit: its notes (built into the exe, and the release's text) and the workflow that
+# builds it must be in it.
+foreach ($needed in ".docs/release-notes/$tag.md", '.github/workflows/release.yml') {
+    $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    & git -C $root cat-file -e "$($selected.Sha):$needed" 2>$null
+    $ErrorActionPreference = $prev
+    if ($LASTEXITCODE -ne 0) { $problems += "$($selected.Short) has no $needed - commit it (and push), then release that commit." }
+}
+if ($problems) { $problems | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }; throw 'Nothing was tagged or published.' }
+Write-Host "  Tag $tag is free, and $($selected.Short) has its release notes and the release workflow."
 
 $onRemote = @(Invoke-Git @('branch', '-r', '--contains', $selected.Sha))
 if ($onRemote.Count -eq 0) {
     Write-Host "  $($selected.Short) isn't on GitHub yet (push $branch first to keep the branch in step)." -ForegroundColor Yellow
-    if (-not (Confirm-Step '  Release it anyway? The tag push uploads the commit')) { throw 'Stopped - nothing was built or published.' }
+    if (-not (Confirm-Step '  Release it anyway? The tag push uploads the commit')) { throw 'Stopped - nothing was tagged or published.' }
 }
 
 Write-Host ''
@@ -244,90 +211,40 @@ Write-Host "  Notes    .docs\release-notes\$($notes.Name)"
 Write-Host "  Commit   $($selected.Short) $($selected.Subject)"
 Write-Host "           $($selected.Author), $($selected.Date)"
 
-# --- 4. Build in a worktree of that commit ---
+# --- 4. The fast tests, in a worktree of that commit ---
 
-$work = Join-Path $env:TEMP "dnnmanager-release-$version"
-$out = Join-Path $root "publish\$tag"
-try {
-    Write-Step "Building $tag from $($selected.Short)"
-    if (Test-Path $work) { Remove-Item $work -Recurse -Force }
-    $null = Invoke-Git @('worktree', 'prune')
-    $null = Invoke-Git @('worktree', 'add', '--detach', $work, $selected.Sha)
-
-    $installer = Join-Path $work 'src\DnnManager.Installer\build.ps1'
-    if (-not (Test-Path $installer) -or -not (Select-String -Path $installer -Pattern '\[string\]\$Version' -Quiet)) {
-        throw "This commit's installer script has no -Version parameter - release a newer commit."
+if ($SkipTests) { Write-Host '  Fast tests skipped here (-SkipTests) - the release workflow runs every test before it publishes.' -ForegroundColor Yellow }
+else {
+    $work = Join-Path $env:TEMP "dnnmanager-release-$version"
+    try {
+        Write-Step "Fast tests on $($selected.Short)"
+        if (Test-Path $work) { Remove-Item $work -Recurse -Force }
+        $null = Invoke-Git @('worktree', 'prune')
+        $null = Invoke-Git @('worktree', 'add', '--detach', $work, $selected.Sha)
+        $project = Join-Path $work 'tests\DnnManager.IntegrationTests\DnnManager.IntegrationTests.csproj'
+        # The packages packages.lock.json names, from nuget.org only (nuget.config), restored as the release workflow
+        # restores them: a lock file that doesn't match fails here, before anything is tagged.
+        $null = Invoke-Tool dotnet @('restore', $project, '--locked-mode')
+        # The launcher's too (the Native AOT compiler, which comes with the SDK global.json names).
+        $null = Invoke-Tool dotnet @('restore', (Join-Path $work 'src\DnnManager.Launcher\DnnManager.Launcher.csproj'), '--locked-mode')
+        $null = Invoke-Tool dotnet @('test', $project, '-c', 'Release', '--no-restore', '--filter', 'TestCategory!=Integration', '--nologo')
     }
-    # Reuse the Inno Setup this repository already downloaded - build.ps1 checks it against its pinned SHA-512.
-    $inno = Join-Path $root 'src\DnnManager.Installer\bin\tools'
-    if (Test-Path $inno) { Copy-Item $inno (Join-Path $work 'src\DnnManager.Installer\bin\tools') -Recurse -Force }
-
-    # The version goes into the manifest too (the exe's file properties).
-    $manifest = Join-Path $work 'app.manifest'
-    [IO.File]::WriteAllText($manifest, ([IO.File]::ReadAllText($manifest) -replace '(<assemblyIdentity version=")[0-9.]+(")', "`${1}$fileVersion`${2}"), [Text.UTF8Encoding]::new($false))
-
-    # The packages packages.lock.json names, restored as CI restores them: a lock file that doesn't match fails here,
-    # before anything is tagged - not in the CI run the release then waits for. The tests, the portable exe and the
-    # installer below restore the same way (MSBuild reads the environment variable as the property).
-    $tests = Join-Path $work 'tests\DnnManager.IntegrationTests'
-    $env:RestoreLockedMode = 'true'
-    if (Test-Path (Join-Path $tests 'packages.lock.json')) {
-        Write-Step 'Packages'
-        $null = Invoke-Tool dotnet @('restore', (Join-Path $tests 'DnnManager.IntegrationTests.csproj'), '--locked-mode')
-    }
-
-    if ($SkipTests) { Write-Host '  Tests skipped (-SkipTests).' -ForegroundColor Yellow }
-    elseif (Test-Path $tests) {
-        Write-Step 'Fast tests'
-        $null = Invoke-Tool dotnet @('test', $tests, '-c', 'Release', '--filter', 'TestCategory!=Integration', '--nologo')
-    }
-
-    $stamp = @("-p:Version=$version", "-p:AssemblyVersion=$fileVersion", "-p:FileVersion=$fileVersion")
-    Write-Step 'Portable exe'
-    $null = Invoke-Tool dotnet (@('publish', (Join-Path $work 'DnnManager.csproj'), '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true',
-            '-p:PublishSingleFile=true', '-p:IncludeNativeLibrariesForSelfExtract=true', '-p:EnableCompressionInSingleFile=true',
-            '-p:PortableExe=true', '--nologo', '-o', (Join-Path $work 'publish')) + $stamp)
-
-    Write-Step 'Installer'
-    # The pinned Inno Setup, never whichever is installed on this PC: every release is compiled by the same one.
-    $null = Invoke-Tool powershell @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $installer, '-Version', $version, '-PinnedInno')
-
-    # --- 5. Collect and check the files ---
-    Write-Step 'Files'
-    if (Test-Path $out) { Remove-Item $out -Recurse -Force }
-    $null = New-Item -ItemType Directory -Force $out
-    $assets = "DnnManager_Portable-$version-x64.exe", "DnnManager_Setup-$version-x64.exe"
-    foreach ($name in $assets) { Copy-Item (Join-Path $work "publish\$name") $out }
-    foreach ($name in $assets) {
-        $info = (Get-Item (Join-Path $out $name)).VersionInfo
-        $product = ($info.ProductVersion -split '\+')[0].Trim()
-        Write-Host ("  {0}: file version {1}, product version {2}" -f $name, $info.FileVersion.Trim(), $info.ProductVersion.Trim())
-        if ($product -ne $version) { throw "$name reports $product, not $version." }
-    }
-    # The files' SHA-256, for whoever downloads them by hand: a file beside them, and in the release's notes.
-    $sums = foreach ($name in $assets) { "{0}  {1}" -f (Get-FileHash (Join-Path $out $name) -Algorithm SHA256).Hash.ToLowerInvariant(), $name }
-    [IO.File]::WriteAllText((Join-Path $out 'SHA256SUMS.txt'), ($sums -join "`n") + "`n", [Text.UTF8Encoding]::new($false))
-    $sums | ForEach-Object { Write-Host "  $_" }
-
-    & (Join-Path $PSScriptRoot 'release-notes.ps1') -Version $version -Tag $tag -Repository $script:repo -OutFile (Join-Path $out 'release-notes.md')
-}
-finally {
-    Remove-Item Env:RestoreLockedMode -ErrorAction SilentlyContinue
-    if (Test-Path $work) {
-        try { $null = Invoke-Git @('worktree', 'remove', '--force', $work) }
-        catch { Write-Host "  Couldn't remove the worktree $work - delete it and run git worktree prune." -ForegroundColor Yellow }
+    finally {
+        if (Test-Path $work) {
+            try { $null = Invoke-Git @('worktree', 'remove', '--force', $work) }
+            catch { Write-Host "  Couldn't remove the worktree $work - delete it and run git worktree prune." -ForegroundColor Yellow }
+        }
     }
 }
 
-# --- 6. Publish ---
+# --- 5. The tag: GitHub builds and publishes the release from it ---
 
-Write-Step 'Ready to publish'
-Write-Host "  Tag      $tag -> $($selected.Short) (pushed to origin)"
-Write-Host "  Release  $tag$(if ($prerelease) { ' (pre-release)' } else { ' (latest)' }), notes from .docs\release-notes\$($notes.Name)"
-Write-Host "  Files    $($assets -join ', ')"
-Write-Host "           in $out"
-if (-not (Confirm-Step "Publish $tag on GitHub now?")) {
-    Write-Host "Not published. The files stay in $out." -ForegroundColor Yellow
+Write-Step 'Ready to release'
+Write-Host "  Tag      $tag -> $($selected.Short), pushed to origin"
+Write-Host "  Then     GitHub's release workflow builds both exes from it, runs every test, attests them and publishes"
+Write-Host "           $tag$(if ($prerelease) { ' as a pre-release' } else { ' as the latest release' }) with .docs\release-notes\$($notes.Name)"
+if (-not (Confirm-Step "Push the tag $tag now?")) {
+    Write-Host 'Nothing was tagged.' -ForegroundColor Yellow
     return
 }
 
@@ -335,47 +252,44 @@ Write-Step "Tag $tag"
 if (-not $localTag) { $null = Invoke-Git @('tag', $tag, $selected.Sha) }
 $null = Invoke-Tool git @('-C', $root, 'push', 'origin', "refs/tags/$tag")
 
-Write-Step 'GitHub release'
-$sumsText = [IO.File]::ReadAllText((Join-Path $out 'SHA256SUMS.txt')).Trim()
-$body = [IO.File]::ReadAllText((Join-Path $out 'release-notes.md')).TrimEnd() + "`n`n**SHA-256**`n`n``````text`n$sumsText`n```````n"
-$release = Invoke-GitHub POST '/releases' @{ tag_name = $tag; name = $tag; body = $body; draft = $true; prerelease = $prerelease }
-Write-Host "  Draft created (id $($release.id))."
-foreach ($name in $assets + 'SHA256SUMS.txt') {
-    $path = Join-Path $out $name
-    Write-Host "  Uploading $name ($([math]::Round((Get-Item $path).Length / 1MB, 1)) MB)..."
-    $asset = Invoke-GitHub POST "https://uploads.github.com/repos/$script:repo/releases/$($release.id)/assets?name=$([uri]::EscapeDataString($name))" $null $path 'application/octet-stream'
-    if ($asset.size -ne (Get-Item $path).Length) { throw "$name arrived with $($asset.size) bytes, expected $((Get-Item $path).Length). The draft release is left for you to check." }
-    # GitHub's own SHA-256 of what it stored is what every DNN Manager checks its download against: it must be this file's.
-    $local = (Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant()
-    $digest = ''
-    for ($try = 0; $try -lt 5 -and -not $digest; $try++) {
-        if ($try -gt 0) { Start-Sleep -Seconds 2; $asset = Invoke-GitHub GET "/releases/assets/$($asset.id)" }
-        $property = $asset.PSObject.Properties['digest']
-        if ($property -and $property.Value) { $digest = "$($property.Value)" }
-    }
-    if ($digest -ne "sha256:$local") { throw "$name : GitHub lists $(if ($digest) { $digest } else { 'no SHA-256' }), not sha256:$local. The draft release is left for you to check." }
+$actions = "https://github.com/$script:repo/actions/workflows/release.yml"
+if ($NoWait) {
+    Write-Host ''
+    Write-Host "Tag pushed. The release workflow builds and publishes $tag - follow it at $actions" -ForegroundColor Green
+    return
 }
 
-# CI on the tag (pushed above) builds it again and runs the whole test suite: the release becomes the one every DNN
-# Manager is offered only once that has passed.
-if ($SkipCi) { Write-Host '  Not waiting for CI (-SkipCi, a pre-release).' -ForegroundColor Yellow }
-else {
-    Write-Step "Waiting for CI on $tag"
-    $deadline = (Get-Date).AddMinutes(90)
-    while ($true) {
-        $runs = @((Invoke-GitHub GET "/actions/runs?head_sha=$($selected.Sha)&event=push&per_page=20").workflow_runs |
-                Where-Object { $_.name -eq 'CI' -and $_.head_branch -eq $tag })
+# --- 6. Follow the release workflow on GitHub ---
+
+Write-Step "Release workflow on $tag"
+$deadline = (Get-Date).AddMinutes(90)
+while ($true) {
+    try {
+        $runs = @((Invoke-GitHub "/actions/workflows/release.yml/runs?head_sha=$($selected.Sha)&event=push&per_page=10").workflow_runs |
+                Where-Object { $_.head_branch -eq $tag })
         $run = $runs | Sort-Object { [datetime]$_.created_at } -Descending | Select-Object -First 1
-        if ($run -and $run.status -eq 'completed') {
-            if ($run.conclusion -eq 'success') { Write-Host "  CI passed: $($run.html_url)" -ForegroundColor Green; break }
-            throw "CI on $tag ended '$($run.conclusion)': $($run.html_url) - the release stays a draft. Fix it and release the next version, or run the release again with redo once CI passes."
-        }
-        if ((Get-Date) -gt $deadline) { throw "CI on $tag hasn't finished within 90 minutes - the release stays a draft; publish it on GitHub once CI has passed." }
-        Write-Host ("  {0} - checking again in 30 seconds..." -f $(if ($run) { "CI is $($run.status)" } else { 'CI has not started yet' }))
-        Start-Sleep -Seconds 30
     }
+    catch {
+        Write-Host "  GitHub couldn't be asked ($($_.Exception.Message)) - follow the run at $actions" -ForegroundColor Yellow
+        return
+    }
+    if ($run -and $run.status -eq 'completed') {
+        if ($run.conclusion -eq 'success') { break }
+        throw "The release workflow on $tag ended '$($run.conclusion)': $($run.html_url) - nothing was published (at most a draft is left). Fix it and redo the release (""release: redo (GitHub)""), or release the next version."
+    }
+    if ((Get-Date) -gt $deadline) {
+        Write-Host "  Not finished within 90 minutes - follow it at $(if ($run) { $run.html_url } else { $actions })" -ForegroundColor Yellow
+        return
+    }
+    # The draft is ready and the publish job waits for a reviewer (the environment "publish").
+    if ($run -and $run.status -eq 'waiting') {
+        Write-Host "  The draft is ready - approve the job 'Publish the release' at $($run.html_url) to publish it." -ForegroundColor Yellow
+    }
+    Write-Host ("  {0} - checking again in 2 minutes..." -f $(if ($run) { "The run is $($run.status)" } else { 'The run has not started yet' }))
+    Start-Sleep -Seconds 120
 }
-$published = Invoke-GitHub PATCH "/releases/$($release.id)" @{ draft = $false; make_latest = $(if ($prerelease) { 'false' } else { 'true' }) }
 
+$release = $null
+try { $release = Get-PublishedRelease $tag } catch { $release = $null }
 Write-Host ''
-Write-Host "Published $($published.html_url)" -ForegroundColor Green
+Write-Host "Published $(if ($release) { $release.html_url } else { "https://github.com/$script:repo/releases/tag/$tag" })" -ForegroundColor Green

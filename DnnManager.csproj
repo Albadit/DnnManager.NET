@@ -27,6 +27,17 @@
          Microsoft.NET.ILLink.Tasks to the restore - on for every restore, a build and a publish agree on
          packages.lock.json, and single-file problems show while building. -->
     <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    <!-- DOTNET_STARTUP_HOOKS is read from the environment - which any program of the user can set - and would load an
+         assembly into DNN Manager, which runs with administrator rights. Off in what is shipped; a Debug build keeps
+         it for Hot Reload. -->
+    <StartupHookSupport Condition="'$(Configuration)' == 'Release'">false</StartupHookSupport>
+    <!-- The compiler reads the XML comments: one that documents nothing (CS1587 - left above an attribute or a
+         statement) is a warning, and CI builds with warnings as errors. A public member without a comment (CS1591)
+         or a comment that names only some parameters (CS1573) isn't one. The .xml file is only for the build - it
+         isn't published, so it never reaches Setup. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PublishDocumentationFile>false</PublishDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,11 +47,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The tests are a project of their own (tests\DnnManager.IntegrationTests) - not part of the app. -->
-    <Compile Remove="tests\**" />
-    <Page Remove="tests\**" />
-    <None Remove="tests\**" />
-    <EmbeddedResource Remove="tests\**" />
+    <!-- The tests and the launcher are projects of their own (tests\DnnManager.IntegrationTests,
+         src\DnnManager.Launcher) - not part of the app. -->
+    <Compile Remove="tests\**;src\DnnManager.Launcher\**" />
+    <Page Remove="tests\**;src\DnnManager.Launcher\**" />
+    <None Remove="tests\**;src\DnnManager.Launcher\**" />
+    <EmbeddedResource Remove="tests\**;src\DnnManager.Launcher\**" />
     <InternalsVisibleTo Include="DnnManager.IntegrationTests" />
   </ItemGroup>
 
@@ -57,7 +69,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.12" />
     <PackageReference Include="Microsoft.Web.Administration" Version="11.1.0" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.7" />
     <!-- DNN Manager's own data - settings, workspace, project records, keep warm - in Documents\DnnManager\dnnmanager.db. -->
     <!-- It brings SQLitePCLRaw 2.1.12 - SQLite 3.53.3, past the fix for GHSA-2m69-gcr7-jv3q (3.50.2); 10.0.10 and older
          brought 2.1.11, which DNN Manager pinned over until then. Upgrading it upgrades SQLite. -->

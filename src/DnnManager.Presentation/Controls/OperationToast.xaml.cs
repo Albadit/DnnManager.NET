@@ -29,8 +29,8 @@ public partial class OperationToast : UserControl
         if (e.PropertyName != nameof(OperationRunner.Current)) return;
         var current = _runner.Current;
         Visibility = current is null ? Visibility.Collapsed : Visibility.Visible;
-        // Ended: the next operation can be cancelled again. (Not while this one undoes what it did - "Undoing …".)
-        if (current is null) CancelButton.IsEnabled = true;
+        // Ended: the next operation can be cancelled again.
+        if (current is null) ShowCancel(stopUndo: false, enabled: true);
         OperationText.Text = current is null ? "" : $"{current}…";
         ShowProgress();
     }
@@ -49,11 +49,23 @@ public partial class OperationToast : UserControl
         if ((e.Property == EfficiencyMode.IsSavingProperty || e.Property == Motion.OffProperty) && _runner is not null) ShowProgress();
     }
 
-    // Once: what is being cancelled is put back - pressed again, it would do nothing more.
+    // First press: cancel, and what the operation made is undone. Pressed again: stop that undo (one that waits on
+    // something that doesn't answer) - its remaining steps are said as not undone. Then there is nothing more to press.
     private void Cancel_Click(object sender, RoutedEventArgs e)
     {
-        CancelButton.IsEnabled = false;
+        var stopping = CancelButton.Content as string == StopUndoing;
         _runner.Cancel();
+        ShowCancel(stopUndo: !stopping, enabled: !stopping);
+    }
+
+    private const string StopUndoing = "Stop undoing";
+
+    private void ShowCancel(bool stopUndo, bool enabled)
+    {
+        CancelButton.Content = stopUndo ? StopUndoing : "Cancel";
+        CancelButton.ToolTip = stopUndo ? "Stop undoing - what isn't undone yet is named on the Output tab" : "Cancel";
+        System.Windows.Automation.AutomationProperties.SetName(CancelButton, (string)CancelButton.Content);
+        CancelButton.IsEnabled = enabled;
     }
 
     private void Operation_Click(object sender, System.Windows.Input.MouseButtonEventArgs e) =>

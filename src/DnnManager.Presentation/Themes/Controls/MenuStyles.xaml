@@ -25,19 +25,30 @@
     <Style TargetType="ContextMenu">
         <Setter Property="Background" Value="{DynamicResource CardBg}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource InputBorder}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="4" />
         <Setter Property="FontFamily" Value="Segoe UI" />
         <Setter Property="FontSize" Value="{DynamicResource TextBody}" />
+        <!-- The shadow is the template's own, as a toast's - not Windows' square one. -->
+        <Setter Property="HasDropShadow" Value="False" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ContextMenu">
-                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{StaticResource ControlRadius}"
-                            Padding="{TemplateBinding Padding}" MinWidth="200" LayoutTransform="{DynamicResource UiScale}">
-                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
-                    </Border>
+                    <!-- As a toast: the card's border, and a shadow of its own behind it (room for it on the right and below) -
+                         an effect on the menu itself would draw its text without ClearType. -->
+                    <Grid Margin="0,0,8,8" MinWidth="200" LayoutTransform="{DynamicResource UiScale}">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="{StaticResource ControlRadius}" IsHitTestVisible="False">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="18" ShadowDepth="3" Opacity="0.3" />
+                            </Border.Effect>
+                        </Border>
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{StaticResource ControlRadius}"
+                                Padding="{TemplateBinding Padding}">
+                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+                        </Border>
+                    </Grid>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -69,10 +80,17 @@
                                IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
                                AllowsTransparency="True" Focusable="False"
                                PopupAnimation="{Binding (s:Motion.Off), RelativeSource={RelativeSource Self}, Converter={x:Static s:Motion.PopupFade}}">
-                            <Border Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource InputBorder}"
-                                    BorderThickness="1" CornerRadius="{StaticResource ControlRadius}" Padding="4" MinWidth="200" LayoutTransform="{DynamicResource UiScale}">
-                                <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
-                            </Border>
+                            <Grid Margin="0,0,8,8" MinWidth="200" LayoutTransform="{DynamicResource UiScale}">
+                                <Border Background="{DynamicResource CardBg}" CornerRadius="{StaticResource ControlRadius}" IsHitTestVisible="False">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="18" ShadowDepth="3" Opacity="0.3" />
+                                    </Border.Effect>
+                                </Border>
+                                <Border Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}"
+                                        BorderThickness="1" CornerRadius="{StaticResource ControlRadius}" Padding="4">
+                                    <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+                                </Border>
+                            </Grid>
                         </Popup>
                     </Grid>
                     <ControlTemplate.Triggers>

@@ -51,6 +51,7 @@ public partial class SettingsPage : UserControl
         ["docker.volumeName"] = "Volume name",
         ["docker.edition"] = "Edition",
         ["docker.collation"] = "Collation",
+        ["backups.keepDays"] = "Keep backups",
     };
 
     private readonly AppOptions _options;
@@ -101,7 +102,7 @@ public partial class SettingsPage : UserControl
         _categories = new Dictionary<string, (FrameworkElement, string)>
         {
             ["General"] = (GeneralPanel, "general start sign in startup close closing quit exit background tray notification area keep running appearance scale zoom ui font text size bigger smaller animations animation motion slide fade reduce effects terminal shell powershell command prompt git bash font family size"),
-            ["Projects"] = (ProjectsPanel, "projects folder base directory hostname suffix site port address url dnn defaults install installation automatic manual setup wizard host account username password e-mail email website name language culture template keep warm alive keepalive warm-up idle time-out timeout interval ping cold start slow fast recycle"),
+            ["Projects"] = (ProjectsPanel, "projects folder base directory hostname suffix site port address url dnn defaults install installation automatic manual setup wizard host account username password e-mail email website name language culture template keep warm alive keepalive warm-up idle time-out timeout interval ping cold start slow fast recycle backups backup deployments deployment packages clone copy delete old days retention keep onedrive"),
             ["Releases"] = (ReleasesPanel, "dnn releases repositories github versions install packages keep download"),
             ["Sql"] = (SqlPanel, "database server sql server express localdb file connection type local container docker host port user username sa password windows authentication login username ssms management studio remember test connection"),
             ["Docker"] = (DockerPanel, "docker container name volume edition mssql_pid collation desktop engine install start set up docker-compose compose yml test"),
@@ -112,13 +113,22 @@ public partial class SettingsPage : UserControl
             ["About"] = (AboutPanel, "about version build commit release channel update upgrade install new latest license mit repository github documentation docs runtime .net framework windows architecture administrator iis docker components libraries your files folders settings backups logs packages"),
         };
 
-        KeepDnnPackagesHint.Text = $"Saved in {paths.PackagesDirectory} and used again when a new project picks the same " +
-                                   "version - no download. Off: each new project downloads its package and deletes it after installing.";
+        KeepDnnPackagesHint.Text = "Installs the same version again without downloading it.";
+        KeepDnnPackagesHint.ToolTip = paths.PackagesDirectory;
         // Test and set up what the settings describe - working with the saved settings.
         DockerCard.Attach(services);
         SqlCard.Attach(services);
         IisCard.Attach(services);
         DockerCard.ContainerChanged += (_, _) => SqlCard.Test();
+        // The data volume's own sa password, saved by Set up docker-compose: shown here too - a Save would put the old one back.
+        DockerCard.PasswordAdopted += (_, password) =>
+        {
+            var clean = !HasUnsavedChanges;
+            _savedSaPassword = password;
+            SaPassword.Password = password;
+            if (clean) _savedForm = FormSnapshot();
+            Edited();
+        };
         Folders.ItemsSource = new KeyValuePair<string, string>[]
         {
             new("Settings", paths.Root),
@@ -138,6 +148,9 @@ public partial class SettingsPage : UserControl
         foreach (var language in DnnAccountRules.Languages) DnnLanguage.Items.Add(new ComboBoxItem { Content = Languages.Name(language), Tag = language });
         foreach (var template in DnnAccountRules.Templates) DnnTemplate.Items.Add(new ComboBoxItem { Content = template, Tag = template });
         foreach (var minutes in KeepWarmSettings.PingIntervals) KeepWarmInterval.Items.Add(KeepWarmIntervalItem(minutes));
+        foreach (var days in BackupSettings.KeepDayChoices) BackupKeepDays.Items.Add(BackupKeepDaysItem(days));
+        BackupsHint.Text = "Older ones are deleted at each start - they can't be brought back.";
+        BackupsHint.ToolTip = $"Project backups: {paths.BackupsDirectory}\nDeployment packages: {paths.DeploymentsDirectory}";
         foreach (var box in new[] { SsmsRememberPassword, KeepDnnPackages, KeepRunningWhenClosed, CheckForUpdatesAtStart })
         {
             box.Checked += (_, _) => Edited();
@@ -353,8 +366,18 @@ public partial class SettingsPage : UserControl
             var target = await _startup.GetTargetAsync();
             _startsAtSignIn = target is not null;
             StartAtSignIn.IsChecked = target is not null;
-            StartAtSignIn.IsEnabled = true;
+            // Installed for this user only: a task with administrator rights for a program others can change - offered
+            // only to be switched off.
+            var refusal = Environment.ProcessPath is { } self ? await Task.Run(() => StartupTask.Refusal(self)) : null;
+            StartAtSignIn.IsEnabled = refusal is null || target is not null;
+            // One line here; why, in full, on hover.
+            if (refusal is not null)
+            {
+                StartAtSignInHint.Text = "Needs DNN Manager installed for all users (its Setup).";
+                StartAtSignInHint.ToolTip = refusal;
+            }
             Edited();
+            if (refusal is not null) return;
             var other = target is { Length: > 0 } && Environment.ProcessPath is { } exe &&
                         !string.Equals(Path.GetFullPath(target), Path.GetFullPath(exe), StringComparison.OrdinalIgnoreCase);
             if (other)
@@ -386,7 +409,7 @@ public partial class SettingsPage : UserControl
             if (result.Success)
             {
                 _startsAtSignIn = enable;
-                if (enable) StartAtSignInHint.Text = "With its Administrator rights, without Windows asking for them at every sign-in (a scheduled task).";
+                if (enable) StartAtSignInHint.Text = "As Administrator, without a prompt at every sign-in (a scheduled task).";
                 return true;
             }
             StartAtSignIn.IsChecked = !enable;
@@ -462,6 +485,7 @@ public partial class SettingsPage : UserControl
         Select(DnnLanguage, dnn.Language);
         Select(DnnTemplate, dnn.Template);
         ShowKeepWarm(p.KeepWarm);
+        ShowBackupKeepDays(saved.Backups.KeepDays);
         HostPassword.Password = hostPassword;
         ShowServer(sql);
         ServerPassword.Password = serverPassword;
@@ -493,7 +517,7 @@ public partial class SettingsPage : UserControl
             InstallAutomatic.IsChecked == true, HostUsername.Text.Trim(), HostPassword.Password, HostEmail.Text.Trim(), WebsiteName.Text.Trim(),
             (DnnLanguage.SelectedItem as ComboBoxItem)?.Tag, (DnnTemplate.SelectedItem as ComboBoxItem)?.Tag,
             (KeepWarmInterval.SelectedItem as ComboBoxItem)?.Tag, KeepWarmSettings.NormalizePath(KeepWarmPingPath.Text),
-            KeepWarmSettings.NormalizePath(KeepWarmWarmUpPath.Text));
+            KeepWarmSettings.NormalizePath(KeepWarmWarmUpPath.Text), (BackupKeepDays.SelectedItem as ComboBoxItem)?.Tag);
     }
 
     /// <summary>The form has edits that aren't saved - leaving the page would lose them.</summary>
@@ -648,7 +672,7 @@ public partial class SettingsPage : UserControl
         "projects.dnnReleaseSources" => "Releases",
         _ when key.StartsWith("terminal.", StringComparison.Ordinal) || key.StartsWith("appearance.", StringComparison.Ordinal) ||
                key.StartsWith("window.", StringComparison.Ordinal) => "General",
-        _ when key.StartsWith("projects.", StringComparison.Ordinal) => "Projects",
+        _ when key.StartsWith("projects.", StringComparison.Ordinal) || key.StartsWith("backups.", StringComparison.Ordinal) => "Projects",
         _ when key.StartsWith("sqlServer.", StringComparison.Ordinal) => "Sql",
         _ when key.StartsWith("docker.", StringComparison.Ordinal) => "Docker",
         _ when key.StartsWith("iis.", StringComparison.Ordinal) => "Iis",
@@ -729,6 +753,7 @@ public partial class SettingsPage : UserControl
         settings.Window.KeepRunningWhenClosed = KeepRunningWhenClosed.IsChecked == true;
         settings.Updates.CheckAtStart = CheckForUpdatesAtStart.IsChecked == true;
         settings.Terminal = ChosenTerminal;
+        settings.Backups.KeepDays = (BackupKeepDays.SelectedItem as ComboBoxItem)?.Tag as int? ?? settings.Backups.KeepDays;
         return (null, null);
     }
 
@@ -885,6 +910,35 @@ public partial class SettingsPage : UserControl
         KeepWarmWarmUpPath.Text = keepWarm.WarmUpPath;
     }
 
+    // ─── Backups ──────────────────────────────────────────────────────────
+
+    private void BackupKeepDays_Changed(object sender, SelectionChangedEventArgs e) => Edited();
+
+    private static ComboBoxItem BackupKeepDaysItem(int days) => new()
+    {
+        Content = days switch
+        {
+            0 => "Keep them for good (default)",
+            7 => "Delete them after a week",
+            30 => "Delete them after a month",
+            365 => "Delete them after a year",
+            _ when days % 30 == 0 => $"Delete them after {days / 30} months",
+            _ => $"Delete them after {days} days"
+        },
+        Tag = days
+    };
+
+    private void ShowBackupKeepDays(int days)
+    {
+        // A saved value the list doesn't have is offered too.
+        if (BackupKeepDays.Items.OfType<ComboBoxItem>().All(i => i.Tag as int? != days))
+        {
+            var index = BackupKeepDays.Items.OfType<ComboBoxItem>().TakeWhile(i => (int)i.Tag! < days).Count();
+            BackupKeepDays.Items.Insert(index, BackupKeepDaysItem(days));
+        }
+        BackupKeepDays.SelectedItem = BackupKeepDays.Items.OfType<ComboBoxItem>().First(i => i.Tag as int? == days);
+    }
+
     private void Defaults_Changed(object sender, SelectionChangedEventArgs e)
     {
         ShowDefaultsHint();
@@ -896,9 +950,8 @@ public partial class SettingsPage : UserControl
         if (DnnDefaultsHint is null) return; // raised during InitializeComponent
         var suffix = HostnameSuffix.Text.Trim().Trim('.');
         var language = (DnnLanguage.SelectedItem as ComboBoxItem)?.Tag as string ?? "en-US";
-        DnnDefaultsHint.Text = $"An empty e-mail is host@{suffix}; an empty website name is the project's name. The password is kept in the " +
-                               "Windows Credential Manager of your account, not with the other settings - empty: New project asks for one." +
-                               (language == "en-US" ? "" : $" {Languages.Name(language)}: DNN downloads its language pack while installing (needs internet).");
+        DnnDefaultsHint.Text = $"Empty e-mail: host@{suffix}. Empty password: New project asks." +
+                               (language == "en-US" ? "" : $" {Languages.Name(language)} needs internet while installing.");
     }
 
     private void ShowError(string? error)

@@ -51,8 +51,7 @@ public sealed class ExportProjectUseCase(
         var zipPath = req.ZipPath is null ? null : Path.GetFullPath(req.ZipPath);
         var bacpacPath = req.BacpacPath is null ? null : Path.GetFullPath(req.BacpacPath);
         // Inside the site, the export would be served by IIS and zipped into the next export.
-        var inside = Path.GetFullPath(project.ProjectDirectory).TrimEnd('\\') + "\\";
-        if (new[] { zipPath, bacpacPath }.Any(p => p is not null && p.StartsWith(inside, StringComparison.OrdinalIgnoreCase)))
+        if (new[] { zipPath, bacpacPath }.Any(p => p is not null && SafePath.IsInside(p, project.ProjectDirectory)))
             return Result.Fail("Choose a location outside the project folder - the export would end up inside the site.");
         // A cancel deletes what was written so far, and the backup folder made for it.
         foreach (var path in new[] { zipPath, bacpacPath }.OfType<string>())

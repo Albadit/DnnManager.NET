@@ -1,6 +1,8 @@
 using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Automation.Peers;
+using System.Windows.Automation.Provider;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
@@ -22,6 +24,10 @@ namespace DnnManager.Presentation.Pages.Projects;
 /// action buttons - and an expanded row's details; above them the column headers. Plain texts, the figures that change
 /// all the time and the resize grips aren't elements: nothing to keep a listener up to date about, and a screen reader
 /// reads a row by its project instead of "DnnManager.Presentation.Pages.Projects.ProjectRow".</para>
+///
+/// <para><b>Selection and focus.</b> The list and its rows have UI Automation's selection patterns, so a screen reader says
+/// which row is selected; and the keyboard, which is on a cell of the row (the table's own navigation needs one), is
+/// reported as on the row - the cell isn't in the tree (<see cref="OnPreviewGotKeyboardFocus"/>).</para>
 /// </summary>
 public sealed class ProjectsTable : DataGrid
 {
@@ -29,6 +35,41 @@ public sealed class ProjectsTable : DataGrid
     private readonly ConditionalWeakTable<DataGridRow, RowPeer> _rows = new();
 
     protected override AutomationPeer OnCreateAutomationPeer() => new TablePeer(this);
+
+    /// <summary>
+    /// A cell is getting the keyboard: its focus event is raised as the row's, which is in the tree - a screen reader
+    /// then says the row, not an element it can't find. Only while something listens.
+    /// </summary>
+    protected override void OnPreviewGotKeyboardFocus(System.Windows.Input.KeyboardFocusChangedEventArgs e)
+    {
+        base.OnPreviewGotKeyboardFocus(e);
+        if (e.NewFocus is not DataGridCell cell || !AutomationPeer.ListenerExists(AutomationEvents.AutomationFocusChanged)) return;
+        if (RowOf(cell) is { } row && UIElementAutomationPeer.CreatePeerForElement(cell) is { } cellPeer)
+            cellPeer.EventsSource = PeerOf(row);
+    }
+
+    /// <summary>The selection changed: the rows that came in and went out say so to a listener.</summary>
+    protected override void OnSelectionChanged(SelectionChangedEventArgs e)
+    {
+        base.OnSelectionChanged(e);
+        if (!AutomationPeer.ListenerExists(AutomationEvents.SelectionItemPatternOnElementSelected) &&
+            !AutomationPeer.ListenerExists(AutomationEvents.SelectionItemPatternOnElementRemovedFromSelection)) return;
+        foreach (var item in e.AddedItems)
+            if (ItemContainerGenerator.ContainerFromItem(item) is DataGridRow row)
+                PeerOf(row).RaiseAutomationEvent(SelectedItems.Count == 1
+                    ? AutomationEvents.SelectionItemPatternOnElementSelected
+                    : AutomationEvents.SelectionItemPatternOnElementAddedToSelection);
+        foreach (var item in e.RemovedItems)
+            if (ItemContainerGenerator.ContainerFromItem(item) is DataGridRow row)
+                PeerOf(row).RaiseAutomationEvent(AutomationEvents.SelectionItemPatternOnElementRemovedFromSelection);
+    }
+
+    private static DataGridRow? RowOf(DependencyObject element)
+    {
+        for (var d = element; d is not null; d = VisualTreeHelper.GetParent(d))
+            if (d is DataGridRow row) return row;
+        return null;
+    }
 
     // The panels the rows and the column headers are in - found once (a new template finds them again).
     private DataGridRowsPresenter? _rowsPanel;
@@ -64,11 +105,29 @@ public sealed class ProjectsTable : DataGrid
         return null;
     }
 
-    private sealed class TablePeer(ProjectsTable owner) : FrameworkElementAutomationPeer(owner)
+    private sealed class TablePeer(ProjectsTable owner) : FrameworkElementAutomationPeer(owner), ISelectionProvider
     {
         protected override string GetClassNameCore() => nameof(ProjectsTable);
 
         protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.List;
+
+        public override object? GetPattern(PatternInterface patternInterface) =>
+            patternInterface == PatternInterface.Selection ? this : base.GetPattern(patternInterface);
+
+        public bool CanSelectMultiple => owner.SelectionMode == DataGridSelectionMode.Extended;
+
+        public bool IsSelectionRequired => false;
+
+        /// <summary>The selected rows on screen (the table is virtualized: a row scrolled away has no element).</summary>
+        public IRawElementProviderSimple[] GetSelection() =>
+        [
+            .. owner.SelectedItems.Cast<object>()
+                .Select(item => owner.ItemContainerGenerator.ContainerFromItem(item))
+                .OfType<DataGridRow>()
+                .Select(row => ProviderFromPeer(owner.PeerOf(row)))
+        ];
+
+        internal IRawElementProviderSimple Provider => ProviderFromPeer(this);
 
         protected override List<AutomationPeer> GetChildrenCore()
         {
@@ -82,14 +141,54 @@ public sealed class ProjectsTable : DataGrid
         }
     }
 
-    /// <summary>A row: named after its project; its children are what can be operated in it.</summary>
-    private sealed class RowPeer(DataGridRow row) : FrameworkElementAutomationPeer(row)
+    /// <summary>
+    /// A row: named after its project - its name, state, address, DNN version, database and SQL state -, its CPU and memory
+    /// as its item status; its children are what can be operated in it. Selected like an item of a list.
+    /// </summary>
+    private sealed class RowPeer(DataGridRow row) : FrameworkElementAutomationPeer(row), ISelectionItemProvider
     {
         protected override string GetClassNameCore() => nameof(DataGridRow);
 
         protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.ListItem;
 
         protected override string GetNameCore() => row.Item is ProjectRow project ? project.AutomationName : "";
+
+        protected override string GetItemStatusCore() => row.Item is ProjectRow project ? project.AutomationStatus : "";
+
+        // The keyboard is on one of its cells (or on it).
+        protected override bool HasKeyboardFocusCore() =>
+            row.IsKeyboardFocused || System.Windows.Input.Keyboard.FocusedElement is DataGridCell cell && RowOf(cell) == row;
+
+        protected override bool IsKeyboardFocusableCore() => true;
+
+        public override object? GetPattern(PatternInterface patternInterface) =>
+            patternInterface == PatternInterface.SelectionItem ? this : base.GetPattern(patternInterface);
+
+        private ProjectsTable? Table => ItemsControl.ItemsControlFromItemContainer(row) as ProjectsTable;
+
+        public bool IsSelected => row.IsSelected;
+
+        public IRawElementProviderSimple? SelectionContainer =>
+            Table is { } table && UIElementAutomationPeer.CreatePeerForElement(table) is TablePeer peer ? peer.Provider : null;
+
+        public void Select()
+        {
+            if (Table is not { } table) return;
+            table.SelectedItem = row.Item;
+            table.ScrollIntoView(row.Item);
+        }
+
+        public void AddToSelection()
+        {
+            if (Table is not { } table) return;
+            if (table.SelectionMode == DataGridSelectionMode.Single) table.SelectedItem = row.Item;
+            else if (!table.SelectedItems.Contains(row.Item)) table.SelectedItems.Add(row.Item);
+        }
+
+        public void RemoveFromSelection()
+        {
+            if (Table is { } table && table.SelectedItems.Contains(row.Item)) table.SelectedItems.Remove(row.Item);
+        }
 
         protected override List<AutomationPeer> GetChildrenCore()
         {

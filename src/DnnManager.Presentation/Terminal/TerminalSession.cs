@@ -19,16 +19,24 @@ internal sealed class TerminalSession : IDisposable
     // Writes go one after the other, off the UI thread (a program that isn't reading would block the pipe).
     private Task _writes = Task.CompletedTask;
 
-    public TerminalSession(string commandLine, string workingDirectory, int columns, int rows)
+    /// <param name="asAdministrator">
+    /// With DNN Manager's administrator rights - otherwise as the signed-in user, without them (the default); when that
+    /// can't be, <see cref="UnelevatedUnavailableException"/> is thrown and nothing starts.
+    /// </param>
+    public TerminalSession(string commandLine, string workingDirectory, int columns, int rows, bool asAdministrator = false)
     {
         Buffer = new TerminalBuffer(columns, rows);
         Buffer.Reply += Write;
-        _console = PseudoConsole.Start(commandLine, workingDirectory, Buffer.Columns, Buffer.Rows);
+        IsAdministrator = asAdministrator;
+        _console = PseudoConsole.Start(commandLine, workingDirectory, Buffer.Columns, Buffer.Rows, asAdministrator);
         _ = Task.Run(ReadOutput);
         _console.Exited.ContinueWith(_ => _dispatcher.BeginInvoke(() => { if (!_disposed) Exited?.Invoke(this, EventArgs.Empty); }));
     }
 
     public TerminalBuffer Buffer { get; }
+
+    /// <summary>The shell runs with administrator rights - what is typed in it does too.</summary>
+    public bool IsAdministrator { get; }
 
     /// <summary>The shell's process ID.</summary>
     public int ProcessId => _console.ProcessId;

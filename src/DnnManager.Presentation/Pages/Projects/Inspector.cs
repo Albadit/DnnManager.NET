@@ -180,7 +180,7 @@ public sealed class InspectorPanel : StackPanel
         if (IsAddress(text))
         {
             var link = new Hyperlink(new Run(text)) { ToolTip = "Open in your browser" };
-            link.SetResourceReference(TextElement.ForegroundProperty, "Accent");
+            link.SetResourceReference(TextElement.ForegroundProperty, "LinkFg");
             link.Click += (_, _) => Shell.Open(text);
             block.Inlines.Add(link);
             return block;

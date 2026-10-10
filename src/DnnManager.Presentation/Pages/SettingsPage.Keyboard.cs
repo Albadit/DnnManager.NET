@@ -67,26 +67,34 @@ public partial class SettingsPage
         }
         var commands = Commands;
         // Kept rows keep their buttons - and the keyboard on the one that was just changed.
-        var rows = commands.All.Select(c => _shortcutRows.FirstOrDefault(r => r.Command == c) ?? new ShortcutRow(c)).ToList();
+        var kept = _shortcutRows.ToDictionary(r => r.Command);
+        var rows = commands.All.Select(c => kept.GetValueOrDefault(c) ?? new ShortcutRow(c)).ToList();
         foreach (var row in rows)
         {
             row.Shortcut = commands.ShortcutOf(row.Command);
             row.Default = commands.DefaultOf(row.Command);
             row.IsCustom = commands.IsCustom(row.Command);
-            row.Warning = WarningOf(commands, row);
+        }
+        // Who shares a shortcut, in one pass - not every command against every other.
+        var sharing = rows.Where(r => r.Shortcut is not null).GroupBy(r => r.Shortcut!.Value).Where(g => g.Count() > 1)
+            .ToDictionary(g => g.Key, g => g.ToList());
+        foreach (var row in rows)
+        {
+            row.Warning = WarningOf(row, row.Shortcut is { } s ? sharing.GetValueOrDefault(s) : null);
             row.Changed();
         }
         _shortcutRows = rows;
         FilterShortcuts();
     }
 
-    private static string WarningOf(AppCommands commands, ShortcutRow row)
+    /// <param name="sharing">The rows with <paramref name="row"/>'s shortcut, in the commands' order - this one too; null: none shares it.</param>
+    private static string WarningOf(ShortcutRow row, List<ShortcutRow>? sharing)
     {
-        var conflicts = commands.ConflictsOf(row.Command);
-        if (conflicts.Count > 0)
+        if (sharing is not null)
         {
+            var conflicts = sharing.Where(r => r != row).Select(r => r.Command).ToList();
             // The first listed runs (AppCommands.Match).
-            var runs = commands.All.First(c => c == row.Command || conflicts.Contains(c)) == row.Command;
+            var runs = sharing[0] == row;
             return $"{row.Shortcut} is also the shortcut of {string.Join(", ", conflicts.Select(c => c.Label))}" +
                    (runs ? " - this one runs." : " - that one runs, not this.");
         }
@@ -99,7 +107,9 @@ public partial class SettingsPage
     {
         var search = ShortcutSearch.Text.Trim();
         var shown = _shortcutRows.Where(r => r.Matches(search)).ToList();
-        ShortcutList.ItemsSource = shown;
+        // The same rows as shown already (the category opened again, a shortcut changed): their rows stay - made anew,
+        // 70-odd of them, opening the category took a moment every time.
+        if (ShortcutList.ItemsSource is not List<ShortcutRow> current || !current.SequenceEqual(shown)) ShortcutList.ItemsSource = shown;
         NoShortcut.Visibility = shown.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         ResetAllShortcutsButton.IsEnabled = _shortcutRows.Any(r => r.IsCustom);
     }

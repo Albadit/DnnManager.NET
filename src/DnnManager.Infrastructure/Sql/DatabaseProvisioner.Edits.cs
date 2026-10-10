@@ -58,7 +58,7 @@ public sealed partial class DatabaseProvisioner
                         $"(SELECT 1 FROM dbo.[{q}PortalAlias] b WHERE b.PortalID = a.PortalID AND b.HTTPAlias = @to + SUBSTRING(a.HTTPAlias, LEN(@from) + 1, 4000)); " +
                         $"UPDATE dbo.[{q}PortalAlias] SET HTTPAlias = @to + SUBSTRING(HTTPAlias, LEN(@from) + 1, 4000) " +
                         "WHERE HTTPAlias = @from OR HTTPAlias LIKE @fromChild;", ct,
-                        ("@from", from), ("@fromChild", EscapeLike(from) + "/%"), ("@to", to));
+                        ("@from", from), ("@fromChild", SqlText.EscapeLike(from) + "/%"), ("@to", to));
                 }
                 foreach (var alias in added)
                     changed += await InsertAliasAsync(conn, tx, q, alias, primary: false, ct);
@@ -151,9 +151,6 @@ public sealed partial class DatabaseProvisioner
         var result = await cmd.ExecuteScalarAsync(ct);
         return result is null or DBNull ? default : (T)Convert.ChangeType(result, Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T));
     }
-
-    // In a LIKE pattern, [ % and _ are wildcards.
-    private static string EscapeLike(string value) => value.Replace("[", "[[]").Replace("%", "[%]").Replace("_", "[_]");
 
     /// <summary>The site's database - a LocalDB file attached to DNN Manager's own instance for a moment (the site stopped).</summary>
     private static async Task<Result<T>> WithSiteDatabaseAsync<T>(DatabaseConnection connection, string siteDirectory,

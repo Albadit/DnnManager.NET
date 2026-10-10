@@ -66,6 +66,7 @@ public partial class PasswordInput : UserControl
         Shown.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         Hidden.Visibility = show ? Visibility.Collapsed : Visibility.Visible;
         Eye.ToolTip = show ? "Hide password" : "Show password";
+        System.Windows.Automation.AutomationProperties.SetName(Eye, (string)Eye.ToolTip);
 
         if (!hadFocus) return;
         FocusInput();

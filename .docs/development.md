@@ -8,16 +8,21 @@ conventions to follow. New here? Start with the [README](../README.md), then
 |---|---|
 | [architecture.md](architecture.md) | Layers, how an operation runs, live updates, project layout, design decisions, component map |
 | [testing.md](testing.md) | The fast and the integration tests, adding a test |
-| [releasing.md](releasing.md) | Version, changelog, portable exe, installer, GitHub release |
+| [releasing.md](releasing.md) | Version, changelog, portable exe, installer, GitHub release (built, tried and - once a reviewer approves - published by the release workflow), code signing (off until set up) |
 | [release-notes/](release-notes/) | The notes of every GitHub release, one file per version |
 | [configuration.md](configuration.md) | `Documents\DnnManager`, `dnnmanager.db`, every settings key, environment variables |
 | [troubleshooting.md](troubleshooting.md) | Known problems and how to fix them |
-| [security.md](security.md) | Administrator rights, secrets, what DNN Manager deletes, network exposure |
+| [security.md](security.md) | Administrator rights, secrets, what DNN Manager deletes, network exposure, open risks |
+| [adr/](adr/) | Decisions that are costly to reverse: undo on failure, the layering rule, update trust, the elevation boundary |
 
 ## Prerequisites
 
 - Windows 10/11 or Windows Server (IIS available)
-- **.NET 10 SDK** to build - <https://dotnet.microsoft.com/download/dotnet/10.0>
+- **.NET 10 SDK `10.0.401`** to build - exactly that one: [`global.json`](../global.json)
+  doesn't roll forward to a newer patch - <https://dotnet.microsoft.com/download/dotnet/10.0>
+- For the installer only: Visual Studio's **C++ build tools** (*Desktop
+  development with C++*) - the launcher is compiled with Native AOT; without
+  them, `build.ps1 -NoLauncher` ([releasing.md](releasing.md#build-the-installer))
 - Docker Desktop (Linux containers) for the shared SQL Server - set it up once
   with **Set up docker-compose** in **Settings → Docker container** (or point
   **Settings → Database server** at a SQL Server you already run)
@@ -38,7 +43,9 @@ Fast tests: `dotnet test tests\DnnManager.IntegrationTests --filter "TestCategor
 ## Run
 
 The app self-elevates: launched without Administrator rights it shows a UAC
-prompt and relaunches itself elevated (managing IIS needs it).
+prompt and relaunches itself elevated (managing IIS needs it). A build has no
+launcher beside it, so it relaunches `DnnManager.exe` itself; only an installed
+DNN Manager goes through `DnnManager-launcher.exe`.
 
 ### `dotnet run`
 
@@ -69,7 +76,8 @@ Where to look when something goes wrong:
 - **`Documents\DnnManager\logs\dnnmanager-<yyyymmdd>.log`** ([configuration.md](configuration.md#where-your-files-are)) - every operation
   (Markdown: `# operation`, `## stage`, then its lines) and the app's own
   warnings and errors with their stack traces (`[warning]`, `[error]`,
-  `[critical]`). Kept 30 days.
+  `[critical]`). Kept 30 days, 200 MB at most. Lines reach the file in
+  batches, every 2 seconds - warnings and errors at once.
 - **The Output tab** - the same operations, live; **Logs** - a site's DNN, IIS
   and Windows event logs.
 - **Settings → About** - version, commit, .NET, Windows, IIS and Docker.
@@ -92,22 +100,50 @@ Where to look when something goes wrong:
   lock - hand them on and return; `ServerStore` applies them on the UI thread.
   Pages never do file, registry, IIS or SQL work on the UI thread - `Task.Run`
   it, as the Details page and the log list do.
-- **SQL**: values as parameters; identifiers that come from outside (database
-  names, a table's prefix) quoted - `[` + name with `]` doubled + `]` - or
-  checked first, like DNN's object qualifier (`Sql/DnnTables`).
-- **Processes**: through `ProcessRunner`, with `ArgumentList` - never a command
-  line built from strings, never a shell. `ProcessRunner` starts only a program
-  that nobody but administrators can change (`TrustedPrograms`) - DNN Manager runs
-  elevated; a program for the user (an editor) starts as the user
-  (`Unelevated.Start`), never with DNN Manager's rights. A quick question to a
-  program that can hang gets a `timeout`.
+- **What the user's account can change is untrusted input** - DNN Manager runs
+  elevated, and these are its choke points ([ADR 0004](adr/0004-elevation-boundary.md),
+  [security.md](security.md#administrator-rights)):
+  - **Settings and environment** that feed an administrator action (a folder it
+    deletes in, an address it downloads from, a name that goes into SQL, a
+    command line or PowerShell) get a rule in
+    [`SettingRules`](../src/DnnManager.Application/Configuration/SettingRules.cs),
+    called from `UserSettings.Validate` - which `DNNMANAGER_*` overrides go
+    through too (`AppOptions.Problems`).
+  - **Folders others can write** (a site's folder, the projects folder,
+    Documents): paths compared only with `SafePath.IsSameOrInside` / `IsInside`
+    (never `StartsWith`), joined with `SafePath.Under`, checked with `HasLink`
+    before a write or delete, deleted with `SafePath.DeleteTree`; every zip
+    unpacked entry by entry through `SafeZip.ExtractEntry` after
+    `SafeZip.EnsureFits`. A refusal ends with `SafePath.LinkHint` (`Hint:`).
+  - **A site's XML** is loaded with `SiteXml.Load` - never `XDocument.Load`,
+    which reads a DTD.
+- **SQL**: values as parameters; a name or value that has to go into SQL text
+  through [`SqlText`](../src/DnnManager.Infrastructure/Sql/SqlText.cs) -
+  `Identifier` (`[` + name with `]` doubled + `]`), `Literal`, `EscapeLike` - or
+  checked first, like DNN's object qualifier (`Sql/DnnTables`). Connection
+  strings only from `ConnectionStrings.For` (`ForSite` / `ForApp`), which decides
+  encryption and certificate checks. A password reaches `sqlcmd` through
+  `SQLCMDPASSWORD` or its standard input, never its command line.
+- **Processes**: through `ProcessRunner` (a tool whose output is read) or
+  `ElevatedStart` (the rest: SSMS, `vswhere`, Explorer), with argument lists -
+  never a command line built from strings, never a shell. Both start only a
+  program that nobody but administrators can change (`TrustedPrograms.Resolve`),
+  with `ChildEnvironment`'s environment. A program for the user (an editor)
+  starts as the user (`Unelevated.Start`, or `ElevatedStart.Explorer`), never
+  with DNN Manager's rights. A quick question to a program that can hang gets a
+  `timeout`. `LayeringTests` fails on `Process.Start` or `new ProcessStartInfo`
+  in any other file - add one to its list only for DNN Manager's own exe.
 - **Temporary files**: a file DNN Manager writes and later reads back or runs goes
   into `PrivateTemp.Path` (`IPrivateTemp` in Application) - never `%TEMP%`, which
   every program of the user's can change ([security.md](security.md#administrator-rights)).
 - **Failures**: a use case notes in `OperationUndo` how to take back each step
-  before it starts; the runner undoes it after a cancel *and* after a failure. To
-  leave what a failed run made (to look into), call `OperationUndo.Keep()` before
-  returning the failure ([ADR 0001](adr/0001-undo-on-failure.md)).
+  before it starts; the runner undoes it after a cancel *and* after a failure. An
+  undo step takes a `CancellationToken` and honours it - it is cancelled when the
+  step's time is up (`OperationUndo.StepLimit`, `FileStepLimit`, or a `limit` of
+  its own) or the user stops the undo. To leave what a failed run made (to look
+  into), call `OperationUndo.Keep()` before returning the failure
+  ([ADR 0001](adr/0001-undo-on-failure.md)). Only an error that means "file in
+  use" is worth trying again.
 - **A database another site may use**: before dropping, replacing or taking over a
   database, ask `SiteDatabases.OtherSiteUsing`; a SQL Server address is read only
   through `SqlServerAddress`.
@@ -163,6 +199,10 @@ Where to look when something goes wrong:
   it runs once in each database (`PRAGMA user_version` counts the steps run).
   Never change a step that has shipped.
 - **Installer**: files, shortcuts and Setup options are in
-  [`src/DnnManager.Installer/DnnManager.iss`](../src/DnnManager.Installer/DnnManager.iss). Code signing can be
-  added there (`SignTool`) and in `build.ps1`.
+  [`src/DnnManager.Installer/DnnManager.iss`](../src/DnnManager.Installer/DnnManager.iss). Releases are built
+  by the release workflow on GitHub, not on a PC - and signed there once signing
+  is set up (it is off until its variables are set) - see
+  [releasing.md](releasing.md#the-release-workflow) and [Code signing](releasing.md#code-signing).
+- **Warnings are errors in CI** (`-warnaserror`, XML-comment warnings too): build
+  with `-warnaserror` before you push ([releasing.md](releasing.md#the-build-workflow)).
 - **Tests**: see [testing.md](testing.md#adding-a-test).

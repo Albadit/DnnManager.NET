@@ -149,11 +149,11 @@
                 BorderThickness="0,0,0,1" Height="34" Padding="4,0">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <!-- Terminal: a new one with the default shell, or with another shell. -->
+                    <!-- Terminal: a new one with the default shell, or with another shell - or one with administrator rights. -->
                     <StackPanel x:Name="TerminalTools" Orientation="Horizontal" Visibility="Collapsed">
                         <Button x:Name="NewButton" AutomationProperties.Name="New terminal" Style="{StaticResource PanelButton}" Content="{StaticResource GlyphAdd}" s:CommandTip.Command="terminal.new" Click="New_Click" />
-                        <Button AutomationProperties.Name="Choose shell" x:Name="ShellsButton" Style="{StaticResource PanelButton}" Width="18" FontSize="9" Content="{StaticResource GlyphChevronDown}"
-                                ToolTip="Choose shell" Click="Shells_Click" />
+                        <Button AutomationProperties.Name="Choose shell or Administrator terminal" x:Name="ShellsButton" Style="{StaticResource PanelButton}" Width="18" FontSize="9" Content="{StaticResource GlyphChevronDown}"
+                                ToolTip="Choose shell - or New Administrator terminal" Click="Shells_Click" />
                     </StackPanel>
                     <!-- Output: empty it. Copy and paste are Ctrl+C / Ctrl+V and the right-click menu on every tab. -->
                     <Button AutomationProperties.Name="Clear output" x:Name="ClearButton" Style="{StaticResource PanelButton}" Content="{StaticResource GlyphDelete}" ToolTip="Clear output"
@@ -289,26 +289,38 @@
 
             <c:LogsView x:Name="Logs" Visibility="Collapsed" />
 
-            <!-- Terminal: the shown shell and its scrollbar. -->
+            <!-- Terminal: the shown shell and its scrollbar - and, over an Administrator terminal, one line saying so. -->
             <Grid x:Name="TerminalPane" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <ContentControl x:Name="TerminalHost" Focusable="False" />
-                <ScrollBar x:Name="TerminalScroll" Grid.Column="1" Orientation="Vertical" SmallChange="1"
+                <Border x:Name="AdministratorWarning" Grid.ColumnSpan="2" Visibility="Collapsed" Padding="8,3"
+                        Background="{DynamicResource WarnBannerBg}" BorderBrush="{DynamicResource WarnBannerBorder}" BorderThickness="0,0,0,1"
+                        AutomationProperties.LiveSetting="Polite">
+                    <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource OutWarnText}" FontSize="{DynamicResource TextCaption}"
+                               Text="Administrator terminal - every command typed here runs with administrator rights." />
+                </Border>
+                <ContentControl x:Name="TerminalHost" Grid.Row="1" Focusable="False" />
+                <ScrollBar x:Name="TerminalScroll" Grid.Row="1" Grid.Column="1" Orientation="Vertical" SmallChange="1"
                            ValueChanged="TerminalScroll_ValueChanged" />
-                <TextBlock x:Name="NoTerminal" Grid.ColumnSpan="2" HorizontalAlignment="Center" VerticalAlignment="Center"
+                <TextBlock x:Name="NoTerminal" Grid.Row="1" Grid.ColumnSpan="2" HorizontalAlignment="Center" VerticalAlignment="Center"
                            Foreground="{DynamicResource LogMuted}" Text="No terminal open - + starts one." Visibility="Collapsed" />
             </Grid>
 
             <!-- Search (Ctrl+F): over the top right of the shown tab, like VS Code's. -->
-            <Border x:Name="SearchBar" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,20,0" Padding="4"
-                    Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource InputBorder}" BorderThickness="1" CornerRadius="4"
-                    Panel.ZIndex="10" Visibility="Collapsed">
-                <Border.Effect>
-                    <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.3" />
-                </Border.Effect>
+            <Grid x:Name="SearchBar" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,20,0" Panel.ZIndex="10" Visibility="Collapsed">
+                <!-- The shadow a layer of its own: an effect on the bar would draw its text as a bitmap, without ClearType. -->
+                <Border Background="{DynamicResource CardBg}" CornerRadius="4" IsHitTestVisible="False">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.3" />
+                    </Border.Effect>
+                </Border>
+                <Border Padding="4" Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="4">
                 <StackPanel Orientation="Horizontal">
                     <!-- The text, with the three options inside the box on its right, as in VS Code. -->
                     <Grid>
@@ -335,7 +347,8 @@
                     <Button AutomationProperties.Name="Next match" Style="{StaticResource PanelButton}" Content="{StaticResource GlyphChevronDown}" ToolTip="Next match (Enter)" Click="SearchNext_Click" />
                     <Button AutomationProperties.Name="Close" Style="{StaticResource PanelButton}" FontSize="10" Content="{StaticResource GlyphClose}" ToolTip="Close (Esc)" Click="SearchClose_Click" />
                 </StackPanel>
-            </Border>
+                </Border>
+            </Grid>
         </Grid>
     </DockPanel>
 </UserControl>

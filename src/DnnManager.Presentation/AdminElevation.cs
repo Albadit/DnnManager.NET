@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Security.Principal;
+using DnnManager.Infrastructure.Startup;
 
 namespace DnnManager.Presentation;
 
@@ -19,7 +20,13 @@ internal static class AdminElevation
     /// </summary>
     public static bool TryRelaunchElevated(string[] args) => TryRelaunchElevated(args, out _);
 
-    /// <summary>The same; <paramref name="declined"/> says the user answered No to Windows' administrator prompt.</summary>
+    /// <summary>
+    /// The same; <paramref name="declined"/> says the user answered No to Windows' administrator prompt. An installed DNN
+    /// Manager asks for the rights for its launcher (<see cref="LaunchEnvironment.LauncherFileName"/>), which starts
+    /// DnnManager.exe elevated without the .NET variables of the user's environment - the elevated process gets that
+    /// environment, and CoreCLR would read them (a profiler, a diagnostic port) before DNN Manager's code runs. The
+    /// launcher takes no arguments: <paramref name="args"/> go along only without it (a portable DNN Manager).
+    /// </summary>
     public static bool TryRelaunchElevated(string[] args, out bool declined)
     {
         declined = false;
@@ -27,17 +34,19 @@ internal static class AdminElevation
         var exePath = Environment.ProcessPath;
         if (string.IsNullOrEmpty(exePath) || !exePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
             return false;
+        var launcher = LaunchEnvironment.LauncherBeside(exePath);
 
         try
         {
             var psi = new ProcessStartInfo
             {
-                FileName        = exePath,
+                FileName        = launcher ?? exePath,
                 UseShellExecute = true,
                 Verb            = "runas",
                 WorkingDirectory = AppContext.BaseDirectory
             };
-            foreach (var a in args) psi.ArgumentList.Add(a);
+            if (launcher is null)
+                foreach (var a in args) psi.ArgumentList.Add(a);
             Process.Start(psi);
             return true;
         }

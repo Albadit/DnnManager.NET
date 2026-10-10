@@ -2,6 +2,307 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## Unreleased
+
+### Changed
+
+- **Closing the window no longer shows a Windows notification** that DNN
+  Manager is still running - its icon by the clock stays. An operation that
+  fails while the window is hidden still says so in one.
+- **Shorter messages**: a toast says a long message in its first sentence; the
+  whole of it is in the log file and behind **Details** (or **Show output**).
+  Settings' and Troubleshoot's explanations are one line each.
+- **Menus and drop-down lists look like the toasts**: the gear menu, right-click
+  menus, the tray icon's menu and drop-down lists have the card's quiet border
+  and a soft shadow instead of a light grey border. Text boxes and drop-downs
+  have a quieter border too; the focused one still shows the blue one.
+- **Sharper text in the tour, Settings, toasts and the command palette**: their
+  shadow was an effect on the box itself, which drew all its text as a soft
+  bitmap without ClearType; it is a layer behind them now, and the tour's card
+  sits on whole pixels.
+- **Settings → Keyboard shortcuts opens faster**: its 70-odd rows are kept
+  instead of made again each time the category is shown.
+
+### Fixed
+
+- **Programs in Program Files and Windows start again with administrator
+  rights**: since 1.8.1, DNN Manager had a wrong ID for Windows' TrustedInstaller
+  account - which owns them - and refused every one of them as "programs without
+  administrator rights could change it": `dotnet` (so SqlPackage, and with it the
+  backup before an upgrade, Back up and Export for deployment), PowerShell,
+  `schtasks`. A refused program's message now says why it was refused.
+- **Docker Desktop installed for your account only works**: it was taken for
+  *Not installed*, and every docker step failed. Its `docker` now runs as you,
+  without administrator rights; backups go in and out of the container through
+  `docker exec` instead of `docker cp`. Another program found only on your own
+  PATH is named as such instead of "isn't installed".
+- **The SQL container answers at `localhost` again**: since 1.8.1 it was
+  published on `127.0.0.1` only, and Windows tries `localhost` as `::1` first -
+  DNN Manager (and sites whose web.config says `localhost,1433`) waited until
+  their time ran out. It is published on `[::1]` too now; **Set up
+  docker-compose** once to get it.
+- **"DNN couldn't connect to its database" says why**: DNN Manager tries the
+  site's own connection string and names SQL Server's answer (or that it works
+  from DNN Manager, so the site's own process can't reach it), and shows what
+  DNN logged - its log4net files, or the Serilog ones of DNN 10.4.
+- **New sites on the SQL container install again**: since the container is
+  published on this PC's loopback only (1.8.1), a site's `localhost,1433` wasn't
+  reached - .NET Framework's SqlClient, DNN's, goes to localhost by this
+  computer's name and network address - and DNN's installation failed with
+  *Could not connect to database*. Sites get `127.0.0.1,1433` now, DNN Manager's
+  own connections use it too, and **Set up docker-compose** points existing
+  sites that say `localhost,1433` at it.
+- **Remove…** drops the site's login while a session of it is still open.
+- **Set up docker-compose with a volume made by 1.7.1 or older** finds its old
+  default `sa` password (`Admin@123`), takes it into Settings → Database server
+  and makes the container again with it - instead of waiting three minutes and
+  reporting a network error. It says when the data volume exists already.
+- **Set up docker-compose** is off until the Docker card's test finds Docker's
+  engine running, and says what is missing; the card tests by itself when it is
+  first shown. **Install Docker Desktop** says when winget finds it already
+  installed.
+- **Restore backup** tries a file that is still in use again, as it was meant
+  to: the retry never ran, so a DLL the worker process or `bin\roslyn`'s
+  compiler still held failed the restore - and an upgrade's way back - at once,
+  with the site's files half put back. A damaged file in the backup's zip fails
+  the restore with a message instead of an unexpected error.
+- **Export for deployment** of a site whose file is `Web.config` puts one
+  web.config in the package - the prepared one. The local one, with this PC's
+  connection string and debug on, stayed next to it.
+- **Reset to defaults** gets past an `sa` password encrypted by another Windows
+  account or on another PC: it was kept, and the next start stopped on it again.
+  Enter the container's password again in **Settings → Database server**.
+- **A new project named like one renamed since** gets a login of its own
+  (`dnn_shop_2`): it gave the renamed site's `dnn_shop` a new password - locking
+  that site out - and a failed or cancelled run dropped it. **Remove…** drops a
+  renamed site's own login too, which it left behind.
+
+## v1.8.2
+
+### Upgrading
+
+- **New installations go to Program Files.** Setup asks for administrator
+  rights and installs for all users. An installation for your account only
+  (the default up to 1.8.1) keeps updating where it is; a new Setup offers to
+  move it - turn **Start DNN Manager when you sign in** on again afterwards.
+- **Start at sign-in needs an installation for all users.** A sign-in task made
+  for a per-user installation is removed at the next start, with a warning.
+- **Terminals run as you, without administrator rights.** **New Administrator
+  terminal** (the arrow beside **+**) opens one that has them - only with shells
+  installed for all users, started without your profile scripts (`-NoProfile`,
+  `cmd /d`, `bash --noprofile --norc`), and marked as such.
+- **Settings that can be misused are refused.** The projects folder can't be in
+  Windows, Program Files or ProgramData or in another user's folder; DNN release
+  sources must be https; the hostname suffix must be a host name; an IIS
+  feature's name a Windows feature name; Docker's container and volume names
+  plain names. A saved value that breaks a rule goes back to its default at the
+  start, with a warning naming it - the *can't use its settings* dialog is left
+  for settings it can't read at all.
+- **`DNNMANAGER_*` environment variables** are held to every rule the saved
+  settings are, and stay applied after a Save; one that breaks a rule makes DNN
+  Manager ignore them all, with a warning.
+- **The SQL container is made again at the next Set up docker-compose**: its
+  image is now pinned (`2022-CU27-ubuntu-22.04` by digest) instead of
+  `2022-latest`. The databases stay in the volume.
+- **Windows-authentication sites on another server** show no live SQL state
+  unless that server is the one in **Settings → Database server**.
+- **An Administrator terminal's Windows PowerShell** finds no modules in your
+  Documents.
+- **A SQL Server on another computer must have a certificate Windows trusts** -
+  see [troubleshooting](.docs/troubleshooting.md).
+- **Junctions made without administrator rights aren't followed** by DNN
+  Manager (a module source linked into `DesktopModules`, say) - make them from
+  an administrator prompt.
+
+### Security
+
+- **No more deleting in `%TEMP%`.** DNN Manager no longer cleans up the update
+  folder 1.8.0 and older left in `%TEMP%` - with its Administrator rights, that
+  delete followed wherever another program had pointed the folder.
+- **Junctions aren't followed.** Windows' redirection trust is on for DNN
+  Manager, and unpacking backups and DNN packages, **Clear website cache**,
+  clones, undo and **Clean up data** check for links and junctions themselves.
+- **Settings and environment variables can't widen DNN Manager's rights.** The
+  projects folder guard changes only a folder of your own, never a system
+  folder; `DNNMANAGER_*` environment variables are held to the settings' rules;
+  .NET startup hooks are off; the command line isn't passed on to the elevated
+  start.
+- **Programs DNN Manager runs** are looked up on the computer's PATH, started by
+  the path that was checked, and don't inherit startup hooks, profilers or your
+  PATH; Explorer is started by its full path, SSMS and `docker compose`'s plugin
+  only from admin-only folders, SqlPackage only from nuget.org.
+- **Nothing of your environment makes them load other code.** Every .NET,
+  NuGet, Docker and sqlcmd variable is dropped; Windows PowerShell finds only
+  the modules of Windows and Program Files, not those in your Documents;
+  docker reads a configuration of DNN Manager's own, not your `.docker` (its
+  context, plugins and credential helpers); the computer's PATH is filled in
+  from Windows' own folders. SSMS, an IDE started directly, the update helper,
+  Setup and a restart start the same way. DNN Manager warns when it started
+  with .NET profiler or diagnostics variables set.
+- **An IIS feature's name can't run a command.** It must be a Windows feature
+  name, and reaches PowerShell as data rather than as part of its script.
+- **No Windows sign-in to a server a site chose.** With Windows authentication
+  the monitor asks only a SQL Server on this PC or the one in Settings; a
+  pipe's path (`\\server\pipe\…`) and a name merely starting with this PC's
+  are no longer taken for this PC.
+- **Sites can't change each other.** IIS_IUSRS and IUSR only read a site's
+  folder and its app pool no longer changes its rights - sites made by an
+  earlier DNN Manager, which gave all three Full control, are lowered at the
+  start; a `C:\DNN` an administrator made loses everyone's groups.
+- **What Windows deletes at the next restart** (a removed project's folder
+  still in use) is first made Administrators' and SYSTEM's only, so nothing can
+  turn it into a junction meanwhile.
+- **Terminals run without administrator rights** (a restricted copy of DNN
+  Manager's token: Administrators deny-only, no privileges, medium integrity);
+  when one can't be made, none is started elevated in its place.
+- **A launcher starts the installed DNN Manager**: `DnnManager-launcher.exe`
+  (Native AOT, so no .NET runtime reads your environment) drops every `DOTNET_*`,
+  `COMPlus_*`, `COR_*` and `CORECLR_*` variable, switches .NET's diagnostics
+  off and starts `DnnManager.exe`. The sign-in task and Windows' administrator
+  prompt start it; a sign-in task made by an earlier version is moved over to it
+  at the start. The portable exe has none.
+- **Setup** passes on only `Updated`, `Repaired` or `Uninstalled` as `/Done` and
+  `/Back`, starts its own exe again only while it is the file that started, and
+  ends a running DNN Manager by a checked path.
+- **One way to start a program as Administrator**, which a test holds every
+  other start to: SSMS, vswhere (now with a real time limit), Explorer and the
+  IDE fallback go through it.
+- **Unpacking** refuses names with `:` (alternate data streams), compares the
+  files it must leave alone (`web.config`, the database) by their full path -
+  `./web.config` and `WEB~1.CON` no longer get past it -, never writes into a
+  hard-linked file, and refuses a package that wouldn't leave 512 MB free.
+- **A site's XML files** are read without DTDs.
+- **Kept DNN packages are checked offline too**: the SHA-256s GitHub lists are
+  saved with the version list. A download redirected to http is refused as such.
+- **A database other than the project's own** - named in its `web.config` -
+  is dropped or changed only after a question naming both. **Open in SSMS**,
+  portal-alias edits, Upgrade and Restore ask before signing in with your
+  Windows account to a server that isn't on this PC or the one in Settings.
+  **Close and delete** defaults to No.
+- **Passwords:** a site login's password reaches `sqlcmd` on standard input,
+  the container's health check uses `SQLCMDPASSWORD`, and a password put on the
+  clipboard is taken off when DNN Manager quits. SqlPackage is pinned
+  (`170.5.96`) and installed with NuGet's source mapping.
+- **DNN Manager's temporary folder** keeps its owner from changing its rights,
+  also where Group Policy makes the user the owner of what an administrator
+  makes.
+- **A server's backup folder** is used only when it is a local, full path.
+- **The sign-in task** starts only at sign-in, not on demand.
+- **DNN packages** are downloaded over https into the admin-only temporary
+  folder and checked against GitHub's SHA-256 when it gives one - a kept package
+  too, every time it is used.
+- **Remote SQL Servers' certificates are checked**; the container's `sa`
+  password goes to `sqlcmd` through an environment variable, not its command
+  line.
+- **The DNN install template** (with the host password) is readable by the
+  site's own app pool only while DNN installs.
+- **Setup** hands over to a newer Setup from its own admin-only folder, after
+  checking it again; uninstall removes the sign-in task, asking for
+  administrator rights when needed.
+- **Releases are built on GitHub** by the release workflow, with a build
+  provenance attestation (`gh attestation verify <file> --repo
+  Albadit/DnnManager.NET`), and stay a draft until the tests and the build pass.
+  A published release can't be redone. Signing is prepared, off until set up.
+- **A release is published only once a person approves it**: the draft is made
+  once CI, the build, the signing and a smoke test (Setup installed, DNN Manager
+  started through its launcher, uninstalled; the portable exe started) have
+  passed; the publish job waits for the `publish` environment's reviewer, checks
+  that the tag still points at the commit built and the draft's files are the
+  ones built, and makes it the latest only when it is newer. The job that builds
+  gets no OpenID Connect token; the one that signs restores and tests nothing.
+
+### Added
+
+- **Keep backups and deployment packages** (**Settings → Projects → Backups**, `backups.keepDays`):
+  backups and deployment packages older than that are deleted at the start.
+  Off by default - a clone's copy of its source database is kept, and the clone
+  says where.
+- **Clean up data → Old settings files**: the files older versions kept their
+  settings in (which may hold the `sa` password in plain text) and damaged
+  settings databases.
+- **Stop undoing**: Cancel, pressed again while an operation is being undone,
+  stops the undo and names what wasn't undone. Quitting offers **Quit now** when
+  an undo takes long; each undo step has a time limit.
+- **An operation that didn't finish** (DNN Manager ended, Windows shut down) is
+  named at the next start, with what it may have left half done.
+- **Palette commands** for IIS Start, Stop and Restart, and a new Administrator
+  terminal.
+- **Start-up warnings show as a toast** too, not only on the Output tab: settings
+  set back to their defaults, a Documents folder that OneDrive or a network
+  share copies, Windows' Developer Mode, .NET profiler variables.
+- **New Administrator terminal** (the arrow beside **+**): a terminal with DNN
+  Manager's rights when you need one - shells installed for all users only (the
+  others greyed, with why), no profile scripts, titled *Administrator: …* with a
+  warning above it.
+- **Uninstalling asks what else to remove**: it lists what stays (your
+  `Documents\DnnManager`, the saved passwords, `%ProgramData%\DnnManager`,
+  Docker's container and volume, your projects) and offers to remove your DNN
+  Manager data - *No* by default. Docker, your projects and IIS are never
+  touched.
+- **A failed update keeps its logs** in
+  `Documents\DnnManager\logs\update-failed-<version>.log` (the newest two), and
+  **Show log** opens that file.
+
+### Changed
+
+- **Cancel stops the SQL Server work too.** A backup or restore cancelled in the
+  container is ended there before the undo runs, and the undo's drop waits for
+  it.
+- **Host project restores beside the database** and swaps it in once complete,
+  like Clone and Restore - a failed restore leaves the database as it was.
+- **Restore checks the whole backup first** and writes nothing when an entry is
+  unsafe; it says so when the site's files are left a mix.
+- **A package with an unsafe path is refused** as a whole, not unpacked without
+  that entry.
+- **Accessibility:** icon buttons are reachable with Tab; the focus ring shows
+  on every button; links have their own colour (contrast 4.8:1 or more, also on
+  a selected row); field errors become the field's help text and are announced;
+  toasts wait their turn instead of replacing each other; a project row tells a
+  screen reader its DNN version, database and SQL state; the keep-warm buttons
+  and the password eye say what they will do. Contrast of muted text, the
+  current search match and the SUCCESS badge is 4.5:1 or more.
+- **Long stages on the Output tab** show their first 200 and last 300 lines -
+  every line is still in the log file.
+- **Windows signing out or shutting down** while an operation runs is held up
+  once: DNN Manager cancels and undoes for up to a minute, then quits - sign out
+  or shut down again.
+- **Programs DNN Manager starts end with it** (a Windows job object), and a
+  cancelled backup on a remote SQL Server is deleted. Only a "file in use" error
+  is tried again.
+- **The log file** is written in batches (every 2 seconds; warnings, errors and
+  how an operation ended at once), and all the logs together stay under 200 MB.
+- **The update waits for Setup** however long it takes.
+- **The terminal's search highlight** is darker (dark theme) and lighter (light
+  theme), so the text under it stays readable; the Output tab's labels
+  (**WARN**, **ERROR**, **SUCCESS**) grow with the terminal font size.
+- **Releasing**: `redo-release.ps1` refuses while a release run on the tag hasn't
+  ended, and amends only files git has - it asks about new ones. CI fails when a
+  fast test is skipped, or more integration tests than `CI_MAX_SKIPPED_TESTS`;
+  it builds with warnings as errors, XML comments included; `global.json` takes
+  exactly SDK 10.0.401. Building the installer needs Visual Studio's C++ build
+  tools for the launcher (`build.ps1 -NoLauncher` without them).
+
+### Dependencies
+
+- `Microsoft.Data.SqlClient` 6.0.2 → 6.1.7 (it brings MSAL's broker, with its
+  native `msalruntime.dll`).
+- `MSTest.TestAdapter` / `MSTest.TestFramework` 4.4.1 → 4.5.1.
+
+### Fixed
+
+- **After Uninstall from Setup's first page**, Setup comes back as a new install.
+- **The hostname suffix** must be a real host name (no label starting or ending
+  with `-`, not an IP address); a `DNNMANAGER_*` suffix is trimmed as the saved
+  one is.
+- **The `LIKE` pattern for host names** escapes `_` and `%`, so `dnn_dev.me`
+  no longer matches `dnnxdev.me`.
+- **A temporary DNN package** is deleted when New project fails or is cancelled.
+- **A failure in DNN Manager's temporary folder** is tried again at the next use
+  instead of failing until a restart; files left there for more than a day are
+  deleted.
+- **Export for deployment** no longer reads a `configSource` given as a full
+  path - only the files inside the site go into the package's changes.
+
 ## v1.8.1
 
 ### Upgrading
@@ -770,12 +1071,12 @@ never dropped, and the SQL container is reachable from this PC only.
   operation that is running. Clone and New project name their stages up front,
   so those still to come and those skipped after a failure show too.
 - **The documentation is split by reader** - users: the user guide,
-  [configuration](docs/configuration.md) (every `settings.json` key) and
-  [troubleshooting](docs/troubleshooting.md); developers:
-  [development](docs/development.md), [architecture](docs/architecture.md) (with
+  [configuration](.docs/configuration.md) (every `settings.json` key) and
+  [troubleshooting](.docs/troubleshooting.md); developers:
+  [development](.docs/development.md), [architecture](.docs/architecture.md) (with
   Mermaid diagrams of the layers, an operation and the live updates),
-  [testing](docs/testing.md), [releasing](docs/releasing.md) and
-  [security](docs/security.md).
+  [testing](.docs/testing.md), [releasing](.docs/releasing.md) and
+  [security](.docs/security.md).
 - **A site's Details show what was detected, as an environment inspector** -
   every tab read from where it is: IIS and the app pool (bindings with their
   certificate and when it expires, SNI, the app pool's identity, recycling,

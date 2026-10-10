@@ -57,13 +57,15 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Where the keyboard is: an accent ring around the control, shown only when the keyboard moved there (Services/FocusRing
-         puts it on every control that would show Windows' faint dotted rectangle). -->
+    <!-- Where the keyboard is: a ring around the control, shown only when the keyboard moved there (Services/FocusRing
+         puts it on every control that would show Windows' faint dotted rectangle). A pixel of the page shows between the
+         ring and the control, so it shows on a blue Primary button too - not only on the page: the ring (FocusBorder) has
+         3:1 against the page, a card and a hovered row in both themes (WCAG 2.4.7, 1.4.11). -->
     <Style x:Key="FocusRing">
         <Setter Property="Control.Template">
             <Setter.Value>
                 <ControlTemplate>
-                    <Rectangle Margin="-1" RadiusX="4" RadiusY="4" StrokeThickness="2" Stroke="{DynamicResource Accent}"
+                    <Rectangle Margin="-3" RadiusX="6" RadiusY="6" StrokeThickness="2" Stroke="{DynamicResource FocusBorder}"
                                SnapsToDevicePixels="True" />
                 </ControlTemplate>
             </Setter.Value>
@@ -96,10 +98,14 @@
         <Setter Property="TextWrapping" Value="Wrap" />
         <Setter Property="Margin" Value="0,4,0,0" />
     </Style>
+    <!-- A field's problem under it. A screen reader hears it (c:FieldError): said once it has stood still a moment, and
+         the help text of the field it is about (c:FieldError.For) while it shows (WCAG 3.3.1, 4.1.3). -->
     <Style TargetType="TextBlock" x:Key="ErrorLine">
         <Setter Property="Foreground" Value="{DynamicResource ErrorText}" />
         <Setter Property="TextWrapping" Value="Wrap" />
         <Setter Property="Margin" Value="0,4,0,0" />
+        <Setter Property="c:FieldError.Message" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+        <Setter Property="c:FieldError.Shown" Value="{Binding Visibility, RelativeSource={RelativeSource Self}}" />
     </Style>
 
     <Style TargetType="Border" x:Key="Card">

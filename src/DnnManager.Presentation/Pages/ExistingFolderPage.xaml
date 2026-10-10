@@ -93,7 +93,7 @@
                     <Border x:Name="OptionsCard" Style="{StaticResource Card}" Visibility="Collapsed">
                         <StackPanel>
                             <TextBlock Style="{StaticResource CardTitle}" x:Name="OptionsTitle" />
-                            <TextBlock x:Name="NameError" Style="{StaticResource ErrorLine}" Visibility="Collapsed" Margin="0,0,0,8" />
+                            <TextBlock x:Name="NameError" Style="{StaticResource ErrorLine}" c:FieldError.For="{Binding ElementName=FolderList}" Visibility="Collapsed" Margin="0,0,0,8" />
                             <c:ExistingFolderOptions x:Name="FolderOptions" />
                         </StackPanel>
                     </Border>
