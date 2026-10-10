@@ -69,7 +69,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.12" />
     <PackageReference Include="Microsoft.Web.Administration" Version="11.1.0" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.7" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.1.1" />
     <!-- DNN Manager's own data - settings, workspace, project records, keep warm - in Documents\DnnManager\dnnmanager.db. -->
     <!-- It brings SQLitePCLRaw 2.1.12 - SQLite 3.53.3, past the fix for GHSA-2m69-gcr7-jv3q (3.50.2); 10.0.10 and older
          brought 2.1.11, which DNN Manager pinned over until then. Upgrading it upgrades SQLite. -->
