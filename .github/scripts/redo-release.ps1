@@ -11,9 +11,9 @@
     2. Refuses when GitHub has published that release, or while a release workflow run on its tag hasn't ended
        (queued, running, or waiting for the publish job's approval) - asked without signing in; refused too when
        GitHub can't be asked.
-    3. The commit to release from: -Commit, or picked from the commits of the current branch since the tag's (newest
-       first - Enter takes the newest). It is released as it is: nothing is amended or pushed, and your working copy
-       isn't used.
+    3. The commit to release from: -Commit (the VS Code task picks it, from -List commits), or picked here from the
+       commits of the current branch since the tag's (newest first - Enter takes the newest). It is released as it
+       is: nothing is amended or pushed, and your working copy isn't used.
     4. Shows the plan and asks once, then deletes the tag here and on GitHub and releases the version from that commit
        (publish-release.ps1: the fast tests here, then the tag). A draft release the failed run left is kept: the next
        release workflow run on the tag reuses it, replacing its files and notes.
@@ -26,6 +26,8 @@
     .github\scripts\redo-release.ps1 -Version 1.7.6 -Commit 9030c5f
 .EXAMPLE
     .github\scripts\redo-release.ps1 -DryRun
+.EXAMPLE
+    .github\scripts\redo-release.ps1 -List commits
 #>
 [CmdletBinding()]
 param(
@@ -36,7 +38,11 @@ param(
     # Passed on to publish-release.ps1: tags without running the fast tests here first.
     [switch]$SkipTests,
     # Shows what would be done, and does nothing.
-    [switch]$DryRun
+    [switch]$DryRun,
+    # Prints the commits to redo the release from, for VS Code's picker (value||label||description||detail), and
+    # does nothing else - GitHub isn't asked.
+    [ValidateSet('commits')]
+    [string]$List
 )
 
 $ErrorActionPreference = 'Stop'
@@ -58,8 +64,11 @@ if ($origin -notmatch 'github\.com[:/](.+?)(\.git)?$') { throw "origin ($origin)
 $script:repo = $Matches[1]
 Set-ReleaseContext -Repository $script:repo
 
-Write-Host "Redo a DNN Manager release - $script:repo" -ForegroundColor Cyan
-Write-Host 'Fetching tags and branches from origin...'
+if ($List) { [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false) }
+else {
+    Write-Host "Redo a DNN Manager release - $script:repo" -ForegroundColor Cyan
+    Write-Host 'Fetching tags and branches from origin...'
+}
 # Branches only: the tags are compared with GitHub's below, never overwritten.
 $null = Invoke-Git @('fetch', '--quiet', '--no-tags', 'origin')
 
@@ -71,24 +80,6 @@ $tag = 'v' + $Version.TrimStart('v', 'V')
 if ($tag -notmatch '^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw "$Version isn't a version like 1.7.6." }
 $notes = Join-Path $root ".docs\release-notes\$tag.md"
 if (-not (Test-Path $notes)) { throw "There are no release notes .docs\release-notes\$tag.md - the release needs them." }
-
-# A published release is never redone: DNN Managers may have installed it, and nobody who has it would be offered
-# the redone one. Not knowing counts as published.
-try { $published = Get-PublishedRelease $tag }
-catch { throw "GitHub couldn't be asked whether $tag is published ($($_.Exception.Message)) - nothing was changed. Try again later." }
-if ($published) {
-    Write-Host "GitHub has published $tag ($($published.html_url))." -ForegroundColor Red
-    throw "A published release isn't redone - release the change as the next version (see .docs\releasing.md, A bad release). Nothing was changed."
-}
-
-# A release run on the tag that hasn't ended could still publish what it built while the tag is moved under it (its
-# publish job checks the tag again, but its draft would be the old commit's). Not knowing counts as running.
-try { $unfinished = @(Get-UnfinishedReleaseRuns $tag) }
-catch { throw "GitHub couldn't be asked whether a release run on $tag is still going ($($_.Exception.Message)) - nothing was changed. Try again later." }
-if ($unfinished.Count -gt 0) {
-    $unfinished | ForEach-Object { Write-Host "  The release workflow on $tag is $($_.status): $($_.html_url)" -ForegroundColor Red }
-    throw "Wait for it to end, or cancel it (a run waiting for approval: reject the job 'Publish the release'), then run this again. Nothing was changed."
-}
 
 $branch = (Invoke-Git @('rev-parse', '--abbrev-ref', 'HEAD')) | Select-Object -First 1
 if ($branch -eq 'HEAD') { throw 'No branch is checked out (detached HEAD) - check out the branch the release is on.' }
@@ -116,6 +107,40 @@ $choices = if ($tagSha) {
     @(Invoke-Git @('log', '--format=%H %s', '-10', 'HEAD'))
 }
 $choices = @($choices | Where-Object { $_ } | Select-Object -Unique)
+
+if ($List) {
+    # Output for VS Code's picker: value||label||description||detail - the newest first, as here.
+    $remote = "refs/remotes/origin/$branch"
+    $hasRemote = [bool](Invoke-Git @('rev-parse', '--verify', '--quiet', $remote))
+    foreach ($choice in $choices) {
+        $sha = $choice.Substring(0, 40)
+        $f = @((Invoke-Git @('log', '-1', '--format=%h%x09%cs%x09%an%x09%s', $sha)) | Select-Object -First 1) -split "`t", 4
+        $onGitHub = $false
+        if ($hasRemote) { & git -C $root merge-base --is-ancestor $sha $remote; $onGitHub = $LASTEXITCODE -eq 0 }
+        $where = if ($sha -eq $tagSha) { "$tag's commit now" } elseif ($onGitHub) { 'on GitHub' } else { "not on GitHub yet - push $branch first" }
+        $clean = { param($s) ($s -replace '\|\|', '|').Trim() }
+        "$sha||`$(git-commit) $($f[0])  $(& $clean $f[3])||$($f[1]), $(& $clean $f[2])||redo $tag from it - $where"
+    }
+    return
+}
+
+# A published release is never redone: DNN Managers may have installed it, and nobody who has it would be offered
+# the redone one. Not knowing counts as published.
+try { $published = Get-PublishedRelease $tag }
+catch { throw "GitHub couldn't be asked whether $tag is published ($($_.Exception.Message)) - nothing was changed. Try again later." }
+if ($published) {
+    Write-Host "GitHub has published $tag ($($published.html_url))." -ForegroundColor Red
+    throw "A published release isn't redone - release the change as the next version (see .docs\releasing.md, A bad release). Nothing was changed."
+}
+
+# A release run on the tag that hasn't ended could still publish what it built while the tag is moved under it (its
+# publish job checks the tag again, but its draft would be the old commit's). Not knowing counts as running.
+try { $unfinished = @(Get-UnfinishedReleaseRuns $tag) }
+catch { throw "GitHub couldn't be asked whether a release run on $tag is still going ($($_.Exception.Message)) - nothing was changed. Try again later." }
+if ($unfinished.Count -gt 0) {
+    $unfinished | ForEach-Object { Write-Host "  The release workflow on $tag is $($_.status): $($_.html_url)" -ForegroundColor Red }
+    throw "Wait for it to end, or cancel it (a run waiting for approval: reject the job 'Publish the release'), then run this again. Nothing was changed."
+}
 
 if ($Commit) {
     $chosenSha = (Invoke-Git @('rev-parse', '--verify', "$Commit^{commit}")) | Select-Object -First 1

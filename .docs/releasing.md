@@ -99,8 +99,11 @@ runs [`.github/scripts/redo-release.ps1`](../.github/scripts/redo-release.ps1):
    [A bad release](#a-bad-release)). It also refuses while a release workflow run
    on the tag hasn't ended - queued, running, or waiting for the publish job's
    approval: wait for it, or cancel it (reject *Publish the release*), first.
-3. It lists the commits of the branch since the tag's - the newest first, Enter
-   takes it (`-Commit <hash>` picks one without asking). That commit is released
+3. VS Code's picker lists the commits of the branch since the tag's, the newest
+   first, each marked *on GitHub*, *not on GitHub yet* or as the tag's commit now
+   (filled by `redo-release.ps1 -List commits`, which asks GitHub nothing). Run
+   outside VS Code, the script lists them in the terminal - Enter takes the newest -
+   and `-Commit <hash>` picks one without asking. That commit is released
    **as it is**: nothing is amended or pushed, and changes you haven't committed
    aren't in it (the plan says so). A commit that isn't on GitHub yet is named
    too - push it first.
@@ -260,14 +263,13 @@ Do these once, before the first release with the workflow, in the repository's
   version relies on.
 - **Rules → Rulesets**:
   - a *branch* ruleset for the default branch (`main`): *Restrict deletions*,
-    *Block force pushes* and *Require status checks to pass* (CI's **Build and
-    test**);
+    *Block force pushes* and *Require status checks to pass* (CI's **Test** and
+    **Build**);
   - a *tag* ruleset for `refs/tags/v*`: *Restrict creations*, *Restrict updates*,
     *Restrict deletions* and *Block force pushes*.
 
   Add the *Repository admin* role to both bypass lists: **release (GitHub)** creates
-  the tag, and **release: redo (GitHub)** deletes it and force-pushes the amended
-  release commit. Nobody else can push or move a version tag, so nobody else can
+  the tag, and **release: redo (GitHub)** deletes it and makes it again. Nobody else can push or move a version tag, so nobody else can
   start a release.
 - **Environments** (the first release run makes both; set them up before it):
   - `publish` - under *Required reviewers* add yourself, and under *Deployment

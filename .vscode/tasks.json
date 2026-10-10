@@ -170,9 +170,10 @@
             }
         },
         {
-            // Redo a release whose tag is made but which isn't published (a published one is refused): releases that
-            // version again from the newest commit (or one picked in the terminal) - the tag is deleted and made again
-            // there; nothing is amended or pushed. Shows the plan and asks before changing anything. See .docs/releasing.md.
+            // Redo the newest release whose tag is made but which isn't published (a published one is refused): pick
+            // the commit to release it from (the branch's commits since the tag's, newest first) - the tag is deleted
+            // and made again there; nothing is amended or pushed. Shows the plan and asks before changing anything.
+            // See .docs/releasing.md.
             "label": "release: redo (GitHub)",
             "type": "process",
             "command": "powershell",
@@ -181,7 +182,9 @@
                 "-ExecutionPolicy",
                 "Bypass",
                 "-File",
-                "${workspaceFolder}/.github/scripts/redo-release.ps1"
+                "${workspaceFolder}/.github/scripts/redo-release.ps1",
+                "-Commit",
+                "${input:redoCommit}"
             ],
             "group": "build",
             "problemMatcher": [],
@@ -217,6 +220,19 @@
                 "cwd": "${workspaceFolder}",
                 "fieldSeparator": "||",
                 "description": "Commit to release (newest on GitHub first)",
+                "warnOnStderr": false
+            }
+        },
+        {
+            "id": "redoCommit",
+            "type": "command",
+            "command": "shellCommand.execute",
+            "args": {
+                "command": "powershell",
+                "commandArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/.github/scripts/redo-release.ps1", "-List", "commits"],
+                "cwd": "${workspaceFolder}",
+                "fieldSeparator": "||",
+                "description": "Commit to redo the newest release from (newest first)",
                 "warnOnStderr": false
             }
         }
