@@ -1,9 +1,9 @@
 # Release: when a version tag is pushed (by the VS Code task "release (GitHub)", .github/scripts/publish-release.ps1),
 # GitHub builds that tag and publishes it - nothing built on a PC is ever uploaded. See .docs/releasing.md.
 #
-#   ci       the whole test suite on the tag (.github/workflows/ci.yml, called here).
-#   build    the fast tests, then the portable exe, the app for Setup and the launcher (Native AOT) with the tag's
-#            version - unsigned. It runs the packages' and the tests' code, so it gets no OpenID Connect token.
+#   build    the portable exe, the app for Setup and the launcher (Native AOT) with the tag's version - unsigned. It
+#            runs the packages' code, so it gets no OpenID Connect token. No tests run here: CI tests every commit
+#            pushed to a branch (.github/workflows/ci.yml) - a release doesn't wait for them.
 #   sign     signs them when signing is set up, compiles Setup with the pinned Inno Setup (which signs Setup and its
 #            uninstaller), writes SHA256SUMS.txt and attests both exes. Only this job can get the token Azure signs with
 #            and the attestation's certificate - and it restores no package and runs no test.
@@ -43,12 +43,6 @@ defaults:
     shell: pwsh
 
 jobs:
-  ci:
-    name: CI
-    uses: ./.github/workflows/ci.yml
-    permissions:
-      contents: read
-
   build:
     name: Build
     # A pinned image, not windows-latest: a release is built on the image it was tested on until this line changes.
@@ -69,7 +63,7 @@ jobs:
       - name: Check out
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
-          # The tags too: the fast tests build with the newest tag's version, as every build does.
+          # The tags too: the build takes its version from the newest tag, as every build does.
           fetch-depth: 0
           # No token left in .git/config for the build's steps.
           persist-credentials: false
@@ -103,13 +97,6 @@ jobs:
           dotnet restore tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj --locked-mode
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet restore src/DnnManager.Launcher/DnnManager.Launcher.csproj --locked-mode
-
-      - name: Fast tests
-        run: >-
-          dotnet test tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj
-          -c Release --no-restore
-          --filter "TestCategory!=Integration"
-          --logger "console;verbosity=normal"
 
       - name: Stamp the version
         # The exe's manifest carries the file version too (its file properties).
@@ -308,9 +295,9 @@ jobs:
 
   draft:
     name: Draft the release
-    # Only once the whole test suite, the build, the signing and the smoke test have passed; until the publish job
-    # ends, the release is at most a draft.
-    needs: [ci, sign, smoke]
+    # Only once the build, the signing and the smoke test have passed; until the publish job ends, the release is at
+    # most a draft.
+    needs: [sign, smoke]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:

@@ -28,7 +28,8 @@ until 1.7.2 is tagged ([`DnnManager.csproj`](../DnnManager.csproj), target
    GitHub's [release workflow](#the-release-workflow) builds the release from that
    tag: `DnnManager_Portable-X.Y.Z-x64.exe`, `DnnManager_Setup-X.Y.Z-x64.exe` and
    `SHA256SUMS.txt`, signs them once signing is set up, tries them, and puts them
-   on a draft release once the whole test suite has passed on the tag.
+   on a draft release. It runs no tests: [CI](#the-build-workflow) tests every
+   commit you push, and the task runs the fast tests on your PC before it tags.
 5. **Approve the job *Publish the release*** on the run's page on GitHub (the
    `publish` environment's required reviewer). It checks the tag and the files
    again and publishes the release. Every running DNN Manager then offers it
@@ -74,7 +75,7 @@ whether the version is published and how the run is going
 with the redo script). Outside VS Code,
 `.github\scripts\publish-release.ps1` asks the same two questions in the terminal;
 `-NotesFile .docs\release-notes\v1.7.0.md -Commit <hash>` answers them. `-SkipTests`
-skips the fast tests here (the workflow still runs every test before it publishes),
+skips the fast tests here (the release workflow runs none - only CI, on the pushed commit),
 and `-NoWait` stops after pushing the tag. You have to confirm before it releases a
 commit that isn't on GitHub yet.
 
@@ -145,23 +146,20 @@ never cancelled half way. Its jobs run in this order:
 
 ```mermaid
 flowchart LR
-    ci["ci<br/>whole test suite"] --> draft
-    build["build<br/>fast tests, publish"] --> sign["sign<br/>sign, Setup, SHA256SUMS, attest"]
+    build["build<br/>publish"] --> sign["sign<br/>sign, Setup, SHA256SUMS, attest"]
     sign --> smoke["smoke<br/>install, start, uninstall"]
     sign --> draft["draft<br/>upload, check digests"]
     smoke --> draft
     draft --> publish["publish<br/>approved by a reviewer"]
 ```
 
-- **CI** - the whole test suite on the tag ([the build workflow](#the-build-workflow),
-  which it calls).
 - **Build** (on the `windows-2025` image) - checks the runner has Visual Studio's
   C++ build tools (the launcher's Native AOT needs them), restores in locked mode
-  (the app's tests and the launcher), runs the fast tests, stamps the tag's
-  version into the manifest, publishes the portable exe, and publishes the app and
-  the launcher for Setup (`build.ps1 -PublishOnly`) - all unsigned. It runs the
-  packages' and the tests' code, so it gets no OpenID Connect token: it may only
-  read the repository.
+  (the app's tests and the launcher), stamps the tag's version into the manifest,
+  publishes the portable exe, and publishes the app and the launcher for Setup
+  (`build.ps1 -PublishOnly`) - all unsigned. It runs the packages' code, so it gets
+  no OpenID Connect token: it may only read the repository. No tests run in the
+  release workflow - [CI](#the-build-workflow) runs them on every commit pushed.
 - **Sign, package and attest** (environment `release`) - takes the build's files;
   it restores no package and runs no test. When [code signing](#code-signing) is
   set up, it signs in to Azure just before the first file is signed, signs the
@@ -297,10 +295,11 @@ Do these once, before the first release with the workflow, in the repository's
 
 ## The build workflow
 
-[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) ("CI") runs on every push
-to `main`, on pull requests and by hand (**Actions → CI → Run workflow**); for a
-version tag the [release workflow](#the-release-workflow) calls it and publishes
-only once it has passed. It restores in locked mode (exactly the packages
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) ("CI") runs on every commit
+pushed to a branch and by hand (**Actions → CI → Run workflow**) - not for a version
+tag: the [release workflow](#the-release-workflow) doesn't run it or wait for it.
+It has two jobs: **Build**, then **Test** once the build passed. Build restores in
+locked mode (exactly the packages
 `packages.lock.json` names, with their hashes - the app's tests' and the
 launcher's), builds in Release (the version from the newest tag, as every local
 build) **with warnings as errors** (`-warnaserror`, XML-comment warnings
@@ -308,7 +307,7 @@ included: `DnnManager.csproj` has the compiler read its XML comments
 (`GenerateDocumentationFile`), so a misplaced or broken one fails the build -
 without asking a comment for every public member: CS1591 and CS1573 are off),
 builds the launcher as
-plain .NET (the release publishes it with Native AOT), and runs the whole test
+plain .NET (the release publishes it with Native AOT). Test runs the whole test
 suite. It publishes nothing.
 
 **Skipped tests are counted.** The integration tests are skipped (inconclusive)

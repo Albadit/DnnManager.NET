@@ -314,6 +314,8 @@ public sealed class AutomaticInstallTests
             SitePort = 80,
             Docker = new DockerOptions
             {
+                // The test's own container: DNN Manager runs sqlcmd in it by name (the site's login) - not the user's dnn-sqlserver.
+                ContainerName = _containerName ?? "dnnit-none",
                 ContainerIp = "127.0.0.1",
                 DefaultPort = _container is null ? 1433 : int.Parse(_container.Split(',')[1]),
                 SaPassword = _saPassword ?? "",

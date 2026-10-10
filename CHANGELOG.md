@@ -238,7 +238,11 @@ All notable changes to DnnManager.NET are documented here.
   fast test is skipped, or more integration tests than `CI_MAX_SKIPPED_TESTS`;
   it builds with warnings as errors, XML comments included; `global.json` takes
   exactly SDK 10.0.401. Building the installer needs Visual Studio's C++ build
-  tools for the launcher (`build.ps1 -NoLauncher` without them).
+  tools for the launcher (`build.ps1 -NoLauncher` without them). CI runs on every
+  commit pushed to a branch, as two jobs - **Build**, then **Test**; the release
+  workflow runs no tests and doesn't wait for CI (the release task runs the fast
+  tests on your PC before it tags). The integration tests use their own SQL
+  container for the site's login, not `dnn-sqlserver`.
 
 ### Dependencies
 

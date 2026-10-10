@@ -57,7 +57,7 @@ public sealed class DnnUpgradeTests
     {
         Prerequisites();
         var install = new RecordingReporter();
-        await using var site = await DnnTestSite.InstallAsync(_run, "uppath", "9.3.2", _container!, _saPassword!, install, "9.13.9", "10.2.5", "10.3.3");
+        await using var site = await DnnTestSite.InstallAsync(_run, "uppath", "9.3.2", _containerName!, _container!, _saPassword!, install, "9.13.9", "10.2.5", "10.3.3");
         var content = await AddContentAsync(site);
         var before = await site.Services.GetRequiredService<IDnnSiteInspector>().CountAsync(site.Directory, site.Database, CancellationToken.None);
         TestContext.WriteLine($"Before: {before}");
@@ -120,7 +120,7 @@ public sealed class DnnUpgradeTests
         var steps = DnnUpgradePath.Chain(Version.Parse(start), new Version(10, 3, 3));
         var path = steps.Select(s => $"{s.To.Major}.{s.To.Minor}.{s.To.Build}").ToArray();
         TestContext.WriteLine($"{start} → {string.Join(" → ", path)}");
-        await using var site = await DnnTestSite.InstallAsync(_run, "new" + start.Replace(".", ""), start, _container!, _saPassword!, new RecordingReporter(), path);
+        await using var site = await DnnTestSite.InstallAsync(_run, "new" + start.Replace(".", ""), start, _containerName!, _container!, _saPassword!, new RecordingReporter(), path);
 
         var reporter = new RecordingReporter();
         var result = await UpgradeAsync(site, "10.3.3", reporter, [new DnnTestAccount(site.Host.UserName, site.Host.Password, IsHost: true)]);
@@ -142,7 +142,7 @@ public sealed class DnnUpgradeTests
     public async Task A_step_that_fails_stops_the_chain_and_puts_the_site_back_to_the_last_version_that_worked()
     {
         Prerequisites();
-        await using var site = await DnnTestSite.InstallAsync(_run, "upfail", "9.13.9", _container!, _saPassword!, new RecordingReporter(), "10.2.5", "10.3.3");
+        await using var site = await DnnTestSite.InstallAsync(_run, "upfail", "9.13.9", _containerName!, _container!, _saPassword!, new RecordingReporter(), "10.2.5", "10.3.3");
         // Its database imported from a bacpac, as New project → An existing site does: its files are named
         // <name>_Primary.mdf - where putting a backup back under the same name collided (seen on a real site).
         await ReimportDatabaseAsync(site);

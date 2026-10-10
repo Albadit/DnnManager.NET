@@ -13,7 +13,7 @@
        as GitHub does (locked mode: exactly packages.lock.json) and runs the fast tests - a problem shows here, before
        the tag exists.
     5. After you confirm: tags the commit and pushes the tag. Nothing built on this PC is uploaded: the release
-       workflow builds the portable exe and the installer from the tag, runs the whole test suite, signs the files
+       workflow builds the portable exe and the installer from the tag, signs the files
        when signing is set up, attests their provenance, tries the installed and the portable exe, puts them on a
        draft release, and publishes it only once all of that has passed and a reviewer has approved the publish job
        (a failure leaves at most a draft). This script then follows that run on GitHub (-NoWait doesn't).
@@ -36,7 +36,7 @@ param(
     [string]$NotesFile,
     # The commit to release (a hash); asked for when omitted.
     [string]$Commit,
-    # Tags without running the fast tests here first (the release workflow still runs every test before it publishes).
+    # Tags without running the fast tests here first (the release workflow runs none - CI tests the pushed commit).
     [switch]$SkipTests,
     # Pushes the tag and stops, without following the release workflow's run on GitHub.
     [switch]$NoWait,
@@ -213,7 +213,7 @@ Write-Host "           $($selected.Author), $($selected.Date)"
 
 # --- 4. The fast tests, in a worktree of that commit ---
 
-if ($SkipTests) { Write-Host '  Fast tests skipped here (-SkipTests) - the release workflow runs every test before it publishes.' -ForegroundColor Yellow }
+if ($SkipTests) { Write-Host '  Fast tests skipped here (-SkipTests) - the release workflow runs none; CI tests the pushed commit.' -ForegroundColor Yellow }
 else {
     $work = Join-Path $env:TEMP "dnnmanager-release-$version"
     try {

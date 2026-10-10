@@ -39,7 +39,7 @@ public sealed class DnnTestSite : IAsyncDisposable
     /// DNN <paramref name="version"/> installed as <paramref name="name"/> - with <paramref name="releases"/> (every version
     /// the test upgrades to too) known to it.
     /// </summary>
-    public static async Task<DnnTestSite> InstallAsync(string run, string name, string version, string container, string saPassword,
+    public static async Task<DnnTestSite> InstallAsync(string run, string name, string version, string containerName, string container, string saPassword,
         RecordingReporter reporter, params string[] releases)
     {
         var projects = Path.Combine(run, "p");
@@ -52,7 +52,8 @@ public sealed class DnnTestSite : IAsyncDisposable
             SitePort = 80,
             Docker = new DockerOptions
             {
-                ContainerIp = "127.0.0.1", DefaultPort = int.Parse(container.Split(',')[1]), SaPassword = saPassword,
+                // The test's own container: DNN Manager runs sqlcmd in it by name (the site's login) - not the user's dnn-sqlserver.
+                ContainerName = containerName, ContainerIp = "127.0.0.1", DefaultPort = int.Parse(container.Split(',')[1]), SaPassword = saPassword,
                 Collation = "Latin1_General_CI_AS"
             }
         };

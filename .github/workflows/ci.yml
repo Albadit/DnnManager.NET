@@ -1,22 +1,19 @@
-# CI: on every push to main, every pull request, and by hand (Actions -> CI -> Run workflow), DNN Manager is built in
-# Release and the whole test suite runs. Nothing is published here. A version tag is tested by the release workflow,
-# which calls this one (.github/workflows/release.yml, see .docs/releasing.md) and publishes the release only once it
-# has passed.
+# CI: on every commit pushed to a branch, and by hand (Actions -> CI -> Run workflow), DNN Manager is built in Release
+# (Build) and then the whole test suite runs (Test). Nothing is published here, and a release doesn't run it: pushing a
+# version tag starts only the release workflow (.github/workflows/release.yml, see .docs/releasing.md).
 name: CI
 
 on:
   push:
-    branches: [main]
-  pull_request:
+    # Branches only: a version tag is the release workflow's.
+    branches: ['**']
   workflow_dispatch:
-  # Called by release.yml for the tag being released.
-  workflow_call:
 
 permissions:
   contents: read
 
 concurrency:
-  group: build-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -30,17 +27,10 @@ defaults:
 
 jobs:
   build:
-    name: Build and test
+    name: Build
     # A pinned image (as release.yml): a new Windows image is a change in review, not a surprise.
     runs-on: windows-2025
-    timeout-minutes: 60
-
-    env:
-      # How many tests may be skipped (inconclusive) on the runner: the integration tests, where it lacks IIS Express,
-      # LocalDB or Linux containers. More fails the run, and so does any skipped test outside TestCategory Integration -
-      # a fast test that stops running mustn't pass as green. Set the repository variable CI_MAX_SKIPPED_TESTS to the
-      # count the step summary shows once it is known, so a newly skipped integration test fails too.
-      MAX_SKIPPED: ${{ vars.CI_MAX_SKIPPED_TESTS || '14' }}
+    timeout-minutes: 30
 
     steps:
       # Actions pinned to a commit, not a tag that can be moved: what runs is what was reviewed. Dependabot proposes updates.
@@ -81,12 +71,42 @@ jobs:
           # The launcher as a plain .NET build: it compiles; the release workflow publishes it with Native AOT.
           dotnet build src/DnnManager.Launcher/DnnManager.Launcher.csproj -c Release --no-restore -p:ContinuousIntegrationBuild=true -warnaserror
 
+  test:
+    name: Test
+    # Only what built: a build that fails is said by Build, not as hundreds of failed tests.
+    needs: build
+    runs-on: windows-2025
+    timeout-minutes: 60
+
+    env:
+      # How many tests may be skipped (inconclusive) on the runner: the integration tests, where it lacks IIS Express,
+      # LocalDB or Linux containers. More fails the run, and so does any skipped test outside TestCategory Integration -
+      # a fast test that stops running mustn't pass as green. Set the repository variable CI_MAX_SKIPPED_TESTS to the
+      # count the step summary shows once it is known, so a newly skipped integration test fails too.
+      MAX_SKIPPED: ${{ vars.CI_MAX_SKIPPED_TESTS || '14' }}
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj --locked-mode
+
       - name: Test
-        # The whole suite. The integration tests need IIS Express, LocalDB and Docker (Linux containers); where the
-        # runner lacks one, those tests are reported as skipped (inconclusive), not passed - counted in the next step.
+        # The whole suite (built here in Release). The integration tests need IIS Express, LocalDB and Docker (Linux
+        # containers); where the runner lacks one, those tests are reported as skipped (inconclusive), not passed -
+        # counted in the next step.
         run: >-
           dotnet test tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj
-          -c Release --no-build
+          -c Release --no-restore -p:ContinuousIntegrationBuild=true
           --logger "console;verbosity=normal"
           --logger "trx;LogFileName=tests.trx"
           --results-directory TestResults
