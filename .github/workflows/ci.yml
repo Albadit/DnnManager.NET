@@ -35,7 +35,7 @@ jobs:
     steps:
       # Actions pinned to a commit, not a tag that can be moved: what runs is what was reviewed. Dependabot proposes updates.
       - name: Check out
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The tags too: the build takes its version from the newest version tag (DnnManager.csproj, VersionFromGitTag).
           fetch-depth: 0
@@ -87,7 +87,7 @@ jobs:
 
     steps:
       - name: Check out
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
