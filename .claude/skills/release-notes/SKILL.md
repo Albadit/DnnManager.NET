@@ -57,26 +57,27 @@ Readers are **people who use DNN Manager**, deciding whether to update and what 
 
 The version's tag is made already - its release workflow failed, or one more change is wanted - and the owner wants
 the same version again, not the next one. `.github/scripts/redo-release.ps1` (the VS Code task
-**release: redo (GitHub)**, see `.docs/releasing.md#redo-a-release`) amends the release commit with the working copy,
-pushes the branch, deletes the tag and releases the version again (a draft the failed run left is reused). It refuses
-a release that is published.
+**release: redo (GitHub)**, see `.docs/releasing.md#redo-a-release`) releases that version again from the newest
+commit of the branch (or one the owner picks): it deletes the tag and makes it again there - nothing is amended or
+pushed, so the changes have to be committed and pushed first (a draft the failed run left is reused). It refuses a
+release that is published.
 
 1. **Is a redo still possible?** Look the release up:
    `curl -s https://api.github.com/repos/<owner>/<repo>/releases/tags/vX.Y.Z` (the repository is `origin`'s) - a
    404 means none is published (a draft isn't listed there). When it is published, a redo is refused: DNN Manager
    updates only to a *newer* version, so whoever installed it would never be offered the redone one. Recommend the
    next version instead.
-2. **The range** is the tag before it to the working copy: the previous release is
+2. **The range** is the tag before it to the newest commit: the previous release is
    `git describe --tags --abbrev=0 vX.Y.Z^`, and the changes are its commits plus what isn't committed yet
-   (`git status`, `git diff HEAD`) - the redo folds them into the release commit.
+   (`git status`, `git diff HEAD`) - which the owner commits and pushes before the redo.
 3. **Update in place**: the `## vX.Y.Z` entry in `CHANGELOG.md` (no new heading) and `.docs/release-notes/vX.Y.Z.md`
    get the new changes where they belong - a new highlight, a line in *Other changes*, an *Upgrading* note for a
    removed setting or changed behaviour. Run the fast tests again and update *Tested*.
-4. **The commit message** keeps the format; give the updated one when the themes changed - the script asks for it
-   (Enter keeps the old one).
+4. **The commit message**: give one for the commit with the updated notes, in the release format when the themes
+   changed - the redo doesn't rewrite any commit.
 5. **Show the plan, don't run it**: `.github\scripts\redo-release.ps1 -Version X.Y.Z -DryRun` changes nothing and
-   prints what the redo would amend, push and delete - fine to run and report. The redo itself force-pushes the
-   branch and deletes the tag: only the owner runs it.
+   prints which commit would be released and which tags deleted - fine to run and report. The redo itself deletes
+   the tag on GitHub: only the owner runs it.
 
 ## Structure
 

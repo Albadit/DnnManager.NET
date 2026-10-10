@@ -1,6 +1,6 @@
-# CI: on every commit pushed to a branch, and by hand (Actions -> CI -> Run workflow), DNN Manager is built in Release
-# (Build) and then the whole test suite runs (Test). Nothing is published here, and a release doesn't run it: pushing a
-# version tag starts only the release workflow (.github/workflows/release.yml, see .docs/releasing.md).
+# CI: on every commit pushed to a branch, and by hand (Actions -> CI -> Run workflow), the whole test suite runs (Test),
+# then DNN Manager is built in Release (Build). Nothing is published here, and a version tag starts only the release
+# workflow (.github/workflows/release.yml, see .docs/releasing.md).
 name: CI
 
 on:
@@ -28,6 +28,8 @@ defaults:
 jobs:
   build:
     name: Build
+    # Once the tests have passed.
+    needs: test
     # A pinned image (as release.yml): a new Windows image is a change in review, not a surprise.
     runs-on: windows-2025
     timeout-minutes: 30
@@ -73,8 +75,6 @@ jobs:
 
   test:
     name: Test
-    # Only what built: a build that fails is said by Build, not as hundreds of failed tests.
-    needs: build
     runs-on: windows-2025
     timeout-minutes: 60
 

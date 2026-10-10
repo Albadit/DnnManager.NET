@@ -22,6 +22,9 @@ public sealed class ProjectsFolderGuardTests
         {
             var dir = new DirectoryInfo(folder);
             var open = dir.GetAccessControl();
+            // A folder of your own, as Explorer makes one. Run elevated (CI's runner), Windows would make the Administrators
+            // group its owner - a folder an administrator made, which the guard rightly leaves alone.
+            using (var me = WindowsIdentity.GetCurrent()) open.SetOwner(me.User!);
             open.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(WellKnownSidType.AuthenticatedUserSid, null), FileSystemRights.Modify,
                 InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit, PropagationFlags.None, AccessControlType.Allow));
             dir.SetAccessControl(open);

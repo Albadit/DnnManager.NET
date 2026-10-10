@@ -170,10 +170,9 @@
             }
         },
         {
-            // Redo a release whose tag is made but which isn't published (a published one is refused): folds your
-            // changes into the release commit (amend, push), deletes the tag and releases it again. Asks for the version
-            // (Enter = the newest tag) and the commit message in the terminal, shows the plan and asks before changing
-            // anything. See .docs/releasing.md.
+            // Redo a release whose tag is made but which isn't published (a published one is refused): releases that
+            // version again from the newest commit (or one picked in the terminal) - the tag is deleted and made again
+            // there; nothing is amended or pushed. Shows the plan and asks before changing anything. See .docs/releasing.md.
             "label": "release: redo (GitHub)",
             "type": "process",
             "command": "powershell",

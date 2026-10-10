@@ -16,17 +16,17 @@
        workflow builds the portable exe and the installer from the tag, signs the files
        when signing is set up, attests their provenance, tries the installed and the portable exe, puts them on a
        draft release, and publishes it only once all of that has passed and a reviewer has approved the publish job
-       (a failure leaves at most a draft). This script then follows that run on GitHub (-NoWait doesn't).
+       (a failure leaves at most a draft). The script stops once the tag is pushed and names the run's page.
 
     The only credential it uses is the one Git pushes the tag with. GitHub's public API is asked - without signing
-    in - whether the release is published already and how the workflow run is going. The VS Code task
+    in - whether the release is published already. The VS Code task
     "release (GitHub)" asks for the notes file and the commit in VS Code's pickers (filled by -List); run directly,
     it asks in the terminal.
 
 .EXAMPLE
     .github\scripts\publish-release.ps1
 .EXAMPLE
-    .github\scripts\publish-release.ps1 -NotesFile .docs\release-notes\v1.7.0.md -Commit 9030c5f -SkipTests -NoWait
+    .github\scripts\publish-release.ps1 -NotesFile .docs\release-notes\v1.7.0.md -Commit 9030c5f -SkipTests
 .EXAMPLE
     .github\scripts\publish-release.ps1 -List commits
 #>
@@ -38,8 +38,6 @@ param(
     [string]$Commit,
     # Tags without running the fast tests here first (the release workflow runs none - CI tests the pushed commit).
     [switch]$SkipTests,
-    # Pushes the tag and stops, without following the release workflow's run on GitHub.
-    [switch]$NoWait,
     # Only prints the choices for VS Code's picker (Tasks Shell Input), one "value||label||description||detail" per line.
     [ValidateSet('notes', 'commits')]
     [string]$List
@@ -241,7 +239,7 @@ else {
 
 Write-Step 'Ready to release'
 Write-Host "  Tag      $tag -> $($selected.Short), pushed to origin"
-Write-Host "  Then     GitHub's release workflow builds both exes from it, runs every test, attests them and publishes"
+Write-Host "  Then     GitHub's release workflow builds both exes from it, attests them and publishes"
 Write-Host "           $tag$(if ($prerelease) { ' as a pre-release' } else { ' as the latest release' }) with .docs\release-notes\$($notes.Name)"
 if (-not (Confirm-Step "Push the tag $tag now?")) {
     Write-Host 'Nothing was tagged.' -ForegroundColor Yellow
@@ -252,44 +250,8 @@ Write-Step "Tag $tag"
 if (-not $localTag) { $null = Invoke-Git @('tag', $tag, $selected.Sha) }
 $null = Invoke-Tool git @('-C', $root, 'push', 'origin', "refs/tags/$tag")
 
-$actions = "https://github.com/$script:repo/actions/workflows/release.yml"
-if ($NoWait) {
-    Write-Host ''
-    Write-Host "Tag pushed. The release workflow builds and publishes $tag - follow it at $actions" -ForegroundColor Green
-    return
-}
-
-# --- 6. Follow the release workflow on GitHub ---
-
-Write-Step "Release workflow on $tag"
-$deadline = (Get-Date).AddMinutes(90)
-while ($true) {
-    try {
-        $runs = @((Invoke-GitHub "/actions/workflows/release.yml/runs?head_sha=$($selected.Sha)&event=push&per_page=10").workflow_runs |
-                Where-Object { $_.head_branch -eq $tag })
-        $run = $runs | Sort-Object { [datetime]$_.created_at } -Descending | Select-Object -First 1
-    }
-    catch {
-        Write-Host "  GitHub couldn't be asked ($($_.Exception.Message)) - follow the run at $actions" -ForegroundColor Yellow
-        return
-    }
-    if ($run -and $run.status -eq 'completed') {
-        if ($run.conclusion -eq 'success') { break }
-        throw "The release workflow on $tag ended '$($run.conclusion)': $($run.html_url) - nothing was published (at most a draft is left). Fix it and redo the release (""release: redo (GitHub)""), or release the next version."
-    }
-    if ((Get-Date) -gt $deadline) {
-        Write-Host "  Not finished within 90 minutes - follow it at $(if ($run) { $run.html_url } else { $actions })" -ForegroundColor Yellow
-        return
-    }
-    # The draft is ready and the publish job waits for a reviewer (the environment "publish").
-    if ($run -and $run.status -eq 'waiting') {
-        Write-Host "  The draft is ready - approve the job 'Publish the release' at $($run.html_url) to publish it." -ForegroundColor Yellow
-    }
-    Write-Host ("  {0} - checking again in 2 minutes..." -f $(if ($run) { "The run is $($run.status)" } else { 'The run has not started yet' }))
-    Start-Sleep -Seconds 120
-}
-
-$release = $null
-try { $release = Get-PublishedRelease $tag } catch { $release = $null }
+# Not followed from here: the run is on GitHub - and asking its API every few minutes would use up the hourly
+# allowance the release scripts share (without signing in).
 Write-Host ''
-Write-Host "Published $(if ($release) { $release.html_url } else { "https://github.com/$script:repo/releases/tag/$tag" })" -ForegroundColor Green
+Write-Host "Tag pushed. The release workflow builds $tag - follow it at https://github.com/$script:repo/actions/workflows/release.yml" -ForegroundColor Green
+Write-Host "Once the draft is ready, approve the job 'Publish the release' there to publish it."

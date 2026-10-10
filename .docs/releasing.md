@@ -63,20 +63,19 @@ and from GitHub - by the extension
    this PC is uploaded: the release workflow builds, tests, signs (once
    [code signing](#code-signing) is set up), attests, tries and drafts it, and
    publishes it once you approve.
-6. It follows the workflow's run on GitHub (every 2 minutes, for up to 90): it
-   says when the draft is ready and the publish job waits for your approval,
-   and shows the release's link once it is published, or the run's link if the
-   run failed. Answer *N* at step 5 and nothing is tagged.
+6. It stops once the tag is pushed and names the workflow's page on GitHub:
+   follow the run there, and approve *Publish the release* once the draft is
+   ready. Answer *N* at step 5 and nothing is tagged.
 
 The only credential it uses is the one Git pushes the tag with (see
 [Set up GitHub](#set-up-github)). It asks GitHub's public API, without signing in,
-whether the version is published and how the run is going
+whether the version is published
 ([`ReleaseCommon.psm1`](../.github/scripts/ReleaseCommon.psm1), which it shares
 with the redo script). Outside VS Code,
 `.github\scripts\publish-release.ps1` asks the same two questions in the terminal;
 `-NotesFile .docs\release-notes\v1.7.0.md -Commit <hash>` answers them. `-SkipTests`
-skips the fast tests here (the release workflow runs none - only CI, on the pushed commit),
-and `-NoWait` stops after pushing the tag. You have to confirm before it releases a
+skips the fast tests here (the release workflow runs none - only CI, on the pushed commit).
+You have to confirm before it releases a
 commit that isn't on GitHub yet.
 
 The release's notes are `.docs/release-notes/vX.Y.Z.md` as
@@ -90,34 +89,29 @@ writes a draft in the same structure, from the version's `CHANGELOG.md` entry
 
 ## Redo a release
 
-When a release's workflow failed (the tests, say) or the release needs one more
-change before it is published, **Ctrl+Shift+B → release: redo (GitHub)** runs
-[`.github/scripts/redo-release.ps1`](../.github/scripts/redo-release.ps1):
+When a release's workflow failed or the release needs more changes before it is
+published, commit and push them, then **Ctrl+Shift+B → release: redo (GitHub)**
+runs [`.github/scripts/redo-release.ps1`](../.github/scripts/redo-release.ps1):
 
-1. It asks for the version (Enter takes the newest tag) and a new message for the
-   release commit (Enter keeps it).
+1. The version is the newest version tag (`-Version` for another).
 2. **It refuses a version GitHub has published** - a pre-release too, and also when
    GitHub can't be asked. A published version gets a new version number (see
    [A bad release](#a-bad-release)). It also refuses while a release workflow run
    on the tag hasn't ended - queued, running, or waiting for the publish job's
    approval: wait for it, or cancel it (reject *Publish the release*), first.
-3. The release commit is the tag's commit, and it must be the newest commit of
-   the branch - one with commits after it is refused. Without a tag, the newest
-   commit counts when its message starts with `release: vX.Y.Z`.
-4. It lists the new files in your working copy that git doesn't have yet and
-   asks whether they go in too (*No* by default - a stray log or local setting
-   mustn't end up in a release). Then it shows the plan and asks once: amend the
-   release commit with the changes to the files git has (`git add -u`, plus the
-   new files you said yes to), push the branch (`--force-with-lease` when
-   the old commit is on GitHub - refused when GitHub's branch has commits yours
-   hasn't) and delete the tag here and on GitHub. A draft release that the failed
-   run left stays on GitHub: the next run on the tag reuses it and replaces its
-   files and notes.
-5. Then, if you want, it releases the version again, as **release (GitHub)** does:
-   the fast tests, then the tag, and GitHub builds and publishes it.
+3. It lists the commits of the branch since the tag's - the newest first, Enter
+   takes it (`-Commit <hash>` picks one without asking). That commit is released
+   **as it is**: nothing is amended or pushed, and changes you haven't committed
+   aren't in it (the plan says so). A commit that isn't on GitHub yet is named
+   too - push it first.
+4. It shows the plan and asks once, then deletes the tag here and on GitHub and
+   releases the version from that commit, as **release (GitHub)** does: the fast
+   tests, then the tag, and GitHub builds and publishes it. A draft release that
+   the failed run left stays on GitHub: the next run on the tag reuses it and
+   replaces its files and notes.
 
-`-DryRun` shows the plan and changes nothing; `-Version 1.7.6 -Message "release: …"`
-answers the questions and `-SkipTests` is passed on to **release (GitHub)**.
+`-DryRun` shows the plan and changes nothing; `-SkipTests` is passed on to
+**release (GitHub)**.
 
 ## A bad release
 
@@ -298,7 +292,7 @@ Do these once, before the first release with the workflow, in the repository's
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) ("CI") runs on every commit
 pushed to a branch and by hand (**Actions → CI → Run workflow**) - not for a version
 tag: the [release workflow](#the-release-workflow) doesn't run it or wait for it.
-It has two jobs: **Build**, then **Test** once the build passed. Build restores in
+It has two jobs: **Test**, then **Build** once the tests passed. Build restores in
 locked mode (exactly the packages
 `packages.lock.json` names, with their hashes - the app's tests' and the
 launcher's), builds in Release (the version from the newest tag, as every local
