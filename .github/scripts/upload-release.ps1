@@ -53,7 +53,10 @@ function Invoke-GitHub([string]$method, [string]$url, $body, [string]$inFile) {
     $params = @{ Method = $method; Uri = $url; Headers = $headers; ContentType = 'application/json; charset=utf-8' }
     if ($null -ne $body) { $params.Body = [Text.Encoding]::UTF8.GetBytes(($body | ConvertTo-Json -Depth 5)) }
     if ($inFile) { $params.InFile = $inFile; $params.ContentType = 'application/octet-stream'; $params.TimeoutSec = 1800 }
-    return Invoke-RestMethod @params
+    # Invoke-RestMethod writes a JSON list as ONE object: returned as is, @(...) of it was a single item holding every
+    # asset, and its .name all of their names in one string. Returning it from a variable lists the items one by one.
+    $answer = Invoke-RestMethod @params
+    return $answer
 }
 
 # GitHub's answer, or $null when it says 404.
