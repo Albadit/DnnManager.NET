@@ -84,7 +84,7 @@ public sealed class UpgradeDnnUseCase(
         var database = _sql.DatabaseOf(project);
         if (await SignInRefusedAsync(database, "Analysing the site for the upgrade", ct) is { } refused) return Result<DnnUpgradePlan>.Fail(refused);
         var facts = await _inspector.InspectAsync(siteName, directory, database, ct);
-        return Result<DnnUpgradePlan>.Ok(DnnUpgradeAnalyser.Plan(facts, target));
+        return Result<DnnUpgradePlan>.Ok(DnnUpgradeAnalyser.Plan(facts, target, _options.DnnUpgradeStops));
     }
 
     // Servers the user agreed to sign in to (see below).
@@ -119,7 +119,7 @@ public sealed class UpgradeDnnUseCase(
         var database = _sql.DatabaseOf(project);
         if (await SignInRefusedAsync(database, "Upgrading DNN", ct) is { } refused) return Result.Fail(refused);
         var facts = await _inspector.InspectAsync(req.SiteName, req.Directory, database, ct);
-        var plan = DnnUpgradeAnalyser.Plan(facts, target);
+        var plan = DnnUpgradeAnalyser.Plan(facts, target, _options.DnnUpgradeStops);
         reporter.Plan(["Analyse", .. plan.Steps.Select(s => DnnUpgradeStep.Name(s.Step.To))]);
         reporter.Context($"DNN {DnnUpgradeStep.Name(plan.Current)} → {DnnUpgradeStep.Name(plan.Target)} in {plan.Steps.Count} step(s)");
         reporter.Step("Analysing the site and planning the upgrade", "Analyse");
@@ -139,7 +139,13 @@ public sealed class UpgradeDnnUseCase(
         {
             var known = listed.Value?.Releases.FirstOrDefault(r => DnnInstall.Number(r.Version) is { } v && DnnUpgradePath.Normalize(v) == planned.Step.To);
             var found = known is not null ? Result<DnnRelease>.Ok(known) : await _releases.GetReleaseAsync(req.ReleaseApiUrl, Short(planned.Step.To), ct);
-            if (!found.Success) return Result.Fail($"DNN {Short(planned.Step.To)}, a step of the upgrade path, wasn't found: {found.Error} Nothing was changed.");
+            if (!found.Success)
+            {
+                // A version typed in Settings may be one DNN never released.
+                var yours = _options.DnnUpgradeStops.Any(s => SettingRules.UpgradeStopVersion(s.Version) == planned.Step.To)
+                    ? " It was added in Settings → DNN releases - check it there." : "";
+                return Result.Fail($"DNN {Short(planned.Step.To)}, a step of the upgrade path, wasn't found: {found.Error}{yours} Nothing was changed.");
+            }
             stepReleases.Add(found.Value!);
         }
         reporter.Success($"The plan holds: {plan.Steps.Count} step(s), nothing blocking.");

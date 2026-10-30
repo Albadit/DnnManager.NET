@@ -14,6 +14,11 @@ public sealed class HttpConnectivityChecker : IHttpConnectivityChecker
             using var resp = await http.GetAsync(url, ct);
             return Result<int>.Ok((int)resp.StatusCode);
         }
+        catch (TaskCanceledException) when (!ct.IsCancellationRequested)
+        {
+            // HttpClient's own timeout. Not a failure yet: DNN compiles the site on its first request.
+            return Result<int>.Fail($"no answer within {timeoutSeconds} seconds - a site's first start can take a few minutes");
+        }
         catch (Exception ex)
         {
             return Result<int>.Fail(ex.Message);

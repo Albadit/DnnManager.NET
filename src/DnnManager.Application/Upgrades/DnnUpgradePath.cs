@@ -1,3 +1,5 @@
+using DnnManager.Application.Configuration;
+
 namespace DnnManager.Application.Upgrades;
 
 /// <summary>How a step of the upgrade path is carried out.</summary>
@@ -72,7 +74,8 @@ public sealed record DnnUpgradeStep
 /// a site is upgraded through each listed version in turn, never straight to the newest. A version between two listed
 /// ones is upgraded to the next listed one first. <see cref="DnnUpgradeKnowledge.Steps"/> is the knowledge base - maintained here, in one
 /// place (<see cref="DnnUpgradeKnowledge"/> holds what is known about each step); <see cref="Chain"/> works out the steps
-/// from a site's version to the one asked for.
+/// from a site's version to the one asked for. Versions DNN lists after this DNN Manager was made are added in Settings
+/// (<see cref="DnnUpgradeStopSetting"/>): they only ever add to this, so what is known here can't be skipped or lowered.
 /// </summary>
 public static class DnnUpgradePath
 {
@@ -84,30 +87,45 @@ public static class DnnUpgradePath
     /// <summary>The oldest version GitHub publishes packages of - every step to an older version is <see cref="DnnUpgradeMethod.Manual"/>.</summary>
     public static Version OldestOnGitHub { get; } = new(7, 4, 2);
 
+    /// <summary>What Settings offers as a version's .NET Framework minimum, as the v4 Full key's <c>Release</c> number.</summary>
+    public static IReadOnlyList<int> NetFrameworkChoices { get; } = [528040, 533320];
+
+    /// <summary>
+    /// What Settings offers as a version's SQL Server minimum, by major version - the last ones are SQL Servers that don't
+    /// exist yet: a later DNN may need one when there is no newer DNN Manager to offer it.
+    /// </summary>
+    public static IReadOnlyList<int> SqlServerChoices { get; } = [14, 15, 16, 17, 18, 19, 20];
+
+    private sealed record AddedStop(Version Version, DnnUpgradeStopSetting Setting);
+
     /// <summary>
     /// The steps from <paramref name="current"/> to <paramref name="target"/>, in order: through every listed version
     /// above the current one and below the target, then to the target itself. A step that isn't one of the path's own
     /// (to a version between two listed ones, or past the newest listed) carries what is known about the path's step it
-    /// falls in, and says it isn't listed. Empty when the target isn't newer.
+    /// falls in, and says it isn't listed. <paramref name="added"/> are the versions added in Settings: stops like the
+    /// listed ones. Empty when the target isn't newer.
     /// </summary>
-    public static IReadOnlyList<DnnUpgradeStep> Chain(Version current, Version target)
+    public static IReadOnlyList<DnnUpgradeStep> Chain(Version current, Version target, IReadOnlyList<DnnUpgradeStopSetting>? added = null)
     {
         current = Normalize(current);
         target = Normalize(target);
         var steps = new List<DnnUpgradeStep>();
         if (target <= current) return steps;
-        var stops = Versions.Where(v => v > current && v < target).Append(target).ToList();
+        var addedStops = (added ?? []).Select(s => SettingRules.UpgradeStopVersion(s.Version) is { } version ? new AddedStop(version, s) : null)
+            .OfType<AddedStop>().ToList();
+        var path = Versions.Concat(addedStops.Select(s => s.Version)).Distinct().Order().ToList();
+        var stops = path.Where(v => v > current && v < target).Append(target).ToList();
         var from = current;
         foreach (var to in stops)
         {
-            steps.Add(StepFor(from, to));
+            steps.Add(WithAddedStops(StepFor(from, to, path), addedStops.Where(s => s.Version <= to).ToList()));
             from = to;
         }
         return steps;
     }
 
     /// <summary>What is known about going from <paramref name="from"/> to <paramref name="to"/> - the path's own step when it is one.</summary>
-    private static DnnUpgradeStep StepFor(Version from, Version to)
+    private static DnnUpgradeStep StepFor(Version from, Version to, IReadOnlyList<Version> path)
     {
         if (DnnUpgradeKnowledge.Steps.FirstOrDefault(s => s.From == from && s.To == to) is { } listed) return listed;
         // The path's step whose target this one reaches - or, past the newest listed version, the newest step.
@@ -115,17 +133,50 @@ public static class DnnUpgradePath
                     ?? (to > Versions[^1] ? DnnUpgradeKnowledge.Steps[^1] : null);
         var method = to < OldestOnGitHub || from < Versions[0] ? DnnUpgradeMethod.Manual : MethodFor(from);
         // Said of the version that is off the path - the site's own (a hotfix release such as 9.13.10) or the target.
-        var note = to > Versions[^1]
-            ? $"DNN {DnnUpgradeStep.Name(to)} is newer than the path's newest listed version ({DnnUpgradeStep.Name(Versions[^1])}) - check DNN's upgrade path for anything it needs."
+        // None when both are on it: a step to or from a version added in Settings, which says so itself.
+        var note = to > path[^1]
+            ? $"DNN {DnnUpgradeStep.Name(to)} is newer than the path's newest listed version ({DnnUpgradeStep.Name(path[^1])}) - check DNN's upgrade path " +
+              "for anything it needs, and add what it lists in Settings → DNN releases."
             : from < Versions[0]
                 ? $"DNN {DnnUpgradeStep.Name(from)} is older than the path's oldest listed version ({DnnUpgradeStep.Name(Versions[0])}) - DNN Manager doesn't know how to upgrade it."
-                : !Versions.Contains(from)
+                : !path.Contains(from)
                     ? $"Not one of the path's own steps: the site's DNN {DnnUpgradeStep.Name(from)} lies between its listed versions."
-                    : $"Not one of the path's own steps: DNN {DnnUpgradeStep.Name(to)} lies between its listed versions.";
+                    : !path.Contains(to)
+                        ? $"Not one of the path's own steps: DNN {DnnUpgradeStep.Name(to)} lies between its listed versions."
+                        : null;
         return (known ?? new DnnUpgradeStep { From = from, To = to }) with
         {
-            From = from, To = to, Method = method, Warnings = [note, .. known?.Warnings ?? []], Tested = []
+            From = from, To = to, Method = method, Warnings = [.. note is null ? [] : new[] { note }, .. known?.Warnings ?? []], Tested = []
         };
+    }
+
+    /// <summary>
+    /// A step with what the versions added in Settings say about it: a minimum holds from its version on, so for this step
+    /// and every later one, and only ever raises what is known; a version's note goes with the step to it.
+    /// </summary>
+    private static DnnUpgradeStep WithAddedStops(DnnUpgradeStep step, IReadOnlyList<AddedStop> stops)
+    {
+        if (stops.Count == 0) return step;
+        const string addedInSettings = "Added in Settings → DNN releases";
+        var requirements = step.Requirements.ToList();
+        Raise(DnnRequirementKind.NetFramework, stops.Max(s => s.Setting.NetFrameworkRelease), DnnSiteFacts.NetFrameworkName);
+        Raise(DnnRequirementKind.SqlServer, stops.Max(s => s.Setting.SqlServerMajor), DnnSiteFacts.SqlServerName);
+
+        var warnings = new List<string>();
+        if (stops.FirstOrDefault(s => s.Version == step.To) is { } own)
+        {
+            if (!Versions.Contains(own.Version))
+                warnings.Add($"You added DNN {DnnUpgradeStep.Name(own.Version)} to the path (Settings → DNN releases): DNN Manager has no tests of this step, so read DNN's release notes for it.");
+            if (own.Setting.Note.Trim() is { Length: > 0 } note) warnings.Add(note);
+        }
+        return step with { Requirements = requirements, Warnings = [.. warnings, .. step.Warnings] };
+
+        void Raise(DnnRequirementKind kind, int minimum, Func<int, string> name)
+        {
+            if (minimum <= 0 || requirements.Any(r => r.Kind == kind && r.Minimum >= minimum)) return;
+            requirements.RemoveAll(r => r.Kind == kind);
+            requirements.Add(new DnnRequirement(kind, minimum, name(minimum), addedInSettings));
+        }
     }
 
     /// <summary>DNN 10.2 brought its own local upgrade: from a 10.2+ site on, that is how its files go in.</summary>

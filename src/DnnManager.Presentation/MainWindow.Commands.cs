@@ -122,7 +122,7 @@ public partial class MainWindow
         {
             ("settings.general", "General", "General", "start sign in background tray scale font terminal"),
             ("settings.projects", "Projects", "Projects", "folder hostname port dnn defaults keep warm"),
-            ("settings.releases", "Releases", "DNN releases", "repositories github versions packages"),
+            ("settings.releases", "Releases", "DNN releases", "repositories github versions packages upgrade path"),
             ("settings.databaseServer", "Sql", "Database server", "sql server express localdb connection ssms"),
             ("settings.docker", "Docker", "Docker container", "container volume edition collation compose"),
             ("settings.iis", "Iis", "IIS", "windows features"),

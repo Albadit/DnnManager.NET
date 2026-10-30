@@ -3,9 +3,11 @@ using System.Windows;
 using System.Windows.Controls;
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
+using DnnManager.Application.Upgrades;
 using DnnManager.Infrastructure.KeepWarm;
 using DnnManager.Infrastructure.Settings;
 using DnnManager.Infrastructure.Startup;
+using DnnManager.Presentation.Controls;
 using DnnManager.Presentation.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -31,6 +33,7 @@ public partial class SettingsPage : UserControl
         ["projects.sitePort"] = "Site port",
         ["projects.hostnameSuffix"] = "Hostname suffix",
         ["projects.dnnReleaseSources"] = "DNN repositories",
+        ["projects.dnnUpgradeStops"] = "Upgrade path",
         ["projects.dnnDefaults.installMode"] = "Installation",
         ["projects.dnnDefaults.hostUsername"] = "Host username:",
         ["projects.dnnDefaults.hostEmail"] = "Host e-mail",
@@ -103,7 +106,7 @@ public partial class SettingsPage : UserControl
         {
             ["General"] = (GeneralPanel, "general start sign in startup close closing quit exit background tray notification area keep running appearance scale zoom ui font text size bigger smaller animations animation motion slide fade reduce effects terminal shell powershell command prompt git bash font family size"),
             ["Projects"] = (ProjectsPanel, "projects folder base directory hostname suffix site port address url dnn defaults install installation automatic manual setup wizard host account username password e-mail email website name language culture template keep warm alive keepalive warm-up idle time-out timeout interval ping cold start slow fast recycle backups backup deployments deployment packages clone copy delete old days retention keep onedrive"),
-            ["Releases"] = (ReleasesPanel, "dnn releases repositories github versions install packages keep download"),
+            ["Releases"] = (ReleasesPanel, "dnn releases repositories github versions install packages keep download upgrade path stops steps"),
             ["Sql"] = (SqlPanel, "database server sql server express localdb file connection type local container docker host port user username sa password windows authentication login username ssms management studio remember test connection"),
             ["Docker"] = (DockerPanel, "docker container name volume edition mssql_pid collation desktop engine install start set up docker-compose compose yml test"),
             ["Iis"] = (IisPanel, "iis windows features test set up enable " + string.Join(' ', _options.RequiredIisFeatures.Select(f => $"{f.Label} {f.Name}"))),
@@ -115,6 +118,7 @@ public partial class SettingsPage : UserControl
 
         KeepDnnPackagesHint.Text = "Installs the same version again without downloading it.";
         KeepDnnPackagesHint.ToolTip = paths.PackagesDirectory;
+        ShowUpgradePath();
         // Test and set up what the settings describe - working with the saved settings.
         DockerCard.Attach(services);
         SqlCard.Attach(services);
@@ -177,6 +181,33 @@ public partial class SettingsPage : UserControl
     public event EventHandler? CloseRequested;
 
     private void Close_Click(object sender, RoutedEventArgs e) => CloseRequested?.Invoke(this, EventArgs.Empty);
+
+    private void ShowUpgradePath()
+    {
+        var known = DnnUpgradeStep.Name(DnnUpgradePath.Versions[^1]);
+        var added = _options.DnnUpgradeStops.Select(s => SettingRules.UpgradeStopVersion(s.Version)).OfType<Version>().Select(DnnUpgradeStep.Name).ToList();
+        UpgradePathHint.Text = added.Count == 0
+            ? $"Upgrade DNN goes through DNN's own path, known up to DNN {known}. Add a version when DNN lists a new one."
+            : $"Upgrade DNN goes through DNN's own path, known up to DNN {known}, and the versions you added: {string.Join(", ", added)}.";
+    }
+
+    /// <summary>Adds versions to DNN's upgrade path (<see cref="DnnUpgradePathDialog"/>) - saved and used at once, like the IIS features.</summary>
+    private void EditUpgradePath_Click(object sender, RoutedEventArgs e)
+    {
+        if (DnnUpgradePathDialog.Show(_options.DnnUpgradeStops) is not { } stops) return;
+        try
+        {
+            _store.Update(s => s.Projects.DnnUpgradeStops = stops);
+        }
+        catch (Exception ex) when (ex is SettingsException or IOException or UnauthorizedAccessException)
+        {
+            Dialogs.Error($"The upgrade path could not be saved: {ex.Message}");
+            return;
+        }
+        _options.DnnUpgradeStops = stops;
+        ShowUpgradePath();
+        Toast.Show($"Upgrade path saved: {stops.Count} version{(stops.Count == 1 ? "" : "s")} added.", ToastKind.Success);
+    }
 
     /// <summary>A button on Help was pressed - the main window runs it: <c>guide</c>, <c>tour</c>, <c>whatsNew</c> or <c>userGuide</c>.</summary>
     public event EventHandler<string>? HelpRequested;
@@ -669,7 +700,7 @@ public partial class SettingsPage : UserControl
     /// <summary>The category that edits the settings key <paramref name="key"/>, e.g. <c>sqlServer.port</c>.</summary>
     private static string? CategoryOf(string key) => key switch
     {
-        "projects.dnnReleaseSources" => "Releases",
+        "projects.dnnReleaseSources" or "projects.dnnUpgradeStops" => "Releases",
         _ when key.StartsWith("terminal.", StringComparison.Ordinal) || key.StartsWith("appearance.", StringComparison.Ordinal) ||
                key.StartsWith("window.", StringComparison.Ordinal) => "General",
         _ when key.StartsWith("projects.", StringComparison.Ordinal) || key.StartsWith("backups.", StringComparison.Ordinal) => "Projects",

@@ -323,6 +323,11 @@
                             <TextBlock Style="{StaticResource GroupLabel}" Text="Install packages" />
                             <CheckBox x:Name="KeepDnnPackages" Content="Keep downloaded DNN install packages for next time" />
                             <TextBlock x:Name="KeepDnnPackagesHint" Style="{StaticResource Hint}" Margin="22,2,0,0" />
+
+                            <TextBlock Style="{StaticResource GroupLabel}" Text="Upgrade path" />
+                            <TextBlock x:Name="UpgradePathHint" Style="{StaticResource Hint}" Margin="0" />
+                            <Button Content="Edit upgrade path…" HorizontalAlignment="Left" Margin="0,8,0,0" Click="EditUpgradePath_Click"
+                                    AutomationProperties.HelpText="{Binding Text, ElementName=UpgradePathHint}" />
                         </StackPanel>
 
                         <StackPanel x:Name="SqlPanel" Visibility="Collapsed">

@@ -2,10 +2,12 @@ using System.Windows;
 using DnnManager.Application;
 using DnnManager.Application.Abstractions;
 using DnnManager.Application.Configuration;
+using DnnManager.Application.Upgrades;
 using DnnManager.Infrastructure;
 using DnnManager.Infrastructure.Settings;
 using DnnManager.IntegrationTests.Support;
 using DnnManager.Presentation;
+using DnnManager.Presentation.Controls;
 using DnnManager.Presentation.Pages;
 using DnnManager.Presentation.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -57,6 +59,45 @@ public sealed class PagesLoadTests
             }
         }
         Assert.AreEqual(0, failed.Count, string.Join(Environment.NewLine, failed));
+    });
+
+    [TestMethod]
+    public void The_upgrade_path_dialog_loads_and_checks_what_is_typed() => WpfUi.Run(() =>
+    {
+        // 99: a minimum saved by hand, not one of the choices - it must not be lost by opening the dialog.
+        var dialog = new DnnUpgradePathDialog(
+        [
+            new DnnUpgradeStopSetting { Version = "10.4.2", SqlServerMajor = 15, Note = "A note." },
+            new DnnUpgradeStopSetting { Version = "11.0.0", SqlServerMajor = 99 }
+        ]);
+        dialog.Measure(new Size(800, 600));
+        dialog.Arrange(new Rect(0, 0, 800, 600));
+        dialog.UpdateLayout();
+        Assert.AreEqual(2, dialog.RowsPanel.Children.Count);
+        Assert.IsFalse(dialog.OkButton.IsEnabled, "Nothing to save yet.");
+        // The whole path is listed, newest first, each version with what it needs - and none of it can be edited.
+        Assert.AreEqual(DnnUpgradePath.Versions.Count, dialog.KnownRows.Children.Count);
+        string[] Cells(int row) => ((System.Windows.Controls.Panel)dialog.KnownRows.Children[row]).Children.Cast<System.Windows.Controls.TextBlock>().Select(t => t.Text).ToArray();
+        CollectionAssert.AreEqual(new[] { "10.03.03", ".NET Framework 4.8", "SQL Server 2017", "" }, Cells(0));
+        Assert.AreEqual("02.00.04", Cells(DnnUpgradePath.Versions.Count - 1)[0]);
+        StringAssert.StartsWith(Cells(DnnUpgradePath.Versions.Count - 1)[3], "Done by hand");
+        Assert.AreEqual(Visibility.Collapsed, dialog.Problem.Visibility, dialog.Problem.Text);
+
+        dialog.AddButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+        var version = (System.Windows.Controls.TextBox)((System.Windows.Controls.Panel)dialog.RowsPanel.Children[2]).Children[0];
+        Assert.IsFalse(dialog.OkButton.IsEnabled, "An empty row can't be saved.");
+        Assert.AreEqual(Visibility.Visible, dialog.Problem.Visibility);
+
+        version.Text = "abc";
+        StringAssert.Contains(dialog.Problem.Text, "three numbers");
+        Assert.IsFalse(dialog.OkButton.IsEnabled);
+        version.Text = "10.04.02";
+        StringAssert.Contains(dialog.Problem.Text, "twice");
+        Assert.IsFalse(dialog.OkButton.IsEnabled);
+        version.Text = "12.0.0";
+        Assert.AreEqual(Visibility.Collapsed, dialog.Problem.Visibility, dialog.Problem.Text);
+        Assert.IsTrue(dialog.OkButton.IsEnabled);
+        // Never shown, so not closed: as the first window of the tests' one App, closing it would end that App for the tests after it.
     });
 
     private ServiceProvider Services()

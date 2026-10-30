@@ -19,6 +19,11 @@ public sealed class SqlServerService(ProcessRunner proc, IOptions<AppOptions> op
     // memory) mustn't hold an operation - or the undo after it - for good.
     private const string LoginTimeoutSeconds = "15";
 
+    // -x: no $(variables) in the query, -X: no :!! commands - names from a site's web.config or a backup are text.
+    // -I: QUOTED_IDENTIFIER on, as for every other client: sqlcmd alone leaves it off, and then SQL Server refuses to
+    // change a table with a filtered index, like DNN's Tabs (Msg 1934).
+    internal static readonly string[] SqlcmdSwitches = ["-C", "-No", "-b", "-x", "-X", "-I"];
+
     /// <summary>How long a cancelled BACKUP or RESTORE may take to stop inside SQL Server (a RESTORE rolls back first).</summary>
     internal static readonly TimeSpan StopWithin = TimeSpan.FromSeconds(60);
 
@@ -56,8 +61,7 @@ public sealed class SqlServerService(ProcessRunner proc, IOptions<AppOptions> op
             "-S", "localhost",
             "-U", _opts.Docker.SqlUser,
             "-l", LoginTimeoutSeconds,
-            // -x: no $(variables) in the query, -X: no :!! commands - names from a site's web.config or a backup are text.
-            "-C", "-No", "-b", "-x", "-X"
+            .. SqlcmdSwitches
         ]);
         if (tag is not null) { args.Add("-H"); args.Add(tag); }
         // Only the values: no header, no padding.

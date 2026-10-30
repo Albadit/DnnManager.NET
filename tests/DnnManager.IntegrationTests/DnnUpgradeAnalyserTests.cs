@@ -47,6 +47,20 @@ public sealed class DnnUpgradeAnalyserTests
     }
 
     [TestMethod]
+    public void A_minimum_added_in_Settings_blocks_like_a_known_one()
+    {
+        var added = new[] { new DnnManager.Application.Configuration.DnnUpgradeStopSetting { Version = "11.0.0", SqlServerMajor = 17, Note = "Needs the new SQL Server." } };
+        // The site's SQL Server 2022 is too old for it.
+        var plan = DnnUpgradeAnalyser.Plan(Site("10.3.3"), new Version(11, 0, 0), added);
+        Assert.IsFalse(plan.CanStart);
+        Assert.AreEqual("DNN 11.00.00 needs SQL Server 2025", Blocking(plan).Single().Title);
+        Assert.IsTrue(plan.Steps.Single().Checks.Any(c => c.Severity == UpgradeFindingSeverity.Warning && c.Title.Contains("Needs the new SQL Server.")),
+            string.Join(Environment.NewLine, plan.Steps.Single().Checks));
+        // Not when the upgrade stops before it.
+        Assert.IsTrue(DnnUpgradeAnalyser.Plan(Site("10.3.3"), new Version(10, 4, 0), added).CanStart);
+    }
+
+    [TestMethod]
     public void An_old_NET_Framework_blocks_the_steps_that_need_a_newer_one()
     {
         // 4.7.2 is enough for 9.13.9 but not for DNN 10.

@@ -2,6 +2,32 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## v1.8.3
+
+### Added
+
+- **Keep DNN's upgrade path up to date yourself.** **Settings → DNN releases →
+  Edit upgrade path…** lists the whole path and adds a version DNN lists after
+  your DNN Manager was made, with the .NET Framework and SQL Server it needs and
+  a note for the plan.
+  **Upgrade DNN** then stops at it and checks those minimums, for it and every
+  version after it, with no new DNN Manager needed. What DNN Manager knows stays:
+  versions can only be added and minimums only raised. See the
+  [user guide](.docs/user-guide.md#when-dnn-lists-a-new-version).
+
+### Fixed
+
+- **Restoring a database from a live site turns its secure pages off again.** A
+  database with a filtered index on its pages, as DNN has, stopped that step
+  with *UPDATE failed because the following SET options have incorrect settings:
+  'QUOTED_IDENTIFIER'*. The site was made, but the page stayed marked secure and
+  the operation ended with an error. All of DNN Manager's `sqlcmd` statements now
+  run with `QUOTED_IDENTIFIER` on.
+- **A site that needs longer than 15 seconds to answer says so.** A restored site
+  compiles on its first request; the check after an import or a new project now
+  says the first start can take a few minutes instead of showing `HttpClient`'s
+  timeout message.
+
 ## v1.8.2
 
 ### Upgrading

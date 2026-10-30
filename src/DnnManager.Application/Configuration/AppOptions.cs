@@ -33,6 +33,7 @@ public sealed class AppOptions
         // As a whole, so nobody reads half of the old container's settings and half of the new one's.
         Docker = other.Docker;
         GitHubReleaseApis = other.GitHubReleaseApis;
+        DnnUpgradeStops = other.DnnUpgradeStops;
         RequiredIisFeatures = other.RequiredIisFeatures;
         ProjectColumns = other.ProjectColumns;
         KeyboardShortcuts = other.KeyboardShortcuts;
@@ -100,6 +101,8 @@ public sealed class AppOptions
     public DockerOptions Docker { get; set; } = new();
     // Empty here: the defaults live in UserSettings, which fills these in.
     public IReadOnlyList<string> GitHubReleaseApis { get; set; } = Array.Empty<string>();
+    /// <summary>The versions added to DNN's upgrade path (Settings → DNN releases); empty: the path as DNN Manager knows it.</summary>
+    public IReadOnlyList<DnnUpgradeStopSetting> DnnUpgradeStops { get; set; } = Array.Empty<DnnUpgradeStopSetting>();
     public IReadOnlyList<IisFeatureSetting> RequiredIisFeatures { get; set; } = Array.Empty<IisFeatureSetting>();
     /// <summary>The optional columns the Projects table shows at startup; its Columns button changes (and saves) them.</summary>
     public IReadOnlyList<string> ProjectColumns { get; set; } = Array.Empty<string>();
@@ -200,4 +203,20 @@ public sealed class IisFeatureSetting
 {
     public string Name { get; set; } = string.Empty;
     public string Label { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// A version added to DNN's upgrade path (Settings → DNN releases): one DNN lists that this DNN Manager doesn't know yet.
+/// Stops can only be added and minimums only raised - what DNN Manager knows about the path stays as it is.
+/// </summary>
+public sealed class DnnUpgradeStopSetting
+{
+    /// <summary>Three numbers, e.g. 10.4.2.</summary>
+    public string Version { get; set; } = string.Empty;
+    /// <summary>The .NET Framework this version and the ones after it need, as its <c>Release</c> number (528040 = 4.8); 0: nothing new.</summary>
+    public int NetFrameworkRelease { get; set; }
+    /// <summary>The SQL Server this version and the ones after it need, by its major version (15 = SQL Server 2019); 0: nothing new.</summary>
+    public int SqlServerMajor { get; set; }
+    /// <summary>Shown in the upgrade plan, as a warning on the step to this version.</summary>
+    public string Note { get; set; } = string.Empty;
 }

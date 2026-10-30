@@ -80,6 +80,9 @@ public sealed class SqlTextTests
     }
 
     [TestMethod]
+    public void Sqlcmd_RunsWithQuotedIdentifiersOn() => CollectionAssert.Contains(SqlServerService.SqlcmdSwitches, "-I");
+
+    [TestMethod]
     public void ADropIsTriedAgain_OnlyWhileTheDatabaseIsInUse()
     {
         Assert.IsTrue(SqlServerService.IsInUse("Msg 3702, Level 16, State 3, Server x, Line 6\nCannot drop database \"a\" because it is currently in use."));

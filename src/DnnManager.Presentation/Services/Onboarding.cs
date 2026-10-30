@@ -388,7 +388,7 @@ public static class Onboarding
             new("The categories", [
                 new("GlyphSettings", "General", "Start with Windows, keep running when the window is closed, the size of everything, and the terminal."),
                 new("GlyphFolder", "Projects", "Where websites are stored, their address, the login new websites get, and **Keep warm**."),
-                new("GlyphDownload", "DNN releases", "Where DNN versions come from, and keeping downloads for use without internet."),
+                new("GlyphDownload", "DNN releases", "Where DNN versions come from, keeping downloads for use without internet, and DNN's upgrade path."),
                 new("GlyphDatabase", "Database server", "Where new websites keep their data: Docker, a SQL Server, or a file."),
                 new("GlyphContainer", "Docker container", "The database server in Docker. **Test** checks it; its buttons install, start and set it up."),
                 new("GlyphGlobe", "IIS", "The parts of Windows the web server needs. **Test** checks them; **Set up IIS** turns on what is missing."),

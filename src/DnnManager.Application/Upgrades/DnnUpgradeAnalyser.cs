@@ -1,4 +1,5 @@
 using DnnManager.Application.Abstractions;
+using DnnManager.Application.Configuration;
 
 namespace DnnManager.Application.Upgrades;
 
@@ -79,7 +80,8 @@ public static class DnnUpgradeAnalyser
 
     private static readonly Version Ten = new(10, 0, 0);
 
-    public static DnnUpgradePlan Plan(DnnSiteFacts facts, Version target)
+    /// <param name="added">The versions added to DNN's upgrade path in Settings.</param>
+    public static DnnUpgradePlan Plan(DnnSiteFacts facts, Version target, IReadOnlyList<DnnUpgradeStopSetting>? added = null)
     {
         var site = new List<UpgradeFinding>();
         if (facts.FilesVersion is null || DnnInstallVersion(facts.FilesVersion) is not { } current)
@@ -87,7 +89,7 @@ public static class DnnUpgradeAnalyser
             site.Add(new(UpgradeFindingSeverity.Blocking, "DNN", "No DNN version found in the site's files", @"bin\DotNetNuke.dll is missing or can't be read."));
             return new DnnUpgradePlan(new Version(0, 0, 0), target, [], site);
         }
-        var chain = DnnUpgradePath.Chain(current, target);
+        var chain = DnnUpgradePath.Chain(current, target, added);
         if (chain.Count == 0)
             site.Add(new(UpgradeFindingSeverity.Blocking, "DNN", $"DNN {DnnUpgradeStep.Name(target)} isn't newer than the site's DNN {DnnUpgradeStep.Name(current)}"));
 

@@ -53,6 +53,8 @@ public sealed class UserSettings
         foreach (var source in Projects.DnnReleaseSources)
             Check(SettingRules.IsReleaseSource(source),
                 "projects.dnnReleaseSources", $"has a URL that isn't https (http only for this computer): {source}");
+        var stopsProblem = SettingRules.UpgradeStopsProblem(Projects.DnnUpgradeStops);
+        Check(stopsProblem is null, "projects.dnnUpgradeStops", $"has a version that can't be used: {stopsProblem}");
 
         var dnn = Projects.DnnDefaults;
         Check(DnnDefaultsSettings.InstallModes.Contains(dnn.InstallMode, StringComparer.OrdinalIgnoreCase),
@@ -137,6 +139,7 @@ public sealed class UserSettings
             HostnameSuffix = options.HostnameSuffix,
             SitePort = options.SitePort,
             DnnReleaseSources = options.GitHubReleaseApis.ToList(),
+            DnnUpgradeStops = options.DnnUpgradeStops.ToList(),
             KeepDnnPackages = options.KeepDnnPackages,
             DnnDefaults = options.DnnDefaults.Copy(),
             KeepWarm = options.KeepWarm.Copy()
@@ -196,6 +199,7 @@ public sealed class UserSettings
             "projects.sitePort" => "SitePort",
             "projects.hostnameSuffix" => "HostnameSuffix",
             "projects.dnnReleaseSources" => "GitHubReleaseApis",
+            "projects.dnnUpgradeStops" => "DnnUpgradeStops",
             "projects.keepDnnPackages" => "KeepDnnPackages",
             "sqlServer.type" => "DatabaseServer__Type",
             "sqlServer.server" => "DatabaseServer__Server",
@@ -225,6 +229,7 @@ public sealed class UserSettings
         SitePort = Projects.SitePort,
         HostnameSuffix = Projects.HostnameSuffix.Trim().Trim('.'),
         GitHubReleaseApis = Projects.DnnReleaseSources.ToList(),
+        DnnUpgradeStops = Projects.DnnUpgradeStops.ToList(),
         KeepDnnPackages = Projects.KeepDnnPackages,
         DnnDefaults = Projects.DnnDefaults.Copy(),
         KeepWarm = new KeepWarmSettings
@@ -282,6 +287,11 @@ public sealed class ProjectSettings
         "https://api.github.com/repos/dnnsoftware/Dnn.Platform/releases",
         "https://api.github.com/repos/DNN-Connect/Dnn.Platform/releases"
     ];
+    /// <summary>
+    /// Versions added to DNN's upgrade path (Settings → DNN releases), for one DNN lists after this DNN Manager was made -
+    /// the path can be kept up to date without a new DNN Manager.
+    /// </summary>
+    public List<DnnUpgradeStopSetting> DnnUpgradeStops { get; set; } = [];
     /// <summary>
     /// Keep each downloaded DNN install package in <c>Documents\DnnManager\packages</c> and use it again for the
     /// next project with that version, instead of downloading it again.

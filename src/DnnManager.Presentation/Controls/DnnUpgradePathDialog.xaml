@@ -1,0 +1,39 @@
+<Window x:Class="DnnManager.Presentation.Controls.DnnUpgradePathDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:DnnManager.Presentation.Controls"
+        Title="Edit DNN upgrade path" Icon="pack://application:,,,/DnnManager;component/src/DnnManager.Presentation/Assets/dnn.ico" Width="760" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
+        Background="{DynamicResource WindowBg}" Foreground="{DynamicResource TextPrimary}">
+    <!-- The versions added to DNN's upgrade path (projects.dnnUpgradeStops) - one row each. -->
+    <StackPanel Margin="20">
+        <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextPrimary}"
+                   Text="When DNN lists a new version on its suggested upgrade path, add it here and Upgrade DNN stops at it on the way. A version DNN released without listing it needs nothing: pick it in Upgrade DNN as it is." />
+        <Button Style="{StaticResource LinkButton}" Content="Open DNN's suggested upgrade path" HorizontalAlignment="Left" Margin="0,4,0,0" Click="Source_Click" />
+        <TextBlock Style="{StaticResource FieldLabel}" FontWeight="SemiBold" Margin="0,12,0,4" Text="The path" />
+        <TextBlock x:Name="Known" Style="{StaticResource Hint}" Margin="0" />
+        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+            <TextBlock Style="{StaticResource FieldLabel}" Text="Version" Width="90" />
+            <TextBlock Style="{StaticResource FieldLabel}" Text="Needs .NET Framework" Width="170" Margin="8,8,0,4" />
+            <TextBlock Style="{StaticResource FieldLabel}" Text="Needs SQL Server" Width="170" Margin="8,8,0,4" />
+            <TextBlock Style="{StaticResource FieldLabel}" Text="Note in the upgrade plan" Margin="8,8,0,4" />
+        </StackPanel>
+        <!-- Filled in code: the path as DNN Manager knows it, to read - newest first, as DNN's page lists it. -->
+        <ScrollViewer MaxHeight="150" VerticalScrollBarVisibility="Auto" Focusable="True" AutomationProperties.Name="The path as DNN Manager knows it">
+            <StackPanel x:Name="KnownRows" />
+        </ScrollViewer>
+        <TextBlock Style="{StaticResource FieldLabel}" FontWeight="SemiBold" Margin="0,12,0,4" Text="Versions you added" />
+        <!-- Filled in code: one row per version. -->
+        <ScrollViewer MaxHeight="200" VerticalScrollBarVisibility="Auto" Margin="0,4,0,0">
+            <StackPanel x:Name="RowsPanel" />
+        </ScrollViewer>
+        <TextBlock x:Name="Empty" Style="{StaticResource Hint}" Margin="0" Text="Nothing added: upgrades use the path above." />
+        <Button x:Name="AddButton" Style="{StaticResource LinkButton}" Content="Add version" HorizontalAlignment="Left" Margin="0,4,0,0" Click="Add_Click" />
+        <TextBlock x:Name="Problem" Style="{StaticResource ErrorLine}" c:FieldError.For="{Binding ElementName=OkButton}" Visibility="Collapsed" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button x:Name="OkButton" Content="Save" Style="{StaticResource Primary}" MinWidth="80" IsDefault="True" IsEnabled="False" Click="Ok_Click"
+                    ToolTip="Save (Enter)" />
+            <Button Content="Cancel" MinWidth="80" Margin="8,0,0,0" IsCancel="True" ToolTip="Cancel (Esc)" />
+        </StackPanel>
+    </StackPanel>
+</Window>

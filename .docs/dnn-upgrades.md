@@ -35,7 +35,7 @@ flowchart TD
 | Piece | What it does | Code |
 |---|---|---|
 | Knowledge base | Every step of DNN's path, with its requirements, warnings, breaking changes, known issues and test results | [`Upgrades/DnnUpgradeKnowledge.cs`](../src/DnnManager.Application/Upgrades/DnnUpgradeKnowledge.cs) |
-| Path calculation | Works out the chain of steps from the site's version to the target | [`Upgrades/DnnUpgradePath.cs`](../src/DnnManager.Application/Upgrades/DnnUpgradePath.cs) |
+| Path calculation | Works out the chain of steps from the site's version to the target, with the versions added in Settings | [`Upgrades/DnnUpgradePath.cs`](../src/DnnManager.Application/Upgrades/DnnUpgradePath.cs) |
 | Site inspector | Reads the site, its database, IIS and this PC into facts, changing nothing | [`Dnn/DnnSiteInspector.cs`](../src/DnnManager.Infrastructure/Dnn/DnnSiteInspector.cs) |
 | Analyser | Judges the facts against the chain: Compatible, Warning, Blocking or Unknown | [`Upgrades/DnnUpgradeAnalyser.cs`](../src/DnnManager.Application/Upgrades/DnnUpgradeAnalyser.cs) |
 | Upgrade | Runs the plan step by step | [`UseCases/UpgradeDnnUseCase.cs`](../src/DnnManager.Application/UseCases/UpgradeDnnUseCase.cs) |
@@ -45,6 +45,7 @@ flowchart TD
 | Diagnosis | Turns a failure into its likely cause and fixes | [`Upgrades/DnnUpgradeDiagnosis.cs`](../src/DnnManager.Application/Upgrades/DnnUpgradeDiagnosis.cs) |
 | Rollback | Puts a backup back: files (and those added since are removed), then the database | [`UseCases/RestoreBackupUseCase.cs`](../src/DnnManager.Application/UseCases/RestoreBackupUseCase.cs) |
 | Dialog | Version and plan | [`Controls/UpgradeDnnDialog`](../src/DnnManager.Presentation/Controls/UpgradeDnnDialog.xaml.cs), `ProjectEdits.UpgradeDnn` |
+| Added versions | Edits the versions added to the path, with their rules | [`Controls/DnnUpgradePathDialog`](../src/DnnManager.Presentation/Controls/DnnUpgradePathDialog.xaml.cs), [`SettingRules.UpgradeStopsProblem`](../src/DnnManager.Application/Configuration/SettingRules.cs) |
 
 ## The upgrade path
 
@@ -71,8 +72,39 @@ DNN must be upgraded through each version on its path in turn:
   packages older than 7.4.2, so the analyser blocks them and says to do them by
   hand. A site on 6.2.8 can be upgraded from there on.
 
+This is DNN's table as it stood on 2026-10-30, all 17 steps compared one by one.
+The page lists nothing past 10.03.03 yet, though DNN 10.4.1 is out, so 10.4.x is
+a last step past the path.
+
 To add a version DNN adds to its path, add a step at the end of
 `DnnUpgradeKnowledge.Steps`; the rest follows from it.
+
+### Versions added in Settings
+
+The path shouldn't end with DNN Manager's last release, so a user can add
+versions in **Settings → DNN releases → Edit upgrade path…**
+([user guide](user-guide.md#when-dnn-lists-a-new-version)). They are kept in
+`projects.dnnUpgradeStops` and go to `Chain` as an argument. The knowledge base
+stays as it is: a static list nothing writes to.
+
+They can only add, which is what makes a mistyped one safe:
+
+- **A listed stop can't be removed**, because the added versions are merged into
+  the path, so one can't take a listed version out of a chain.
+- **A minimum only goes up, and holds from its version on.** For each kind the
+  highest minimum of the added versions up to the step's target replaces a
+  lower one, and one below what is known changes nothing.
+- **A step to an added version is an unknown step.** It carries what is known
+  about the path's newest step (or the step it falls in), says the user added it,
+  and has no `Tested` entries. Its note goes first among its warnings.
+- **A version that isn't a release** stops the upgrade before anything changes:
+  every step's release is looked up first, and the error names Settings.
+
+The rules are in `SettingRules.UpgradeStopsProblem`, for the dialog, the saved
+settings and `DNNMANAGER_*` alike. A version DNN Manager lists itself is allowed
+on purpose: a later DNN Manager may list one a user added, and a saved value a
+rule refuses is reset at the next start. The step's method can't be set:
+`MethodFor` decides it, so a DNN that needs a new way of upgrading needs code.
 
 ### How a step's files go in
 

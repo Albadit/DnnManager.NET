@@ -42,6 +42,55 @@ public sealed class SettingsResilienceTests
         AppDatabase.Execute(connection, "INSERT OR REPLACE INTO settings (key, value) VALUES ($key, $value)", ("$key", key), ("$value", value));
     }
 
+    // ─── The versions added to DNN's upgrade path ─────────────────────────
+
+    [TestMethod]
+    public void Versions_added_to_the_upgrade_path_are_kept_and_reach_the_options()
+    {
+        var store = new SettingsStore(Paths);
+        store.Load();
+        store.Update(s => s.Projects.DnnUpgradeStops =
+        [
+            new DnnUpgradeStopSetting { Version = "10.4.2", NetFrameworkRelease = 533320, SqlServerMajor = 15, Note = "Note = with; odd characters ’" },
+            new DnnUpgradeStopSetting { Version = "11.0.0" }
+        ]);
+
+        var options = new SettingsStore(Paths).Load().Settings.ToAppOptions();
+
+        Assert.AreEqual(2, options.DnnUpgradeStops.Count);
+        Assert.AreEqual("10.4.2", options.DnnUpgradeStops[0].Version);
+        Assert.AreEqual(533320, options.DnnUpgradeStops[0].NetFrameworkRelease);
+        Assert.AreEqual(15, options.DnnUpgradeStops[0].SqlServerMajor);
+        Assert.AreEqual("Note = with; odd characters ’", options.DnnUpgradeStops[0].Note);
+        Assert.AreEqual("11.0.0", options.DnnUpgradeStops[1].Version);
+
+        var running = new AppOptions();
+        running.Apply(options);
+        Assert.AreEqual(2, running.DnnUpgradeStops.Count, "Saved on the Settings page, they are used without a restart.");
+    }
+
+    [TestMethod]
+    public void A_saved_upgrade_path_that_isnt_allowed_goes_back_to_none_and_says_so()
+    {
+        var store = new SettingsStore(Paths);
+        store.Load();
+        store.Update(s => s.Projects.DnnUpgradeStops = [new DnnUpgradeStopSetting { Version = "10.4.2" }]);
+        SetRow("projects.dnnUpgradeStops[0].version", "not a version");
+
+        var loaded = store.Load();
+
+        Assert.AreEqual(0, loaded.Settings.Projects.DnnUpgradeStops.Count);
+        StringAssert.Contains(loaded.Notices.Single(n => n.IsWarning).Message, "projects.dnnUpgradeStops");
+        Assert.IsFalse(store.Load().Notices.Any(n => n.IsWarning), "Reset again at the next start.");
+    }
+
+    [TestMethod]
+    public void An_upgrade_path_from_the_environment_is_held_to_the_same_rules()
+    {
+        var problems = new AppOptions { DnnUpgradeStops = [new DnnUpgradeStopSetting { Version = "not a version" }] }.Problems();
+        Assert.IsTrue(problems.Any(p => p.StartsWith("DnnUpgradeStops (projects.dnnUpgradeStops)", StringComparison.Ordinal)), string.Join(Environment.NewLine, problems));
+    }
+
     // ─── Settings a newer rule refuses ────────────────────────────────────
 
     [TestMethod]

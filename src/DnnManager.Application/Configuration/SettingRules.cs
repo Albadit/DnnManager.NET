@@ -132,4 +132,40 @@ public static class SettingRules
     /// </summary>
     public static bool IsIisFeatureName(string? name) =>
         !string.IsNullOrEmpty(name) && name.Length <= 128 && name.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.');
+
+    /// <summary>The longest note a version added to DNN's upgrade path can have.</summary>
+    public const int MaxUpgradeStopNote = 500;
+
+    /// <summary>
+    /// The number of a version added to DNN's upgrade path - three numbers, as 10.4.2 or DNN's own 10.04.02 - or null when
+    /// <paramref name="text"/> isn't one. Only this number goes on: it picks the release a step downloads.
+    /// </summary>
+    public static Version? UpgradeStopVersion(string? text)
+    {
+        var parts = (text ?? "").Trim().Split('.');
+        return parts.Length == 3 && parts.All(p => p.Length is > 0 and <= 3 && p.All(char.IsAsciiDigit))
+            ? new Version(int.Parse(parts[0]), int.Parse(parts[1]), int.Parse(parts[2]))
+            : null;
+    }
+
+    /// <summary>
+    /// What is wrong with the versions added to DNN's upgrade path, or null when they can be used. One DNN Manager knows
+    /// itself isn't wrong: a later version of DNN Manager may list it, and the saved stop must not stop being allowed then.
+    /// </summary>
+    public static string? UpgradeStopsProblem(IEnumerable<DnnUpgradeStopSetting?> stops)
+    {
+        var seen = new HashSet<Version>();
+        foreach (var stop in stops)
+        {
+            if (UpgradeStopVersion(stop?.Version) is not { } version)
+                return $"'{stop?.Version}' isn't a DNN version - three numbers, e.g. 10.4.2.";
+            if (version < Upgrades.DnnUpgradePath.OldestOnGitHub)
+                return $"DNN {version} can't be a step: GitHub has no DNN packages older than {Upgrades.DnnUpgradePath.OldestOnGitHub}.";
+            if (!seen.Add(version)) return $"DNN {version} is there twice.";
+            if (stop!.NetFrameworkRelease < 0 || stop.SqlServerMajor < 0) return $"DNN {version} has a minimum that isn't a version.";
+            if (stop.Note.Length > MaxUpgradeStopNote) return $"The note of DNN {version} can have at most {MaxUpgradeStopNote} characters.";
+            if (stop.Note.Any(char.IsControl)) return $"The note of DNN {version} must be one line of text.";
+        }
+        return null;
+    }
 }
