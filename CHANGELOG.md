@@ -2,6 +2,20 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## v1.8.4
+
+### Fixed
+
+- **A live site's restored database backs up and exports again.** A database
+  restored from a live site keeps its host's user (such as `__shop`), and
+  **Export** (with the database), **Export → For deployment…** and the backup
+  **Upgrade DNN…** makes before each step stopped with *Error SQL71501: User:
+  [__shop] has an unresolved reference to Login [__shop]*: a `.bacpac` holds
+  the login of every user in the database, and the site's own login sees no
+  login but its own. A database on the local SQL Server container is now
+  exported as the container's user (sa by default). A database elsewhere is
+  still exported as its web.config signs in, and that error now says what to do.
+
 ## v1.8.3
 
 ### Added

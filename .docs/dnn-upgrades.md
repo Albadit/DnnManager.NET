@@ -237,7 +237,9 @@ containing:
 
 - `<project>.zip` - the site's files, as **Export** makes them (`.git` and
   `_backup.filter` left out);
-- `<project>.bacpac` - the database, exported with the site's own login;
+- `<project>.bacpac` - the database, exported as the local SQL Server
+  container's user (sa by default), or with the site's own login when its
+  database is elsewhere;
 - `web.config.before` - web.config as it was, to compare with;
 - `backup.txt` - "Before upgrading DNN 09.13.09 → 10.02.05", followed by:
   - the site's content counts;

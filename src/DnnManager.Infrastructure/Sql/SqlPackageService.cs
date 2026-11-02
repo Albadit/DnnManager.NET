@@ -120,7 +120,7 @@ public sealed class SqlPackageService(ProcessRunner proc, ILogger<SqlPackageServ
             var (err, outp) = (Hide(r.StdErr, source.Password), Hide(r.StdOut, source.Password));
             _log.LogError("SqlPackage export failed: {Err}\n{Out}", err, outp);
             TryDelete(bacpacPath); // don't leave a partial/zero-byte .bacpac behind for a later import to pick.
-            return Result.Fail($"BACPAC export failed: {Tail(err, outp)}");
+            return Result.Fail($"BACPAC export failed: {Tail(err, outp)}{UnseenLoginHint(err + outp, source.User)}");
         }
         if (!File.Exists(bacpacPath) || new FileInfo(bacpacPath).Length == 0)
         {
@@ -184,6 +184,16 @@ public sealed class SqlPackageService(ProcessRunner proc, ILogger<SqlPackageServ
     /// <summary><paramref name="text"/> with <paramref name="password"/> blanked out - for what goes into the log or a message.</summary>
     internal static string Hide(string text, string? password) =>
         string.IsNullOrEmpty(password) ? text : text.Replace(password, "********", StringComparison.Ordinal);
+
+    /// <summary>
+    /// What to do when SqlPackage met a user whose login the exporting one can't see (SQL71501): the .bacpac holds the login
+    /// of every user, and a login that isn't a sysadmin sees no other login - a live site's restored backup keeps its host's user.
+    /// </summary>
+    private static string UnseenLoginHint(string output, string user) =>
+        output.Contains("SQL71501", StringComparison.Ordinal) && output.Contains("reference to Login", StringComparison.OrdinalIgnoreCase)
+            ? $" The database has a user whose login {(user.Length > 0 ? user : "your Windows account")} can't see - export it " +
+              "signed in as a sysadmin (or a login with VIEW ANY DEFINITION), or drop that user if the site doesn't use it."
+            : "";
 
     private static string Tail(string err, string outp)
     {

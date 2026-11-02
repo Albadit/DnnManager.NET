@@ -216,6 +216,28 @@ public sealed class ProjectDatabaseTests
         Assert.IsFalse(File.Exists(Path.Combine(site, "Default.aspx")), "The backup's files went in although nothing should have changed.");
     }
 
+    [TestMethod]
+    public async Task Export_OnTheContainer_SignsInAsTheContainersUser_ElsewhereAsWebConfigSays()
+    {
+        // A live site's restored backup keeps its host's user (__shop): its login is one the site's own (dnn_shop) can't
+        // see, and SqlPackage failed on it (SQL71501). A server elsewhere is signed in to as web.config says.
+        var onContainer = Site(Path.Combine(_run, "projects", "shop"), "localhost,1433", "shop", login: "dnn_shop");
+        var elsewhere = Site(Path.Combine(_run, "projects", "blog"), "sql.elsewhere.example", "blog", login: "blog_user");
+        SiteSqlConnection? container = null, other = null;
+
+        await RunAsync(new RecordingSql(), new UntouchedIis(), (sp, _) =>
+        {
+            var sql = sp.GetRequiredService<LocalSqlContainer>();
+            var projects = sp.GetRequiredService<IProjectRepository>();
+            container = sql.ExportSourceOf(projects.Build("shop", onContainer)).Value;
+            other = sql.ExportSourceOf(projects.Build("blog", elsewhere)).Value;
+            return Task.FromResult(Result.Ok());
+        });
+
+        Assert.AreEqual(("localhost,1433", "shop", "sa", "Not-A-Password-1"), (container!.Server, container.Database, container.User, container.Password));
+        Assert.AreEqual(("sql.elsewhere.example", "blog", "blog_user"), (other!.Server, other.Database, other.User));
+    }
+
     // ─── The run ──────────────────────────────────────────────────────────
 
     /// <summary>A DNN site's folder with a web.config naming <paramref name="database"/> on <paramref name="server"/>.</summary>

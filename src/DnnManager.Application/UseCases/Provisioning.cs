@@ -172,14 +172,20 @@ public sealed class LocalSqlContainer(IOptions<AppOptions> opts, ISqlServerServi
 
     /// <summary>
     /// The database to export <paramref name="project"/>'s data from: the one its web.config names, signed in to as it says
-    /// (Windows authentication as you); without one of its own, its database on the local SQL Server. A LocalDB file can't
-    /// be exported - its instance is the site's own.
+    /// (Windows authentication as you) - on the local SQL Server as its user (sa by default); without one of its own, its
+    /// database on the local SQL Server. A LocalDB file can't be exported - its instance is the site's own.
     /// </summary>
     public Result<SiteSqlConnection> ExportSourceOf(DnnProject project)
     {
-        if (DatabaseOf(project) is { Kind: DatabaseKind.LocalDbFile } file)
+        var database = DatabaseOf(project);
+        if (database is { Kind: DatabaseKind.LocalDbFile } file)
             return Result<SiteSqlConnection>.Fail($"The site's database is a LocalDB file (App_Data\\{file.Database}), which can't be exported as " +
                                                   ".bacpac - move it to SQL Server first (Details → Database → Change connection).");
+        // SqlPackage puts the login of every user in the database into the .bacpac, and fails (SQL71501) on one it can't
+        // see. The site's own login (dnn_shop) sees no login but its own, and a live site's restored backup keeps its
+        // host's user (__shop). The container's user sees them all.
+        if (database is { Kind: DatabaseKind.Container } container)
+            return Result<SiteSqlConnection>.Ok(new SiteSqlConnection(container.Server, container.Database, _opts.Docker.SqlUser, _opts.Docker.SaPassword));
         return Result<SiteSqlConnection>.Ok(SiteConnectionOf(project) ?? ConnectionOf(project));
     }
 
