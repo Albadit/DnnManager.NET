@@ -5,7 +5,7 @@ using DnnManager.Infrastructure.Sql;
 namespace DnnManager.IntegrationTests;
 
 /// <summary>
-/// Whether a site's database is live, as the Projects table and Host project's folders show it - asked with the site's
+/// Whether a site's database is live, as the Projects table shows it - asked with the site's
 /// web.config connection, once per server and login.
 /// </summary>
 [TestClass]

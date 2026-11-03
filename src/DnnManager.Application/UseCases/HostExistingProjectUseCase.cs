@@ -31,8 +31,8 @@ public sealed class HostExistingProjectRequest
 }
 
 /// <summary>
-/// Hosts a project folder that already holds a DNN site (copied by hand, checked out from git, left
-/// over from an earlier setup…): creates its IIS website, its local database, or both. The site's
+/// Hosts a project folder that already holds a DNN site: creates its IIS website, its local database, or both. The
+/// last part of New project's import (<see cref="ImportProjectUseCase"/>), once the site's .zip is extracted. The site's
 /// files are never downloaded, copied or overwritten.
 /// </summary>
 public sealed class HostExistingProjectUseCase(
@@ -334,8 +334,7 @@ public sealed class HostExistingProjectUseCase(
         }
 
         if (created)
-            reporter.Info("The database is empty: open the site to run the DNN install wizard, or restore a " +
-                          "backup by running 'Host project' again with 'database only' and a backup file.");
+            reporter.Info("The database is empty: open the site to run the DNN install wizard, or put a backup in with Restore backup.");
         return Result.Ok();
     }
 

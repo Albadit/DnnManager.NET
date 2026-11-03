@@ -40,8 +40,7 @@ public sealed class PagesLoadTests
         var services = Services();
         Kept.Add(services);
         var failed = new List<string>();
-        foreach (var type in new[] { typeof(MainWindow), typeof(SetupPage), typeof(SettingsPage), typeof(ProjectsPage), typeof(TroubleshootPage),
-                                     typeof(ExistingFolderPage) })
+        foreach (var type in new[] { typeof(MainWindow), typeof(SetupPage), typeof(SettingsPage), typeof(ProjectsPage), typeof(TroubleshootPage) })
         {
             try
             {
@@ -73,18 +72,37 @@ public sealed class PagesLoadTests
         dialog.Measure(new Size(800, 600));
         dialog.Arrange(new Rect(0, 0, 800, 600));
         dialog.UpdateLayout();
-        Assert.AreEqual(2, dialog.RowsPanel.Children.Count);
         Assert.IsFalse(dialog.OkButton.IsEnabled, "Nothing to save yet.");
-        // The whole path is listed, newest first, each version with what it needs - and none of it can be edited.
-        Assert.AreEqual(DnnUpgradePath.Versions.Count, dialog.KnownRows.Children.Count);
-        string[] Cells(int row) => ((System.Windows.Controls.Panel)dialog.KnownRows.Children[row]).Children.Cast<System.Windows.Controls.TextBlock>().Select(t => t.Text).ToArray();
-        CollectionAssert.AreEqual(new[] { "10.03.03", ".NET Framework 4.8", "SQL Server 2017", "" }, Cells(0));
-        Assert.AreEqual("02.00.04", Cells(DnnUpgradePath.Versions.Count - 1)[0]);
-        StringAssert.StartsWith(Cells(DnnUpgradePath.Versions.Count - 1)[3], "Done by hand");
+        // The whole path, newest first - DNN's own versions and the ones added - each with what it needs.
+        Assert.AreEqual(DnnUpgradePath.Versions.Count + 2, dialog.RowsPanel.Children.Count);
+        System.Windows.Controls.UIElementCollection Cells(int row) => ((System.Windows.Controls.Panel)dialog.RowsPanel.Children[row]).Children;
+        string Text(int row, int cell) => Cells(row)[cell] switch
+        {
+            System.Windows.Controls.TextBox box => box.Text,
+            System.Windows.Controls.ComboBox combo => (string)((System.Windows.Controls.ComboBoxItem)combo.SelectedItem).Content,
+            var other => other.ToString()!
+        };
+        void Click(System.Windows.UIElement button) => button.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+        Assert.AreEqual("11.0.0", Text(0, 0));
+        Assert.AreEqual("SQL Server (version 99)", Text(0, 2));
+        CollectionAssert.AreEqual(new[] { "10.03.03", ".NET Framework 4.8", "SQL Server 2017", "" }, Enumerable.Range(0, 4).Select(c => Text(2, c)).ToArray());
+        // One of DNN's own keeps its number: it is changed by what it needs, or taken off.
+        Assert.IsTrue(((System.Windows.Controls.TextBox)Cells(2)[0]).IsReadOnly);
+        var oldest = DnnUpgradePath.Versions.Count + 1;
+        Assert.AreEqual("02.00.04", Text(oldest, 0));
+        StringAssert.Contains((string)((System.Windows.Controls.TextBox)Cells(oldest)[0]).ToolTip, "Done by hand");
         Assert.AreEqual(Visibility.Collapsed, dialog.Problem.Visibility, dialog.Problem.Text);
 
-        dialog.AddButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
-        var version = (System.Windows.Controls.TextBox)((System.Windows.Controls.Panel)dialog.RowsPanel.Children[2]).Children[0];
+        // 10.02.05 taken off: said under the path, and it can be saved.
+        Assert.AreEqual("10.02.05", Text(3, 0));
+        Click(Cells(3)[4]);
+        Assert.AreEqual(Visibility.Visible, dialog.Removed.Visibility);
+        StringAssert.Contains(dialog.Removed.Text, "10.02.05");
+        Assert.IsTrue(dialog.OkButton.IsEnabled);
+
+        Click(dialog.AddButton);
+        var version = (System.Windows.Controls.TextBox)Cells(0)[0];
+        Assert.AreEqual("", version.Text, "A new version goes at the top, with the newest.");
         Assert.IsFalse(dialog.OkButton.IsEnabled, "An empty row can't be saved.");
         Assert.AreEqual(Visibility.Visible, dialog.Problem.Visibility);
 
@@ -96,6 +114,12 @@ public sealed class PagesLoadTests
         Assert.IsFalse(dialog.OkButton.IsEnabled);
         version.Text = "12.0.0";
         Assert.AreEqual(Visibility.Collapsed, dialog.Problem.Visibility, dialog.Problem.Text);
+        Assert.IsTrue(dialog.OkButton.IsEnabled);
+
+        // Reset: DNN's own path again, every change undone - which differs from what was saved, so it can be saved.
+        Click(dialog.ResetButton);
+        Assert.AreEqual(DnnUpgradePath.Versions.Count, dialog.RowsPanel.Children.Count);
+        Assert.AreEqual(Visibility.Collapsed, dialog.Removed.Visibility);
         Assert.IsTrue(dialog.OkButton.IsEnabled);
         // Never shown, so not closed: as the first window of the tests' one App, closing it would end that App for the tests after it.
     });

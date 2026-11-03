@@ -411,7 +411,7 @@ internal sealed class ProjectMenu(IServiceProvider services, OperationRunner run
                 if (server.Success)
                 {
                     log.Warn($"Database [{database.Database}] doesn't exist on {database.Server} - {ssms.Name} opens the server instead. " +
-                             "Set it up with Host project (database) or restore a backup.");
+                             "Restore a backup to put it back.");
                     database = database with { Database = "" };
                 }
                 else

@@ -142,7 +142,7 @@ public sealed class UpgradeDnnUseCase(
             if (!found.Success)
             {
                 // A version typed in Settings may be one DNN never released.
-                var yours = _options.DnnUpgradeStops.Any(s => SettingRules.UpgradeStopVersion(s.Version) == planned.Step.To)
+                var yours = _options.DnnUpgradeStops.Any(s => !s.Removed && SettingRules.UpgradeStopVersion(s.Version) == planned.Step.To)
                     ? " It was added in Settings → DNN releases - check it there." : "";
                 return Result.Fail($"DNN {Short(planned.Step.To)}, a step of the upgrade path, wasn't found: {found.Error}{yours} Nothing was changed.");
             }

@@ -237,7 +237,7 @@ site runs in IIS.
   `SiteSqlServer` connection, or still has DNN's own (a site DNN hasn't been
   installed into yet). The tooltip says which.
 - **Fix:** install DNN (its wizard writes the connection), or set the connection
-  with **Host project** ([user guide](user-guide.md#host-a-project)).
+  with **Change connection…** on the project's Database tab.
 
 ### The first page after a while takes 10-30 seconds
 

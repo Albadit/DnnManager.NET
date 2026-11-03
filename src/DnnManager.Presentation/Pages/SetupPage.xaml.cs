@@ -15,7 +15,7 @@ namespace DnnManager.Presentation.Pages;
 
 /// <summary>
 /// "New project": a new project folder from a DNN download or an imported site .zip. A name whose folder already
-/// exists is refused - setting up an existing folder is what Host project is for. A DNN download gets its IIS website
+/// exists is refused - its files are never set up over. A DNN download gets its IIS website
 /// (host name, port), its database (named like the project, filled in from Settings → Database server and changeable
 /// here for this project only - tested before anything is created) and - with automatic
 /// setup - DNN installed with the account and website given here, so the first visit shows the new site. Whether the
@@ -610,12 +610,12 @@ public partial class SetupPage : UserControl, IRefreshable
         var check = ProjectName.Validate(name);
         var valid = check.Success;
 
-        // A new project needs a folder of its own - an existing one is set up on Host project.
+        // A new project needs a folder of its own - one that is there is never set up over.
         var exists = valid && _repo.ProjectExists(name);
         // Nor an IIS site of that name serving another folder: making the project's site would replace it.
         var siteElsewhere = valid && !exists ? SiteServingAnotherFolder(name) : null;
         NameError.Text = name.Length > 0 && !valid ? check.Error ?? ""
-            : exists ? $"A project named '{name}' already exists. Choose another name, or set it up on Host project."
+            : exists ? $"A project named '{name}' already exists. Choose another name."
             : siteElsewhere is not null ? $"IIS already has a site named '{name}', serving {siteElsewhere} - choose another name."
             : "";
         NameError.Visibility = NameError.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;

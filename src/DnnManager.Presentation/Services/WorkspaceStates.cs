@@ -34,7 +34,7 @@ public sealed class WorkspaceState : IStateFile
 {
     public static string Area => "workspace";
 
-    /// <summary>The page: Projects, Setup, Existing, Settings or Troubleshoot.</summary>
+    /// <summary>The page: Projects, Setup, Settings or Troubleshoot (Existing, from 1.8.4 and older, opens Projects).</summary>
     public string? Page { get; set; }
     /// <summary>The sidebar page under Settings or Troubleshoot - where closing them goes back to.</summary>
     public string? SidebarPage { get; set; }
@@ -60,14 +60,14 @@ public sealed class ProjectsTableState
 }
 
 /// <summary>
-/// What was typed on the forms and not used yet: New project, Host project, and Settings' unsaved changes - by the
+/// What was typed on the forms and not used yet: New project and Settings' unsaved changes - by the
 /// field's name. Never a password: password boxes aren't read.
 /// </summary>
 public sealed class FormsState : IStateFile
 {
     public static string Area => "forms";
 
-    /// <summary>Per page (Setup, Existing, Settings): field name → value.</summary>
+    /// <summary>Per page (Setup, Settings): field name → value.</summary>
     public Dictionary<string, Dictionary<string, string>> Drafts { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 

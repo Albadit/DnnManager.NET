@@ -206,8 +206,9 @@ public sealed class IisFeatureSetting
 }
 
 /// <summary>
-/// A version added to DNN's upgrade path (Settings → DNN releases): one DNN lists that this DNN Manager doesn't know yet.
-/// Stops can only be added and minimums only raised - what DNN Manager knows about the path stays as it is.
+/// An edit of DNN's upgrade path (Settings → DNN releases), one per version: a version added to it (one DNN lists that
+/// this DNN Manager doesn't know yet), one of its versions changed (<see cref="ReplacesListed"/>), or one taken off it
+/// (<see cref="Removed"/>). A version only added that a later DNN Manager lists only raises what that one knows.
 /// </summary>
 public sealed class DnnUpgradeStopSetting
 {
@@ -219,4 +220,11 @@ public sealed class DnnUpgradeStopSetting
     public int SqlServerMajor { get; set; }
     /// <summary>Shown in the upgrade plan, as a warning on the step to this version.</summary>
     public string Note { get; set; } = string.Empty;
+    /// <summary>
+    /// A version of the path DNN Manager knows, changed in Settings: its minimums replace what DNN Manager knows about
+    /// the step to it - lower ones too. False: they only raise it (a version added before DNN Manager listed it).
+    /// </summary>
+    public bool ReplacesListed { get; set; }
+    /// <summary>Taken off the path: upgrades don't stop at this version.</summary>
+    public bool Removed { get; set; }
 }

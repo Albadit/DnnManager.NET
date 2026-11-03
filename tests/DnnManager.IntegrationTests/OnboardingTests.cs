@@ -78,7 +78,7 @@ public sealed class OnboardingTests
     [TestMethod]
     public void Every_page_has_help()
     {
-        foreach (var page in new[] { "Projects", "Details", "Setup", "Existing", "Settings", "Troubleshoot" })
+        foreach (var page in new[] { "Projects", "Details", "Setup", "Settings", "Troubleshoot" })
             Assert.IsTrue(Onboarding.HelpFor(page).Count > 0, page);
         CollectionAssert.AreEqual(Onboarding.HelpFor("Projects").ToList(), Onboarding.HelpFor("anything else").ToList());
     }
@@ -86,7 +86,7 @@ public sealed class OnboardingTests
     [TestMethod]
     public void Every_page_of_the_guide_has_a_title_text_and_lines()
     {
-        foreach (var step in Onboarding.Guide.Concat(new[] { "Details", "Setup", "Existing", "Settings" }.SelectMany(Onboarding.HelpFor)))
+        foreach (var step in Onboarding.Guide.Concat(new[] { "Details", "Setup", "Settings" }.SelectMany(Onboarding.HelpFor)))
         {
             Assert.IsFalse(string.IsNullOrWhiteSpace(step.Title));
             Assert.IsFalse(string.IsNullOrWhiteSpace(step.Intro), step.Title);
@@ -102,7 +102,7 @@ public sealed class OnboardingTests
     public void Every_icon_the_guide_names_is_in_the_theme() => Sta(() =>
     {
         var icons = new Icons();
-        var items = Onboarding.Guide.Concat(new[] { "Details", "Setup", "Existing", "Settings" }.SelectMany(Onboarding.HelpFor))
+        var items = Onboarding.Guide.Concat(new[] { "Details", "Setup", "Settings" }.SelectMany(Onboarding.HelpFor))
             .SelectMany(s => s.Sections).SelectMany(s => s.Items);
         foreach (var item in items)
         {

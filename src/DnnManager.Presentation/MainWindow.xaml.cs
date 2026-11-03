@@ -41,7 +41,6 @@ public partial class MainWindow : Window
     {
         ["Projects"]      = typeof(ProjectsPage),
         ["Setup"]         = typeof(SetupPage),
-        ["Existing"]      = typeof(ExistingFolderPage),
         ["Settings"]      = typeof(SettingsPage),
         ["Troubleshoot"]  = typeof(TroubleshootPage),
     };
@@ -291,10 +290,14 @@ public partial class MainWindow : Window
         UpdateButton.Visibility = u.CanInstall || u.IsUpdating ? Visibility.Visible : Visibility.Collapsed;
         // One update at a time - and not while an operation runs, which closing would cut off.
         UpdateButton.IsEnabled = u.CanInstall && !_runner.IsBusy;
+        // How far the download is, under the button.
+        var downloading = u.State == UpdateState.Downloading;
+        UpdateProgress.Visibility = downloading ? Visibility.Visible : Visibility.Collapsed;
+        UpdateProgress.Value = downloading ? u.DownloadProgress : 0;
         // It always says "Update"; how the update is going is in its tooltip and on Settings → About.
         UpdateButton.ToolTip = u.State switch
         {
-            UpdateState.Downloading => $"Downloading {u.Latest?.Tag}…",
+            UpdateState.Downloading => $"Downloading {u.Latest?.Tag}… {u.DownloadProgress:P0}",
             UpdateState.Installing => $"Installing {u.Latest?.Tag}…",
             UpdateState.Restarting => "Restarting…",
             UpdateState.Failed => "Update failed - try again",
@@ -305,7 +308,7 @@ public partial class MainWindow : Window
     // The sidebar's page entries, by page.
     private RadioButton? NavFor(string? page) => page switch
     {
-        "Projects" => NavProjects, "Setup" => NavSetup, "Existing" => NavExisting, _ => null
+        "Projects" => NavProjects, "Setup" => NavSetup, _ => null
     };
 
     // ─── The workspace, kept between starts ─────────────────────────────────
@@ -314,7 +317,7 @@ public partial class MainWindow : Window
     // saved - not the half-restored one.
     private WorkspaceState? _restoringWorkspace;
     private LogsState? _restoringLogs;
-    // What was typed on New project and Host project - put back when their page is first made.
+    // What was typed on New project - put back when its page is first made.
     private readonly Dictionary<string, Dictionary<string, string>> _drafts = new(StringComparer.OrdinalIgnoreCase);
     // Whether the window was maximized before it was minimized - what it comes back as.
     private bool _wasMaximized;
@@ -400,7 +403,7 @@ public partial class MainWindow : Window
     private FormsState CaptureForms()
     {
         var forms = new FormsState();
-        foreach (var key in new[] { "Setup", "Existing" })
+        foreach (var key in new[] { "Setup" })
         {
             if (_pages.GetValueOrDefault(key) is { } page) forms.Drafts[key] = FormDraft.Capture(page);
             // Not opened since this start: kept as the last one left it.

@@ -197,7 +197,7 @@
         <Style x:Key="GroupDivider" TargetType="Border">
             <Setter Property="Width" Value="1" />
             <Setter Property="Margin" Value="2,4" />
-            <Setter Property="Background" Value="{DynamicResource InputBorder}" />
+            <Setter Property="Background" Value="{DynamicResource CardBorder}" />
         </Style>
     </UserControl.Resources>
 
@@ -226,7 +226,7 @@
             <!-- For the checked rows: one group of icons in the order of a row's Actions - Start, Stop, Restart and keep warm,
                  then Remove on the right. -->
             <Border x:Name="BulkActions" DockPanel.Dock="Right" Visibility="Collapsed" VerticalAlignment="Center" Padding="2" CornerRadius="5"
-                    Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource InputBorder}" BorderThickness="1">
+                    Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1">
                 <StackPanel Orientation="Horizontal">
                     <Button x:Name="BulkStartButton" AutomationProperties.Name="Start the selected websites" Style="{StaticResource GroupButton}" Content="{StaticResource GlyphPlay}" Click="BulkStart_Click" />
                     <Button x:Name="BulkStopButton" AutomationProperties.Name="Stop the selected websites" Style="{StaticResource GroupButton}" Content="{StaticResource GlyphStop}" Click="BulkStop_Click" />

@@ -12,7 +12,6 @@ cloning sites, keep warm, host names and working offline, and backups. New here?
 - [Backups](#backups)
 - [Automatic DNN setup](#automatic-dnn-setup)
 - [Import a site .zip](#import-a-site-zip)
-- [Host a project](#host-a-project)
 - [Clone a project](#clone-a-project)
 - [Keep warm](#keep-warm)
 - [Host names and working offline](#host-names-and-working-offline)
@@ -129,7 +128,7 @@ using DNN Manager**.
   (the sidebar, the status bar) aren't on it.
 - **Help** - the **?** in the title bar, left of the layout buttons: **Help for
   This Page** (**F1**) explains the page shown - Projects, a project's details,
-  New project, Host project, Settings or Troubleshoot - in the guide's window;
+  New project, Settings or Troubleshoot - in the guide's window;
   then **Getting Started Guide**, **Take the Tour**, **Keyboard Shortcuts**,
   **What's New in This Version** (not for a new user - below) and **User Guide
   on GitHub**.
@@ -162,7 +161,9 @@ layout buttons. Click it and DNN Manager:
 
 1. downloads the release's file for your copy - the new Setup for an installed
    DNN Manager, the new portable exe for a portable one - the button stays
-   **Update**, dimmed while it works, and its tooltip says what it is doing;
+   **Update**, dimmed while it works, a thin bar under it fills up as the file
+   comes in, and its tooltip says what it is doing (with the percentage while it
+   downloads);
 2. checks the download before it uses it: its size, the SHA-256 GitHub lists for
    it, and the version inside the file;
 3. closes, saving your workspace as on any close (see
@@ -208,8 +209,8 @@ Troubleshoot, after an update, and after a crash. It keeps:
   column the table is sorted by, the expanded and selected rows, how far it was
   scrolled, and the project whose Details were open with their tab; the Settings
   category, and Settings or Troubleshoot when one was open over the page;
-- **what you typed and didn't use yet** - the **New project** and **Host project**
-  forms, and unsaved changes on **Settings** (they come back unsaved, for
+- **what you typed and didn't use yet** - the **New project** form, and unsaved
+  changes on **Settings** (they come back unsaved, for
   **Save** or **Discard changes**);
 - **the bottom panel** - which tab was shown (Output or Logs), the search, the
   site and log on the Logs tab, and how wide the terminal list is.
@@ -444,9 +445,8 @@ forgets it.
   Administrator rights again.
 - Only one operation runs at a time. While it runs, the pages stay usable
   (scrolling, browsing), but starting a second one is refused.
-- **Pages are kept** while the app runs: the Host project folders and the DNN
-  versions load once, not on every visit. Host project's **Refresh** button
-  loads its folders again, and so does every finished operation (a page not on
+- **Pages are kept** while the app runs: the DNN versions load once, not on
+  every visit, and every finished operation refreshes the pages (a page not on
   screen catches up when it's next shown). The DNN versions are asked of GitHub
   at every start. **Projects** has no Refresh - it keeps itself up to
   date (see [Projects table](#projects-table)). Settings is read on every visit.
@@ -533,7 +533,7 @@ DNN Manager works without a mouse, the way VS Code does.
   | **Ctrl+F** | Search in the view: the panel's tab when it has the keyboard, else the Projects or Settings search |
   | **Ctrl+Shift+F** | Search projects (the Projects table's search box) |
   | **F5** / **Shift+F5** / **Ctrl+Shift+R** | Start / stop / restart the selected project |
-  | **Ctrl+1** / **Ctrl+2** / **Ctrl+3** | Projects / New project / Host project |
+  | **Ctrl+1** / **Ctrl+2** | Projects / New project |
   | **Ctrl+Tab** / **Ctrl+Shift+Tab** | Next / previous page |
   | **Ctrl+PageUp** / **Ctrl+PageDown** | Next / previous tab - the Details' tabs, the Settings categories, the panel's tabs (when it has the keyboard) |
   | **Ctrl+W** | Close the view: Settings or Troubleshoot, back to the page under them; the Details back to the table |
@@ -649,10 +649,9 @@ operation](#window). Turned off, closing the window quits DNN Manager.
 | Page | What it does |
 |---|---|
 | **Projects** | A table of every DNN website in IIS, one row per site - see [Projects table](#projects-table) and [Site overview](#site-overview). |
-| **New project** | Enter a name (validated as you type), then **Start from**: *a new site* - pick the **Repository** (e.g. `dnnsoftware/Dnn.Platform`), then a **Version** from its GitHub releases (highest version first; pre-releases are listed too, marked *(pre-release)*, but the latest release - marked *(latest)* - is what's selected; *kept, no download* marks a version whose package is kept). The lists are asked of GitHub when the app starts and saved in DNN Manager's database; when GitHub can't be reached, it is asked again the next time New project is shown. **Without internet** the versions of the last lookup are offered; with **Settings → DNN releases → Keep downloaded DNN install packages** on, those marked *kept, no download* are set up as usual; a version that isn't kept needs internet to download - or *an existing site* - pick the site `.zip` and its database `.bacpac` (see [Import a site .zip](#import-a-site-zip)). A name whose folder already exists is refused - set up an existing folder on **Host project** - and so is the name of an IIS site that serves another folder (making the project's site would replace it). For a new site: **IIS** - the host name and port it answers on (`<name>.dnndev.me`, or a custom domain such as `shop.test` - it goes into the hosts file, see [Host names and working offline](#host-names-and-working-offline)); **DNN installation** - *Automatic setup* (the default) or *Manual DNN setup*; **DNN account and website** (automatic setup) - host username and password (**Generate** makes one), e-mail, website name, language and site template, filled in from **Settings → Projects → DNN defaults**. **Database** - filled in from **Settings → Database server** (connection type, server, authentication, username and password) and named like the project; change any of it here for this project only (**Use the settings** fills it in again - the settings stay as they are). A LocalDB file is the site's own `App_Data\Database.mdf`. **Checked as you type**: the host name and port must not already be another IIS site's address (*http://shop.dnndev.me is already the address of the IIS site 'shop'*), and the database must be free - the server is asked a moment after you stop typing (*Checking whether database [shop] on localhost,1433 is free…*, then *is free* or *already exists*); a server that can't be asked (not running, the login refused) says why and is asked again every 10 seconds, so starting the SQL container is noticed by itself. With *Manual DNN setup* a database that exists is allowed - the setup asks whether to drop it or install into it. The full database test (sign-in, version, permissions) still runs before anything is created. Host name and website name follow the project's name until you type your own. **Create project** is ready once everything is valid and both checks have passed; until then *Still needed: …* beside it says what is missing. See [Automatic DNN setup](#automatic-dnn-setup). |
-| **Host project** | Pick a folder, then *IIS website + database* (the default), *database only* or *IIS website only*, and optionally a backup to restore. See [Host a project](#host-a-project). |
+| **New project** | Enter a name (validated as you type), then **Start from**: *a new site* - pick the **Repository** (e.g. `dnnsoftware/Dnn.Platform`), then a **Version** from its GitHub releases (highest version first; pre-releases are listed too, marked *(pre-release)*, but the latest release - marked *(latest)* - is what's selected; *kept, no download* marks a version whose package is kept). The lists are asked of GitHub when the app starts and saved in DNN Manager's database; when GitHub can't be reached, it is asked again the next time New project is shown. **Without internet** the versions of the last lookup are offered; with **Settings → DNN releases → Keep downloaded DNN install packages** on, those marked *kept, no download* are set up as usual; a version that isn't kept needs internet to download - or *an existing site* - pick the site `.zip` and its database `.bacpac` (see [Import a site .zip](#import-a-site-zip)). A name whose folder already exists is refused, and so is the name of an IIS site that serves another folder (making the project's site would replace it). For a new site: **IIS** - the host name and port it answers on (`<name>.dnndev.me`, or a custom domain such as `shop.test` - it goes into the hosts file, see [Host names and working offline](#host-names-and-working-offline)); **DNN installation** - *Automatic setup* (the default) or *Manual DNN setup*; **DNN account and website** (automatic setup) - host username and password (**Generate** makes one), e-mail, website name, language and site template, filled in from **Settings → Projects → DNN defaults**. **Database** - filled in from **Settings → Database server** (connection type, server, authentication, username and password) and named like the project; change any of it here for this project only (**Use the settings** fills it in again - the settings stay as they are). A LocalDB file is the site's own `App_Data\Database.mdf`. **Checked as you type**: the host name and port must not already be another IIS site's address (*http://shop.dnndev.me is already the address of the IIS site 'shop'*), and the database must be free - the server is asked a moment after you stop typing (*Checking whether database [shop] on localhost,1433 is free…*, then *is free* or *already exists*); a server that can't be asked (not running, the login refused) says why and is asked again every 10 seconds, so starting the SQL container is noticed by itself. With *Manual DNN setup* a database that exists is allowed - the setup asks whether to drop it or install into it. The full database test (sign-in, version, permissions) still runs before anything is created. Host name and website name follow the project's name until you type your own. **Create project** is ready once everything is valid and both checks have passed; until then *Still needed: …* beside it says what is missing. See [Automatic DNN setup](#automatic-dnn-setup). |
 | **Test and set up** (Settings → Docker container, Database server and IIS) | A card at the end of each of those categories, checked when you press its **Test** button (nothing runs on opening it; an action re-tests what it changed), with a green / red status and a button to fix it. **Docker**: **Docker Desktop** (**Install Docker Desktop** via winget), the **Docker engine** (**Start Docker Desktop**, then waits for the engine) and the **SQL Server container**. **Set up docker-compose** runs the docker-compose.yml made from the settings (`docker compose up -d`, handed to Docker directly - no file is written, and it has the real SA password): it creates the container, starts it, or updates it after the settings changed, then waits for the sa login. The compose project is `dnn-mssql`; a container made by an older DNN Manager under `dnn-shared` is removed and made again under the new name - the databases stay, they're in the volume. **Show docker-compose.yml** shows the same file with a **Copy** button, to run yourself - without the SA password: replace `<your-sa-password>` after copying. **Database server**: the server from **Settings → Database server**, whichever connection type it is - it answers, the sign-in works, its version, and whether the login may create the databases new projects get. **IIS**: the Windows features as a table with their status. **Set up IIS** checks them and, after a confirmation, enables the missing ones (a reboot may be needed). Restarting IIS is on the status bar. |
-| **Settings** (the gear's menu at the bottom of the sidebar, or **Ctrl+,** - a second time closes it) | Opens over the page and edits the settings, laid out like Docker Desktop's settings: the categories on the left, under a **search** box that leaves the ones with a matching setting, and the chosen category on the right. **General**: **Start DNN Manager when you sign in** (a scheduled task that starts it with its Administrator rights, so Windows doesn't ask for them at every sign-in - only for DNN Manager installed for all users, in Program Files), **Keep DNN Manager running when you close the window** (see [Running in the background](#running-in-the-background)), **Look for a newer DNN Manager when it starts** (on by default: GitHub is asked once, a moment after the start - see [Update](#update)), the **UI scale** (80-175 %, everything bigger or smaller like a browser's zoom) and **font size** (11-18 px, only the text), **Play animations** (off: the panel, the sidebar, toasts, menus and switches change at once, and nothing pulses - also while Windows' animation effects are off), and the **terminal** (the default shell, font family and size) - putting every setting back to its default is on **Troubleshoot**. **Projects**: the projects folder, hostname suffix and site port, the **DNN defaults** new projects start with (install mode, host username and password, e-mail, website name, language, site template - the password is kept in the Windows Credential Manager, not in the settings; with none saved, New project asks for one), **Keep warm** - the interval, keep-alive page and warm-up page of the sites kept warm (see [Keep warm](#keep-warm)) - and **Backups** - how long backups and deployment packages are kept (see [Backups](#backups)). **DNN releases**: the repositories, keeping downloaded packages, and [DNN's upgrade path](#when-dnn-lists-a-new-version). **Database server**: the **connection type** new projects get their database on - the *Local SQL container (Docker)* (host, port, SA password), *SQL Server / SQL Server Express* (server, Windows or SQL Server authentication, login - its password kept in the Windows Credential Manager) or a *SQL Server Express LocalDB (file)* (the LocalDB instance); only the chosen type's settings are saved, the others keep what they had - and remembering the password in SSMS. **Docker container**: its name, volume, edition and collation. **IIS**: the Windows features DNN Manager needs (its buttons act at once - nothing there waits for **Save**) - **Edit…** on the IIS card adds or removes them, a row each (how it is shown and its Windows feature name, e.g. *ASP.NET 4.8* and `IIS-ASPNET45`), or puts the defaults back with **Use the defaults**; saved at once, no Save needed. **Keyboard shortcuts**: every command's shortcut, to search, change and reset - saved at once, no Save needed (see [Keyboard](#keyboard)). **Help**: the getting started guide, the tour, What's new and the user guide on GitHub - see [Getting started guide and help](#getting-started-guide-and-help); nothing to save. **About**: which DNN Manager this is (version, commit, build date, program folder, release channel, the update status - see [Update](#update) -, license, repository and documentation as links), what it runs on (.NET, architecture, Windows, Administrator or not) and works with (IIS, .NET Framework, Docker, its IIS and SQL libraries), then the folders with your files (settings, backups, deployments, logs, DNN packages - all there from the first start), each with **Open**. Nothing is saved until **Save** (bottom right, ready once you change something in any category; **Discard changes** puts the saved values back), which saves the settings and applies them at once - no restart. **Close** (or the ✕, **Esc**, or a click on the dimmed page) goes back to the page under it. **Docker container**, **Database server** and **IIS** each end with their **Test and set up** card - **Test**, **Set up docker-compose**, **Set up IIS** and the rest - working with the saved settings (while there are unsaved changes they wait for **Save**). See [Configuration](configuration.md). |
+| **Settings** (the gear's menu at the bottom of the sidebar, or **Ctrl+,** - a second time closes it) | Opens over the page and edits the settings, laid out like Docker Desktop's settings: the categories on the left, under a **search** box that leaves the ones with a matching setting, and the chosen category on the right. **General**: **Start DNN Manager when you sign in** (a scheduled task that starts it with its Administrator rights, so Windows doesn't ask for them at every sign-in - only for DNN Manager installed for all users, in Program Files), **Keep DNN Manager running when you close the window** (see [Running in the background](#running-in-the-background)), **Look for a newer DNN Manager when it starts** (on by default: GitHub is asked once, a moment after the start - see [Update](#update)), the **UI scale** (80-175 %, everything bigger or smaller like a browser's zoom) and **font size** (11-18 px, only the text), **Play animations** (off: the panel, the sidebar, toasts, menus and switches change at once, and nothing pulses - also while Windows' animation effects are off), and the **terminal** (the default shell, font family and size) - putting every setting back to its default is on **Troubleshoot**. **Projects**: the projects folder, hostname suffix and site port, the **DNN defaults** new projects start with (install mode, host username and password, e-mail, website name, language, site template - the password is kept in the Windows Credential Manager, not in the settings; with none saved, New project asks for one), **Keep warm** - the interval, keep-alive page and warm-up page of the sites kept warm (see [Keep warm](#keep-warm)) - and **Backups** - how long backups and deployment packages are kept (see [Backups](#backups)). **DNN releases**: the repositories, keeping downloaded packages, and [DNN's upgrade path](#edit-the-upgrade-path). **Database server**: the **connection type** new projects get their database on - the *Local SQL container (Docker)* (host, port, SA password), *SQL Server / SQL Server Express* (server, Windows or SQL Server authentication, login - its password kept in the Windows Credential Manager) or a *SQL Server Express LocalDB (file)* (the LocalDB instance); only the chosen type's settings are saved, the others keep what they had - and remembering the password in SSMS. **Docker container**: its name, volume, edition and collation. **IIS**: the Windows features DNN Manager needs (its buttons act at once - nothing there waits for **Save**) - **Edit…** on the IIS card adds or removes them, a row each (how it is shown and its Windows feature name, e.g. *ASP.NET 4.8* and `IIS-ASPNET45`), or puts the defaults back with **Use the defaults**; saved at once, no Save needed. **Keyboard shortcuts**: every command's shortcut, to search, change and reset - saved at once, no Save needed (see [Keyboard](#keyboard)). **Help**: the getting started guide, the tour, What's new and the user guide on GitHub - see [Getting started guide and help](#getting-started-guide-and-help); nothing to save. **About**: which DNN Manager this is (version, commit, build date, program folder, release channel, the update status - see [Update](#update) -, license, repository and documentation as links), what it runs on (.NET, architecture, Windows, Administrator or not) and works with (IIS, .NET Framework, Docker, its IIS and SQL libraries), then the folders with your files (settings, backups, deployments, logs, DNN packages - all there from the first start), each with **Open**. Nothing is saved until **Save** (bottom right, ready once you change something in any category; **Discard changes** puts the saved values back), which saves the settings and applies them at once - no restart. **Close** (or the ✕, **Esc**, or a click on the dimmed page) goes back to the page under it. **Docker container**, **Database server** and **IIS** each end with their **Test and set up** card - **Test**, **Set up docker-compose**, **Set up IIS** and the rest - working with the saved settings (while there are unsaved changes they wait for **Save**). See [Configuration](configuration.md). |
 | **Troubleshoot** (the gear's menu, or the command palette) | Opens over the page, like Settings - **✕**, **Esc** or a click on the dimmed page goes back to the page under it - laid out like Docker Desktop's: **Restart** closes DNN Manager (asking first, as on any quit) and starts it again - projects, settings and data are kept. **Clean up data** deletes what is ticked from `Documents\DnnManager`, each with its size: the logs, the kept DNN packages and - never ticked for you - the project backups and the deployment packages (each holds a whole database, and a `web.config` with the live server's connection string when you gave one), and **Old settings files** (what DNN Manager 1.7.1 and earlier kept its settings in - `settings.json`, `settings.json.bak`, `appsettings.json`, `docker-compose.yml`, which may hold the SQL `sa` password in plain text, and the `.json` files in `state\` - and damaged settings databases put aside, `dnnmanager.damaged-*.db`). **Reset settings to defaults** puts every setting in every category back as DNN Manager is installed - the saved passwords and starting at sign-in too - and applies them at once, without a restart (the current settings aren't kept; the logs, kept packages and which sites are kept warm stay). **Reset to factory defaults** puts DNN Manager back as it was installed: the settings, the saved passwords, starting at sign-in, which sites are kept warm, the logs, the kept packages and the old settings files go, then it restarts. Your projects - their IIS sites, folders and databases - and their backups are never touched. Not while an operation runs. |
 
 ### Projects table
@@ -983,10 +982,11 @@ its connection to a SQL Server first. Versions before 7.4.2 have no packages on
 GitHub, so those steps have to be done by hand. Upgrades from 7.4.2, 8.0.4,
 9.1.1, 9.3.2, 9.13.9 and 10.2.5 to 10.3.3 were tested on real sites.
 
-### When DNN lists a new version
+### Edit the upgrade path
 
 DNN Manager knows DNN's path up to 10.03.03. DNN goes on releasing versions, so
-you can keep the path up to date yourself, without waiting for a new DNN Manager.
+you can keep the path up to date yourself, without waiting for a new DNN Manager,
+and change any of it.
 
 **A new release** needs nothing. **Upgrade DNN…** offers every release on GitHub,
 and one past the path is a last step with a warning.
@@ -995,22 +995,42 @@ and one past the path is a last step with a warning.
 [suggested upgrade path](https://docs.dnncommunity.org/content/getting-started/setup/upgrades/suggested-upgrade-path/index.html)
 says to go through a version on the way, add it, or upgrades go past it.
 
-1. Open **Settings → DNN releases → Edit upgrade path…**. It lists the whole
-   path DNN Manager knows, newest first, with what each version needs.
-2. **Add version** and type it, as `10.4.2` or as DNN writes it, `10.04.02`.
-3. If that DNN needs more than the versions before it, choose **Needs .NET
-   Framework** or **Needs SQL Server**. It then holds for that version and every
-   one after it: a site that doesn't have it is blocked before anything changes.
-4. **Note in the upgrade plan** is optional, for what to look out for.
-5. **Save**. It is used at once.
+Open **Settings → DNN releases → Edit upgrade path…**. It shows the whole path,
+newest first, one row per version with what the step to it needs and its note.
+Make the window bigger to see more rows at once: the notes widen with it.
+Every row can be changed:
 
-What you add can only add to what DNN Manager knows: its own stops and minimums
-stay, so nothing typed here can skip a stop or lower a minimum. A version DNN
-never released stops the upgrade before it starts, with nothing changed, and
-says it was added here. DNN Manager has no tests of a step you add, and the plan
-says so: read DNN's release notes for it. A step always goes in the way it does
-from DNN 10.2 on, so a DNN that needs another way of upgrading - a move away from
-.NET Framework, say - still needs a new DNN Manager.
+- **Add version** puts an empty row at the top. Type the version, as `10.4.2`
+  or as DNN writes it, `10.04.02`.
+- **Needs .NET Framework** and **Needs SQL Server** are checked before the step
+  to that version: a site that doesn't have them is blocked before anything
+  changes. For one of DNN's own versions you can lower them too, or choose
+  *No new minimum*; the tooltip says what DNN's path has. A minimum of a version
+  you added also holds for every version after it.
+- **Note in the upgrade plan** is optional, for what to look out for.
+- **🗑** takes a version off the path: upgrades no longer stop at it. The list
+  under the path names the versions of DNN's that are taken off.
+- **Reset to DNN Manager's path** undoes every change.
+- **Save** uses the path at once.
+
+The number of one of DNN's own versions can't be changed: take it off and add
+another. Versions older than 7.4.2 can only be DNN's own, as GitHub has no
+packages of them.
+
+**Export…** saves the path as it is in the dialog to a `.json` file, and
+**Import…** fills the dialog from one, to use the same path on another PC. An
+imported path is only used once you **Save** it. A version DNN Manager learned
+after the file was exported stays on the path. A file that isn't an exported
+path, or has a version that can't be used, is refused and the path stays as it
+was.
+
+The plan says what is yours. A step you added, one that skips a version you took
+off, and one whose minimums you changed each carry a warning, and none of them
+is presented as tested: read DNN's release notes for it. A version DNN never
+released stops the upgrade before it starts, with nothing changed, and says it
+was added here. A step always goes in the way it does from DNN 10.2 on, so a
+DNN that needs another way of upgrading - a move away from .NET Framework, say -
+still needs a new DNN Manager.
 
 ## Restore a backup
 
@@ -1095,8 +1115,6 @@ includes them, and **removing a project keeps its backups**.
 - **New project → An existing site** lists every project with a complete backup
   (site + database) - including removed projects - and its backups by date. Pick
   one, or choose files anywhere on the PC.
-- **Host project** offers the `.bacpac` / `.bak` files in the project's backups
-  (and the project folder's root) to restore.
 
 **How long they are kept**: for good, by default - until you delete them in
 **Troubleshoot → Clean up data**. **Settings → Projects → Backups** can delete
@@ -1237,68 +1255,21 @@ DNN site and its database backup - both required
    under one top folder works too; files outside it are skipped. Entries that
    would land outside the folder are refused, and a failed or cancelled
    extraction removes the folder again. The zip isn't searched for a database.
-3. **Host it** like [Host a project](#host-a-project) with *IIS website +
-   database*: IIS site, HTTPS redirects switched off, the `.bacpac` (a `.bak`
-   works too) restored into **a database of the new project's own** - named like
-   it, whatever database the zip's `web.config` names (a zip exported from this
-   PC names the project it came from, whose database is never touched) -
+3. **Host it**
+   ([`HostExistingProjectUseCase`](../src/DnnManager.Application/UseCases/HostExistingProjectUseCase.cs)):
+   the IIS site and app pool, bound to `<name>.<HostnameSuffix>`, with the IIS
+   identities given access to the folder. A production `web.config` often has a
+   URL Rewrite rule that sends every request to `https://`; the local site is
+   HTTP-only, so such rules are switched off (`enabled="false"`, with a
+   *Disabled by DNN Manager* comment above them) and the Output tab shows a
+   **⚠ warning** to switch them back on before the site goes live. Then the
+   `.bacpac` (a `.bak` works too) is restored into **a database of the new
+   project's own** - named like it, whatever database the zip's `web.config`
+   names (a zip exported from this PC names the project it came from, whose database is never touched) -
    `dbo.PortalAlias` pointed at the local address, DNN's SSL switched off in the
    database, and `web.config` pointed at the new database with a login of its own
    (`dnn_<name>`), without asking. A restore that fails fails the import - and the
    folder, site and database it made are taken away again.
-
-## Host a project
-
-For a DNN site whose files are **already** in a folder under `BaseDirectory`
-(copied over by hand, checked out from git, left behind by an earlier run),
-**Host project** creates only what is missing - the files are never
-downloaded, copied or overwritten.
-
-Flow ([`ExistingFolderPage`](../src/DnnManager.Presentation/Pages/ExistingFolderPage.xaml.cs)
-→ [`HostExistingProjectUseCase`](../src/DnnManager.Application/UseCases/HostExistingProjectUseCase.cs)):
-
-1. **Pick the folder** - each one shows whether it already has an IIS site
-   (*IIS: Live*, *IIS: Offline*, *no IIS site*) and whether the database its
-   `web.config` names is live (*DB: Live*, *DB: Offline* when its server doesn't
-   answer, *DB: not created* when the server has no such database, *DB: LocalDB
-   file*, *no database*) - asked with that connection, like the Projects
-   table's SQL column, a moment after the list is shown. Hover it for which
-   database and what the server said.
-2. **Choose** *IIS website + database* (default), *database only*
-   or *IIS website only*.
-3. **Pick a backup** (when the database is included) - a `.bacpac` or `.bak`
-   found in the project's `backups\` folder or its root (newest first), any file
-   picked with **Browse…**, or none. Copies of files such as `web.config.bak`
-   are not database backups and aren't offered.
-4. **IIS website** (unless database only) - checks the IIS features, then creates
-   (or recreates) the site and app pool bound to `<folder>.<HostnameSuffix>`,
-   grants the IIS identities access to the folder and starts the site.
-   A production `web.config` often has a URL Rewrite rule that redirects every
-   request to `https://`. The local site is HTTP-only, so such rules are
-   switched off (`enabled="false"`, with a *Disabled by DNN Manager* comment
-   above them) and the Output tab shows a **⚠ warning** to switch them back on
-   before the site is deployed to production.
-5. **Database** (unless IIS only) - checks the SQL Server connection. The
-   database is the one `web.config` already uses on the local container, or
-   otherwise one named like the folder. Then:
-   - **with a backup**, restores it (`.bacpac` via SqlPackage, `.bak` via
-     `RESTORE`) - asking first if the database already exists; it is restored
-     under a name of its own beside it and swapped in once complete, so a
-     failed restore leaves the database as it was - and points
-     `dbo.PortalAlias` at the local hostname so the site answers there. DNN's
-     SSL (`SSLSetup`, or `SSLEnabled` / `SSLEnforced`, and pages marked secure)
-     is switched off in the local database - the local site has no https, and
-     DNN would otherwise redirect every request to `https://`;
-   - **without one**, keeps an existing database as it is, or creates it empty
-     (run the install wizard, or restore later by running **Host project**
-     again with *database only* and a backup).
-
-   Unless `web.config` already uses the local container, it then asks before
-   pointing `web.config`'s `SiteSqlServer` at the database.
-
-With the website, a database problem (e.g. SQL Server not reachable) is reported and
-skipped; with *database only* it fails the run, since the database is the whole
-job.
 
 ## Clone a project
 
@@ -1343,8 +1314,7 @@ Then:
    happens.
 7. **Rewrite `dbo.PortalAlias`** so portal 0's primary alias becomes the new
    address - the host name, with `:port` when the site isn't on port 80 (see
-   *Notes on cloning*) - and switch DNN's SSL off in the copy, as Host project
-   does.
+   *Notes on cloning*) - and switch DNN's SSL off in the copy, as Import does.
 8. **Point `web.config`** at the local database (supports the
    `configSource="..."` pattern; the external file is what gets rewritten). The
    site signs in with a login of its own, `dnn_<name>`, owner of its database only.

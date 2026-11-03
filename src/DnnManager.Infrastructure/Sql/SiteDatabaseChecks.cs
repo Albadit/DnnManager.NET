@@ -9,8 +9,8 @@ public sealed record SiteDatabaseCheck(bool Reachable, bool Exists, string? Prob
 /// <summary>
 /// Asks each site's SQL Server about its database - with the site's own web.config connection, never DNN Manager's
 /// settings: once per server and login for the list of its databases, and the site's own database directly when that
-/// list can't be read or doesn't have it (a login may not see the others). The Projects table (ServerStateMonitor) and
-/// Host project's folders both ask this way. A server that doesn't answer is asked once more, not once per site: each
+/// list can't be read or doesn't have it (a login may not see the others). The Projects table (ServerStateMonitor) asks
+/// this way. A server that doesn't answer is asked once more, not once per site: each
 /// would be a connection waiting for the time-out on a thread of its own, every few seconds while it is down.
 /// </summary>
 public static class SiteDatabaseChecks

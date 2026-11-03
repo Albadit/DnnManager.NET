@@ -330,7 +330,7 @@ public partial class ProjectsPage : UserControl
             : total == 0 ? _store.Connection == MonitorConnection.Reconnecting && _store.ConnectionDetail is { } problem ? problem
                 : _store.Runtime == Application.Abstractions.IisServerState.NotInstalled
                     ? "IIS isn't installed - enable its Windows features in Settings → IIS."
-                    : "IIS has no DNN websites yet - create one with New project or Host project."
+                    : "IIS has no DNN websites yet - create one with New project."
             : shown.Count > 0 ? null
             : OnlyRunning.IsChecked != true ? $"No project matches “{SearchText}”."
             : SearchText.Length == 0 ? "No project is running."

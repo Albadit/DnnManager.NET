@@ -149,23 +149,33 @@ public static class SettingRules
     }
 
     /// <summary>
-    /// What is wrong with the versions added to DNN's upgrade path, or null when they can be used. One DNN Manager knows
+    /// What is wrong with the edits of DNN's upgrade path, or null when they can be used. A version DNN Manager knows
     /// itself isn't wrong: a later version of DNN Manager may list it, and the saved stop must not stop being allowed then.
     /// </summary>
     public static string? UpgradeStopsProblem(IEnumerable<DnnUpgradeStopSetting?> stops)
     {
         var seen = new HashSet<Version>();
+        var removed = new HashSet<Version>();
+        var added = false;
         foreach (var stop in stops)
         {
             if (UpgradeStopVersion(stop?.Version) is not { } version)
                 return $"'{stop?.Version}' isn't a DNN version - three numbers, e.g. 10.4.2.";
-            if (version < Upgrades.DnnUpgradePath.OldestOnGitHub)
-                return $"DNN {version} can't be a step: GitHub has no DNN packages older than {Upgrades.DnnUpgradePath.OldestOnGitHub}.";
             if (!seen.Add(version)) return $"DNN {version} is there twice.";
+            if (stop!.Removed)
+            {
+                removed.Add(version);
+                continue;
+            }
+            added = true;
+            // The path's own old versions can be changed: their steps are done by hand anyway.
+            if (version < Upgrades.DnnUpgradePath.OldestOnGitHub && !Upgrades.DnnUpgradePath.Versions.Contains(version))
+                return $"DNN {version} can't be a step: GitHub has no DNN packages older than {Upgrades.DnnUpgradePath.OldestOnGitHub}.";
             if (stop!.NetFrameworkRelease < 0 || stop.SqlServerMajor < 0) return $"DNN {version} has a minimum that isn't a version.";
             if (stop.Note.Length > MaxUpgradeStopNote) return $"The note of DNN {version} can have at most {MaxUpgradeStopNote} characters.";
             if (stop.Note.Any(char.IsControl)) return $"The note of DNN {version} must be one line of text.";
         }
+        if (!added && Upgrades.DnnUpgradePath.Versions.All(removed.Contains)) return "The upgrade path needs at least one version.";
         return null;
     }
 }

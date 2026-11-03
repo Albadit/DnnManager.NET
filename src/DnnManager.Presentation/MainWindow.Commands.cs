@@ -113,7 +113,6 @@ public partial class MainWindow
         // ── Pages ──
         Add("pages.projects", "Go to Projects", "Pages", "Ctrl+1", () => Go(NavProjects), keywords: "table sites");
         Add("pages.newProject", "New project", "Pages", "Ctrl+2", () => Go(NavSetup), keywords: "create setup install");
-        Add("pages.hostProject", "Host project", "Pages", "Ctrl+3", () => Go(NavExisting), keywords: "existing folder");
         Add("settings.open", "Open Settings", "Pages", "Ctrl+,", () => { if (ModalKey == "Settings") CloseModal(); else ShowModal("Settings"); }, keywords: "preferences options", inTerminal: true);
         Add("troubleshoot.open", "Run troubleshooting", "Pages", null, () => ShowModal("Troubleshoot"), keywords: "restart reset clean up data");
 
@@ -401,7 +400,7 @@ public partial class MainWindow
     }
 
     // The sidebar's pages, in order - Ctrl+Tab goes round them.
-    private RadioButton[] SidebarPages => [NavProjects, NavSetup, NavExisting];
+    private RadioButton[] SidebarPages => [NavProjects, NavSetup];
 
     private void StepPage(int by)
     {

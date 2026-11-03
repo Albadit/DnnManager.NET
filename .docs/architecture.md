@@ -245,7 +245,7 @@ rest is state, kept apart in the `state` table, one row per value by area:
 |---|---|---|
 | `window` | The window's place and size, maximized, the sidebar shown or hidden, the panel's height, open or maximized, the terminal list's width | `MainWindow` |
 | `workspace` | The page (Settings or Troubleshoot when one is open over the sidebar page), the sidebar page, the Settings category, the Projects table (search, filter, sorting, expanded and selected rows, scroll) and the open Details with its tab | `MainWindow`, `ProjectsPage.CaptureTable` / `RestoreAsync` |
-| `forms` | New project, Host project and unsaved Settings, by field name | [`FormDraft`](../src/DnnManager.Presentation/Services/FormDraft.cs), `SettingsPage.CaptureDraft` / `RestoreDraft` |
+| `forms` | New project and unsaved Settings, by field name | [`FormDraft`](../src/DnnManager.Presentation/Services/FormDraft.cs), `SettingsPage.CaptureDraft` / `RestoreDraft` |
 | `logs` | The panel's tab, its search, the Logs tab's site and log | `TerminalPanel.CaptureLogs` / `RestoreLogs` |
 | `update` | The update under way (from, to, the helper's result file) | `AppUpdater` writes it; `MainWindow` reads and deletes it |
 | `palette` | The commands last run from the command palette (the newest 8), listed first as *recently used* | `MainWindow.CommandItems` / `Remember` |
@@ -275,7 +275,7 @@ rest is state, kept apart in the `state` table, one row per value by area:
 - **Restoring** happens once, on `Loaded`: the panel, the pages, the Settings draft, then -
   once the projects are read - the table, the Details and the Logs tab's log.
   Until then the loaded state is what is saved, not the half-restored one. A
-  draft for New project / Host project is applied when that page is first made.
+  draft for New project is applied when that page is first made.
   Anything that throws falls back to the Projects page.
 - **What isn't kept**, on purpose: passwords (`FormDraft` skips `PasswordBox` and
   `PasswordInput`), dialogs, running operations, messages, and terminals - their
@@ -377,7 +377,7 @@ DnnManager.NET/
     ├── DnnManager.Infrastructure/
     │   ├── Iis/                 ← IIS via Microsoft.Web.Administration
     │   ├── Docker/              ← docker-compose.yml for the shared SQL container (pinned image), from the settings, and running it; DockerNames
-    │   ├── Sql/                 ← sqlcmd in the container, remote backup, SqlPackage, connection test, SiteDatabaseChecks (is a site's database live - the Projects table and Host project); DatabaseProvisioner (Test connection, create, the site's login), LocalDB files, connection strings (ConnectionStrings.For - the one connection policy), SqlText (quoting names and values for SQL)
+    │   ├── Sql/                 ← sqlcmd in the container, remote backup, SqlPackage, connection test, SiteDatabaseChecks (is a site's database live - the Projects table); DatabaseProvisioner (Test connection, create, the site's login), LocalDB files, connection strings (ConnectionStrings.For - the one connection policy), SqlText (quoting names and values for SQL)
     │   ├── Dnn/                 ← DNN's unattended install (Install.aspx), its template and output, the host password's hash; DnnLogFiles (reading DNN's logs)
     │   ├── Github/              ← GitHubDnnReleaseService (the release list), DnnPackageInstaller (download, check, extract), HttpConnectivityChecker
     │   ├── Data/                ← AppDatabase (dnnmanager.db, its tables and their steps), ValueRows (an object as key / value rows)
@@ -414,7 +414,7 @@ DnnManager.NET/
         ├── Pages/               ← one page per sidebar item, plus Settings and Troubleshoot (opened over the page); AboutInfo (Settings → About)
         │   └── Projects/        ← the Projects table's row, columns and right-click menu; a site's Details (ProjectView, ProjectDiagnostics, Inspector)
         ├── Assets/              ← dnn.ico - the exe and window icon (DNN logo mark)
-        ├── Controls/            ← StatusBar, IisStatus, TerminalPanel (Output / Logs / Terminal), PipelineView + PipelineLog (the Output tab), LogView, LogsView, PanelSearch, ToastView, InputDialog, MessageDialog, ExistingFolderOptions, PasswordInput, FieldError (a form's error as its field's help text, announced), DatabaseCheckList, HostPasswordDialog, the edit dialogs (RenameProjectDialog, BindingsDialog, AppPoolDialog, DatabaseConnectionDialog, DeploymentExportDialog, IisFeaturesDialog), WhatsNewDialog + MarkdownDocument (the release notes); DockerCard, DatabaseServerCard, IisCard (Settings' Test and set up cards)
+        ├── Controls/            ← StatusBar, IisStatus, TerminalPanel (Output / Logs / Terminal), PipelineView + PipelineLog (the Output tab), LogView, LogsView, PanelSearch, ToastView, InputDialog, MessageDialog, PasswordInput, FieldError (a form's error as its field's help text, announced), DatabaseCheckList, HostPasswordDialog, the edit dialogs (RenameProjectDialog, BindingsDialog, AppPoolDialog, DatabaseConnectionDialog, DeploymentExportDialog, IisFeaturesDialog), WhatsNewDialog + MarkdownDocument (the release notes); DockerCard, DatabaseServerCard, IisCard (Settings' Test and set up cards)
         ├── Terminal/            ← the terminal itself: screen buffer + VT parser, the view that draws it, the shell session
         ├── Themes/              ← LightTheme / DarkTheme colour palettes, Tokens (radii, heights, padding), Icons (every icon)
         │   └── Controls/        ← the reusable control styles, one dictionary per kind (see Control styles)
@@ -499,7 +499,6 @@ written inline anywhere else.
 | Databases: Test connection, create, the site's login, LocalDB files | [`Sql/DatabaseProvisioner.cs`](../src/DnnManager.Infrastructure/Sql/DatabaseProvisioner.cs), [`Sql/LocalDbFiles.cs`](../src/DnnManager.Infrastructure/Sql/LocalDbFiles.cs), [`Sql/ConnectionStrings.cs`](../src/DnnManager.Infrastructure/Sql/ConnectionStrings.cs), [`Abstractions/Databases.cs`](../src/DnnManager.Application/Abstractions/Databases.cs), [`Controls/DatabaseCheckList.xaml`](../src/DnnManager.Presentation/Controls/DatabaseCheckList.xaml.cs) |
 | Passwords in the Windows Credential Manager; how each project was installed | [`Settings/WindowsCredentialStore.cs`](../src/DnnManager.Infrastructure/Settings/WindowsCredentialStore.cs), [`Projects/ProjectRecords.cs`](../src/DnnManager.Infrastructure/Projects/ProjectRecords.cs) |
 | Tests | [`tests/DnnManager.IntegrationTests/`](../tests/DnnManager.IntegrationTests/) |
-| Host project (IIS / DB) | [`ExistingFolderPage`](../src/DnnManager.Presentation/Pages/ExistingFolderPage.xaml.cs) + [`UseCases/HostExistingProjectUseCase.cs`](../src/DnnManager.Application/UseCases/HostExistingProjectUseCase.cs) |
 | Shared IIS site / SQL container steps | [`UseCases/Provisioning.cs`](../src/DnnManager.Application/UseCases/Provisioning.cs) |
 | Clone a project | [`ProjectMenu`](../src/DnnManager.Presentation/Pages/Projects/ProjectMenu.cs) (**Clone…**) + [`UseCases/CloneProjectUseCase.cs`](../src/DnnManager.Application/UseCases/CloneProjectUseCase.cs) |
 | Upgrade DNN - one step of DNN's path at a time: backup, the step's files (upgrade package, or from 10.2 the install package as DNN's local upgrade), `Install.aspx?mode=upgrade`, restart (waiting for the worker process to end, then deleting DNN's lock), checks; the step's backup put back on failure | [`ProjectEdits.UpgradeDnn`](../src/DnnManager.Presentation/Pages/Projects/ProjectEdits.cs), [`Controls/UpgradeDnnDialog`](../src/DnnManager.Presentation/Controls/UpgradeDnnDialog.xaml.cs), [`UseCases/UpgradeDnnUseCase.cs`](../src/DnnManager.Application/UseCases/UpgradeDnnUseCase.cs), `DnnInstaller.UpgradeAsync` / `CheckVersionAsync`, `DnnPackageInstaller.ExtractUpgradeAsync` / `ExtractLocalUpgradeAsync`, `IisManager.StopSiteAndWait` |

@@ -180,6 +180,94 @@ public sealed class DnnUpgradePathTests
         Assert.AreEqual("SQL Server 2019", chain.Single().Requirements.Single(r => r.Kind == DnnRequirementKind.SqlServer).Text);
     }
 
+    // ─── The whole path edited in Settings ────────────────────────────────
+
+    private static DnnUpgradeStopSetting Off(string version) => new() { Version = version, Removed = true };
+
+    [TestMethod]
+    public void A_version_taken_off_the_path_is_skipped_and_the_step_says_so()
+    {
+        var chain = ChainWith("9.13.9", "10.3.3", Off("10.2.5"));
+        Assert.AreEqual("09.13.09 → 10.03.03", chain.Single().ToString());
+        var step = chain.Single();
+        StringAssert.Contains(step.Warnings[0], "10.02.05");
+        StringAssert.Contains(step.Warnings[0], "taken off the path");
+        // What is known about both steps it spans goes with it - DNN 10 drops Telerik - and it was never tested.
+        Assert.IsTrue(step.RemovesTelerik);
+        Assert.AreEqual(0, step.Tested.Count);
+        CollectionAssert.AreEquivalent(new[] { ".NET Framework 4.8", "SQL Server 2017" }, step.Requirements.Select(r => r.Text).ToArray());
+    }
+
+    [TestMethod]
+    public void Skipping_a_step_done_by_hand_keeps_it_done_by_hand()
+    {
+        var chain = ChainWith("5.6.8", "7.4.2", Off("6.2.8"));
+        Assert.AreEqual(DnnUpgradeMethod.Manual, chain.Single().Method);
+    }
+
+    [TestMethod]
+    public void A_changed_version_replaces_what_is_known_lower_too()
+    {
+        var lowered = new DnnUpgradeStopSetting { Version = "10.3.3", NetFrameworkRelease = 528040, SqlServerMajor = 13, ReplacesListed = true, Note = "Runs on 2016 here." };
+        var step = ChainWith("10.2.5", "10.3.3", lowered).Single();
+        Assert.AreEqual("SQL Server 2016", step.Requirements.Single(r => r.Kind == DnnRequirementKind.SqlServer).Text);
+        // Left as it was, the requirement keeps DNN Manager's own wording and source.
+        var known = DnnUpgradeKnowledge.Steps.Single(s => s.To == new Version(10, 3, 3)).Requirements.Single(r => r.Kind == DnnRequirementKind.NetFramework);
+        Assert.AreSame(known, step.Requirements.Single(r => r.Kind == DnnRequirementKind.NetFramework));
+        Assert.IsTrue(step.Warnings.Contains("Runs on 2016 here."));
+        Assert.IsTrue(step.Warnings.Any(w => w.StartsWith("You changed what DNN 10.03.03 needs", StringComparison.Ordinal)));
+        // Still the path's own step, with what was tested on it.
+        Assert.IsTrue(step.Tested.Count > 0);
+
+        // No minimum at all: nothing of the kind is checked.
+        lowered.SqlServerMajor = 0;
+        var none = ChainWith("10.2.5", "10.3.3", lowered).Single();
+        Assert.IsFalse(none.Requirements.Any(r => r.Kind == DnnRequirementKind.SqlServer));
+    }
+
+    [TestMethod]
+    public void A_change_of_the_newest_version_goes_with_a_target_past_it()
+    {
+        var lowered = new DnnUpgradeStopSetting { Version = "10.3.3", NetFrameworkRelease = 528040, SqlServerMajor = 13, ReplacesListed = true };
+        var past = ChainWith("10.3.3", "10.4.0", lowered).Single();
+        Assert.AreEqual("SQL Server 2016", past.Requirements.Single(r => r.Kind == DnnRequirementKind.SqlServer).Text);
+    }
+
+    [TestMethod]
+    public void The_path_as_settings_show_it_and_back()
+    {
+        Assert.AreEqual(0, DnnUpgradePath.EditsFor(DnnUpgradePath.PathWith(null)).Count, "DNN's own path needs no edits.");
+        var path = DnnUpgradePath.PathWith(null).Where(v => v.Version != new Version(10, 2, 5))
+            .Select(v => v.Version == new Version(10, 3, 3) ? v with { SqlServerMajor = 15 } : v)
+            .Append(new DnnPathVersion(new Version(10, 4, 2), 0, 16, "New."))
+            .ToList();
+        var edits = DnnUpgradePath.EditsFor(path);
+        CollectionAssert.AreEqual(new[] { "10.2.5 off", "10.3.3 replaces", "10.4.2 adds" },
+            edits.Select(e => $"{e.Version} {(e.Removed ? "off" : e.ReplacesListed ? "replaces" : "adds")}").ToArray());
+        CollectionAssert.AreEqual(path.OrderBy(v => v.Version).ToList(), DnnUpgradePath.PathWith(edits).ToList());
+        Assert.IsNull(SettingRules.UpgradeStopsProblem(edits));
+    }
+
+    [TestMethod]
+    public void A_version_added_before_DNN_Manager_listed_it_keeps_only_raising()
+    {
+        // Saved by an older DNN Manager: 10.3.3 added with nothing new - it must not take DNN 10's minimums away.
+        var before = new[] { Stop("10.3.3", note: "Ours.") };
+        var edits = DnnUpgradePath.EditsFor(DnnUpgradePath.PathWith(before), before);
+        Assert.AreSame(before[0], edits.Single());
+        Assert.IsFalse(edits.Single().ReplacesListed);
+    }
+
+    [TestMethod]
+    public void Taking_off_the_path_has_rules()
+    {
+        // The path's own old versions can be taken off and changed - they are done by hand anyway.
+        Assert.IsNull(SettingRules.UpgradeStopsProblem([Off("2.0.4"), new DnnUpgradeStopSetting { Version = "6.2.8", ReplacesListed = true, Note = "By hand." }]));
+        StringAssert.Contains(SettingRules.UpgradeStopsProblem(DnnUpgradePath.Versions.Select(v => Off(v.ToString()))), "at least one version");
+        Assert.IsNull(SettingRules.UpgradeStopsProblem([.. DnnUpgradePath.Versions.Select(v => Off(v.ToString())), Stop("11.0.0")]));
+        StringAssert.Contains(SettingRules.UpgradeStopsProblem([Off("10.2.5"), Stop("10.2.5")]), "twice");
+    }
+
     [TestMethod]
     [DataRow("10.4.2", 10, 4, 2)]
     [DataRow(" 10.04.02 ", 10, 4, 2)]

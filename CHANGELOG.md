@@ -2,6 +2,42 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## v1.8.5
+
+### Added
+
+- **Edit the whole DNN upgrade path, and export and import it.** **Settings →
+  DNN releases → Edit upgrade path…** now shows every version of the path as a
+  row you can change, not only the versions you added, in a window you can
+  resize, like the guide and What's new. Raise or lower what one
+  of DNN's own versions needs, give it a note, or take it off the path so
+  upgrades skip it. **Reset to DNN Manager's path** undoes it all. **Export…**
+  saves the path to a `.json` file and **Import…** fills the dialog from one,
+  to use the same path on another PC. Versions DNN Manager learns after the
+  file was made stay on the path. The upgrade plan warns on every step that
+  isn't DNN's own. The versions you added before keep working as they did. See
+  the [user guide](.docs/user-guide.md#edit-the-upgrade-path).
+
+### Changed
+
+- **The update shows how far its download is.** While **Update** downloads the
+  new release, a thin bar under the button fills up, and its tooltip gives the
+  percentage.
+- **Buttons have a quieter outline.** Every secondary button (Cancel, Close,
+  Import… and the like) and the group of bulk actions above the Projects table
+  now have the same subtle outline as the table, instead of the brighter one of
+  a text box. Text boxes, lists and check boxes keep theirs.
+
+### Removed
+
+- **Host project.** The page that set up website files already in the projects
+  folder is gone, with its sidebar entry, its command and **Ctrl+3**, and its
+  help and tour stops. A website comes in through **New project** - a new site,
+  or **An existing site** from its `.zip` and database backup - or **Clone…**.
+  A project's database connection is changed with **Change connection…** on its
+  Database tab, and a missing database is put back with **Restore backup**.
+  Projects set up with Host project before keep working as they did.
+
 ## v1.8.4
 
 ### Fixed
@@ -27,7 +63,7 @@ All notable changes to DnnManager.NET are documented here.
   **Upgrade DNN** then stops at it and checks those minimums, for it and every
   version after it, with no new DNN Manager needed. What DNN Manager knows stays:
   versions can only be added and minimums only raised. See the
-  [user guide](.docs/user-guide.md#when-dnn-lists-a-new-version).
+  [user guide](.docs/user-guide.md#edit-the-upgrade-path).
 
 ### Fixed
 

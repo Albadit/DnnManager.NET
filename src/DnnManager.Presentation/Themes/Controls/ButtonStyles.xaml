@@ -9,7 +9,8 @@
     <Style TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource CardBg}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource InputBorder}" />
+        <!-- The quiet edge of a panel (as the bulk actions' group), not an input's: its label says it's a button. -->
+        <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="14,6" />
         <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />

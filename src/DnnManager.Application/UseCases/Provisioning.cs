@@ -6,7 +6,7 @@ using Microsoft.Extensions.Options;
 namespace DnnManager.Application.UseCases;
 
 /// <summary>
-/// Creates a project's IIS website. Shared by setup, clone and hosting an existing folder so all three
+/// Creates a project's IIS website. Shared by setup, clone and import so all three
 /// bind, permission and start the site the same way.
 /// </summary>
 public sealed class IisSiteProvisioner(IOptions<AppOptions> opts, IIisManager iis, OperationUndo undo)
@@ -101,7 +101,7 @@ public sealed class IisSiteProvisioner(IOptions<AppOptions> opts, IIisManager ii
 
 /// <summary>
 /// The shared local SQL Server container every project's database lives in. Shared by setup, clone and
-/// hosting an existing folder. The container is never started from here - it must already be running.
+/// import. The container is never started from here - it must already be running.
 /// </summary>
 public sealed class LocalSqlContainer(IOptions<AppOptions> opts, ISqlServerService sql, ISqlConnectionTester tester,
     IBacpacService bacpac, IWebConfigService webConfig, SiteDatabases sites)

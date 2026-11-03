@@ -17,8 +17,8 @@ public sealed class ImportProjectRequest
 
 /// <summary>
 /// Creates a project from a zipped DNN site and its database backup: extracts the zip into a new project
-/// folder, then hosts it the way "Host project" does - the IIS website, plus the database restored from the
-/// backup.
+/// folder, then hosts it (<see cref="HostExistingProjectUseCase"/>) - the IIS website, plus the database restored from
+/// the backup.
 /// </summary>
 public sealed class ImportProjectUseCase(
     IProjectRepository projects,
@@ -47,8 +47,7 @@ public sealed class ImportProjectUseCase(
 
         var project = _projects.Build(req.ProjectName);
         if (Directory.Exists(project.ProjectDirectory))
-            return Result.Fail($"The folder {project.ProjectDirectory} already exists - choose another name, " +
-                               "or use 'Host project' for a folder that's already there.");
+            return Result.Fail($"The folder {project.ProjectDirectory} already exists - choose another name.");
         // Before the zip is extracted: an IIS site of this name serving another folder isn't replaced.
         if (_site.SiteNameTaken(req.ProjectName, project.ProjectDirectory) is { } taken) return Result.Fail(taken);
 

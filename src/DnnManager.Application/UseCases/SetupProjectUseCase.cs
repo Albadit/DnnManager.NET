@@ -104,10 +104,9 @@ public sealed class SetupProjectUseCase(
 
         try
         {
-            // A new project gets a folder of its own - an existing one is set up with Host project instead.
+            // A new project gets a folder of its own - one that is there is never set up over.
             if (Directory.Exists(siteDirectory))
-                return Result.Fail($"A project named '{req.ProjectName}' already exists ({siteDirectory}). " +
-                                   "Choose another name, or set it up on Host project.");
+                return Result.Fail($"A project named '{req.ProjectName}' already exists ({siteDirectory}). Choose another name.");
             // Nor does it take over an IIS site of that name serving another folder: making its site would replace that one.
             if (_site.SiteNameTaken(req.ProjectName, siteDirectory) is { } taken)
                 return Result.Fail(taken);

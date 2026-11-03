@@ -56,6 +56,8 @@ public sealed class AppUpdater : INotifyPropertyChanged
     public AppRelease? Latest { get; private set; }
     /// <summary>Why GitHub couldn't be asked, or why the update failed.</summary>
     public string? Problem { get; private set; }
+    /// <summary>How much of the release's file is downloaded, 0 to 1 - the bar under the Update button.</summary>
+    public double DownloadProgress { get; private set; }
 
     /// <summary>What an update replaces; null for a development build, which isn't updated but rebuilt.</summary>
     public UpdateTarget? Target => _target.Value;
@@ -146,9 +148,17 @@ public sealed class AppUpdater : INotifyPropertyChanged
                         ?? throw new AppUpdateException($"release {release.Tag} has no {(target.Kind == UpdateKind.Installer ? "Setup" : "portable exe")} for this PC");
             var folder = Path.Combine(WorkFolder, release.Version.ToString());
 
+            DownloadProgress = 0;
             Set(UpdateState.Downloading);
+            // Made here, so it reports on the UI thread; a whole percent at a time, not after every read.
+            var progress = new Progress<double>(p =>
+            {
+                if (Math.Floor(p * 100) <= Math.Floor(DownloadProgress * 100)) return;
+                DownloadProgress = p;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DownloadProgress)));
+            });
             // Off the UI thread: some thousand reads and a SHA-256 of the whole file.
-            var package = await Task.Run(() => _downloader.DownloadAsync(release, asset, folder, null, CancellationToken.None));
+            var package = await Task.Run(() => _downloader.DownloadAsync(release, asset, folder, progress, CancellationToken.None));
 
             Set(UpdateState.Installing);
             var helper = await Task.Run(() => CopyHelper(target, folder));

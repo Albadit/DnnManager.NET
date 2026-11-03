@@ -79,32 +79,54 @@ a last step past the path.
 To add a version DNN adds to its path, add a step at the end of
 `DnnUpgradeKnowledge.Steps`; the rest follows from it.
 
-### Versions added in Settings
+### The path edited in Settings
 
-The path shouldn't end with DNN Manager's last release, so a user can add
-versions in **Settings → DNN releases → Edit upgrade path…**
-([user guide](user-guide.md#when-dnn-lists-a-new-version)). They are kept in
-`projects.dnnUpgradeStops` and go to `Chain` as an argument. The knowledge base
-stays as it is: a static list nothing writes to.
+The path shouldn't end with DNN Manager's last release, and a user may know
+better for their sites, so the whole path can be edited in **Settings → DNN
+releases → Edit upgrade path…** ([user guide](user-guide.md#edit-the-upgrade-path)).
+The knowledge base stays as it is: a static list nothing writes to. What is
+saved is the edits of it, one `DnnUpgradeStopSetting` per version, in
+`projects.dnnUpgradeStops`, and they go to `Chain` as an argument:
 
-They can only add, which is what makes a mistyped one safe:
+| Edit | Saved as | What `Chain` does |
+|---|---|---|
+| A version added | `replacesListed: false` | A stop like a listed one. Its minimums only raise what is known, and hold from its version on. |
+| One of DNN's own changed | `replacesListed: true` | Its minimums replace the known ones of the step to it, lower ones too, and of a step that falls in it (a target between listed versions, or past the newest when it is the newest). One left as it was keeps its wording and source. |
+| One of DNN's own taken off | `removed: true` | Not a stop. The step across it carries what is known about every step it spans (the highest minimum of each kind, all warnings, `RemovesTelerik`), is `Manual` if any of them is, and says which version it skips. |
 
-- **A listed stop can't be removed**, because the added versions are merged into
-  the path, so one can't take a listed version out of a chain.
-- **A minimum only goes up, and holds from its version on.** For each kind the
-  highest minimum of the added versions up to the step's target replaces a
-  lower one, and one below what is known changes nothing.
-- **A step to an added version is an unknown step.** It carries what is known
-  about the path's newest step (or the step it falls in), says the user added it,
-  and has no `Tested` entries. Its note goes first among its warnings.
+The dialog shows the path as `DnnUpgradePath.PathWith(edits)` and saves it as
+`DnnUpgradePath.EditsFor(path, before)`. A version left as DNN Manager knows it
+has no edit. One left as it was keeps its old edit, so a version added before
+a later DNN Manager listed it still only raises what that one knows: a
+`replacesListed: false` edit on a listed version never lowers it. This is also
+why the edits, and not the whole path, are saved: a later DNN Manager's new
+versions come in.
+
+- **A step that isn't DNN's own says so.** A step to an added version, one that
+  skips a version taken off and one whose minimums were changed each carry a
+  warning first among its warnings, then the note. Only the path's own steps
+  have `Tested` entries.
 - **A version that isn't a release** stops the upgrade before anything changes:
   every step's release is looked up first, and the error names Settings.
 
 The rules are in `SettingRules.UpgradeStopsProblem`, for the dialog, the saved
-settings and `DNNMANAGER_*` alike. A version DNN Manager lists itself is allowed
-on purpose: a later DNN Manager may list one a user added, and a saved value a
-rule refuses is reset at the next start. The step's method can't be set:
-`MethodFor` decides it, so a DNN that needs a new way of upgrading needs code.
+settings, an imported file and `DNNMANAGER_*` alike: three numbers, each version
+once, 7.4.2 or newer unless it is one of DNN's own, a note of one line, and at
+least one version left on the path. A version DNN Manager lists itself is
+allowed as an added one on purpose: a later DNN Manager may list one a user
+added, and a saved value a rule refuses is reset at the next start. The step's
+method can't be set: `MethodFor` decides it, so a DNN that needs a new way of
+upgrading needs code.
+
+**Export and import** (`UpgradePathFile`) write and read the whole path as JSON:
+`kind` (`dnnmanager.upgradePath`), `knownUpTo` (the newest version the DNN
+Manager that wrote it lists) and `path`, one entry per version with `version`,
+`netFrameworkRelease`, `sqlServerMajor` and `note`. Comments and trailing commas
+are allowed, as the file can be edited by hand. A file over 1 MB, or with more
+than 1000 versions, isn't read, and every value goes through the rules above. On
+import, the versions this DNN Manager lists after `knownUpTo` are added, since
+the file's author never saw them. An import only fills the dialog, and nothing
+is saved until **Save**.
 
 ### How a step's files go in
 

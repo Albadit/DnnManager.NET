@@ -63,13 +63,12 @@ public static class Onboarding
 
     /// <summary>
     /// The help for a page (the ? button, F1): <c>Projects</c>, <c>Details</c> (a project's overview), <c>Setup</c>,
-    /// <c>Existing</c>, <c>Settings</c> or <c>Troubleshoot</c> - the Projects page's for anything else.
+    /// <c>Settings</c> or <c>Troubleshoot</c> - the Projects page's for anything else.
     /// </summary>
     public static IReadOnlyList<GuideStep> HelpFor(string? page) => page switch
     {
         "Details" => [Details],
         "Setup" => [NewProject],
-        "Existing" => [HostProject],
         "Settings" => [Settings],
         "Troubleshoot" => [Troubleshooting],
         _ => [Websites, Actions]
@@ -86,7 +85,7 @@ public static class Onboarding
         [
             new("With DNN Manager you can", [
                 new("GlyphAdd", "Create a website", "Make a new DNN website in a few clicks. DNN Manager downloads and installs everything for you."),
-                new("GlyphFolderOpen", "Bring in an existing website", "Put a copy of a website on this computer - from a backup, or from files you already have."),
+                new("GlyphFolderOpen", "Bring in an existing website", "Put a copy of a website on this computer from a backup of its files and its database."),
                 new("GlyphPlay", "Start and stop websites", "Turn websites on and off, and see at a glance which ones are running."),
                 new("GlyphCopy", "Back up, copy and upgrade", "Make a backup, put a backup back, copy a website, or move it to a newer DNN version."),
                 new("GlyphInfo", "Find out what is wrong", "When a website doesn't work, DNN Manager shows what happened and where to look.")
@@ -139,8 +138,6 @@ public static class Onboarding
             new("The pages on the left", [
                 new("GlyphList", "Projects", "Every website on this computer. See which ones are running, and do things with them."),
                 new("GlyphAdd", "New project", "Create a new website - or make one from a backup (a .zip of its files with its database file)."),
-                new("GlyphFolderOpen", "Host project",
-                    "For website files that are already on this computer, for example copied from a colleague. DNN Manager sets up what is missing so the website works."),
                 new("GlyphSettings", "The gear", "A menu with **Settings**, **Keyboard Shortcuts**, **Themes**, **Customize Layout**, **Troubleshoot** and **Check for Updates**.")
             ]),
             new("Along the top", [
@@ -360,26 +357,6 @@ public static class Onboarding
             ])
         ],
         Tip: "A new site needs an internet connection to download DNN.");
-
-    private static readonly GuideStep HostProject = new(
-        "Host project",
-        "For a DNN website whose files are already in the projects folder - copied by hand, from git, or left from earlier. " +
-        "DNN Manager only adds what is missing; the files themselves are never overwritten.",
-        [
-            new("Step by step", [
-                new("1", "Pick a folder",
-                    "Every folder in the projects folder is listed. **IIS: Live** means it already has a website, **no IIS site** that it has none. **DB** says whether its database is there and answers."),
-                new("2", "Choose what to set up", "**IIS website + database** (most common), **database only**, or **IIS website only**."),
-                new("3", "Backup to restore", "Optional: a database backup (.bacpac or .bak) to put in. If the database already exists, DNN Manager asks before replacing it.",
-                    GuideRisk.Careful),
-                new("4", "Set up", "Creates what is missing. The panel at the bottom shows each step.", GuideRisk.Safe)
-            ]),
-            new("Good to know", [
-                new("GlyphRefresh", "Refresh", "Looks at the folders again - for a folder you just copied in."),
-                new("GlyphWarning", "https:// rules",
-                    "A website that sends every visitor to https:// wouldn't open on this computer, so those rules are switched off. Switch them back on before it goes live.")
-            ])
-        ]);
 
     private static readonly GuideStep Settings = new(
         "Settings",

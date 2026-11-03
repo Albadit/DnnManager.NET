@@ -185,13 +185,22 @@ public partial class SettingsPage : UserControl
     private void ShowUpgradePath()
     {
         var known = DnnUpgradeStep.Name(DnnUpgradePath.Versions[^1]);
-        var added = _options.DnnUpgradeStops.Select(s => SettingRules.UpgradeStopVersion(s.Version)).OfType<Version>().Select(DnnUpgradeStep.Name).ToList();
-        UpgradePathHint.Text = added.Count == 0
-            ? $"Upgrade DNN goes through DNN's own path, known up to DNN {known}. Add a version when DNN lists a new one."
-            : $"Upgrade DNN goes through DNN's own path, known up to DNN {known}, and the versions you added: {string.Join(", ", added)}.";
+        var edits = _options.DnnUpgradeStops.Select(s => (Stop: s, Version: SettingRules.UpgradeStopVersion(s.Version))).Where(e => e.Version is not null).ToList();
+        string? Part(string what, Func<DnnUpgradeStopSetting, Version, bool> which) =>
+            edits.Where(e => which(e.Stop, e.Version!)).Select(e => DnnUpgradeStep.Name(e.Version!)).ToList() is { Count: > 0 } names
+                ? $"{what} {string.Join(", ", names)}" : null;
+        var parts = new[]
+        {
+            Part("added", (s, v) => !s.Removed && !DnnUpgradePath.Versions.Contains(v)),
+            Part("changed", (s, v) => !s.Removed && DnnUpgradePath.Versions.Contains(v)),
+            Part("taken off", (s, _) => s.Removed)
+        }.OfType<string>().ToList();
+        UpgradePathHint.Text = parts.Count == 0
+            ? $"Upgrade DNN goes through DNN's own path, known up to DNN {known}. Edit it when DNN lists a new version, or export it to use on another PC."
+            : $"Upgrade DNN goes through DNN's path, known up to DNN {known}, with your changes: {string.Join("; ", parts)}.";
     }
 
-    /// <summary>Adds versions to DNN's upgrade path (<see cref="DnnUpgradePathDialog"/>) - saved and used at once, like the IIS features.</summary>
+    /// <summary>Edits DNN's upgrade path (<see cref="DnnUpgradePathDialog"/>) - saved and used at once, like the IIS features.</summary>
     private void EditUpgradePath_Click(object sender, RoutedEventArgs e)
     {
         if (DnnUpgradePathDialog.Show(_options.DnnUpgradeStops) is not { } stops) return;
@@ -206,7 +215,7 @@ public partial class SettingsPage : UserControl
         }
         _options.DnnUpgradeStops = stops;
         ShowUpgradePath();
-        Toast.Show($"Upgrade path saved: {stops.Count} version{(stops.Count == 1 ? "" : "s")} added.", ToastKind.Success);
+        Toast.Show(stops.Count == 0 ? "Upgrade path saved: DNN's own, as DNN Manager knows it." : "Upgrade path saved.", ToastKind.Success);
     }
 
     /// <summary>A button on Help was pressed - the main window runs it: <c>guide</c>, <c>tour</c>, <c>whatsNew</c> or <c>userGuide</c>.</summary>

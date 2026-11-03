@@ -78,7 +78,6 @@ public partial class MainWindow
         {
             ProjectsPage { DetailsOpen: true } => "Details",
             SetupPage => "Setup",
-            ExistingFolderPage => "Existing",
             _ => "Projects"
         }
     };
@@ -87,7 +86,6 @@ public partial class MainWindow
     {
         "Details" => "Project details",
         "Setup" => "New project",
-        "Existing" => "Host project",
         _ => page
     };
 
@@ -166,7 +164,7 @@ public partial class MainWindow
 
         var stops = new List<TourStop>();
         if (_sidebarVisible)
-            stops.Add(new("The pages", "**Projects** lists your websites. **New project** creates one. **Host project** sets up website files that are already on this computer.",
+            stops.Add(new("The pages", "**Projects** lists your websites. **New project** creates one - new, or from a backup.",
                 () => SidebarTop));
         stops.Add(new("Your websites",
             "One row per website. The dot shows how it is doing: **green** is running, an **empty circle** is stopped, **orange** is busy. " +
