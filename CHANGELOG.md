@@ -2,6 +2,18 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## v1.8.7
+
+### Fixed
+
+- **Choose the host account in Change host password.** On a site with more
+  than one host account, the **Host account** box stayed empty: picking an
+  account from the list didn't show it. It is a plain list now - the site's host
+  accounts, the one you pick shown in the box.
+- **A select's list marks what you'd expect.** The chosen item stays marked as
+  chosen, and the hover follows the pointer - it no longer stays on the last
+  item the pointer passed. The arrow keys still show where they are.
+
 ## v1.8.6
 
 ### Added

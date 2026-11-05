@@ -33,7 +33,7 @@ public partial class HostPasswordDialog : Window
             Owner = System.Windows.Application.Current.MainWindow is { IsVisible: true } w ? w : null
         };
         if (dialog.Owner is null) dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        return dialog.ShowDialog() == true ? (dialog.UserBox.Text.Trim(), dialog.NewPassword.Password) : null;
+        return dialog.ShowDialog() == true ? ((string)dialog.UserBox.SelectedItem, dialog.NewPassword.Password) : null;
     }
 
     private void Generate_Click(object sender, RoutedEventArgs e)
@@ -56,9 +56,9 @@ public partial class HostPasswordDialog : Window
 
     private void Ok_Click(object sender, RoutedEventArgs e)
     {
-        if (UserBox.Text.Trim().Length == 0)
+        if (UserBox.SelectedItem is null)
         {
-            Problem.Text = "Choose or type the host account.";
+            Problem.Text = UserBox.HasItems ? "Choose the host account." : "The site's database has no host account to change.";
             Problem.Visibility = Visibility.Visible;
             return;
         }
