@@ -318,8 +318,14 @@ skipped integration test fails the run too.
 What makes a build the same each time:
 
 - **The .NET SDK** is exactly the one [`global.json`](../global.json) names
-  (`10.0.401`, `rollForward: disable` - no newer patch) - both workflows install
-  it from there, and a local build needs it too.
+  (`10.0.403`, `rollForward: disable` - no newer patch) - both workflows install
+  it from there, and a local build needs it too. A .NET security patch makes the
+  Native AOT compiler the launcher restores (`Microsoft.DotNet.ILCompiler`, the
+  SDK's own version) a known vulnerability, and every restore fails with
+  *NU1903* until the SDK moves on: install the newest SDK, put its version in
+  `global.json`, and update the lock files (`dotnet restore
+  tests/DnnManager.IntegrationTests --force-evaluate` and `dotnet restore
+  src/DnnManager.Launcher --force-evaluate`).
 - **The runner** is a pinned image (`windows-2025`), not `windows-latest`: moving to
   a newer image is a change in review.
 - **The packages** are in `packages.lock.json` (the app's and the tests') - a

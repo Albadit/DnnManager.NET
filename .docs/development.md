@@ -18,7 +18,7 @@ conventions to follow. New here? Start with the [README](../README.md), then
 ## Prerequisites
 
 - Windows 10/11 or Windows Server (IIS available)
-- **.NET 10 SDK `10.0.401`** to build - exactly that one: [`global.json`](../global.json)
+- **.NET 10 SDK `10.0.403`** to build - exactly that one: [`global.json`](../global.json)
   doesn't roll forward to a newer patch - <https://dotnet.microsoft.com/download/dotnet/10.0>
 - For the installer only: Visual Studio's **C++ build tools** (*Desktop
   development with C++*) - the launcher is compiled with Native AOT; without

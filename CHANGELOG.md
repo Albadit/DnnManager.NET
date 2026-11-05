@@ -23,6 +23,13 @@ All notable changes to DnnManager.NET are documented here.
   database authentication* for it and imports again. A failed import also says
   SQL Server's own error now, not the last lines of the script that failed.
 
+### Security
+
+- **Built with .NET SDK 10.0.403**: DNN Manager runs on .NET 10.0.14, which
+  fixes a high-severity issue in .NET's Brotli decoder
+  ([GHSA-p3jp-9v83-76w9](https://github.com/advisories/GHSA-p3jp-9v83-76w9)).
+  The release check refused 10.0.12's Native AOT compiler for it.
+
 ## v1.8.5
 
 ### Added
