@@ -64,7 +64,14 @@ public sealed class UntouchedIis : IIisManager
         return Result.Ok();
     }
 
-    public Result CreateSite(string siteName, string physicalPath, string hostname, int port) => Change($"CreateSite {siteName}");
+    /// <summary>Each site created, as "site host:port".</summary>
+    public List<string> Bindings { get; } = [];
+
+    public Result CreateSite(string siteName, string physicalPath, string hostname, int port)
+    {
+        lock (Bindings) Bindings.Add($"{siteName} {hostname}:{port}");
+        return Change($"CreateSite {siteName}");
+    }
     public Result RemoveSite(string siteName) => Change($"RemoveSite {siteName}");
     public Result StartSite(string siteName) => Change($"StartSite {siteName}");
     public Result StopSite(string siteName) => Change($"StopSite {siteName}");

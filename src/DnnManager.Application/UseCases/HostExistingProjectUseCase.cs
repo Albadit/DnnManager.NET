@@ -28,6 +28,12 @@ public sealed class HostExistingProjectRequest
     /// project - and web.config is always pointed at it, whatever database the copy's web.config names.
     /// </summary>
     public bool OwnDatabase { get; init; }
+
+    /// <summary>The host name the site answers on; null for <c>{project}.{hostname suffix}</c>.</summary>
+    public string? HostName { get; init; }
+
+    /// <summary>The port the site answers on; null for the settings' site port.</summary>
+    public int? Port { get; init; }
 }
 
 /// <summary>
@@ -83,6 +89,16 @@ public sealed class HostExistingProjectUseCase(
             if (req.SetupIis && _site.SiteNameTaken(req.ProjectName, project.ProjectDirectory) is { } taken)
                 return Result.Fail(taken);
 
+            // The address the site answers on - the one asked for, or {project}.{suffix} on the settings' port.
+            var hostName = string.IsNullOrWhiteSpace(req.HostName) ? _opts.HostnameFor(req.ProjectName) : req.HostName.Trim();
+            var port = req.Port ?? _opts.SitePort;
+            var alias = DnnSiteAddress.AliasFor(hostName, port);
+            // Before anything is changed: a second site with the same address wouldn't start. New project says so as it
+            // is typed; this is for what changed since.
+            if (req.SetupIis && _iis.IsAvailable() &&
+                IisHostNames.SiteUsing(_iis.GetSiteRuntimes() ?? new Dictionary<string, IisSiteRuntime>(), hostName, port, project.Name) is { } sameAddress)
+                return Result.Fail($"http://{alias} is already the address of the IIS site '{sameAddress}' - choose another host name or port.");
+
             var webConfigPath = Path.Combine(project.ProjectDirectory, "web.config");
             var hasWebConfig = File.Exists(webConfigPath);
             reporter.Info($"Using the existing files in {project.ProjectDirectory} - nothing is downloaded or overwritten.");
@@ -101,7 +117,7 @@ public sealed class HostExistingProjectUseCase(
                 {
                     if (_iis.GetSiteStates().ContainsKey(req.ProjectName))
                         reporter.Info($"IIS site '{req.ProjectName}' already exists - recreating it.");
-                    siteCreated = _site.TryCreateSite(project, reporter);
+                    siteCreated = _site.TryCreateSite(project, hostName, port, reporter);
                     disabledRules = DisableHttpsRedirects(webConfigPath, reporter);
                 }
                 else
@@ -113,7 +129,7 @@ public sealed class HostExistingProjectUseCase(
             if (req.SetupDatabase)
             {
                 reporter.Step($"Step {++step}: Database");
-                var db = await SetupDatabaseAsync(project, webConfigPath, hasWebConfig, req.BackupFilePath, req.OwnDatabase, reporter, ct);
+                var db = await SetupDatabaseAsync(project, webConfigPath, hasWebConfig, req.BackupFilePath, req.OwnDatabase, alias, reporter, ct);
                 if (!db.Success)
                 {
                     // Alongside a website the database is a best-effort extra - unless its data was asked for (a backup to
@@ -133,7 +149,7 @@ public sealed class HostExistingProjectUseCase(
             if (!siteCreated)
                 return Result.Fail("The IIS website could not be created.");
 
-            var url = _opts.SiteUrlFor(req.ProjectName);
+            var url = $"http://{alias}";
             reporter.Step("Verify");
             var http = await _http.CheckAsync(url, 15, ct);
             if (http.Success)
@@ -202,7 +218,7 @@ public sealed class HostExistingProjectUseCase(
     // failed web.config update is reported but not a failure: the database itself is ready and its
     // connection details are shown.
     private async Task<Result> SetupDatabaseAsync(DnnProject project, string webConfigPath, bool hasWebConfig,
-        string? backupFile, bool ownDatabase, IProgressReporter reporter, CancellationToken ct)
+        string? backupFile, bool ownDatabase, string siteAlias, IProgressReporter reporter, CancellationToken ct)
     {
         if (backupFile is not null)
         {
@@ -267,7 +283,7 @@ public sealed class HostExistingProjectUseCase(
                 // hostname DNN can't match the request and the site fails to load. Not fatal - it can be
                 // added by hand - but the site won't answer at its local address until it is.
                 // The address the site is bound to - with its port when that isn't 80, or DNN doesn't match the request.
-                var hostname = DnnSiteAddress.AliasFor(_opts.HostnameFor(project.Name), _opts.SitePort);
+                var hostname = siteAlias;
                 var alias = await _sql.RemapPortalAliasesAsync(incoming.DatabaseName, _opts.HostnameSuffix, hostname, ct);
                 if (alias.Success)
                     reporter.Success($"PortalAlias set to {hostname}.");

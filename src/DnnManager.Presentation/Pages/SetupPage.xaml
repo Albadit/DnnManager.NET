@@ -19,6 +19,29 @@
                 </StackPanel>
             </Border>
 
+            <!-- Right under the name it follows - for a new site and an imported one alike. -->
+            <Border x:Name="IisCard" Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource CardTitle}" Text="IIS" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="120" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Host name" Margin="0,0,0,4" />
+                            <TextBox AutomationProperties.Name="Host name" x:Name="HostNameBox" TextChanged="HostName_TextChanged" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Port" Margin="0,0,0,4" />
+                            <TextBox AutomationProperties.Name="Port" x:Name="PortBox" TextChanged="Field_Changed" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock x:Name="IisHint" Style="{StaticResource Hint}" />
+                </StackPanel>
+            </Border>
+
             <Border x:Name="StartCard" Style="{StaticResource Card}">
                 <StackPanel>
                     <TextBlock Style="{StaticResource CardTitle}" Text="Start from" />
@@ -83,28 +106,6 @@
                     </Grid>
                     <TextBlock x:Name="VersionHint" Style="{StaticResource Hint}"
                                Text="The repository's DNN releases, highest version first - the latest is selected." />
-                </StackPanel>
-            </Border>
-
-            <Border x:Name="IisCard" Style="{StaticResource Card}">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource CardTitle}" Text="IIS" />
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="12" />
-                            <ColumnDefinition Width="120" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource FieldLabel}" Text="Host name" Margin="0,0,0,4" />
-                            <TextBox AutomationProperties.Name="Host name" x:Name="HostNameBox" TextChanged="HostName_TextChanged" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Style="{StaticResource FieldLabel}" Text="Port" Margin="0,0,0,4" />
-                            <TextBox AutomationProperties.Name="Port" x:Name="PortBox" TextChanged="Field_Changed" />
-                        </StackPanel>
-                    </Grid>
-                    <TextBlock x:Name="IisHint" Style="{StaticResource Hint}" />
                 </StackPanel>
             </Border>
 

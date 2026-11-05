@@ -629,18 +629,18 @@ public partial class SetupPage : UserControl, IRefreshable
         ImportError.Text = problem is not null && started ? problem : "";
         ImportError.Visibility = ImportError.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 
-        // An imported site brings its own installed DNN and goes onto the local container, as before.
+        // An imported site brings its own installed DNN and goes onto the local container, as before - its address is
+        // chosen like a new site's.
         var fresh = !importing;
-        PackageCard.Visibility = IisCard.Visibility = InstallCard.Visibility =
-            fresh ? Visibility.Visible : Visibility.Collapsed;
+        PackageCard.Visibility = InstallCard.Visibility = fresh ? Visibility.Visible : Visibility.Collapsed;
         AccountCard.Visibility = fresh && Automatic ? Visibility.Visible : Visibility.Collapsed;
 
-        var iisProblem = fresh ? IisProblem() : null;
+        var iisProblem = IisProblem();
         var port = ChosenPort;
         // An empty host name isn't an error yet - it follows the project's name, and the disabled button says enough.
         // A bad port is shown at once.
         var shownIisProblem = ChosenHostName.Length > 0 ? iisProblem
-            : fresh && port is null ? "The port must be a number between 1 and 65535." : null;
+            : port is null ? "The port must be a number between 1 and 65535." : null;
         IisHint.Text = shownIisProblem ?? $"The IIS website and its app pool are named '{(name.Length > 0 ? name : "<project>")}'; the site answers at " +
                        $"http://{DnnSiteAddress.AliasFor(ChosenHostName.Length > 0 ? ChosenHostName : "<host>", port ?? 80)} - " +
                        "DNN Manager adds the host name to this PC's hosts file, so it opens without internet too." +
@@ -667,15 +667,15 @@ public partial class SetupPage : UserControl, IRefreshable
 
         RunButton.Content = importing ? "Import project" : "Create project";
         var versionReady = SourceCombo.SelectedItem is SourceOption && VersionCombo.SelectedItem is VersionOption { Ready: true };
-        RunButton.IsEnabled = valid && (importing ? problem is null
-            : versionReady && iisProblem is null && databaseProblem is null && DatabaseFree && accountProblems.Count == 0);
+        RunButton.IsEnabled = valid && iisProblem is null && (importing ? problem is null
+            : versionReady && databaseProblem is null && DatabaseFree && accountProblems.Count == 0);
 
         // What is still missing, next to the button - in the order of the cards above.
         var needed = new List<string>();
         if (!valid) needed.Add("a project name");
+        if (iisProblem is not null) needed.Add("a host name and port");
         if (importing && problem is not null) needed.Add("the site's .zip and its database backup");
         if (!importing && !versionReady) needed.Add("a DNN version");
-        if (!importing && iisProblem is not null) needed.Add("a host name and port");
         if (!importing && (databaseProblem is not null || !DatabaseFree)) needed.Add("a database");
         if (!importing && accountProblems.Count > 0) needed.Add("the host account");
         StillNeeded.Text = RunButton.IsEnabled || needed.Count == 0 ? "" : "Still needed: " + string.Join(", ", needed) + ".";
@@ -688,17 +688,20 @@ public partial class SetupPage : UserControl, IRefreshable
 
         if (Importing)
         {
-            if (ImportProblem() is not null) return;
+            if (ImportProblem() is not null || IisProblem() is not null) return;
             var import = new ImportProjectRequest
             {
                 ProjectName = name,
                 ZipPath = ZipBox.Text.Trim(),
-                BackupFilePath = BackupBox.Text.Trim()
+                BackupFilePath = BackupBox.Text.Trim(),
+                HostName = ChosenHostName,
+                Port = ChosenPort
             };
             if (await _runner.RunAsync($"Import '{name}'",
                     (sp, reporter, ct) => sp.GetRequiredService<ImportProjectUseCase>().ExecuteAsync(import, reporter, ct)))
             {
-                Toast.Show($"'{name}' is imported - it is on the Projects page.", ToastKind.Success);
+                var importedUrl = $"http://{DnnSiteAddress.AliasFor(import.HostName!, import.Port ?? 80)}";
+                Toast.Show($"'{name}' is imported - it is on the Projects page.", ToastKind.Success, "Open site", () => Shell.Open(importedUrl));
                 Created();
             }
             return;

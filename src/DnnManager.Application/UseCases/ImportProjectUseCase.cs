@@ -13,6 +13,12 @@ public sealed class ImportProjectRequest
 
     /// <summary>The site's database: a <c>.bacpac</c> (or <c>.bak</c>) restored into the project's database.</summary>
     public required string BackupFilePath { get; init; }
+
+    /// <summary>The host name the site answers on; null for <c>{project}.{hostname suffix}</c>.</summary>
+    public string? HostName { get; init; }
+
+    /// <summary>The port the site answers on; null for the settings' site port.</summary>
+    public int? Port { get; init; }
 }
 
 /// <summary>
@@ -86,6 +92,8 @@ public sealed class ImportProjectUseCase(
             SetupIis = true,
             SetupDatabase = true,
             BackupFilePath = req.BackupFilePath,
+            HostName = req.HostName,
+            Port = req.Port,
             // The zip's web.config names the database of the site it was exported from - never this project's.
             OwnDatabase = true
         }, reporter, ct);

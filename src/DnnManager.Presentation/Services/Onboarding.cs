@@ -342,10 +342,10 @@ public static class Onboarding
         [
             new("The form", [
                 new("1", "Project name", "Checked as you type. It becomes the name of the website's folder and part of its address."),
-                new("2", "Start from",
+                new("2", "Host name and Port", "The website's address, for example mysite.dnndev.me. The suggestion is fine."),
+                new("3", "Start from",
                     "**A new site**: DNN Manager downloads DNN and installs it. **An existing site**: a .zip of the website's files with its database backup (.bacpac or .bak)."),
-                new("3", "Repository and Version", "Where DNN comes from, and which version. The newest is already chosen - keep it if you're not sure."),
-                new("4", "Host name and Port", "The website's address, for example mysite.dnndev.me. The suggestion is fine."),
+                new("4", "Repository and Version", "Where DNN comes from, and which version. The newest is already chosen - keep it if you're not sure."),
                 new("5", "DNN installation",
                     "**Automatic setup** (recommended): the website is ready on your first visit. **Manual**: DNN asks you to fill in its own setup pages."),
                 new("6", "DNN account and website",

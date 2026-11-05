@@ -2,6 +2,27 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## v1.8.6
+
+### Added
+
+- **Choose the address of an imported site.** **New project → An existing
+  site** now shows the **IIS** card too - right under **Project**, for a new
+  site as well: the host name and port the site
+  answers on, `<name>.dnndev.me` on the settings' port unless you change them -
+  checked as you type, like a new site's. DNN's site alias follows it, and the
+  toast at the end has **Open site**. See the
+  [user guide](.docs/user-guide.md#import-a-site-zip).
+
+### Fixed
+
+- **A `.bacpac` of a contained database imports.** A database with users that
+  have a password of their own - an Azure SQL database often has one - stopped
+  the import with *BACPAC import failed: CONTAINMENT = PARTIAL | WITH ROLLBACK
+  IMMEDIATE; | END*. DNN Manager now switches on SQL Server's *contained
+  database authentication* for it and imports again. A failed import also says
+  SQL Server's own error now, not the last lines of the script that failed.
+
 ## v1.8.5
 
 ### Added

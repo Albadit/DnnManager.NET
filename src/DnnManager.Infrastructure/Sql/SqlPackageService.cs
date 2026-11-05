@@ -2,6 +2,7 @@ using DnnManager.Application.Abstractions;
 using DnnManager.Domain;
 using DnnManager.Infrastructure.Files;
 using DnnManager.Infrastructure.Processes;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 
 namespace DnnManager.Infrastructure.Sql;
@@ -149,14 +150,83 @@ public sealed class SqlPackageService(ProcessRunner proc, ILogger<SqlPackageServ
         reporter.Info($"Importing BACPAC into [{databaseName}]");
         reporter.Info("This can take several minutes…");
         var r = await _proc.RunAsync(exe, args, ct, SqlPackageEnv);
+
+        // A partially contained database - one with users that have a password of their own, as an Azure SQL database
+        // often has - can only be created on a server with 'contained database authentication' on, and SQL Server
+        // (the container too) has it off. SqlPackage then stops at ALTER DATABASE … SET CONTAINMENT = PARTIAL, before
+        // any data: switched on, the empty database it left dropped, and the import run once more.
+        if (!r.Success && NeedsContainedAuthentication(r.StdErr + r.StdOut))
+        {
+            reporter.Info($"The database has users with a password of their own (a contained database) - switching on " +
+                          $"'contained database authentication' on {targetServer}, which SQL Server needs for it");
+            var on = await EnableContainedAuthenticationAsync(targetServer, saUser, saPassword, databaseName, ct);
+            if (on.Success)
+                r = await _proc.RunAsync(exe, args, ct, SqlPackageEnv);
+            else
+                _log.LogWarning("Could not switch on contained database authentication: {Err}", on.Error);
+        }
+
         if (!r.Success)
         {
             var (err, outp) = (Hide(r.StdErr, saPassword), Hide(r.StdOut, saPassword));
             _log.LogError("SqlPackage import failed: {Err}\n{Out}", err, outp);
-            return Result.Fail($"BACPAC import failed: {Tail(err, outp)}");
+            return Result.Fail($"BACPAC import failed: {ImportError(err, outp)}");
         }
         reporter.Success("BACPAC imported.");
         return Result.Ok();
+    }
+
+    /// <summary>SQL Server's Msg 12824: the database is (partially) contained and the server has contained database authentication off.</summary>
+    internal static bool NeedsContainedAuthentication(string output) =>
+        output.Contains("Msg 12824", StringComparison.Ordinal) ||
+        output.Contains("'contained database authentication' must be set to 1", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Switches on 'contained database authentication' on <paramref name="server"/> and drops the empty
+    /// <paramref name="database"/> the failed import left - only when it has no table: SqlPackage imports into a new or
+    /// empty database, and one with tables in it is never this method's to drop.
+    /// </summary>
+    private static async Task<Result> EnableContainedAuthenticationAsync(string server, string user, string password,
+        string database, CancellationToken ct)
+    {
+        try
+        {
+            await using var conn = new SqlConnection(ConnectionStrings.For(server, "master", user, password, 30).ConnectionString);
+            await conn.OpenAsync(ct);
+            await using (var on = new SqlCommand(
+                "EXEC sp_configure 'contained database authentication', 1; RECONFIGURE;", conn))
+                await on.ExecuteNonQueryAsync(ct);
+
+            // The database name goes in as a parameter - QUOTENAME builds the statement on the server.
+            await using var drop = new SqlCommand(
+                "IF DB_ID(@db) IS NOT NULL BEGIN " +
+                "  DECLARE @tables int; DECLARE @count nvarchar(max) = N'SELECT @n = COUNT(*) FROM ' + QUOTENAME(@db) + N'.sys.tables'; " +
+                "  EXEC sp_executesql @count, N'@n int OUTPUT', @n = @tables OUTPUT; " +
+                "  IF @tables = 0 BEGIN DECLARE @sql nvarchar(max) = N'DROP DATABASE ' + QUOTENAME(@db); EXEC (@sql); END " +
+                "END", conn);
+            drop.Parameters.AddWithValue("@db", database);
+            await drop.ExecuteNonQueryAsync(ct);
+            return Result.Ok();
+        }
+        catch (Exception ex) when (ex is SqlException or InvalidOperationException)
+        {
+            return Result.Fail(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// What went wrong in an import: SQL Server's own message (the "Msg …" line) when there is one - the last lines of
+    /// SqlPackage's output are the script it ran, not why it failed.
+    /// </summary>
+    internal static string ImportError(string err, string outp)
+    {
+        var text = string.IsNullOrWhiteSpace(err) ? outp : err;
+        var msg = text.Split('\n').Select(l => l.Trim())
+            .FirstOrDefault(l => l.Contains("Msg ", StringComparison.Ordinal) && l.Contains("Level ", StringComparison.Ordinal));
+        if (msg is null) return Tail(err, outp);
+        // "Error SQL72014: Core Microsoft SqlClient Data Provider: Msg 12824, Level 16, State 1, Line 5 The sp_configure…"
+        var at = msg.IndexOf("Msg ", StringComparison.Ordinal);
+        return msg[at..];
     }
 
     /// <summary>

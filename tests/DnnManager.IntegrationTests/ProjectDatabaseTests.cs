@@ -56,6 +56,46 @@ public sealed class ProjectDatabaseTests
     }
 
     [TestMethod]
+    public async Task Import_AnswersOnTheHostNameAndPortChosen()
+    {
+        var exported = Site(Path.Combine(_run, "exported"), "prod.database.windows.net", "shop_live");
+        var zip = Path.Combine(_run, "shop.zip");
+        ZipFile.CreateFromDirectory(exported, zip);
+        var backup = Path.Combine(_run, "shop.bak");
+        await File.WriteAllTextAsync(backup, "a backup");
+        var sql = new RecordingSql();
+        var iis = new UntouchedIis();
+
+        var (result, reporter, _, _) = await RunAsync(sql, iis, (sp, r) => sp.GetRequiredService<ImportProjectUseCase>()
+            .ExecuteAsync(new ImportProjectRequest { ProjectName = "shop", ZipPath = zip, BackupFilePath = backup, HostName = "shop.local", Port = 8080 },
+                r, CancellationToken.None));
+
+        Assert.IsTrue(result.Success, result.Error + Environment.NewLine + reporter.Text);
+        CollectionAssert.AreEqual(new[] { "shop shop.local:8080" }, iis.Bindings);
+        CollectionAssert.AreEqual(new[] { "shop.local:8080" }, sql.Aliases, "DNN wouldn't match a request to the chosen address.");
+        StringAssert.Contains(reporter.Text, "http://shop.local:8080");
+    }
+
+    [TestMethod]
+    public async Task Import_WithoutAHostName_AnswersOnTheProjectsOwn()
+    {
+        var exported = Site(Path.Combine(_run, "exported"), "prod.database.windows.net", "shop_live");
+        var zip = Path.Combine(_run, "shop.zip");
+        ZipFile.CreateFromDirectory(exported, zip);
+        var backup = Path.Combine(_run, "shop.bak");
+        await File.WriteAllTextAsync(backup, "a backup");
+        var sql = new RecordingSql();
+        var iis = new UntouchedIis();
+
+        var (result, reporter, _, sp) = await RunAsync(sql, iis, (sp, r) => sp.GetRequiredService<ImportProjectUseCase>()
+            .ExecuteAsync(new ImportProjectRequest { ProjectName = "shop", ZipPath = zip, BackupFilePath = backup }, r, CancellationToken.None));
+
+        Assert.IsTrue(result.Success, result.Error + Environment.NewLine + reporter.Text);
+        var opts = sp.GetRequiredService<IOptions<AppOptions>>().Value;
+        CollectionAssert.AreEqual(new[] { $"shop {opts.HostnameFor("shop")}:{opts.SitePort}" }, iis.Bindings);
+    }
+
+    [TestMethod]
     public async Task ANewProject_NamedLikeOneRenamedSince_GetsALoginOfItsOwn_NotTheRenamedSitesLogin()
     {
         // "shop" was renamed "store": its web.config still signs in as dnn_shop.
@@ -341,8 +381,13 @@ public sealed class ProjectDatabaseTests
             return Task.FromResult(Did($"Restore {db.DatabaseName}"));
         }
 
-        public Task<Result> RemapPortalAliasesAsync(string database, string hostnameSuffix, string newAlias, CancellationToken ct) =>
-            Task.FromResult(Did($"Alias {database}"));
+        public List<string> Aliases { get; } = [];
+
+        public Task<Result> RemapPortalAliasesAsync(string database, string hostnameSuffix, string newAlias, CancellationToken ct)
+        {
+            Aliases.Add(newAlias);
+            return Task.FromResult(Did($"Alias {database}"));
+        }
 
         public Task<Result<int>> DisableSslAsync(string database, CancellationToken ct)
         {
