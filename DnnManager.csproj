@@ -75,7 +75,7 @@
          brought 2.1.11, which DNN Manager pinned over until then. Upgrading it upgrades SQLite. -->
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <!-- The state of the IIS service (W3SVC) for the status bar. -->
-    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.12" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.14" />
   </ItemGroup>
 
   <!-- The version of a local build: the newest version tag (v1.7.1 -> 1.7.1) reachable from the commit built - the
