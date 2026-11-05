@@ -203,6 +203,23 @@ if ($onRemote.Count -eq 0) {
     if (-not (Confirm-Step '  Release it anyway? The tag push uploads the commit')) { throw 'Stopped - nothing was tagged or published.' }
 }
 
+# The SDK the release is built with is the one global.json names in that commit. Once a newer one is out - a .NET
+# security patch - the older SDK's Native AOT compiler is a known vulnerability, and the restore below fails (NU1903).
+try {
+    $sdk = ((Invoke-Git @('show', "$($selected.Sha):global.json")) -join "`n" | ConvertFrom-Json).sdk.version
+    if ($sdk -match '^(\d+\.\d+)\.\d+$') {
+        $sdkReleases = Invoke-RestMethod -UseBasicParsing "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/$($Matches[1])/releases.json"
+        $newestSdk = [string]$sdkReleases.'latest-sdk'
+        if ($newestSdk -match '^\d+\.\d+\.\d+$' -and [version]$newestSdk -gt [version]$sdk) {
+            Write-Host "  $($selected.Short) builds with .NET SDK $sdk, but $newestSdk is out (runtime $($sdkReleases.'latest-runtime')," -ForegroundColor Yellow
+            Write-Host "  $($sdkReleases.'latest-release-date'), security fix: $($sdkReleases.releases[0].security)). Run the task ""update .NET SDK"", commit and push," -ForegroundColor Yellow
+            Write-Host '  then release that commit - an SDK with a known vulnerability fails the restore below (NU1903).' -ForegroundColor Yellow
+        }
+        else { Write-Host "  .NET SDK $sdk is the newest of its channel." }
+    }
+}
+catch { Write-Host "  Whether a newer .NET SDK is out couldn't be checked ($($_.Exception.Message))." -ForegroundColor Yellow }
+
 Write-Host ''
 Write-Host "  Version  $version$(if ($prerelease) { ' (pre-release)' })"
 Write-Host "  Notes    .docs\release-notes\$($notes.Name)"
@@ -224,7 +241,12 @@ else {
         # restores them: a lock file that doesn't match fails here, before anything is tagged.
         $null = Invoke-Tool dotnet @('restore', $project, '--locked-mode')
         # The launcher's too (the Native AOT compiler, which comes with the SDK global.json names).
-        $null = Invoke-Tool dotnet @('restore', (Join-Path $work 'src\DnnManager.Launcher\DnnManager.Launcher.csproj'), '--locked-mode')
+        try { $null = Invoke-Tool dotnet @('restore', (Join-Path $work 'src\DnnManager.Launcher\DnnManager.Launcher.csproj'), '--locked-mode') }
+        catch {
+            Write-Host '  An NU1903 above (a known vulnerability in Microsoft.DotNet.ILCompiler) means the SDK in global.json is out of' -ForegroundColor Yellow
+            Write-Host '  date: run the task "update .NET SDK", commit and push, then release that commit.' -ForegroundColor Yellow
+            throw
+        }
         $null = Invoke-Tool dotnet @('test', $project, '-c', 'Release', '--no-restore', '--filter', 'TestCategory!=Integration', '--nologo')
     }
     finally {

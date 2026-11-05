@@ -87,6 +87,38 @@ writes a draft in the same structure, from the version's `CHANGELOG.md` entry
 (`new:` → *Highlights*, `fix:` and `update:` → *Other changes*). Preview them with
 `.github\scripts\release-notes.ps1 -Version 1.7.0 -OutFile notes.md`.
 
+## The .NET SDK
+
+[`global.json`](../global.json) names one SDK exactly, and that SDK decides the
+versions of the packages it brings itself: the Native AOT compiler the launcher
+restores (`Microsoft.DotNet.ILCompiler`) and the trimmer
+(`Microsoft.NET.ILLink.Tasks`), which the lock files record. .NET gets a security
+patch about once a month; a few days later GitHub's advisory makes the older
+compiler a known vulnerability, and every restore - CI, the release workflow and
+**release (GitHub)** - fails with *NU1903*.
+
+The VS Code task **update .NET SDK**
+([`.github/scripts/update-sdk.ps1`](../.github/scripts/update-sdk.ps1)) does the
+whole move:
+
+1. Asks Microsoft's release list for the newest SDK of `global.json`'s channel
+   (`10.0`) and installs it with winget when this PC doesn't have it (Windows asks
+   for administrator rights).
+2. Puts the newest installed SDK of that channel in `global.json`.
+3. Updates the lock files with it (`dotnet restore --force-evaluate`, the app's,
+   the tests' and the launcher's).
+4. Lists any package with a known vulnerability and the files that changed.
+
+Then run the fast tests, commit and push, and release that commit. Run with
+nothing new, it changes nothing. CI and the release workflow install the SDK
+`global.json` names, so they follow the commit. **release (GitHub)** says when
+the commit you pick builds with an SDK older than the newest released one, and
+what an *NU1903* from the launcher's restore means.
+
+A vulnerability the task still lists is in one of the project's own packages (a
+`PackageReference` in a `.csproj`, such as `Microsoft.Data.Sqlite`): raise its
+version there and run the task again.
+
 ## Redo a release
 
 When a release's workflow failed or the release needs more changes before it is
@@ -318,14 +350,9 @@ skipped integration test fails the run too.
 What makes a build the same each time:
 
 - **The .NET SDK** is exactly the one [`global.json`](../global.json) names
-  (`10.0.403`, `rollForward: disable` - no newer patch) - both workflows install
-  it from there, and a local build needs it too. A .NET security patch makes the
-  Native AOT compiler the launcher restores (`Microsoft.DotNet.ILCompiler`, the
-  SDK's own version) a known vulnerability, and every restore fails with
-  *NU1903* until the SDK moves on: install the newest SDK, put its version in
-  `global.json`, and update the lock files (`dotnet restore
-  tests/DnnManager.IntegrationTests --force-evaluate` and `dotnet restore
-  src/DnnManager.Launcher --force-evaluate`).
+  (`rollForward: disable` - no newer patch) - both workflows install it from
+  there, and a local build needs it too. See [The .NET SDK](#the-net-sdk) for
+  moving to a newer one.
 - **The runner** is a pinned image (`windows-2025`), not `windows-latest`: moving to
   a newer image is a change in review.
 - **The packages** are in `packages.lock.json` (the app's and the tests') - a
