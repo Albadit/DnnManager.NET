@@ -2,7 +2,8 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "build (Debug)",
+            "label": "Build",
+            "detail": "Windows app, Debug",
             "type": "process",
             "command": "dotnet",
             "args": [
@@ -18,7 +19,8 @@
             }
         },
         {
-            "label": "build (Release)",
+            "label": "Build: Release",
+            "detail": "Windows app, as a release",
             "type": "process",
             "command": "dotnet",
             "args": [
@@ -36,7 +38,8 @@
             }
         },
         {
-            "label": "clean",
+            "label": "Clean",
+            "detail": "Remove bin and obj",
             "type": "process",
             "command": "dotnet",
             "args": [
@@ -52,65 +55,27 @@
             }
         },
         {
-            "label": "publish (DnnManager_Portable.exe)",
-            "type": "process",
-            "command": "dotnet",
-            "args": [
-                "publish",
-                "${workspaceFolder}/DnnManager.csproj",
-                "-c",
-                "Release",
-                "-r",
-                "win-x64",
-                "--self-contained",
-                "true",
-                "-p:PublishSingleFile=true",
-                "-p:IncludeNativeLibrariesForSelfExtract=true",
-                "-p:EnableCompressionInSingleFile=true",
-                "-p:PortableExe=true",
-                "-o",
-                "${workspaceFolder}/publish"
-            ],
-            "group": "build",
-            "problemMatcher": "$msCompile",
-            "presentation": {
-                "reveal": "always",
-                "panel": "shared",
-                "clear": true
-            }
-        },
-        {
-            "label": "installer (DnnManager_Setup.exe)",
+            // Builds DNN Manager on this PC into publish\: pick Portable or Setup, then tick Windows, macOS and/or Linux.
+            // Windows: DnnManager-<version>-x64.exe or DnnManager_Setup-<version>-x64.exe (Setup always without the
+            // launcher - for this PC; releases are built on GitHub, with it). macOS and Linux (switched off for now):
+            // the cross-platform app - portable from any system, its packages (.app zip, tar.gz) only on a Mac or Linux.
+            // .github/scripts/publish-local.ps1, see .docs/releasing.md.
+            "label": "Publish",
+            "detail": "Portable or Setup, per OS",
             "type": "process",
             "command": "powershell",
+            "osx": { "command": "pwsh" },
+            "linux": { "command": "pwsh" },
             "args": [
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",
                 "-File",
-                "${workspaceFolder}/src/DnnManager.Installer/build.ps1"
-            ],
-            "group": "build",
-            "problemMatcher": "$msCompile",
-            "presentation": {
-                "reveal": "always",
-                "panel": "shared",
-                "clear": true
-            }
-        },
-        {
-            // The launcher (Native AOT) needs Visual Studio's C++ build tools; without them, a Setup without it - DNN Manager
-            // is then started as up to 1.8.1. Releases always have it (the release workflow builds them).
-            "label": "installer (DnnManager_Setup.exe, without the launcher)",
-            "type": "process",
-            "command": "powershell",
-            "args": [
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                "${workspaceFolder}/src/DnnManager.Installer/build.ps1",
-                "-NoLauncher"
+                "${workspaceFolder}/.github/scripts/publish-local.ps1",
+                "-Kind",
+                "${input:publishKind}",
+                "-Platforms",
+                "${input:publishPlatforms}"
             ],
             "group": "build",
             "problemMatcher": "$msCompile",
@@ -122,8 +87,9 @@
         },
         {
             // A portable exe one version below GitHub's newest release (1.6.0 -> 1.5.9), so its Update button installs
-            // that release: publish\update-test\DnnManager_Portable-<version>-x64.exe. See .docs/releasing.md, The in-app update.
-            "label": "publish (update test, one version below the release)",
+            // that release: publish\update-test\DnnManager-<version>-x64.exe. See .docs/releasing.md, The in-app update.
+            "label": "Publish: update test",
+            "detail": "One version below the latest release",
             "type": "process",
             "command": "powershell",
             "args": [
@@ -142,11 +108,14 @@
             }
         },
         {
-            // Pick .docs/release-notes/vX.Y.Z.md (its name is the tag and the title) and a commit on GitHub; runs the fast
-            // tests on that commit and, after you confirm, pushes the tag - GitHub's release workflow (.github/workflows/
-            // release.yml) builds both exes from it, attests and publishes the release. See .docs/releasing.md.
-            // The two pickers are filled fresh each time by the extension Tasks Shell Input (augustocdias.tasks-shell-input).
-            "label": "release (GitHub)",
+            // Pick .docs/release-notes/vX.Y.Z.md (its name is the tag and the title), the release label as GitHub names
+            // it (None, Pre-release, Latest), the platforms to build (Windows, macOS, Linux - tick one or more) and the commit
+            // on GitHub (newest first); it tags it with the label and the platforms in the tag's message and pushes it at once.
+            // On GitHub the release workflow (.github/workflows/release.yml) waits for CI on that commit, builds what was
+            // chosen only once CI has passed - nothing is tested twice - and publishes it with that label. See .docs/releasing.md.
+            // The notes, platform and commit pickers are filled by the extension Tasks Shell Input (augustocdias.tasks-shell-input).
+            "label": "Release",
+            "detail": "Tag a version, GitHub publishes it",
             "type": "process",
             "command": "powershell",
             "args": [
@@ -158,7 +127,11 @@
                 "-NotesFile",
                 "${input:releaseNotes}",
                 "-Commit",
-                "${input:releaseCommit}"
+                "${input:releaseCommit}",
+                "-Label",
+                "${input:releaseLabel}",
+                "-Platforms",
+                "${input:releasePlatforms}"
             ],
             "group": "build",
             "problemMatcher": [],
@@ -172,7 +145,8 @@
         {
             // Moves the repository to the newest .NET SDK: installs it with winget when this PC doesn't have it, puts it
             // in global.json and updates the lock files with it - then commit and push. See .docs/releasing.md.
-            "label": "update .NET SDK",
+            "label": "Update .NET SDK",
+            "detail": "Newest SDK and lock files",
             "type": "process",
             "command": "powershell",
             "args": [
@@ -191,35 +165,34 @@
                 "focus": true,
                 "clear": true
             }
-        },
-        {
-            // Redo the newest release whose tag is made but which isn't published (a published one is refused): pick
-            // the commit to release it from (the branch's commits since the tag's, newest first) - the tag is deleted
-            // and made again there; nothing is amended or pushed. Shows the plan and asks before changing anything.
-            // See .docs/releasing.md.
-            "label": "release: redo (GitHub)",
-            "type": "process",
-            "command": "powershell",
-            "args": [
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                "${workspaceFolder}/.github/scripts/redo-release.ps1",
-                "-Commit",
-                "${input:redoCommit}"
-            ],
-            "group": "build",
-            "problemMatcher": [],
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated",
-                "focus": true,
-                "clear": true
-            }
         }
     ],
     "inputs": [
+        {
+            "id": "publishKind",
+            "type": "pickString",
+            "description": "What to build",
+            "options": [
+                { "label": "Portable - one program, nothing to install", "value": "portable" },
+                { "label": "Setup - the installer (Windows), the .app zip (macOS), the tar.gz (Linux)", "value": "setup" }
+            ],
+            "default": "portable"
+        },
+        {
+            "id": "publishPlatforms",
+            "type": "command",
+            "command": "shellCommand.execute",
+            "args": {
+                "command": "powershell",
+                "commandArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/.github/scripts/publish-local.ps1", "-List", "platforms"],
+                "cwd": "${workspaceFolder}",
+                "fieldSeparator": "||",
+                "description": "Platforms to build for - tick one or more",
+                "multiselect": true,
+                "multiselectSeparator": ",",
+                "warnOnStderr": false
+            }
+        },
         {
             "id": "releaseNotes",
             "type": "command",
@@ -234,6 +207,32 @@
             }
         },
         {
+            "id": "releaseLabel",
+            "type": "pickString",
+            "description": "Release label - Latest is what every DNN Manager's Update button offers",
+            "options": [
+                { "label": "None - published, but not the latest", "value": "none" },
+                { "label": "Pre-release - label it as not ready for production", "value": "prerelease" },
+                { "label": "Latest - label it as the latest for this repository", "value": "latest" }
+            ],
+            "default": "latest"
+        },
+        {
+            "id": "releasePlatforms",
+            "type": "command",
+            "command": "shellCommand.execute",
+            "args": {
+                "command": "powershell",
+                "commandArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/.github/scripts/publish-release.ps1", "-List", "platforms"],
+                "cwd": "${workspaceFolder}",
+                "fieldSeparator": "||",
+                "description": "Platforms to build - tick one or more",
+                "multiselect": true,
+                "multiselectSeparator": ",",
+                "warnOnStderr": false
+            }
+        },
+        {
             "id": "releaseCommit",
             "type": "command",
             "command": "shellCommand.execute",
@@ -242,20 +241,7 @@
                 "commandArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/.github/scripts/publish-release.ps1", "-List", "commits"],
                 "cwd": "${workspaceFolder}",
                 "fieldSeparator": "||",
-                "description": "Commit to release (newest on GitHub first)",
-                "warnOnStderr": false
-            }
-        },
-        {
-            "id": "redoCommit",
-            "type": "command",
-            "command": "shellCommand.execute",
-            "args": {
-                "command": "powershell",
-                "commandArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/.github/scripts/redo-release.ps1", "-List", "commits"],
-                "cwd": "${workspaceFolder}",
-                "fieldSeparator": "||",
-                "description": "Commit to redo the newest release from (newest first)",
+                "description": "Commit to release (newest on GitHub first) - GitHub builds it once CI has passed on it",
                 "warnOnStderr": false
             }
         }

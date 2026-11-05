@@ -22,9 +22,10 @@ conventions to follow. New here? Start with the [README](../README.md), then
   it doesn't roll forward to a newer patch - <https://dotnet.microsoft.com/download/dotnet/10.0>.
   The VS Code task **update .NET SDK** installs the newest and moves the repository to it
   ([releasing.md](releasing.md#the-net-sdk)).
-- For the installer only: Visual Studio's **C++ build tools** (*Desktop
-  development with C++*) - the launcher is compiled with Native AOT; without
-  them, `build.ps1 -NoLauncher` ([releasing.md](releasing.md#build-the-installer))
+- Not needed: Visual Studio's **C++ build tools** - only the launcher (Native
+  AOT) needs them, and the task **Publish** builds Setup without it; GitHub's
+  release workflow builds it for releases
+  ([releasing.md](releasing.md#build-on-this-pc-the-publish-task))
 - Docker Desktop (Linux containers) for the shared SQL Server - set it up once
   with **Set up docker-compose** in **Settings → Docker container** (or point
   **Settings → Database server** at a SQL Server you already run)

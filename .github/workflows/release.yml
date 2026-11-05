@@ -1,19 +1,27 @@
-# Release: when a version tag is pushed (by the VS Code task "release (GitHub)", .github/scripts/publish-release.ps1),
+# Release: when a version tag is pushed (by the VS Code task "Release", .github/scripts/publish-release.ps1),
 # GitHub builds that tag and publishes it - nothing built on a PC is ever uploaded. See .docs/releasing.md.
 #
-#   build    the portable exe, the app for Setup and the launcher (Native AOT) with the tag's version - unsigned. It
-#            runs the packages' code, so it gets no OpenID Connect token. No tests run here: CI tests every commit
-#            pushed to a branch (.github/workflows/ci.yml) - a release doesn't wait for them.
-#   sign     signs them when signing is set up, compiles Setup with the pinned Inno Setup (which signs Setup and its
-#            uninstaller), writes SHA256SUMS.txt and attests both exes. Only this job can get the token Azure signs with
-#            and the attestation's certificate - and it restores no package and runs no test.
-#   smoke    installs the built Setup into a temporary folder, starts DNN Manager through its launcher, starts the
-#            portable exe, and uninstalls - a release whose files don't start isn't offered.
+#   plan     waits for CI on the tagged commit (wait-for-ci.ps1) - a release is built only from a commit CI passed,
+#            and nothing is tested twice - then reads the tag's message (release-plan.ps1): the release label chosen in VS Code - Latest, Pre-release or
+#            None - and the platforms to build. Only Windows is switched on for now (EnabledReleasePlatforms in
+#            .github/scripts/ReleaseCommon.psm1); a tag without them builds Windows, with the label its version gives
+#            (v2.0.0-rc1 a pre-release).
+#   build    Windows: the portable exe, the app for Setup and the launcher (Native AOT) with the tag's version -
+#            unsigned. It runs the packages' code, so it gets no OpenID Connect token. No tests run here: the plan job waited for CI, which tests every
+#            commit pushed to a branch (.github/workflows/ci.yml) - a release doesn't wait for them.
+#   (macOS and Linux: switched off. They are the cross-platform app (src/DnnManager.Desktop) on the branch
+#            feature/cross-platform, built there by the jobs "macos" and "linux" with .github/workflows/desktop.yml -
+#            brought back here when that app is merged. release-plan.ps1 already writes their outputs, always false.)
+#   sign     signs the Windows files when signing is set up, compiles Setup with the pinned Inno Setup (which signs
+#            Setup and its uninstaller), writes SHA256SUMS.txt and attests every file in it. Only this job can get the
+#            token Azure signs with and the attestation's certificate - and it restores no package and runs no test.
+#   smoke    Windows: installs the built Setup into a temporary folder, starts DNN Manager through its launcher,
+#            starts the portable exe, and uninstalls - a release whose files don't start isn't offered.
 #   draft    only once all of the above have passed: the files go on a draft release and GitHub's SHA-256 of each is
 #            checked.
 #   publish  in the environment "publish", which a required reviewer approves: checks that the tag still points at the
-#            commit built and the draft's files are the ones built, then publishes the release - the one every DNN
-#            Manager offers with its Update button.
+#            commit built and the draft's files are the ones built, then publishes the release with its label - as
+#            Latest, the one every DNN Manager offers with its Update button.
 #
 # Each job gets only the permissions it needs; the workflow's own GITHUB_TOKEN is the only GitHub credential.
 name: Release
@@ -43,16 +51,58 @@ defaults:
     shell: pwsh
 
 jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-24.04
+    # It waits for CI on the commit first - up to 90 minutes.
+    timeout-minutes: 100
+    permissions:
+      # Read the tag's message.
+      contents: read
+      # Read CI's runs and jobs on the commit.
+      actions: read
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      file-version: ${{ steps.plan.outputs.file-version }}
+      label: ${{ steps.plan.outputs.label }}
+      windows: ${{ steps.plan.outputs.windows }}
+      desktop: ${{ steps.plan.outputs.desktop }}
+      targets: ${{ steps.plan.outputs.targets }}
+      macos: ${{ steps.plan.outputs.macos }}
+      macos-targets: ${{ steps.plan.outputs.macos-targets }}
+      linux: ${{ steps.plan.outputs.linux }}
+      linux-targets: ${{ steps.plan.outputs.linux-targets }}
+      assets: ${{ steps.plan.outputs.assets }}
+      replace: ${{ steps.plan.outputs.replace }}
+    steps:
+      - name: Check out the scripts
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: Wait for CI on the commit
+        # Nothing is tested twice: CI (ci.yml) tests every commit pushed, and a release is built only from one it
+        # passed - the VS Code task pushes the tag at once, and the waiting is done here, not on your PC.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./.github/scripts/wait-for-ci.ps1 -Sha $env:GITHUB_SHA
+
+      - name: Label and platforms from the tag
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./.github/scripts/release-plan.ps1 -Tag $env:TAG
+
   build:
-    name: Build
+    name: Windows
+    needs: plan
+    if: needs.plan.outputs.windows == 'true'
     # A pinned image, not windows-latest: a release is built on the image it was tested on until this line changes.
     runs-on: windows-2025
     timeout-minutes: 60
     permissions:
       contents: read
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      file-version: ${{ steps.version.outputs.file-version }}
     env:
       # MSBuild reads these as properties: every restore below in locked mode, every build deterministic.
       RestoreLockedMode: true
@@ -67,13 +117,6 @@ jobs:
           fetch-depth: 0
           # No token left in .git/config for the build's steps.
           persist-credentials: false
-
-      - name: Version from the tag
-        id: version
-        run: |
-          if ($env:TAG -notmatch '^v(\d+\.\d+\.\d+)(-[0-9A-Za-z.-]+)?$') { throw "$env:TAG isn't a version tag like v1.9.0." }
-          "version=$($env:TAG.Substring(1))" >> $env:GITHUB_OUTPUT
-          "file-version=$($Matches[1]).0" >> $env:GITHUB_OUTPUT
 
       - name: Set up .NET
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
@@ -101,7 +144,7 @@ jobs:
       - name: Stamp the version
         # The exe's manifest carries the file version too (its file properties).
         env:
-          FILE_VERSION: ${{ steps.version.outputs.file-version }}
+          FILE_VERSION: ${{ needs.plan.outputs.file-version }}
         run: |
           $manifest = 'app.manifest'
           $text = [IO.File]::ReadAllText($manifest) -replace '(<assemblyIdentity version=")[0-9.]+(")', "`${1}$env:FILE_VERSION`${2}"
@@ -111,8 +154,10 @@ jobs:
         # One file: the native DLLs inside are extracted to %TEMP%\.net when it starts - an accepted risk of the
         # portable exe (.docs/security.md); the installed DNN Manager has them beside it, in Program Files.
         env:
-          VERSION: ${{ steps.version.outputs.version }}
-          FILE_VERSION: ${{ steps.version.outputs.file-version }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          FILE_VERSION: ${{ needs.plan.outputs.file-version }}
+        # The Windows app (WPF, DnnManager.csproj); -p:PortableExe=true names the exe DnnManager-<version>-x64.exe, as
+        # the Update button looks for it.
         run: |
           dotnet publish DnnManager.csproj -c Release -r win-x64 --self-contained true `
             -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true `
@@ -125,7 +170,7 @@ jobs:
         # the sign job compiles Setup from them.
         shell: powershell
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ needs.plan.outputs.version }}
         run: |
           $ErrorActionPreference = 'Stop'
           & .\src\DnnManager.Installer\build.ps1 -Version $env:VERSION -PublishOnly
@@ -135,7 +180,7 @@ jobs:
         with:
           name: unsigned
           path: |
-            publish/DnnManager_Portable-*.exe
+            publish/DnnManager-*.exe
             src/DnnManager.Installer/bin/app/
             src/DnnManager.Installer/bin/launcher/
           if-no-files-found: error
@@ -143,7 +188,12 @@ jobs:
 
   sign:
     name: Sign, package and attest
-    needs: build
+    needs: [plan, build]
+    # Once what was chosen is built - a platform not chosen is skipped, not failed. (With macOS and Linux switched on,
+    # their jobs join "needs" here, each success or skipped.)
+    if: >-
+      !cancelled() && needs.plan.result == 'success' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: windows-2025
     timeout-minutes: 45
     # The environment "release" gives Azure's sign-in a fixed subject (repo:<owner>/<repo>:environment:release) - see
@@ -156,11 +206,14 @@ jobs:
       id-token: write
       attestations: write
     env:
-      VERSION: ${{ needs.build.outputs.version }}
-      # Signing runs only when its repository variables are set; without them the files are built unsigned...
-      SIGNING: ${{ vars.ARTIFACT_SIGNING_ACCOUNT != '' && vars.AZURE_CLIENT_ID != '' }}
-      # ...unless REQUIRE_SIGNING is true: then a release without signing fails here.
-      REQUIRE_SIGNING: ${{ vars.REQUIRE_SIGNING }}
+      VERSION: ${{ needs.plan.outputs.version }}
+      WINDOWS: ${{ needs.plan.outputs.windows }}
+      DESKTOP: ${{ needs.plan.outputs.desktop }}
+      # Signing runs only when its repository variables are set, and only the Windows files are signed; without them
+      # the files are built unsigned...
+      SIGNING: ${{ needs.plan.outputs.windows == 'true' && vars.ARTIFACT_SIGNING_ACCOUNT != '' && vars.AZURE_CLIENT_ID != '' }}
+      # ...unless REQUIRE_SIGNING is true: then a release with Windows files but without signing fails here.
+      REQUIRE_SIGNING: ${{ needs.plan.outputs.windows == 'true' && vars.REQUIRE_SIGNING == 'true' }}
 
     steps:
       - name: Check out
@@ -171,10 +224,19 @@ jobs:
           persist-credentials: false
 
       - name: Get the unsigned files
+        if: env.WINDOWS == 'true'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: unsigned
           path: .
+
+      - name: Get the macOS and Linux packages
+        if: env.DESKTOP == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: desktop-*
+          path: desktop
+          merge-multiple: true
 
       - name: Signing required?
         env:
@@ -210,9 +272,10 @@ jobs:
 
       - name: Sign the portable exe
         if: env.SIGNING == 'true'
-        run: ./.github/scripts/sign.ps1 -Path "publish/DnnManager_Portable-$env:VERSION-x64.exe"
+        run: ./.github/scripts/sign.ps1 -Path "publish/DnnManager-$env:VERSION-x64.exe"
 
       - name: Installer
+        if: env.WINDOWS == 'true'
         # Windows PowerShell, as on the publisher's PC: build.ps1 draws the wizard images with System.Drawing. It signs
         # DnnManager.exe and the launcher, and Inno signs Setup and its uninstaller.
         shell: powershell
@@ -232,8 +295,12 @@ jobs:
       - name: Check the files
         run: |
           $out = New-Item -ItemType Directory -Force dist
-          $assets = "DnnManager_Portable-$env:VERSION-x64.exe", "DnnManager_Setup-$env:VERSION-x64.exe"
-          $launcher = 'src/DnnManager.Installer/bin/launcher/DnnManager-launcher.exe'
+          $assets = @()
+          if ($env:WINDOWS -eq 'true') { $assets = "DnnManager-$env:VERSION-x64.exe", "DnnManager_Setup-$env:VERSION-x64.exe" }
+          # The macOS and Linux packages chosen (desktop job) - not signed with a certificate, so not checked for one.
+          $desktop = @(Get-ChildItem desktop -File -ErrorAction SilentlyContinue | ForEach-Object Name | Sort-Object)
+          if ($env:DESKTOP -eq 'true' -and -not $desktop) { throw 'The desktop job built no package.' }
+          $launcher = @(if ($env:WINDOWS -eq 'true') { 'src/DnnManager.Installer/bin/launcher/DnnManager-launcher.exe' })
           foreach ($path in @($assets | ForEach-Object { "publish/$_" }) + $launcher) {
             $info = (Get-Item $path).VersionInfo
             $product = ($info.ProductVersion -split '\+')[0].Trim()
@@ -247,6 +314,8 @@ jobs:
             }
           }
           foreach ($name in $assets) { Copy-Item "publish/$name" $out }
+          foreach ($name in $desktop) { Copy-Item "desktop/$name" $out }
+          $assets += $desktop
           # The files' SHA-256, for whoever downloads them by hand: a file beside them, and in the release's notes.
           $sums = foreach ($name in $assets) { "{0}  {1}" -f (Get-FileHash "dist/$name" -Algorithm SHA256).Hash.ToLowerInvariant(), $name }
           [IO.File]::WriteAllText("$PWD/dist/SHA256SUMS.txt", ($sums -join "`n") + "`n", [Text.UTF8Encoding]::new($false))
@@ -255,12 +324,10 @@ jobs:
 
       - name: Attest build provenance
         # Signed by GitHub (Sigstore): these files were built by this workflow, from this commit of this repository.
-        # Check one with: gh attestation verify <file> --repo <owner>/<repo>
+        # Every file in SHA256SUMS.txt - the platforms chosen. Check one with: gh attestation verify <file> --repo <owner>/<repo>
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: |
-            dist/DnnManager_Portable-*.exe
-            dist/DnnManager_Setup-*.exe
+          subject-checksums: dist/SHA256SUMS.txt
 
       - name: Hand the files on
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -272,7 +339,8 @@ jobs:
 
   smoke:
     name: Try the files
-    needs: sign
+    needs: [plan, sign]
+    if: needs.plan.outputs.windows == 'true'
     runs-on: windows-2025
     timeout-minutes: 20
     permissions:
@@ -297,7 +365,11 @@ jobs:
     name: Draft the release
     # Only once the build, the signing and the smoke test have passed; until the publish job ends, the release is at
     # most a draft.
-    needs: [sign, smoke]
+    needs: [plan, sign, smoke]
+    # Without Windows there is nothing to try: the smoke test is skipped, not failed.
+    if: >-
+      !cancelled() && needs.sign.result == 'success' &&
+      (needs.smoke.result == 'success' || needs.smoke.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -319,11 +391,15 @@ jobs:
       - name: Draft, upload and check
         env:
           GH_TOKEN: ${{ github.token }}
-        run: ./.github/scripts/upload-release.ps1 -Stage Draft -Tag $env:TAG -Directory dist
+          LABEL: ${{ needs.plan.outputs.label }}
+          PLATFORMS: ${{ needs.plan.outputs.assets }}
+          # A published pre-release of this version is deleted first, when the tag says it is replaced.
+          REPLACE: ${{ needs.plan.outputs.replace }}
+        run: ./.github/scripts/upload-release.ps1 -Stage Draft -Tag $env:TAG -Directory dist -Label $env:LABEL -Platforms $env:PLATFORMS -Replace:($env:REPLACE -eq 'true')
 
   publish:
     name: Publish the release
-    needs: draft
+    needs: [plan, draft]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     # A person approves this job before it runs: Settings -> Environments -> publish -> Required reviewers (and only
@@ -348,4 +424,6 @@ jobs:
       - name: Check and publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: ./.github/scripts/upload-release.ps1 -Stage Publish -Tag $env:TAG -Directory dist
+          LABEL: ${{ needs.plan.outputs.label }}
+          PLATFORMS: ${{ needs.plan.outputs.assets }}
+        run: ./.github/scripts/upload-release.ps1 -Stage Publish -Tag $env:TAG -Directory dist -Label $env:LABEL -Platforms $env:PLATFORMS

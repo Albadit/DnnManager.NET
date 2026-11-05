@@ -16,8 +16,9 @@
     -Stage Publish (the "Publish the release" job, in the environment "publish" - a required reviewer approves it):
     4. Checks again, right before publishing, that the tag still points at the commit the workflow built, and that
        every file on the draft is still the one in SHA256SUMS.txt (GitHub's digest of it).
-    5. Publishes the release: as the latest one when its version is newer than the latest release's, or a pre-release
-       for a vX.Y.Z-suffix tag (which nobody is offered). Anything that fails before this leaves the draft, to look into.
+    5. Publishes the release with the label chosen when it was tagged (-Label, from release-plan.ps1): Latest only
+       when its version is newer than the latest release's (else it is published without the label), Pre-release
+       (which nobody is offered), or None. Anything that fails before this leaves the draft, to look into.
 
     It signs in with the job's GITHUB_TOKEN (GH_TOKEN), which may write this repository's contents and nothing else.
 #>
@@ -25,9 +26,17 @@
 param(
     # The tag being released, vX.Y.Z or vX.Y.Z-suffix.
     [Parameter(Mandatory)] [string]$Tag,
-    # The signing job's files: both exes, SHA256SUMS.txt and release-notes.md.
+    # The signing job's files: both exes, the macOS and Linux packages, SHA256SUMS.txt and release-notes.md.
     [Parameter(Mandatory)] [string]$Directory,
     [Parameter(Mandatory)] [ValidateSet('Draft', 'Publish')] [string]$Stage,
+    # GitHub's label for the release: latest, prerelease or none (release-plan.ps1, from the tag's message).
+    [Parameter(Mandatory)] [ValidateSet('latest', 'prerelease', 'none')] [string]$Label,
+    # What was built: windows, macos, linux - "windows macos linux" (release-plan.ps1).
+    [Parameter(Mandatory)] [string]$Platforms,
+    # -Stage Draft: a published PRE-RELEASE of the tag is deleted first and replaced by this draft (the tag's message
+    # says so - publish-release.ps1, when a published pre-release is picked). A published release that isn't a
+    # pre-release is never deleted: every DNN Manager may have it.
+    [switch]$Replace,
     [string]$Repository = $env:GITHUB_REPOSITORY,
     # The commit the workflow built: the tag must still point at it.
     [string]$Commit = $env:GITHUB_SHA
@@ -38,12 +47,24 @@ Set-StrictMode -Version Latest
 
 if ($Tag -notmatch '^v(\d+\.\d+\.\d+)(-[0-9A-Za-z.-]+)?$') { throw "$Tag isn't a version tag like v1.9.0." }
 $version = $Tag.Substring(1)
-$prerelease = [bool]$Matches[2]
+$prerelease = $Label -eq 'prerelease'
 if ($Repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw "$Repository isn't a repository (owner/name)." }
 if ($Commit -notmatch '^[0-9a-f]{40}$') { throw "'$Commit' isn't a commit (GITHUB_SHA)." }
 if (-not $env:GH_TOKEN) { throw 'GH_TOKEN isn''t set.' }
 
-$assets = "DnnManager_Portable-$version-x64.exe", "DnnManager_Setup-$version-x64.exe"
+# The platforms' files: the Windows app (what its Update button downloads - an .exe), and the cross-platform app for
+# macOS and Linux.
+$platformList = @($Platforms -split '[,\s]+' | Where-Object { $_ })
+$byPlatform = @{
+    windows = @("DnnManager-$version-x64.exe", "DnnManager_Setup-$version-x64.exe")
+    # macOS and Linux: the program itself, one file each - no zip.
+    macos   = @("DnnManager-$version-macos-arm64", "DnnManager-$version-macos-x64")
+    linux   = @("DnnManager-$version-linux-x64", "DnnManager-$version-linux-arm64")
+}
+$unknown = @($platformList | Where-Object { -not $byPlatform.ContainsKey($_) })
+if ($unknown -or $platformList.Count -eq 0) { throw "'$Platforms' isn't a list of platforms (windows, macos, linux)." }
+if ($Label -eq 'latest' -and 'windows' -notin $platformList) { throw 'The latest release needs the Windows files - every DNN Manager''s Update button downloads them.' }
+$assets = @($platformList | ForEach-Object { $byPlatform[$_] })
 $sumsPath = Join-Path $Directory 'SHA256SUMS.txt'
 $notesPath = Join-Path $Directory 'release-notes.md'
 
@@ -128,8 +149,15 @@ if ($Stage -eq 'Draft') {
     $fields = @{ tag_name = $Tag; target_commitish = $Commit; name = $Tag; body = $body; draft = $true; prerelease = $prerelease }
 
     $release = Find-Release
+    if ($release -and -not $release.draft -and $Replace -and $release.prerelease) {
+        # The published pre-release this one replaces: deleted now - CI passed and everything was built - and the new
+        # build is drafted in its place. Its tag already points at the new commit.
+        $null = Invoke-GitHub DELETE "/releases/$($release.id)"
+        Write-Host "The published pre-release $Tag ($($release.html_url)) is deleted - this build replaces it."
+        $release = $null
+    }
     if ($release -and -not $release.draft) {
-        throw "The release $Tag is already published ($($release.html_url)) - it isn't changed. Release the change as the next version."
+        throw "The release $Tag is already published ($($release.html_url)) - it isn't changed$(if ($Replace) { ' (only a pre-release is replaced)' }). Release the change as the next version."
     }
     if ($release) {
         Write-Host "Reusing the draft $Tag (id $($release.id)): its files are replaced."
@@ -194,7 +222,7 @@ Write-Host "The tag points at $Commit, and the draft's files are the ones built.
 # The latest release only when this version is newer than the latest one now - a fix to an older line (or a redo
 # released after a newer version) mustn't become what every DNN Manager is offered.
 $makeLatest = 'false'
-if (-not $prerelease) {
+if ($Label -eq 'latest') {
     $latest = Get-GitHubOrNull '/releases/latest'
     $latestVersion = if ($latest) { ([string]$latest.tag_name).TrimStart('v') } else { $null }
     if (-not $latestVersion -or $latestVersion -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$' -or (Test-Newer $version $latestVersion)) { $makeLatest = 'true' }
@@ -203,6 +231,6 @@ if (-not $prerelease) {
 $published = Invoke-GitHub PATCH "/releases/$($release.id)" @{ draft = $false; make_latest = $makeLatest }
 Write-Host "Published $($published.html_url)$(if ($makeLatest -eq 'true') { ' as the latest release' })"
 if ($env:GITHUB_STEP_SUMMARY) {
-    $summary = "### Published [$Tag]($($published.html_url))$(if ($prerelease) { ' (pre-release)' } elseif ($makeLatest -ne 'true') { ' (not the latest)' })`n`n``````text`n$sumsText`n```````n"
+    $summary = "### Published [$Tag]($($published.html_url))$(if ($prerelease) { ' (pre-release)' } elseif ($makeLatest -ne 'true') { ' (not the latest)' } else { ' (latest)' })`n`n``````text`n$sumsText`n```````n"
     [IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, $summary, (New-Object Text.UTF8Encoding $false))
 }

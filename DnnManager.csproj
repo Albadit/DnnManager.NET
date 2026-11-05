@@ -20,9 +20,10 @@
     <!-- Program.Main builds the DI host before starting WPF, so App.xaml is a plain Page. -->
     <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
     <!-- The packages restored are the ones in packages.lock.json, with their hashes - CI restores in locked mode. The
-         runtime the release is published for is in it too. -->
+         runtimes it is published for are in it too: win-x64 (the release, Setup) and win-x86 (a 32-bit portable exe,
+         from the VS Code task "Publish"). -->
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
     <!-- The single-file analyzer always: a single-file publish (the portable exe) turns it on, and with it the SDK adds
          Microsoft.NET.ILLink.Tasks to the restore - on for every restore, a build and a publish agree on
          packages.lock.json, and single-file problems show while building. -->
@@ -99,12 +100,13 @@
        run (src/DnnManager.Infrastructure/Settings). -->
 
   <!-- Portable publish (-p:PortableExe=true, used by the VS Code publish task): the single-file exe is renamed
-       DnnManager_Portable-<version>-<arch>.exe, e.g. DnnManager_Portable-1.7.7-x64.exe. Only the file is renamed - the assembly
-       stays DnnManager, which the XAML pack URIs refer to. The installer's publish keeps DnnManager.exe. -->
+       DnnManager-<version>-<arch>.exe, e.g. DnnManager-1.9.0-x64.exe (1.7.7 to 1.8.x: DnnManager_Portable-…; every
+       DNN Manager's Update button finds either). Only the file is renamed - the assembly stays DnnManager, which the
+       XAML pack URIs refer to. The installer's publish keeps DnnManager.exe. -->
   <Target Name="RenamePortableExe" AfterTargets="Publish" Condition="'$(PortableExe)' == 'true'">
     <PropertyGroup>
       <PortableArch>$(RuntimeIdentifier.Replace('win-', ''))</PortableArch>
-      <PortableExePath>$(PublishDir)DnnManager_Portable-$(Version)-$(PortableArch).exe</PortableExePath>
+      <PortableExePath>$(PublishDir)DnnManager-$(Version)-$(PortableArch).exe</PortableExePath>
     </PropertyGroup>
     <Error Condition="'$(PublishSingleFile)' != 'true'" Text="PortableExe=true needs a single-file publish (-p:PublishSingleFile=true)." />
     <Copy SourceFiles="$(PublishDir)$(AssemblyName).exe" DestinationFiles="$(PortableExePath)" />
