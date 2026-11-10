@@ -18,10 +18,16 @@ public sealed class WindowLayout : IStateFile
     public double? Height { get; set; }
     public bool Maximized { get; set; }
 
-    /// <summary>The sidebar hidden (Ctrl+B, Customize Layout).</summary>
+    /// <summary>The activity bar hidden (Customize Layout) - named for the sidebar with page names it once was.</summary>
     public bool SidebarHidden { get; set; }
-    /// <summary>The sidebar's width as dragged - null: its density's own.</summary>
-    public double? SidebarWidth { get; set; }
+    /// <summary>The primary side bar hidden (Ctrl+B).</summary>
+    public bool PrimarySideBarHidden { get; set; }
+    /// <summary>The primary side bar's width as dragged - null: its own.</summary>
+    public double? PrimarySideBarWidth { get; set; }
+    /// <summary>The secondary side bar shown (Ctrl+Alt+B).</summary>
+    public bool SecondarySideBarOpen { get; set; }
+    /// <summary>The secondary side bar's width as dragged - null: its own.</summary>
+    public double? SecondarySideBarWidth { get; set; }
     public bool PanelOpen { get; set; }
     public double? PanelHeight { get; set; }
     public bool PanelMaximized { get; set; }

@@ -13,7 +13,7 @@ conventions to follow. New here? Start with the [README](../README.md), then
 | [configuration.md](configuration.md) | `Documents\DnnManager`, `dnnmanager.db`, every settings key, environment variables |
 | [troubleshooting.md](troubleshooting.md) | Known problems and how to fix them |
 | [security.md](security.md) | Administrator rights, secrets, what DNN Manager deletes, network exposure, open risks |
-| [adr/](adr/) | Decisions that are costly to reverse: undo on failure, the layering rule, update trust, the elevation boundary |
+| [adr/](adr/) | Decisions that are costly to reverse: undo on failure, the layering rule, update trust, the elevation boundary, deployments' baseline |
 
 ## Prerequisites
 

@@ -41,6 +41,7 @@ public partial class MainWindow : Window
     {
         ["Projects"]      = typeof(ProjectsPage),
         ["Setup"]         = typeof(SetupPage),
+        ["Deploy"]        = typeof(DeployPage),
         ["Settings"]      = typeof(SettingsPage),
         ["Troubleshoot"]  = typeof(TroubleshootPage),
     };
@@ -71,7 +72,6 @@ public partial class MainWindow : Window
         OperationToast.Attach(runner);
         IisStatus.Attach(store, runner);
         Loaded += (_, _) => store.Start();
-        SizeChanged += (_, _) => UpdateCompact();
         Root.SizeChanged += (_, _) => FitPanel();
         // The toasts follow the page's corner: the panel opened, closed, dragged or maximized, the window resized.
         PageCard.SizeChanged += (_, _) => PlaceToasts();
@@ -81,7 +81,6 @@ public partial class MainWindow : Window
         // the container's name) - they are made anew on their next visit. Projects follows by itself.
         options.Value.Changed += () =>
         {
-            UpdateCompact(); // the UI scale may have changed
             // Reset to defaults, or saved on Settings: the layout as saved.
             _layout = options.Value.Layout.Copy();
             ApplyLayout();
@@ -160,7 +159,7 @@ public partial class MainWindow : Window
         var layout = workspace.Load<WindowLayout>();
         PlaceWindow(layout);
         _sidebarVisible = !layout.SidebarHidden;
-        _sidebarWidth = layout.SidebarWidth is >= MinSidebarWidth and <= MaxSidebarWidth ? layout.SidebarWidth : null;
+        RestoreSideBars(layout);
         ApplyLayout();
         TrackWorkspace();
         Loaded += (_, _) =>
@@ -182,6 +181,7 @@ public partial class MainWindow : Window
         if (_stale.Remove(page) && page is IRefreshable refreshable) refreshable.Refresh();
         _lastNav = nav;
         PageHost.Content = page;
+        ApplyPageChrome();
     }
 
     // The sidebar entry of the page shown.
@@ -308,7 +308,7 @@ public partial class MainWindow : Window
     // The sidebar's page entries, by page.
     private RadioButton? NavFor(string? page) => page switch
     {
-        "Projects" => NavProjects, "Setup" => NavSetup, _ => null
+        "Projects" => NavProjects, "Setup" => NavSetup, "Deploy" => NavDeploy, _ => null
     };
 
     // ─── The workspace, kept between starts ─────────────────────────────────
@@ -376,7 +376,9 @@ public partial class MainWindow : Window
         {
             Left = bounds.Left, Top = bounds.Top, Width = bounds.Width, Height = bounds.Height,
             Maximized = WindowState == WindowState.Maximized || WindowState == WindowState.Minimized && _wasMaximized,
-            SidebarHidden = !_sidebarVisible, SidebarWidth = _sidebarWidth,
+            SidebarHidden = !_sidebarVisible,
+            PrimarySideBarHidden = !_primaryVisible, PrimarySideBarWidth = _primaryWidth,
+            SecondarySideBarOpen = _secondaryVisible, SecondarySideBarWidth = _secondaryWidth,
             PanelOpen = LogOpen, PanelHeight = panel.IsAbsolute ? panel.Value : null, PanelMaximized = _panelMaximized,
             TerminalListWidth = TerminalPanel.TerminalListWidth
         };
@@ -601,50 +603,32 @@ public partial class MainWindow : Window
         Toast.Show($"The update to v{update.ToVersion} wasn't installed: {why}", ToastKind.Error, showLog is null ? null : "Show log", showLog);
     }
 
-    // ─── Sidebar ────────────────────────────────────────────────────────────
+    // ─── Activity bar ─────────────────────────────────────────────────────
 
-    // Narrower than this, the sidebar shows only its icons, to leave the room to the page.
-    private const double CompactBelow = 1100;
+    // The activity bar's width: its icons only, as VS Code's - narrower in Customize Layout's Compact density.
+    private double ActivityBarWidth => _layout.Compact ? 40 : 48;
 
-    // Measured in the page's own units: at 150 % UI scale a 1500 px window lays out like a 1000 px one.
-    private void UpdateCompact() => IsCompact = ActualWidth / ThemeManager.Scale < CompactBelow;
-    // The sidebar's widths - with names, and icons only; narrower in Customize Layout's Compact density.
-    private const double DefaultSidebarWidth = 230;
-    private double ExpandedSidebarWidth => _sidebarWidth ?? (_layout.Compact ? 190 : DefaultSidebarWidth);
-    private double CompactSidebarWidth => _layout.Compact ? 40 : 48;
-
+    // Always true: the activity bar shows only its icons (their names as tooltips) - its parts follow this with triggers
+    // (SidebarLabel, SidebarNav).
     public static readonly DependencyProperty IsCompactProperty = DependencyProperty.Register(nameof(IsCompact), typeof(bool),
-        typeof(MainWindow), new PropertyMetadata(false, (d, e) =>
-        {
-            var window = (MainWindow)d;
-            window.SlideSidebar((bool)e.NewValue);
-            window.FitSidebarEdges();
-        }));
+        typeof(MainWindow), new PropertyMetadata(true));
 
-    // The sidebar's width - a number, so it can be animated (a grid column's width can't); the column follows it.
+    // The activity bar's width - a number, so it can be animated (a grid column's width can't); the column follows it.
     private static readonly DependencyProperty SidebarWidthProperty = DependencyProperty.Register("SidebarWidth", typeof(double),
-        typeof(MainWindow), new PropertyMetadata(DefaultSidebarWidth, (d, _) => ((MainWindow)d).ApplySidebarWidth()));
+        typeof(MainWindow), new PropertyMetadata(48.0, (d, _) => ((MainWindow)d).ApplySidebarWidth()));
 
-    /// <summary>Slides the sidebar to its narrow or wide width - at once while the window is still being set up.</summary>
-    private void SlideSidebar(bool compact)
+    /// <summary>Slides the activity bar to its width in this density - at once while the window is still being set up.</summary>
+    private void SlideSidebar()
     {
-        var width = compact ? CompactSidebarWidth : ExpandedSidebarWidth;
-        var slide = new DoubleAnimation(width, TimeSpan.FromMilliseconds(IsLoaded && Motion.Enabled ? 180 : 0))
+        var slide = new DoubleAnimation(ActivityBarWidth, TimeSpan.FromMilliseconds(IsLoaded && Motion.Enabled ? 180 : 0))
         {
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
         };
         BeginAnimation(SidebarWidthProperty, slide);
     }
 
-    /// <summary>
-    /// The window is narrow: the sidebar shows only the page icons (names as tooltips) and the IIS dot with its
-    /// buttons - no title, IIS text or projects folder. Its parts follow this with triggers (SidebarLabel, SidebarNav).
-    /// </summary>
-    public bool IsCompact
-    {
-        get => (bool)GetValue(IsCompactProperty);
-        private set => SetValue(IsCompactProperty, value);
-    }
+    /// <summary>The activity bar shows only the page icons - always, as VS Code's (and a phone's navigation).</summary>
+    public bool IsCompact => (bool)GetValue(IsCompactProperty);
 
     // ─── Title bar ──────────────────────────────────────────────────────────
 
@@ -822,14 +806,14 @@ public partial class MainWindow : Window
             _restoredLogHeight = LogRow.Height;
             PageRow.MinHeight = 0;
             PageRow.Height = new GridLength(0);
-            PageCard.Visibility = Visibility.Collapsed;
+            Workbench.Visibility = Visibility.Collapsed;
             LogRow.Height = new GridLength(1, GridUnitType.Star);
         }
         else
         {
             PageRow.Height = new GridLength(1, GridUnitType.Star);
             PageRow.MinHeight = MinPageHeight;
-            PageCard.Visibility = Visibility.Visible;
+            Workbench.Visibility = Visibility.Visible;
             if (LogOpen) LogRow.Height = _restoredLogHeight;
         }
         FitSashes();

@@ -40,6 +40,11 @@ public sealed class AppDataPaths(string root)
     public string DeploymentsDirectory => Path.Combine(Root, "deployments");
     /// <summary>Downloaded DNN install packages kept for reuse (setting <c>projects.keepDnnPackages</c>), one folder per repository.</summary>
     public string PackagesDirectory => Path.Combine(Root, "packages");
+    /// <summary>
+    /// What pushes and pulls replaced, wrote and compared - file contents by their SHA-256, for rollbacks and diffs
+    /// (<see cref="Deployment.SnapshotStore"/>).
+    /// </summary>
+    public string DeploySnapshotsDirectory => Path.Combine(Root, "deploy-snapshots");
 
     /// <summary>The same folder under its old name (<c>Documents\DNN Manager</c>).</summary>
     public string OldRoot => Path.Combine(Path.GetDirectoryName(Root)!, OldFolderName);

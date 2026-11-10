@@ -243,7 +243,7 @@ rest is state, kept apart in the `state` table, one row per value by area:
 
 | Area | Holds | Captured / restored by |
 |---|---|---|
-| `window` | The window's place and size, maximized, the sidebar shown or hidden, the panel's height, open or maximized, the terminal list's width | `MainWindow` |
+| `window` | The window's place and size, maximized, the activity bar shown or hidden (`sidebarHidden`), the primary and secondary side bars shown or hidden and their widths, the panel's height, open or maximized, the terminal list's width | `MainWindow` |
 | `workspace` | The page (Settings or Troubleshoot when one is open over the sidebar page), the sidebar page, the Settings category, the Projects table (search, filter, sorting, expanded and selected rows, scroll) and the open Details with its tab | `MainWindow`, `ProjectsPage.CaptureTable` / `RestoreAsync` |
 | `forms` | New project and unsaved Settings, by field name | [`FormDraft`](../src/DnnManager.Presentation/Services/FormDraft.cs), `SettingsPage.CaptureDraft` / `RestoreDraft` |
 | `logs` | The panel's tab, its search, the Logs tab's site and log | `TerminalPanel.CaptureLogs` / `RestoreLogs` |
@@ -299,6 +299,10 @@ DNN Manager's own data is one SQLite file, `Documents\DnnManager\dnnmanager.db`
 | `projects` | How DNN Manager installed each project it set up | [`ProjectRecords`](../src/DnnManager.Infrastructure/Projects/ProjectRecords.cs) |
 | `keep_warm` | The sites kept warm, a row each - how they are kept warm is the settings' | [`KeepWarmRecords`](../src/DnnManager.Infrastructure/Projects/KeepWarmRecords.cs) |
 | `dnn_releases` | Each repository's DNN versions as GitHub last listed them, for offline use - with GitHub's SHA-256 of the install and upgrade packages (`sha256`, `upgrade_sha256`), so a kept package is checked offline too | [`GitHubDnnReleaseService`](../src/DnnManager.Infrastructure/Github/GitHubDnnReleaseService.cs) |
+| `deploy_connections` | Each project's servers (the Source Control page): address, protocol and FTP's encryption (`ftp_encryption`), logon type (`auth`), folder, the trusted host key or certificate, ignore rules, transfer options, last reached / last push or pull - and in `password`, `private_key`, `passphrase` its secrets, DPAPI-encrypted (`dpapi:…`) for the Windows account | [`DeployStore`](../src/DnnManager.Infrastructure/Deployment/DeployStore.cs) |
+| `deploy_baseline` | Per connection and file, the content (SHA-256, size) the project and the server last agreed on - and how the server listed it then (`remote_size`, `remote_modified_utc`), valid only while the server holds that content | `DeployStore` |
+| `deploy_local_hashes` | The projects' files' SHA-256, with the size and time they were for - a scan hashes only what changed | `DeployStore` |
+| `deploy_operations`, `deploy_operation_files` | The deployment history: each push, pull, resolution and rollback (message, user, status, retries, what it rolled back) and each file's action, side and hashes before and after, with its baseline before | `DeployStore` |
 
 - **One file, opened for each read or write** and closed after it (no
   connection pool), so nothing holds it open in between; a write waits up to
@@ -306,8 +310,8 @@ DNN Manager's own data is one SQLite file, `Documents\DnnManager\dnnmanager.db`
   `AppDatabase.Open` brings the tables up to date the first time - and again
   for a file deleted meanwhile: `AppDatabase.Steps` are the numbered steps that
   make each version of the tables from the one before, and `PRAGMA
-  user_version` holds how many have run (5 in this version - the fifth added
-  the SHA-256 columns of `dnn_releases`). A change of the tables is a new step
+  user_version` holds how many have run (7 in this version - the sixth added
+  the deployments' `deploy_*` tables, the seventh FTP's encryption). A change of the tables is a new step
   at the end; the steps before never change. The steps that haven't run, and
   the count, run in **one** `BEGIN IMMEDIATE` transaction, counted again under
   that lock (threads opening a new file at once each saw 0 - running a step
@@ -410,7 +414,7 @@ DnnManager.NET/
         ├── RunningMarker.cs     ← named mutex while the app runs - the installer checks it before replacing the app
         ├── SingleInstance.cs    ← a second start hands over to the running app, which shows its window; Setup asks it to quit
         ├── App.xaml             ← merges the palette, tokens, icons and control styles; the sidebar's own styles
-        ├── MainWindow.xaml      ← sidebar navigation + page host + activity log + status bar; .Layout.cs: Customize Layout, the gear's menu
+        ├── MainWindow.xaml      ← activity bar + side bars + page host + panel + status bar; .Layout.cs: Customize Layout, the gear's menu; .SideBars.cs: the primary side bar (a page's `ISideBarPage.SideBar`) and the secondary
         ├── Pages/               ← one page per sidebar item, plus Settings and Troubleshoot (opened over the page); AboutInfo (Settings → About)
         │   └── Projects/        ← the Projects table's row, columns and right-click menu; a site's Details (ProjectView, ProjectDiagnostics, Inspector)
         ├── Assets/              ← dnn.ico - the exe and window icon (DNN logo mark)
@@ -444,6 +448,7 @@ DnnManager.NET/
 | **Centralised error handling** | `OperationRunner` catches per-action exceptions and reports them in the activity log; `App` shows anything escaping a click handler; `Program.cs` catches fatal errors. |
 | **Admin enforcement** | `AdminElevation` relaunches the app elevated (UAC prompt) when it isn't - through `DnnManager-launcher.exe` when it is installed beside it, so .NET reads none of the user's profiler or diagnostics variables. |
 | **Host names in the hosts file, not a DNS server of its own** | `*.dnndev.me` resolves through public DNS, so without internet the browser can't find a local site. DNN Manager writes the sites' host names into Windows' hosts file ([`HostsFileService`](../src/DnnManager.Infrastructure/Hosts/HostsFileService.cs), following the monitor) instead of running a resolver: nothing runs when DNN Manager is closed or after a restart of the PC, normal DNS isn't touched, and browsers with a resolver of their own read the hosts file too. The cost: no wildcards, so each name is written - which the monitor's view of the bindings makes easy. |
+| **Deployments compare through a baseline** | Push and pull decide from three states - the project, the server, and the content both last agreed on (`deploy_baseline`) - never from which side's clock is later; a scan reads a server file only when its listing changed and its size doesn't already tell it apart. Every write checks the file is still as the scan saw it, keeps what it replaces in a content-addressed snapshot store, and is undone on failure. See [ADR 0005](adr/0005-deployment-baseline.md). |
 | **No hardcoded values** | Container name, SA password, port, GitHub APIs, IIS feature list, hostname suffix, base directory, theme - all in the settings. |
 
 ## Control styles
@@ -499,6 +504,7 @@ written inline anywhere else.
 | Databases: Test connection, create, the site's login, LocalDB files | [`Sql/DatabaseProvisioner.cs`](../src/DnnManager.Infrastructure/Sql/DatabaseProvisioner.cs), [`Sql/LocalDbFiles.cs`](../src/DnnManager.Infrastructure/Sql/LocalDbFiles.cs), [`Sql/ConnectionStrings.cs`](../src/DnnManager.Infrastructure/Sql/ConnectionStrings.cs), [`Abstractions/Databases.cs`](../src/DnnManager.Application/Abstractions/Databases.cs), [`Controls/DatabaseCheckList.xaml`](../src/DnnManager.Presentation/Controls/DatabaseCheckList.xaml.cs) |
 | Passwords in the Windows Credential Manager; how each project was installed | [`Settings/WindowsCredentialStore.cs`](../src/DnnManager.Infrastructure/Settings/WindowsCredentialStore.cs), [`Projects/ProjectRecords.cs`](../src/DnnManager.Infrastructure/Projects/ProjectRecords.cs) |
 | Tests | [`tests/DnnManager.IntegrationTests/`](../tests/DnnManager.IntegrationTests/) |
+| Source Control page (laid out as VS Code's): servers, compare, diff, push / pull, conflicts, history and rollback ([user guide](user-guide.md#deploy-to-a-server), [ADR 0005](adr/0005-deployment-baseline.md)) | [`Pages/DeployPage.xaml`](../src/DnnManager.Presentation/Pages/DeployPage.xaml.cs) (+ the rows in `DeployRows.cs`), [`Controls/DiffView.xaml`](../src/DnnManager.Presentation/Controls/DiffView.xaml.cs) + [`SyntaxHighlighter.cs`](../src/DnnManager.Presentation/Controls/SyntaxHighlighter.cs), `DeployConnectionDialog`, `DeployPreviewDialog`, `MergeDialog` in [`Controls/`](../src/DnnManager.Presentation/Controls/); [`Application/Deployment/`](../src/DnnManager.Application/Deployment/) - `SyncComparer` (the three-way decision), `SyncScanner` + `LocalScanner` (compare), `SyncEngine` (check, back up, apply, undo), `DeployUseCases` (push, pull, resolve, rollback, restore), `TextDiff`, `ThreeWayMerge`, `IgnoreRules`, `DeployPath`, `DeployLock`, `RemotePool`; [`Infrastructure/Deployment/`](../src/DnnManager.Infrastructure/Deployment/) - `SftpFileSystem` (SSH.NET), `FtpFileSystem` (FluentFTP), `SnapshotStore`, `DeployStore`; records in [`Domain/Deployment.cs`](../src/DnnManager.Domain/Deployment.cs) |
 | Shared IIS site / SQL container steps | [`UseCases/Provisioning.cs`](../src/DnnManager.Application/UseCases/Provisioning.cs) |
 | Clone a project | [`ProjectMenu`](../src/DnnManager.Presentation/Pages/Projects/ProjectMenu.cs) (**Clone…**) + [`UseCases/CloneProjectUseCase.cs`](../src/DnnManager.Application/UseCases/CloneProjectUseCase.cs) |
 | Upgrade DNN - one step of DNN's path at a time: backup, the step's files (upgrade package, or from 10.2 the install package as DNN's local upgrade), `Install.aspx?mode=upgrade`, restart (waiting for the worker process to end, then deleting DNN's lock), checks; the step's backup put back on failure | [`ProjectEdits.UpgradeDnn`](../src/DnnManager.Presentation/Pages/Projects/ProjectEdits.cs), [`Controls/UpgradeDnnDialog`](../src/DnnManager.Presentation/Controls/UpgradeDnnDialog.xaml.cs), [`UseCases/UpgradeDnnUseCase.cs`](../src/DnnManager.Application/UseCases/UpgradeDnnUseCase.cs), `DnnInstaller.UpgradeAsync` / `CheckVersionAsync`, `DnnPackageInstaller.ExtractUpgradeAsync` / `ExtractLocalUpgradeAsync`, `IisManager.StopSiteAndWait` |

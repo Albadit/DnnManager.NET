@@ -1,3 +1,4 @@
+using DnnManager.Application.Deployment;
 using DnnManager.Application.UseCases;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -29,6 +30,17 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<EditAppPoolUseCase>();
         services.AddScoped<ChangeDatabaseConnectionUseCase>();
         services.AddScoped<ExportForDeploymentUseCase>();
+        // Deployments: comparing a project with its servers, push, pull, conflicts, rollback.
+        services.AddSingleton<LocalScanner>();
+        services.AddSingleton<SyncScanner>();
+        services.AddSingleton<DeployConnections>();
+        services.AddSingleton<DeployFiles>();
+        services.AddScoped<SyncEngine>();
+        services.AddScoped<PushChangesUseCase>();
+        services.AddScoped<PullChangesUseCase>();
+        services.AddScoped<ResolveConflictUseCase>();
+        services.AddScoped<RollbackOperationUseCase>();
+        services.AddScoped<RestoreVersionUseCase>();
         return services;
     }
 }

@@ -25,6 +25,9 @@ internal static class WpfUi
         if (failure is not null) ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
+    /// <summary>Runs <paramref name="body"/> on the UI thread, awaiting it there - for a test that waits on what the UI does.</summary>
+    public static Task RunAsync(Func<Task> body) => Ui.Value.InvokeAsync(body).Task.Unwrap();
+
     private static Dispatcher Start()
     {
         Dispatcher? dispatcher = null;

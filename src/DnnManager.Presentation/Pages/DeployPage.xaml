@@ -1,0 +1,348 @@
+<UserControl x:Class="DnnManager.Presentation.Pages.DeployPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:p="clr-namespace:DnnManager.Presentation.Pages"
+             xmlns:c="clr-namespace:DnnManager.Presentation.Controls">
+    <!-- Source Control, laid out as VS Code's: in the window's primary side bar (SideGrid - taken out of the page as it is
+         made, see SideBar) the servers (its repositories), the message and Push, the changes in groups - staged, to push,
+         to pull, conflicts - each with its status letter, and the history (its graph); in the page the chosen file's diff,
+         or the chosen operation of the history. -->
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="Visible" />
+        <Style x:Key="Glyph" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <!-- A section's title, as VS Code writes it: small capitals, muted, with its chevron. -->
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource TextSmall}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="SmallIcon" TargetType="Button" BasedOn="{StaticResource IconButton}">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <!-- A row's buttons show while the pointer is on it, or it is chosen - VS Code's inline actions. -->
+        <Style x:Key="RowActions" TargetType="StackPanel">
+            <Setter Property="Orientation" Value="Horizontal" />
+            <Setter Property="Visibility" Value="Hidden" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <!-- VS Code's status letters and their colours: M modified, A added, D deleted, ! conflict. -->
+        <Style x:Key="Letter" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Width" Value="16" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Text" Value="{Binding Letter}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Letter}" Value="M"><Setter Property="Foreground" Value="{DynamicResource LogWarn}" /></DataTrigger>
+                <DataTrigger Binding="{Binding Letter}" Value="A"><Setter Property="Foreground" Value="{DynamicResource SuccessText}" /></DataTrigger>
+                <DataTrigger Binding="{Binding Letter}" Value="D"><Setter Property="Foreground" Value="{DynamicResource ErrorText}" /></DataTrigger>
+                <DataTrigger Binding="{Binding Letter}" Value="!"><Setter Property="Foreground" Value="{DynamicResource DeployConflict}" /></DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- A group's header: chevron, title, count - and stage or unstage all of it. -->
+        <DataTemplate x:Key="HeaderRow" DataType="{x:Type p:ChangeRow}">
+            <DockPanel Background="Transparent" Margin="0,4,0,0" MinHeight="24">
+                <StackPanel DockPanel.Dock="Right" Style="{StaticResource RowActions}">
+                    <Button Style="{StaticResource SmallIcon}" Content="{StaticResource GlyphAdd}" Click="StageGroup_Click" Tag="{Binding}"
+                            ToolTip="Stage all" Visibility="{Binding CanStageAll, Converter={StaticResource Visible}}" />
+                    <Button Style="{StaticResource SmallIcon}" Content="{StaticResource GlyphDash}" Click="UnstageGroup_Click" Tag="{Binding}"
+                            ToolTip="Unstage all" Visibility="{Binding CanUnstageAll, Converter={StaticResource Visible}}" />
+                </StackPanel>
+                <Border DockPanel.Dock="Right" Background="{DynamicResource HoverBg}" CornerRadius="8" Padding="6,0" Margin="6,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Count}" FontSize="{DynamicResource TextSmall}" />
+                </Border>
+                <TextBlock Style="{StaticResource Glyph}" FontSize="9" Width="16" Text="{Binding Chevron}" Foreground="{DynamicResource TextMuted}" />
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+        </DataTemplate>
+        <!-- A file: its name, its folder (muted), its buttons, its letter. -->
+        <DataTemplate x:Key="FileRow" DataType="{x:Type p:ChangeRow}">
+            <DockPanel Background="Transparent" Margin="16,0,0,0" MinHeight="24" ToolTip="{Binding Tip}">
+                <TextBlock DockPanel.Dock="Right" Style="{StaticResource Letter}" />
+                <StackPanel DockPanel.Dock="Right" Style="{StaticResource RowActions}">
+                    <Button Style="{StaticResource SmallIcon}" Content="{StaticResource GlyphAdd}" Click="Stage_Click" Tag="{Binding}"
+                            ToolTip="Stage - to push or pull it with the others staged" Visibility="{Binding CanStage, Converter={StaticResource Visible}}" />
+                    <Button Style="{StaticResource SmallIcon}" Content="{StaticResource GlyphDash}" Click="Unstage_Click" Tag="{Binding}"
+                            ToolTip="Unstage" Visibility="{Binding IsStaged, Converter={StaticResource Visible}}" />
+                </StackPanel>
+                <TextBlock DockPanel.Dock="Left" Style="{StaticResource Glyph}" Text="{Binding Arrow}" Foreground="{DynamicResource TextMuted}" Width="14"
+                           FontFamily="{DynamicResource {x:Static SystemFonts.MessageFontFamilyKey}}" />
+                <TextBlock DockPanel.Dock="Left" Style="{StaticResource Glyph}" Text="{Binding Icon}" Foreground="{Binding IconBrush}" Margin="0,0,6,0" />
+                <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                    <Run Text="{Binding Name, Mode=OneWay}" />
+                    <Run Text="{Binding Folder, Mode=OneWay}" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextSmall}" />
+                </TextBlock>
+            </DockPanel>
+        </DataTemplate>
+        <p:ChangeRowTemplates x:Key="RowTemplates" Header="{StaticResource HeaderRow}" File="{StaticResource FileRow}" />
+        <!-- A part of the Push bar: VS Code's Commit button is one blue bar, its ▾ a part of it behind a thin line. -->
+        <Style x:Key="SplitPart" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource OnAccent}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding Tag}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentHover}" /></Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentHover}" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.55" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid x:Name="Root">
+        <!-- ─── The side bar's view - the window's primary side bar shows it ─── -->
+            <Grid x:Name="SideGrid" PreviewKeyDown="SideGrid_PreviewKeyDown">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" MinHeight="80" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition x:Name="HistoryRow" Height="220" MinHeight="32" />
+                </Grid.RowDefinitions>
+                <!-- DEPLOY, and what VS Code has on its title: compare (refresh), add, more. -->
+                <DockPanel Margin="16,10,8,4">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button x:Name="ScanButton" Style="{StaticResource SmallIcon}" Content="{StaticResource GlyphRefresh}" Click="Scan_Click"
+                                ToolTip="Compare with the server (F5) - what changed in the project, on the server, or in both" />
+                        <Button Style="{StaticResource SmallIcon}" Content="{StaticResource GlyphAdd}" Click="Add_Click"
+                                ToolTip="Add a server to a project" />
+                        <Button x:Name="MoreButton" Style="{StaticResource SmallIcon}" Content="{StaticResource GlyphMore}" Click="More_Click"
+                                ToolTip="More actions: stage all, unstage all, edit, test or remove the server" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="SOURCE CONTROL" />
+                </DockPanel>
+                <ProgressBar x:Name="ProgressBar" Grid.Row="1" Height="2" Foreground="{DynamicResource Accent}" Background="Transparent" BorderThickness="0"
+                             Visibility="Hidden" AutomationProperties.Name="Progress" />
+
+                <!-- SERVERS - every project's, VS Code's repositories. -->
+                <StackPanel Grid.Row="2">
+                    <DockPanel Margin="8,2,8,0">
+                        <ToggleButton x:Name="ServersToggle" DockPanel.Dock="Left" Style="{StaticResource ExpandToggle}" IsChecked="True" Focusable="True"
+                                      Foreground="{DynamicResource TextMuted}" AutomationProperties.Name="Servers" />
+                        <TextBlock Style="{StaticResource SectionTitle}" Text="SERVERS" Margin="2,0,0,0" />
+                    </DockPanel>
+                    <ListBox x:Name="ServersList" MaxHeight="190" Margin="8,0,8,4" BorderThickness="0" Background="Transparent"
+                             SelectionChanged="Server_Changed" AutomationProperties.Name="Servers" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             Visibility="{Binding IsChecked, ElementName=ServersToggle, Converter={StaticResource Visible}}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type p:ServerRow}">
+                                <DockPanel ToolTip="{Binding Tip}" Background="Transparent">
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Counts}" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"
+                                               Margin="8,0,0,0" FontSize="{DynamicResource TextSmall}" />
+                                    <Ellipse DockPanel.Dock="Left" Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center" Fill="{Binding Health}" />
+                                    <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                                        <Run Text="{Binding Site, Mode=OneWay}" FontWeight="SemiBold" />
+                                        <Run Text="{Binding Name, Mode=OneWay}" />
+                                        <Run Text="{Binding Detail, Mode=OneWay}" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextSmall}" />
+                                    </TextBlock>
+                                </DockPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Compare" Click="Scan_Click" InputGestureText="F5" />
+                                <MenuItem Header="Edit connection…" Click="Edit_Click" />
+                                <MenuItem Header="Test connection" Click="Test_Click" />
+                                <Separator />
+                                <MenuItem Header="Remove connection…" Click="Remove_Click" />
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
+                    </ListBox>
+                </StackPanel>
+
+                <!-- CHANGES - the message, Push (its ▾ the rest), and the groups. -->
+                <Border Grid.Row="3" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Padding="8,4,8,0">
+                    <DockPanel>
+                        <TextBlock x:Name="ScanSummary" DockPanel.Dock="Right" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextSmall}"
+                                   VerticalAlignment="Center" />
+                        <ToggleButton DockPanel.Dock="Left" Style="{StaticResource ExpandToggle}" IsChecked="True" IsEnabled="False"
+                                      Foreground="{DynamicResource TextMuted}" />
+                        <TextBlock Style="{StaticResource SectionTitle}" Text="CHANGES" Margin="2,0,0,0" />
+                    </DockPanel>
+                </Border>
+                <StackPanel x:Name="CommitArea" Grid.Row="4" Margin="16,6,12,6">
+                    <TextBox x:Name="CommitMessage" Style="{StaticResource SearchBox}" Tag="Message (Ctrl+Enter to push)" AutomationProperties.Name="Message"
+                             MaxLength="500" PreviewKeyDown="CommitMessage_KeyDown" />
+                    <!-- One blue bar as tall as the message box: Push, a thin line, its ▾ - VS Code's Commit button. -->
+                    <Border x:Name="PushBar" Margin="0,6,0,0" Height="{StaticResource SearchHeight}" CornerRadius="4" Background="{DynamicResource Accent}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="1" />
+                                <ColumnDefinition Width="28" />
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="PrimaryButton" Style="{StaticResource SplitPart}" Tag="4,0,0,4" Click="Primary_Click" IsEnabled="False">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="PrimaryGlyph" Style="{StaticResource Glyph}" Text="{StaticResource GlyphUpload}" Margin="0,0,6,0" />
+                                    <TextBlock x:Name="PrimaryLabel" Text="Push" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Border Grid.Column="1" Background="{DynamicResource OnAccent}" Opacity="0.35" Margin="0,5" />
+                            <Button x:Name="ActionsButton" Grid.Column="2" Style="{StaticResource SplitPart}" Tag="0,4,4,0" Click="Actions_Click"
+                                    ToolTip="More: pull, pull into a review folder, compare" AutomationProperties.Name="More push and pull actions">
+                                <TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphChevronDown}" FontSize="10" />
+                            </Button>
+                        </Grid>
+                    </Border>
+                    <TextBlock x:Name="ProgressText" Style="{StaticResource Hint}" TextTrimming="CharacterEllipsis" Visibility="Collapsed" Margin="0,4,0,0" />
+                </StackPanel>
+                <Grid Grid.Row="5">
+                    <ListBox x:Name="Changes" BorderThickness="0" Background="Transparent" Margin="0,0,0,4"
+                             ItemTemplateSelector="{StaticResource RowTemplates}" SelectionChanged="Change_Changed" KeyDown="Changes_KeyDown"
+                             MouseDoubleClick="Changes_DoubleClick" AutomationProperties.Name="Changes" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                <Setter Property="Padding" Value="4,1" />
+                                <Setter Property="Margin" Value="4,0" />
+                                <Setter Property="AutomationProperties.Name" Value="{Binding Spoken}" />
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ContextMenu>
+                            <ContextMenu Opened="ChangesMenu_Opened">
+                                <MenuItem x:Name="StageFolderItem" Click="StageFolder_Click" />
+                                <MenuItem x:Name="UnstageFolderItem" Click="UnstageFolder_Click" />
+                                <Separator />
+                                <MenuItem Header="Copy path" Click="CopyPath_Click" />
+                                <MenuItem Header="Open in File Explorer" Click="Reveal_Click" />
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
+                    </ListBox>
+                    <TextBlock x:Name="ChangesMessage" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="16,8" VerticalAlignment="Top" />
+                </Grid>
+
+                <!-- Dragged up or down: the history bigger or smaller, as VS Code's views. -->
+                <c:Sash x:Name="HistorySash" Grid.Row="6" Orientation="Horizontal" Height="6" Cursor="SizeNS" Margin="0,-3,0,-3"
+                        DragStarted="HistorySash_DragStarted" DragDelta="HistorySash_DragDelta" Panel.ZIndex="1" />
+                <!-- HISTORY - VS Code's graph, at the bottom. -->
+                <DockPanel Grid.Row="7">
+                    <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Padding="8,4">
+                        <DockPanel>
+                            <ToggleButton x:Name="HistoryToggle" DockPanel.Dock="Left" Style="{StaticResource ExpandToggle}" IsChecked="True" Focusable="True"
+                                          Foreground="{DynamicResource TextMuted}" AutomationProperties.Name="History" Click="HistoryToggle_Click" />
+                            <TextBlock Style="{StaticResource SectionTitle}" Text="HISTORY" Margin="2,0,0,0" />
+                        </DockPanel>
+                    </Border>
+                    <Grid x:Name="HistoryBody">
+                        <ListBox x:Name="HistoryList" BorderThickness="0" Background="Transparent" Margin="8,0,8,8" SelectionChanged="Operation_Changed"
+                                 AutomationProperties.Name="History" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type p:OperationRow}">
+                                    <DockPanel ToolTip="{Binding Tip}" Background="Transparent">
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding When}" Foreground="{DynamicResource TextMuted}"
+                                                   FontSize="{DynamicResource TextSmall}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                        <TextBlock DockPanel.Dock="Left" Text="{Binding Arrow}" Width="18" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Message}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                                   Opacity="{Binding Opacity}" />
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <TextBlock x:Name="HistoryMessage" Style="{StaticResource Hint}" Margin="16,8" TextWrapping="Wrap" Visibility="Collapsed"
+                                   Text="Nothing pushed or pulled with this server yet." />
+                    </Grid>
+                </DockPanel>
+            </Grid>
+
+        <!-- ─── The editor: a file's diff, or an operation of the history ── -->
+        <Grid x:Name="EditorGrid" Margin="16,12,16,12">
+            <!-- No server yet. -->
+            <Border x:Name="EmptyState" Style="{StaticResource Card}" VerticalAlignment="Top" Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource CardTitle}" Text="Connect a server" />
+                    <TextBlock x:Name="EmptyText" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,0,0,12"
+                               Text="Add a project's live, staging or development server (SFTP, FTPS or FTP). DNN Manager then compares it with the project like git compares with a remote: what changed here is yours to push, what changed there - someone edited the live site - yours to pull, file by file, each with its diff, never overwriting anything unseen. Every push and pull is kept, and can be rolled back." />
+                    <Button HorizontalAlignment="Left" Style="{StaticResource Primary}" Content="Add server…" Click="Add_Click" />
+                </StackPanel>
+            </Border>
+
+            <!-- A file. -->
+            <DockPanel x:Name="FileView">
+                <!-- Its tab, as VS Code's editor shows it. -->
+                <Border x:Name="FileTab" DockPanel.Dock="Top" BorderBrush="{DynamicResource Accent}" BorderThickness="0,0,0,2" HorizontalAlignment="Left"
+                        Padding="2,0,12,6" Margin="0,0,0,10" Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="FileLetter" FontWeight="SemiBold" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock x:Name="FileTitle" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <TextBlock x:Name="FileSubtitle" Foreground="{DynamicResource TextMuted}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+                <Border x:Name="ConflictBar" DockPanel.Dock="Top" Style="{StaticResource WarnBanner}" Margin="0,0,0,8" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock x:Name="ConflictText" TextWrapping="Wrap" Margin="0,0,0,8" />
+                        <WrapPanel>
+                            <Button Content="Keep the project's" Margin="0,0,8,0" Click="KeepLocal_Click"
+                                    ToolTip="Keep the project's version - the server's change is set aside; push it to replace the server's" />
+                            <Button Content="Take the server's" Margin="0,0,8,0" Click="TakeRemote_Click"
+                                    ToolTip="Take the server's version - it replaces the project's, which is kept to roll back to" />
+                            <Button x:Name="MergeButton" Content="Merge…" Click="Merge_Click"
+                                    ToolTip="Merge - what only one side changed is merged; you edit what both changed" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+                <c:DiffView x:Name="Diff" />
+            </DockPanel>
+
+            <!-- An operation of the history. -->
+            <DockPanel x:Name="OperationView" Visibility="Collapsed">
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                    <WrapPanel DockPanel.Dock="Right">
+                        <Button x:Name="RollbackButton" Margin="6,0,0,0" Click="Rollback_Click"
+                                ToolTip="Roll back - put every file of this operation back as it was before it">
+                            <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphUndo}" Margin="0,0,6,0" /><TextBlock Text="Roll back…" /></StackPanel>
+                        </Button>
+                        <Button x:Name="RestoreButton" Margin="6,0,0,0" Click="Restore_Click" Content="Restore the version before"
+                                ToolTip="Restore into the project - the chosen file as it was before this operation; push it to send it on" />
+                        <Button x:Name="OpenReviewButton" Margin="6,0,0,0" Content="Open review folder" Click="OpenReview_Click" Visibility="Collapsed" />
+                    </WrapPanel>
+                    <StackPanel>
+                        <TextBlock x:Name="OperationTitle" Style="{StaticResource CardTitle}" TextTrimming="CharacterEllipsis" Margin="0" />
+                        <TextBlock x:Name="OperationText" Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                    </StackPanel>
+                </DockPanel>
+                <ListBox x:Name="OperationFiles" DockPanel.Dock="Top" MaxHeight="160" Margin="0,0,0,10" SelectionChanged="OperationFile_Changed"
+                         AutomationProperties.Name="Files of the operation" BorderThickness="1" BorderBrush="{DynamicResource CardBorder}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type p:OperationFileRow}">
+                            <DockPanel Background="Transparent">
+                                <TextBlock DockPanel.Dock="Right" Style="{StaticResource Letter}" />
+                                <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                                    <Run Text="{Binding Name, Mode=OneWay}" />
+                                    <Run Text="{Binding Folder, Mode=OneWay}" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextSmall}" />
+                                    <Run Text="{Binding Where, Mode=OneWay}" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextSmall}" />
+                                </TextBlock>
+                            </DockPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <c:DiffView x:Name="HistoryDiff" />
+            </DockPanel>
+        </Grid>
+    </Grid>
+</UserControl>

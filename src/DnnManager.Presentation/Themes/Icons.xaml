@@ -38,6 +38,12 @@
     <sys:String x:Key="GlyphStop">&#xE71A;</sys:String>
     <sys:String x:Key="GlyphRefresh">&#xE72C;</sys:String>
     <sys:String x:Key="GlyphDelete">&#xE74D;</sys:String>
+    <!-- Deployments: push (up), pull (down), scan, history, roll back, edit a connection. -->
+    <sys:String x:Key="GlyphUpload">&#xE898;</sys:String>
+    <sys:String x:Key="GlyphSync">&#xE895;</sys:String>
+    <sys:String x:Key="GlyphHistory">&#xE81C;</sys:String>
+    <sys:String x:Key="GlyphUndo">&#xE7A7;</sys:String>
+    <sys:String x:Key="GlyphEdit">&#xE70F;</sys:String>
     <sys:String x:Key="GlyphCopy">&#xE8C8;</sys:String>
     <sys:String x:Key="GlyphSearch">&#xE721;</sys:String>
     <sys:String x:Key="GlyphReset">&#xE7A7;</sys:String>

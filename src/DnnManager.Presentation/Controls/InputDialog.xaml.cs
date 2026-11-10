@@ -21,7 +21,31 @@ public partial class InputDialog : Window
         Loaded += (_, _) => { Text.Focus(); Text.SelectAll(); };
     }
 
-    private string Value => Text.Text.Trim();
+    private bool _secret;
+
+    // A password is taken as typed - spaces too.
+    private string Value => _secret ? Secret.Password : Text.Text.Trim();
+
+    /// <summary>A password prompt: hidden as it is typed, nothing kept by the dialog. Null when cancelled or left blank.</summary>
+    public static string? ShowSecret(string question, string okText = "OK")
+    {
+        var dialog = new InputDialog(question, null, okText, null)
+        {
+            Owner = System.Windows.Application.Current.MainWindow is { IsVisible: true } w ? w : null
+        };
+        dialog._secret = true;
+        dialog.Text.Visibility = Visibility.Collapsed;
+        dialog.Secret.Visibility = Visibility.Visible;
+        dialog.Check();
+        dialog.Loaded += (_, _) => dialog.Secret.Focus();
+        if (dialog.Owner is null) dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        return dialog.ShowDialog() == true && dialog.Value.Length > 0 ? dialog.Value : null;
+    }
+
+    private void Secret_Changed(object sender, RoutedEventArgs e)
+    {
+        if (IsInitialized) Check();
+    }
 
     /// <summary>
     /// Returns the entered text (trimmed), or null when cancelled or left blank. <paramref name="validate"/> says what is

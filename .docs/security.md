@@ -304,6 +304,7 @@ offline too. Unpacking goes through `SafeZip` (above).
 | The database server login's password (**Settings → Database server**, SQL authentication) | Windows Credential Manager, `DnnManager/database-server/password` |
 | A site's database login | The site's own `web.config` (`SiteSqlServer`), as DNN needs it. A site on the local container made by New project (automatic), Clone or Import signs in with a login of its own - `dnn_<project>` (`dnn_<project>_2`, … when another site, one renamed since, signs in with that one), owner of its database only, a new password each time - not with `sa`. A login another site signs in with is never given a new password or dropped |
 | A live server's connection string (**Export for deployment**) | The package's `web.config`, in `Documents\DnnManager\deployments\` - the Output tab says so; **Troubleshoot → Clean up data → Deployment packages** deletes them |
+| A deployment server's password, private key and passphrase (Source Control page) | `dnnmanager.db` → `deploy_connections`, the columns `password`, `private_key`, `passphrase`, each encrypted for your Windows account (DPAPI, with DNN Manager's own entropy) - never shown again, and gone with the connection. With the logon type **Ask for password** none is saved: the password typed is kept in memory until DNN Manager closes. They are given to SSH.NET / FluentFTP in memory only. See [Deployments](#deployments) |
 | A database password put on the clipboard (**Open in SSMS** when SSMS can't be signed in) | The clipboard, for 60 seconds - left out of Windows' clipboard history and cloud clipboard, and marked for clipboard managers to ignore; then taken off again unless something else was copied - and when DNN Manager quits ([`SecretClipboard.cs`](../src/DnnManager.Presentation/Services/SecretClipboard.cs)) |
 
 They never go into the Output tab, the log file or an error message (the tests
@@ -319,6 +320,39 @@ one place (`ConnectionStrings.For` in
 which decides when a server's certificate is checked; every name and value put
 into SQL text is quoted by
 [`Sql/SqlText.cs`](../src/DnnManager.Infrastructure/Sql/SqlText.cs).
+
+## Deployments
+
+The Source Control page ([user guide](user-guide.md#deploy-to-a-server)) talks to
+servers on the internet and writes into the project's folder, as Administrator.
+
+- **The server is who it was.** An SFTP server's host key (its SHA-256
+  fingerprint) and an FTPS server's certificate (its SHA-256 - pinned, whatever
+  Windows thinks of its issuer, since hosting often has a self-signed one) are
+  trusted only after the user has seen them, and a server showing another one
+  is refused before any password is sent. Plain FTP has nothing to check and
+  sends the password in clear - the connection dialog and the tab say so;
+  *explicit TLS if available* can fall back to it on a server without TLS, and
+  the dialog says that too.
+- **Nothing outside the two folders.** Every path is relative and checked by
+  `DeployPath` (no `..`, no full path or drive, no name Windows can't hold); a
+  server's listing that doesn't fit is left out. Server paths are always the
+  connection's folder + that path. In the project a file is written only
+  through `SafePath.Under` - never through a link or junction - and written
+  beside its place, then moved in. A server's symbolic links aren't followed.
+- **`sha256sum` over SSH** gets each path in single quotes, a quote in it
+  escaped - the shell runs nothing of a file name. An account that may only
+  use SFTP is found once (a probe it doesn't answer) and its files are read
+  back instead.
+- **Nothing overwritten unseen.** A push writes a server file only when it is
+  still as the scan saw it; a pull writes a project file only when its hash is
+  still the scan's. Production and files that look like secrets or one
+  environment's configuration (`web.config`, keys, `.env`) need a tick of
+  their own in the review, and are never staged by **All shown**.
+- **The snapshot store is the user's** (`Documents\DnnManager\deploy-snapshots`):
+  every program of theirs can change it. A content is used only after its
+  SHA-256 is checked against its name while it is read, so a changed file there
+  is refused, not sent or written. Nothing is written into it through a link.
 
 ## What DNN Manager deletes - and its limits
 
@@ -366,6 +400,11 @@ or written. `sqlcmd` runs with `-x -X`: a database name read from a site's
   network you don't trust.
 
 ## Known open risks
+
+- **Plain FTP** (when the user picks it) sends the password and files
+  unencrypted, and can't check the server's identity. Its deploy lock is a
+  check, then a write - two DNN Managers starting in the same instant could both
+  take it; SFTP's is an exclusive create.
 
 - **The exes aren't signed.** An update is checked against GitHub's SHA-256 of
   the file, which proves it is the file of the release - not who made the

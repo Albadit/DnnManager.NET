@@ -40,7 +40,7 @@ public sealed class PagesLoadTests
         var services = Services();
         Kept.Add(services);
         var failed = new List<string>();
-        foreach (var type in new[] { typeof(MainWindow), typeof(SetupPage), typeof(SettingsPage), typeof(ProjectsPage), typeof(TroubleshootPage) })
+        foreach (var type in new[] { typeof(MainWindow), typeof(SetupPage), typeof(SettingsPage), typeof(ProjectsPage), typeof(TroubleshootPage), typeof(DeployPage) })
         {
             try
             {
@@ -58,6 +58,50 @@ public sealed class PagesLoadTests
             }
         }
         Assert.AreEqual(0, failed.Count, string.Join(Environment.NewLine, failed));
+    });
+
+    [TestMethod]
+    public void Settings_has_a_deploy_category_with_its_defaults() => WpfUi.Run(() =>
+    {
+        var services = Services();
+        Kept.Add(services);
+        var page = ActivatorUtilities.CreateInstance<SettingsPage>(services);
+        page.Measure(new Size(1200, 800));
+        page.Arrange(new Rect(0, 0, 1200, 800));
+        page.UpdateLayout();
+        page.ShowCategory("Deploy");
+        page.UpdateLayout();
+        Assert.AreEqual(Visibility.Visible, page.DeployPanel.Visibility);
+        Assert.AreEqual("4", page.DeployParallel.Text);
+        Assert.IsTrue(page.DeployCompareOnOpen.IsChecked);
+        Assert.AreEqual(90, (page.DeployKeepVersions.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Tag);
+        StringAssert.Contains(page.DeployIgnoreRules.Text, "/web.config");
+        Assert.IsFalse(page.HasUnsavedChanges, "Shown as saved - nothing to save yet.");
+        if (Environment.GetEnvironmentVariable("DEPLOY_TEST_SCREENSHOTS") is { Length: > 0 } folder)
+        {
+            Directory.CreateDirectory(folder);
+            foreach (var dark in new[] { false, true })
+            {
+                page.Resources.MergedDictionaries.Clear();
+                page.Resources.MergedDictionaries.Add(dark ? new DnnManager.Presentation.Themes.DarkTheme() : new DnnManager.Presentation.Themes.LightTheme());
+                var host = new System.Windows.Controls.Border { Child = null, Width = 1200, Height = 800 };
+                page.UpdateLayout();
+                var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(1200, 800, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+                var back = new System.Windows.Media.DrawingVisual();
+                using (var dc = back.RenderOpen()) dc.DrawRectangle((System.Windows.Media.Brush)page.FindResource("WindowBg"), null, new Rect(0, 0, 1200, 800));
+                bitmap.Render(back);
+                bitmap.Render(page);
+                var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+                using var file = File.Create(Path.Combine(folder, dark ? "settings-deploy-dark.png" : "settings-deploy.png"));
+                encoder.Save(file);
+            }
+            page.Resources.MergedDictionaries.Clear();
+        }
+        page.DeployParallel.Text = "2";
+        Assert.IsTrue(page.HasUnsavedChanges, "A change is noticed.");
+        page.DeployIgnoreRules.Text = "[broken";
+        Assert.AreEqual(Visibility.Visible, page.DeployRulesProblem.Visibility, "A line that isn't a pattern is said as it is typed.");
     });
 
     [TestMethod]

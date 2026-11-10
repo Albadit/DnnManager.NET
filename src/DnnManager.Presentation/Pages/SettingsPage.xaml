@@ -122,6 +122,9 @@
                     <ListBoxItem Tag="Iis">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="{StaticResource GlyphGlobe}" /><TextBlock Style="{StaticResource NavLabel}" Text="IIS" /></StackPanel>
                     </ListBoxItem>
+                    <ListBoxItem Tag="Deploy">
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="{StaticResource GlyphUpload}" /><TextBlock Style="{StaticResource NavLabel}" Text="Source Control" /></StackPanel>
+                    </ListBoxItem>
                     <ListBoxItem Tag="Keyboard">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="{StaticResource GlyphKeyboard}" /><TextBlock Style="{StaticResource NavLabel}" Text="Keyboard shortcuts" /></StackPanel>
                     </ListBoxItem>
@@ -469,6 +472,42 @@
                             <TextBlock x:Name="DockerSaveFirst" Style="{StaticResource Hint}" Margin="0,0,0,8" Visibility="Collapsed"
                                        Text="These use the saved settings - save your changes first." />
                             <c:DockerCard x:Name="DockerCard" />
+                        </StackPanel>
+
+                        <!-- Deploy: the Deploy page, the history's file versions, and what a new server starts with. -->
+                        <StackPanel x:Name="DeployPanel" Visibility="Collapsed">
+                            <TextBlock Style="{StaticResource CategoryTitle}" Text="Source Control" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="0"
+                                       Text="Comparing projects with their servers, pushing and pulling files - the Source Control page." />
+
+                            <CheckBox x:Name="DeployCompareOnOpen" Content="Compare the chosen server when the Deploy page opens" Margin="0,16,0,0" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
+                                       Text="Off: nothing is asked of the server until you press Compare (F5) - for a slow server, or one you pay per connection." />
+
+                            <TextBlock x:Name="DeployKeepVersionsLabel" Style="{StaticResource FieldLabel}" Text="Keep the file versions of the history" />
+                            <ComboBox x:Name="DeployKeepVersions" Width="280" HorizontalAlignment="Left" SelectionChanged="DeployKeepVersions_Changed"
+                                      AutomationProperties.Name="Keep the file versions of the history"
+                                      AutomationProperties.HelpText="{Binding Text, ElementName=DeployKeepVersionsHint}" />
+                            <TextBlock x:Name="DeployKeepVersionsHint" Style="{StaticResource Hint}" TextWrapping="Wrap"
+                                       Text="What pushes and pulls replaced and wrote - what a rollback and the history's diffs need. Older ones are forgotten after the next push or pull; one a baseline still needs is always kept." />
+
+                            <TextBlock Style="{StaticResource GroupLabel}" Text="A new server starts with" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4"
+                                       Text="Each server keeps its own once it is added - right-click it on the Source Control page → Edit connection… to change them." />
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Files at the same time (1 - 16)" />
+                            <TextBox x:Name="DeployParallel" Width="80" HorizontalAlignment="Left" AutomationProperties.Name="Files at the same time" />
+                            <CheckBox x:Name="DeployKeepBackups" Content="Keep what a push or pull replaces, to roll back to" Margin="0,12,0,0" />
+                            <CheckBox x:Name="DeployVerifyUploads" Content="Check each upload by its SHA-256" Margin="0,8,0,0"
+                                      ToolTip="Check each upload by its SHA-256 - asked of the server, or read back; off: only its size is checked" />
+                            <DockPanel Margin="0,12,0,4">
+                                <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="Use the defaults" Click="DeployRulesDefaults_Click"
+                                        VerticalAlignment="Bottom" ToolTip="Use the defaults - DNN's: the site's own web.config, App_Data, logs and caches, and the files of tools" />
+                                <TextBlock Style="{StaticResource FieldLabel}" Margin="0" Text="Ignored files (like .gitignore - one pattern a line)" />
+                            </DockPanel>
+                            <TextBox x:Name="DeployIgnoreRules" AcceptsReturn="True" TextWrapping="NoWrap" Height="200" VerticalScrollBarVisibility="Auto"
+                                     HorizontalScrollBarVisibility="Auto" FontFamily="Cascadia Mono, Consolas" VerticalContentAlignment="Top"
+                                     AutomationProperties.Name="Ignored files" />
+                            <TextBlock x:Name="DeployRulesProblem" Style="{StaticResource ErrorLine}" Visibility="Collapsed" TextWrapping="Wrap" />
                         </StackPanel>
 
                         <StackPanel x:Name="IisPanel" Visibility="Collapsed">

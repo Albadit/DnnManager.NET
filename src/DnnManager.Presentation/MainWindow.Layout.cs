@@ -13,14 +13,15 @@ using Microsoft.Extensions.Logging;
 
 namespace DnnManager.Presentation;
 
-// The window's layout, as VS Code's: the sidebar and the panel shown or hidden (the title bar's layout buttons, Ctrl+B,
-// Ctrl+J), and Customize Layout - the sidebar's side, how far the panel reaches, the status bar, where the command
-// palette opens, the density. And the gear at the bottom of the sidebar, with its menu.
+// The window's layout, as VS Code's: the activity bar (x:Name Sidebar - the pages, as icons), the side bars
+// (MainWindow.SideBars) and the panel shown or hidden (the title bar's layout buttons, Ctrl+B, Ctrl+Alt+B, Ctrl+J), and
+// Customize Layout - the side bar's side, how far the panel reaches, the status bar, where the command palette opens, the
+// density. And the gear at the bottom of the activity bar, with its menu.
 public partial class MainWindow
 {
     // As saved in the settings (layout) - changed by Customize Layout, applied and saved at once.
     private LayoutSettings _layout;
-    // Whether the sidebar is shown - the workspace's, like the panel's (the window area of the state).
+    // Whether the activity bar is shown - the workspace's, like the panel's (the window area of the state).
     private bool _sidebarVisible = true;
 
     // The sidebar's column: the left one, or the right one with the sidebar on the right.
@@ -40,19 +41,12 @@ public partial class MainWindow
         // The panel under the page only (the sidebar beside it, full height), or under the sidebar too.
         var under = layout.PanelUnderSidebar;
         Grid.SetRowSpan(Sidebar, under ? 1 : 3);
-        Grid.SetColumn(PageCard, page);
+        Grid.SetColumn(Workbench, page);
         foreach (var part in new FrameworkElement[] { PanelSash, PanelCard })
         {
             Grid.SetColumn(part, under ? 0 : page);
             Grid.SetColumnSpan(part, under ? 2 : 1);
         }
-        // The sidebar's sash on the page's edge beside it, as tall as the sidebar; the corner where it meets the panel's.
-        foreach (var part in new FrameworkElement[] { SidebarSash, SashCorner })
-        {
-            Grid.SetColumn(part, page);
-            part.HorizontalAlignment = right ? HorizontalAlignment.Right : HorizontalAlignment.Left;
-        }
-        Grid.SetRowSpan(SidebarSash, under ? 1 : 3);
 
         DockPanel.SetDock(IisStatus, right ? Dock.Right : Dock.Left);
         IisStatus.SetSide(right);
@@ -74,8 +68,9 @@ public partial class MainWindow
         Resources["LayoutButtonHeight"] = compact ? 20.0 : 24.0;
         Resources["StatusBarHeight"] = 24.0;
         ApplyCards(compact, right, under);
-        // The sidebar to its width in this density.
-        SlideSidebar(IsCompact);
+        ApplySideBars();
+        // The activity bar to its width in this density.
+        SlideSidebar();
         FitSidebarEdges();
         var chrome = WindowChrome.GetWindowChrome(this);
         if (chrome.IsFrozen)
@@ -101,6 +96,9 @@ public partial class MainWindow
     // a second border, so what is inside keeps its width (the icons-only sidebar its 48 px).
     private double SidebarCardExtra => _layout.Compact ? 0 : CardGap + 1;
 
+    /// <summary>The page shown: its view in the primary side bar, if it has one.</summary>
+    private void ApplyPageChrome() => ShowPageSideBar();
+
     /// <summary>
     /// The sidebar, the page and the panel as VS Code draws them. Default: rounded cards, a gap around them on the frame's
     /// colour - the title bar and the status bar one surface with it, no lines between them. Compact: flush, divided by
@@ -111,29 +109,33 @@ public partial class MainWindow
         var radius = compact ? new CornerRadius(0) : (CornerRadius)FindResource("CardRadius");
         var border = new Thickness(compact ? 0 : 1);
         // Right under the title bar, as they reach down to the status bar: the gap only between them and on the sides.
-        PageCard.Margin = compact ? new Thickness(0) : new Thickness(CardGap, 0, CardGap, 0);
+        Workbench.Margin = compact ? new Thickness(0) : new Thickness(CardGap, 0, CardGap, 0);
         PanelCard.Margin = compact ? new Thickness(0) : new Thickness(CardGap, 0, CardGap, StatusGap);
         // On the window's edge; the page's card keeps the gap on its other side. Over the panel, the splitter's row is the gap
         // under it.
         var bottom = panelUnderSidebar ? 0 : StatusGap;
         Sidebar.Margin = compact ? new Thickness(0)
             : sidebarRight ? new Thickness(0, 0, CardGap, bottom) : new Thickness(CardGap, 0, 0, bottom);
-        foreach (var card in new[] { Sidebar, PageCard, PanelCard })
+        foreach (var card in new[] { Sidebar, PrimarySideBar, PageCard, SecondarySideBar, PanelCard })
         {
             card.CornerRadius = radius;
             card.BorderThickness = border;
         }
-        // Compact: only the sidebar's line beside the page.
-        if (compact) Sidebar.BorderThickness = sidebarRight ? new Thickness(1, 0, 0, 0) : new Thickness(0, 0, 1, 0);
-        SidebarSash.Width = SashCorner.Width = compact ? SashWidth : CardGap;
-        // Their lines as long as the cards beside them, not across the gaps at their ends: the panel's along its card, the
-        // sidebar's from the cards' top to their bottom.
+        // Compact: only a line between the parts - the activity bar's and the side bars' toward the page.
+        if (compact)
+        {
+            Sidebar.BorderThickness = sidebarRight ? new Thickness(1, 0, 0, 0) : new Thickness(0, 0, 1, 0);
+            PrimarySideBar.BorderThickness = sidebarRight ? new Thickness(1, 0, 0, 0) : new Thickness(0, 0, 1, 0);
+            SecondarySideBar.BorderThickness = sidebarRight ? new Thickness(0, 0, 1, 0) : new Thickness(1, 0, 0, 0);
+        }
+        // Its line along its card, not across the gaps at its ends.
         PanelSash.Padding = compact ? new Thickness(0) : new Thickness(CardGap, 0, CardGap, 0);
-        SidebarSash.Padding = compact ? new Thickness(0) : new Thickness(0, 0, 0, panelUnderSidebar ? 0 : StatusGap);
 
         TitleBarFrame.BorderThickness = new Thickness(0, 0, 0, compact ? 1 : 0);
         Resources["StatusBarBorder"] = new Thickness(0, compact ? 1 : 0, 0, 0);
         FitSashes();
+        ClipCard(PrimaryHost);
+        ClipCard(SecondaryHost);
         ClipCard(PageHost);
         ClipCard(TerminalPanel);
         // The page may have moved without changing size (the sidebar to the other side): once it is laid out.
@@ -179,18 +181,10 @@ public partial class MainWindow
         // Compact: the panel's line along its top, as the sidebar's beside the page - not under the title bar's own (maximized).
         if (compact) PanelCard.BorderThickness = new Thickness(0, bothShown ? 1 : 0, 0, 0);
         // The dots on a sash between two parts - not on a closed part's edge.
-        SidebarSash.IsGripVisible = !compact && _sidebarVisible;
         PanelSash.IsGripVisible = !compact && LogOpen;
         // Closed, a part's sash stays - to drag it open again - on the edge it opens from: inside the window's resize border,
         // which a pointer on the window's very edge resizes the window with.
         var resizeBorder = WindowChrome.GetWindowChrome(this).ResizeBorderThickness.Left;
-
-        // The sidebar's: in the gap, or (Compact) over the sidebar's line, half on either side of it; hidden, on the window's
-        // edge. Not in a window narrow enough for only its icons - the window's width sets that.
-        var sidebar = _sidebarVisible && !IsCompact;
-        SidebarSash.Visibility = IsCompact ? Visibility.Collapsed : Visibility.Visible;
-        var edge = _sidebarVisible ? compact ? -SashWidth / 2 : 0 : resizeBorder;
-        SidebarSash.Margin = _layout.SidebarRight ? new Thickness(0, 0, edge, 0) : new Thickness(edge, 0, 0, 0);
 
         // The panel's: in the gap between the page and the panel, or (Compact) over the panel's line, half on either side of
         // it; closed, along the page's bottom.
@@ -202,101 +196,54 @@ public partial class MainWindow
         // Closed, with the status bar hidden, the page reaches down to the window's edge (Compact) or the gap above it.
         var aboveBorder = LogOpen || _layout.StatusBarVisible ? 0 : Math.Max(0, resizeBorder - (compact ? 0 : StatusGap));
         PanelSash.Margin = overLine ? new Thickness(0, -SashWidth / 2, 0, 0) : new Thickness(0, 0, 0, aboveBorder);
-
-        // The corner: where the two meet - the sidebar's place across, the panel's down.
-        SashCorner.Visibility = sidebar && bothShown ? Visibility.Visible : Visibility.Collapsed;
-        Grid.SetRow(SashCorner, Grid.GetRow(PanelSash));
-        SashCorner.VerticalAlignment = PanelSash.VerticalAlignment;
-        SashCorner.Height = PanelSash.Height;
-        SashCorner.Margin = new Thickness(SidebarSash.Margin.Left, PanelSash.Margin.Top, SidebarSash.Margin.Right, 0);
     }
 
     // ─── Resizing ───────────────────────────────────────────────────────────
 
-    // The sidebar's width as dragged (null: its density's own, ExpandedSidebarWidth) - kept in the window area of the state.
-    private double? _sidebarWidth;
-    // The sidebar's least and greatest width as it is left; the page keeps at least MinPageWidth beside it.
-    private const double MinSidebarWidth = 160, MaxSidebarWidth = 600, MinPageWidth = 320;
+    // The page keeps at least this much width beside the side bars.
+    private const double MinPageWidth = 320;
     // The panel's least height as it is left.
     private const double MinPanelHeight = 90;
 
-    // Where a drag started: the pointer, and the sidebar's width and the panel's height then (0 while closed). A drag is
-    // measured from there - not step by step: a closed part's sash stays put while the pointer moves on. And the panel's
-    // height before it, given back when the drag closes it.
+    // Where a drag started: the pointer, and the panel's height then (0 while closed). A drag is measured from there - not
+    // step by step: a closed part's sash stays put while the pointer moves on. And the panel's height before it, given back
+    // when the drag closes it.
     private Point _dragFrom;
-    private double _dragSidebar, _dragPanel, _panelBefore;
-    // A part sliding to where a drag left it: closed, or out to its least size.
+    private double _dragPanel, _panelBefore;
+    // A part sliding: the activity bar to its width, the panel to where a drag left it - closed, or out to its least size.
     private readonly Slide _sidebarSlide = new(), _panelSlide = new();
 
     /// <summary>
-    /// A drag starts: a closed part opens - at nothing, to follow the pointer out. While dragged, a part has no least size:
-    /// it follows the pointer down to nothing, and only settles when let go (Sash_DragCompleted).
+    /// A drag starts: a closed panel opens - at nothing, to follow the pointer out. While dragged, it has no least size: it
+    /// follows the pointer down to nothing, and only settles when let go (Sash_DragCompleted).
     /// </summary>
     private void Sash_DragStarted(object sender, DragStartedEventArgs e)
     {
         _dragFrom = Mouse.GetPosition(Body);
-        if (sender != PanelSash)
+        _panelSlide.Stop();
+        _panelClosing = false;
+        _panelBefore = LogOpen ? LogRow.ActualHeight : _logHeight.Value;
+        _dragPanel = LogOpen ? LogRow.ActualHeight : 0;
+        if (!LogOpen)
         {
-            _sidebarSlide.Stop();
-            _sidebarClosing = false;
-            if (!_sidebarVisible)
-            {
-                SetSidebarVisible(true);
-                SetSidebarWidth(0);
-            }
-            _dragSidebar = (double)GetValue(SidebarWidthProperty);
+            SetLogOpen(true, takeKeyboard: false);
+            LogRow.Height = new GridLength(0);
         }
-        if (sender != SidebarSash)
-        {
-            _panelSlide.Stop();
-            _panelClosing = false;
-            _panelBefore = LogOpen ? LogRow.ActualHeight : _logHeight.Value;
-            _dragPanel = LogOpen ? LogRow.ActualHeight : 0;
-            if (!LogOpen)
-            {
-                SetLogOpen(true, takeKeyboard: false);
-                LogRow.Height = new GridLength(0);
-            }
-            LogRow.MinHeight = 0;
-        }
-        // The corner: both sashes drawn as dragged while it is.
-        if (sender == SashCorner) SidebarSash.IsActive = PanelSash.IsActive = true;
+        LogRow.MinHeight = 0;
     }
 
     private Vector Dragged => Mouse.GetPosition(Body) - _dragFrom;
 
-    private void SidebarSash_DragDelta(object sender, DragDeltaEventArgs e) => ResizeSidebar(Dragged.X);
-
     private void PanelSash_DragDelta(object sender, DragDeltaEventArgs e) => ResizePanel(Dragged.Y);
-
-    private void SashCorner_DragDelta(object sender, DragDeltaEventArgs e)
-    {
-        var dragged = Dragged;
-        ResizeSidebar(dragged.X);
-        ResizePanel(dragged.Y);
-    }
 
     private void Sash_DragCompleted(object sender, DragCompletedEventArgs e)
     {
-        SidebarSash.IsActive = PanelSash.IsActive = false;
-        if (sender != PanelSash) SettleSidebar();
-        if (sender != SidebarSash) SettlePanel();
+        SettlePanel();
         _workspace.Changed();
     }
 
-    // How much a keyboard resize changes the sidebar or the panel.
+    // How much a keyboard resize changes a side bar or the panel.
     private const double KeyboardResizeStep = 40;
-
-    /// <summary>The sidebar wider (or narrower) by <paramref name="by"/> - its sash, from the keyboard - within its least and greatest width.</summary>
-    private void ResizeSidebarBy(double by)
-    {
-        if (!_sidebarVisible) return;
-        var max = Math.Clamp(Body.ActualWidth - SidebarCardExtra - MinPageWidth, MinSidebarWidth, MaxSidebarWidth);
-        var width = Math.Clamp((double)GetValue(SidebarWidthProperty) + by, MinSidebarWidth, max);
-        _sidebarWidth = width;
-        SetSidebarWidth(width);
-        _workspace.Changed();
-    }
 
     /// <summary>The panel taller (or shorter) by <paramref name="by"/> - its sash, from the keyboard - within its least height and what the page leaves it.</summary>
     private void ResizePanelBy(double by)
@@ -307,34 +254,11 @@ public partial class MainWindow
         _workspace.Changed();
     }
 
-    /// <summary>The sidebar dragged <paramref name="dragged"/> toward the page since the drag started: it follows, from nothing up to its greatest width.</summary>
-    private void ResizeSidebar(double dragged)
-    {
-        var max = Math.Clamp(Body.ActualWidth - SidebarCardExtra - MinPageWidth, MinSidebarWidth, MaxSidebarWidth);
-        SetSidebarWidth(Math.Clamp(_dragSidebar + (_layout.SidebarRight ? -dragged : dragged), 0, max));
-    }
-
     /// <summary>The panel dragged <paramref name="dragged"/> down since the drag started: it follows, from nothing up to what the page leaves it (FitPanel).</summary>
     private void ResizePanel(double dragged)
     {
         FitPanel();
         LogRow.Height = new GridLength(Math.Clamp(_dragPanel - dragged, 0, LogRow.MaxHeight));
-    }
-
-    /// <summary>
-    /// Let go: as wide as it was left, kept as the user's width - or, narrower than its least width, it slides there; under
-    /// half of it, it slides closed (its width before the drag kept for when it opens).
-    /// </summary>
-    private void SettleSidebar()
-    {
-        var width = (double)GetValue(SidebarWidthProperty);
-        if (width >= MinSidebarWidth) _sidebarWidth = width;
-        else if (width < MinSidebarWidth / 2) _sidebarSlide.Run(width, 0, SetSidebarWidth, () => SetSidebarVisible(false));
-        else
-        {
-            _sidebarWidth = MinSidebarWidth;
-            _sidebarSlide.Run(width, MinSidebarWidth, SetSidebarWidth);
-        }
     }
 
     /// <summary>
@@ -354,7 +278,7 @@ public partial class MainWindow
         else _panelSlide.Run(height, MinPanelHeight, SetPanelHeight, () => LogRow.MinHeight = MinPanelHeight);
     }
 
-    // The sidebar at a width now - not slid (SlideSidebar): it follows the pointer, or a Slide.
+    // The activity bar at a width now - not slid (SlideSidebar): it follows a Slide.
     private void SetSidebarWidth(double width)
     {
         BeginAnimation(SidebarWidthProperty, null);
@@ -412,34 +336,39 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// The first entry as far from the sidebar's top, and the gear from its bottom, as the entries are from its sides - with
-    /// their names or only their icons, in either density. An entry's own margin is part of it.
+    /// The first entry as far from the activity bar's top, and the gear from its bottom, as the entries are from its sides,
+    /// in either density. An entry's own margin is part of it.
     /// </summary>
     private void FitSidebarEdges()
     {
-        var margin = (Thickness)FindResource(IsCompact ? "NavIconMargin" : "NavMargin");
+        var margin = (Thickness)FindResource("NavIconMargin");
         var edge = Math.Max(0, margin.Left - margin.Top);
         SidebarTop.Margin = new Thickness(0, edge, 0, 0);
         SidebarBottom.Margin = new Thickness(0, 0, 0, edge);
     }
 
-    /// <summary>The sidebar's column as wide as the sidebar (nothing while it's hidden), and the IIS cell under it.</summary>
+    /// <summary>The activity bar's column as wide as the activity bar (nothing while it's hidden).</summary>
     private void ApplySidebarWidth()
     {
         var width = (double)GetValue(SidebarWidthProperty) + SidebarCardExtra;
         SidebarColumn.Width = new GridLength(_sidebarVisible ? width : 0);
-        // The IIS cell: at least as wide as the sidebar while that shows its names, so they line up - wider when its content
-        // needs it; under the icons-only or a hidden sidebar, as wide as its content.
-        IisStatus.MinWidth = _sidebarVisible && !IsCompact ? width : 0;
         FitSashes();
     }
 
-    /// <summary>The title bar's sidebar and panel buttons: drawn filled in while that part is shown.</summary>
+    /// <summary>The title bar's side bar and panel buttons: drawn filled in while that part is shown.</summary>
     private void UpdateLayoutButtons()
     {
-        SidebarIconFill.Visibility = _sidebarVisible ? Visibility.Visible : Visibility.Hidden;
-        SidebarIcon.RenderTransform = _layout.SidebarRight ? new ScaleTransform(-1, 1) : Transform.Identity;
-        SidebarToggle.ToolTip = _sidebarVisible ? "Hide the pages on the left" : "Show the pages on the left";
+        var right = _layout.SidebarRight;
+        // On a page without a view for it, there is nothing to show or hide.
+        SidebarToggle.IsEnabled = PageSideBar is not null;
+        SidebarIconFill.Visibility = PrimaryShown ? Visibility.Visible : Visibility.Hidden;
+        SidebarIcon.RenderTransform = right ? new ScaleTransform(-1, 1) : Transform.Identity;
+        SidebarToggle.ToolTip = PageSideBar is null ? "This page has nothing for the primary side bar"
+            : PrimaryShown ? "Hide the primary side bar" : "Show the primary side bar";
+        ToolTipService.SetShowOnDisabled(SidebarToggle, true);
+        SecondaryIconFill.Visibility = _secondaryVisible ? Visibility.Visible : Visibility.Hidden;
+        SecondaryIcon.RenderTransform = right ? new ScaleTransform(-1, 1) : Transform.Identity;
+        SecondaryToggle.ToolTip = _secondaryVisible ? "Hide the secondary side bar" : "Show the secondary side bar";
         PanelIconFill.Visibility = LogOpen ? Visibility.Visible : Visibility.Hidden;
         PanelToggle.ToolTip = LogOpen ? "Hide the panel" : "Show the panel: Output, Logs and Terminal";
     }
@@ -463,7 +392,7 @@ public partial class MainWindow
         {
             _sidebarSlide.Stop();
             _sidebarClosing = false;
-            SlideSidebar(IsCompact);
+            SlideSidebar();
         }
         if (visible == _sidebarVisible) return;
         var hadKeyboard = Sidebar.IsKeyboardFocusWithin;
@@ -473,12 +402,12 @@ public partial class MainWindow
         _workspace.Changed();
     }
 
-    // The sidebar sliding closed (ToggleSidebar) - shown until it is.
+    // The activity bar sliding closed (ToggleSidebar) - shown until it is.
     private bool _sidebarClosing;
 
     /// <summary>
-    /// Ctrl+B, the title bar's button, Customize Layout: the sidebar slides open or closed. Pressed again while it slides, it
-    /// turns back from where it is.
+    /// Customize Layout's Activity Bar: it slides open or closed. Pressed again while it slides, it turns back from where it
+    /// is.
     /// </summary>
     private void ToggleSidebar()
     {
@@ -498,7 +427,7 @@ public partial class MainWindow
         SetSidebarVisible(true);
         // Not a frame at its full width first: shown, it would slide there (SlideSidebar).
         SetSidebarWidth(from);
-        _sidebarSlide.Run(from, IsCompact ? CompactSidebarWidth : ExpandedSidebarWidth, SetSidebarWidth);
+        _sidebarSlide.Run(from, ActivityBarWidth, SetSidebarWidth);
     }
 
     // The panel sliding closed (SlidePanel) - open until it is.
@@ -581,7 +510,9 @@ public partial class MainWindow
         ApplyLayout();
     }
 
-    private void ToggleSidebar_Click(object sender, RoutedEventArgs e) => ToggleSidebar();
+    private void TogglePrimary_Click(object sender, RoutedEventArgs e) => TogglePrimarySideBar();
+
+    private void ToggleSecondary_Click(object sender, RoutedEventArgs e) => ToggleSecondarySideBar();
 
     private void TogglePanel_Click(object sender, RoutedEventArgs e) => TogglePanel();
 
@@ -592,11 +523,12 @@ public partial class MainWindow
     /// <summary>VS Code's Customize Layout: every choice in one list that stays open, each applied as it is chosen.</summary>
     private void ShowCustomizeLayout() => Palette.ShowSettings("Customize Layout", "Search layout options", LayoutItems, ResetLayout);
 
-    /// <summary>Back to the default layout, the sidebar shown - the panel stays as it is.</summary>
+    /// <summary>Back to the default layout - the activity bar and the primary side bar shown at their widths, the secondary
+    /// hidden; the panel stays as it is.</summary>
     private void ResetLayout()
     {
         _sidebarVisible = true;
-        _sidebarWidth = null;
+        ResetSideBars();
         ChangeLayout(l =>
         {
             var defaults = new LayoutSettings();
@@ -629,15 +561,19 @@ public partial class MainWindow
         const string visibility = "Visibility";
         Add(visibility, "Menu Bar", layout.MenuBarVisible, () => ChangeLayout(l => l.MenuBarVisible = !l.MenuBarVisible),
             "LayoutMenuBar", "LayoutMenuBarFill", "view.toggleMenuBar", "title name");
-        Add(visibility, "Sidebar", _sidebarVisible, ToggleSidebar, right ? "LayoutSidebarRight" : "LayoutSidebarLeft",
-            right ? "LayoutSidebarRightFill" : "LayoutSidebarLeftFill", "view.toggleSidebar", "primary side bar");
+        Add(visibility, "Activity Bar", _sidebarVisible, ToggleSidebar, right ? "LayoutSidebarRight" : "LayoutSidebarLeft",
+            right ? "LayoutSidebarRightFill" : "LayoutSidebarLeftFill", "view.toggleActivityBar", "pages icons navigation sidebar");
+        Add(visibility, "Primary Side Bar", PrimaryShown, TogglePrimarySideBar, right ? "LayoutSidebarRight" : "LayoutSidebarLeft",
+            right ? "LayoutSidebarRightFill" : "LayoutSidebarLeftFill", "view.toggleSidebar", "sidebar source control view");
+        Add(visibility, "Secondary Side Bar", _secondaryVisible, ToggleSecondarySideBar, right ? "LayoutSidebarLeft" : "LayoutSidebarRight",
+            right ? "LayoutSidebarLeftFill" : "LayoutSidebarRightFill", "view.toggleSecondarySideBar", "auxiliary bar right");
         // Shown or hidden here, the keyboard stays in the list.
         Add(visibility, "Panel", LogOpen, () => SlidePanel(!PanelOpening, takeKeyboard: false), "LayoutPanel", "LayoutPanelFill",
             "panel.toggle", "output logs terminal bottom");
         Add(visibility, "Status Bar", layout.StatusBarVisible, () => ChangeLayout(l => l.StatusBarVisible = !l.StatusBarVisible),
             "LayoutStatusBar", "LayoutStatusBarFill", "view.toggleStatusBar");
 
-        const string position = "Sidebar Position";
+        const string position = "Primary Side Bar Position";
         Set(position, "Left", "left", layout.SidebarPosition, (l, v) => l.SidebarPosition = v, "LayoutSidebarLeft", "LayoutSidebarLeftFill");
         Set(position, "Right", "right", layout.SidebarPosition, (l, v) => l.SidebarPosition = v, "LayoutSidebarRight", "LayoutSidebarRightFill");
 
@@ -661,7 +597,7 @@ public partial class MainWindow
     // ─── The gear ───────────────────────────────────────────────────────────
 
     /// <summary>
-    /// The gear at the bottom of the sidebar: VS Code's Manage menu - the command palette, Settings, Keyboard Shortcuts,
+    /// The gear at the bottom of the activity bar: VS Code's Manage menu - the command palette, Settings, Keyboard Shortcuts,
     /// the themes, Customize Layout, Troubleshoot and Check for Updates. Beside the gear, its bottom level with it.
     /// </summary>
     private void Manage_Click(object sender, RoutedEventArgs e)

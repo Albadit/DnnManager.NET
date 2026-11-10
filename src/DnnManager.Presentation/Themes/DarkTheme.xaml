@@ -118,4 +118,21 @@
     <SolidColorBrush x:Key="OutPillFailFg"      Color="#F88070" />  <!-- list.errorForeground -->
     <SolidColorBrush x:Key="OutPillNeutralBg"   Color="#313131" />  <!-- badge (button.secondary) -->
     <SolidColorBrush x:Key="OutPillNeutralFg"   Color="#CCCCCC" />  <!-- foreground -->
+
+    <!-- Deployments: which way a change goes, and the diff viewer (GitHub's dark diff, VS Code's Dark+ syntax). -->
+    <SolidColorBrush x:Key="DeployPush"         Color="#3794FF" />  <!-- editorInfo.foreground -->
+    <SolidColorBrush x:Key="DeployPull"         Color="#C090F0" />  <!-- a purple apart from the push's blue -->
+    <SolidColorBrush x:Key="DeployConflict"     Color="#F88070" />  <!-- list.errorForeground -->
+    <SolidColorBrush x:Key="DiffAddedBg"        Color="#16331F" />
+    <SolidColorBrush x:Key="DiffRemovedBg"      Color="#3D1A1C" />
+    <SolidColorBrush x:Key="DiffAddedMark"      Color="#7EE787" />
+    <SolidColorBrush x:Key="DiffRemovedMark"    Color="#FFA198" />
+    <SolidColorBrush x:Key="DiffEmptyBg"        Color="#252526" />
+    <SolidColorBrush x:Key="DiffHunkBg"         Color="#12304A" />
+    <SolidColorBrush x:Key="SyntaxKeyword"      Color="#569CD6" />
+    <SolidColorBrush x:Key="SyntaxString"       Color="#CE9178" />
+    <SolidColorBrush x:Key="SyntaxComment"      Color="#6A9955" />
+    <SolidColorBrush x:Key="SyntaxNumber"       Color="#B5CEA8" />
+    <SolidColorBrush x:Key="SyntaxTag"          Color="#569CD6" />
+    <SolidColorBrush x:Key="SyntaxAttribute"    Color="#9CDCFE" />
 </ResourceDictionary>
