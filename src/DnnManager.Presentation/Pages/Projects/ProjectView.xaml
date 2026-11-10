@@ -147,7 +147,7 @@
                 </Button>
                 <Button AutomationProperties.Name="Source Control" Style="{StaticResource HeaderButton}" Click="Deploy_Click"
                         ToolTip="Source Control - compare with the project's servers, push and pull files" s:CommandTip.Command="project.deploy">
-                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphUpload}" /><TextBlock Text="Source Control" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><Path Style="{StaticResource SourceControlIcon}" Margin="0,0,6,0"><Path.LayoutTransform><ScaleTransform ScaleX="0.8" ScaleY="0.8" /></Path.LayoutTransform></Path><TextBlock Text="Source Control" /></StackPanel>
                 </Button>
                 <Button AutomationProperties.Name="Open the website's files in File Explorer" Style="{StaticResource HeaderButton}" Click="OpenFolder_Click" ToolTip="Open the website's files in File Explorer"
                         s:CommandTip.Command="project.openFolder">

@@ -39,8 +39,8 @@ public sealed class ChangeRow : INotifyPropertyChanged
     public bool IsStaged { get; init; }
     public bool CanStage => Item?.Direction is SyncDirection.Push or SyncDirection.Pull && !IsStaged;
 
-    /// <summary>Which way it goes, for a staged file: ↑ to the server, ↓ from it.</summary>
-    public string Arrow => Group == ChangeGroup.Staged ? Item?.Direction == SyncDirection.Pull ? "↓" : "↑" : "";
+    /// <summary>Which way it goes, for a staged file: ↑ to the server, ↓ from it - before its name; nothing for the others.</summary>
+    public string Arrow => Group == ChangeGroup.Staged ? Item?.Direction == SyncDirection.Pull ? "↓ " : "↑ " : "";
 
     public string Letter => LetterOf(Item);
 
@@ -65,6 +65,51 @@ public sealed class ChangeRow : INotifyPropertyChanged
     public string Spoken => Item is null ? $"{Title}, {Count} files{(Collapsed ? ", collapsed" : "")}" : $"{Item.Path}, {Item.Describe()}{(IsStaged ? ", staged" : "")}";
 
     internal void Raise(string property) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
+}
+
+/// <summary>
+/// A file open in the editor, as a tab - VS Code's: a click in the list opens it in the preview tab (its name in italics),
+/// which the next click replaces; a double-click keeps it open. Its file follows each new comparison.
+/// </summary>
+public sealed class EditorTab(SyncItem item, bool preview) : INotifyPropertyChanged
+{
+    private SyncItem _item = item;
+    private bool _preview = preview;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public SyncItem Item
+    {
+        get => _item;
+        set
+        {
+            _item = value;
+            foreach (var property in new[] { nameof(Item), nameof(Path), nameof(Name), nameof(Letter), nameof(Icon), nameof(IconBrush), nameof(Tip) })
+                Raise(property);
+        }
+    }
+
+    /// <summary>Replaced by the next file opened with a click - until a double-click (on it, or its row) keeps it.</summary>
+    public bool IsPreview
+    {
+        get => _preview;
+        set
+        {
+            _preview = value;
+            Raise(nameof(IsPreview));
+            Raise(nameof(NameStyle));
+        }
+    }
+
+    public string Path => Item.Path;
+    public string Name => DeployPath.Name(Item.Path);
+    public string Letter => ChangeRow.LetterOf(Item);
+    public string Icon => FileIcons.Glyph(Item.Path);
+    public Brush IconBrush => FileIcons.Brush(Item.Path);
+    public FontStyle NameStyle => IsPreview ? FontStyles.Italic : FontStyles.Normal;
+    public string Tip => $"{Item.Path} - {Item.Describe()}" + (IsPreview ? " (preview: double-click to keep it open)" : "");
+
+    private void Raise(string property) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
 }
 
 /// <summary>A file's icon and its colour, by its extension - mid tones that read on the light and the dark theme alike.</summary>

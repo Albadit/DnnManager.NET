@@ -123,7 +123,7 @@
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="{StaticResource GlyphGlobe}" /><TextBlock Style="{StaticResource NavLabel}" Text="IIS" /></StackPanel>
                     </ListBoxItem>
                     <ListBoxItem Tag="Deploy">
-                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="{StaticResource GlyphUpload}" /><TextBlock Style="{StaticResource NavLabel}" Text="Source Control" /></StackPanel>
+                        <StackPanel Orientation="Horizontal"><Grid Width="30"><Path Style="{StaticResource SourceControlIcon}" TextElement.Foreground="{DynamicResource TextMuted}" /></Grid><TextBlock Style="{StaticResource NavLabel}" Text="Source Control" /></StackPanel>
                     </ListBoxItem>
                     <ListBoxItem Tag="Keyboard">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource CategoryGlyph}" Text="{StaticResource GlyphKeyboard}" /><TextBlock Style="{StaticResource NavLabel}" Text="Keyboard shortcuts" /></StackPanel>

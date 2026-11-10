@@ -75,10 +75,10 @@ public partial class MainWindow
     private void ApplySideBars()
     {
         var right = _layout.SidebarRight;
-        Grid.SetColumn(PrimarySideBar, right ? 4 : 0);
-        Grid.SetColumn(PrimarySash, right ? 3 : 1);
-        Grid.SetColumn(SecondarySideBar, right ? 0 : 4);
-        Grid.SetColumn(SecondarySash, right ? 1 : 3);
+        Grid.SetColumn(PrimarySideBar, right ? RightSideIndex : LeftSideIndex);
+        Grid.SetColumn(PrimarySash, right ? RightSideIndex - 1 : LeftSideIndex + 1);
+        Grid.SetColumn(SecondarySideBar, right ? LeftSideIndex : RightSideIndex);
+        Grid.SetColumn(SecondarySash, right ? LeftSideIndex + 1 : RightSideIndex - 1);
         ApplySideBar(primary: true);
         ApplySideBar(primary: false);
     }
@@ -93,6 +93,12 @@ public partial class MainWindow
             : (primary ? PrimarySideBar : SecondarySideBar, primary ? PrimarySash : SecondarySash, WorkbenchRight, WorkbenchRightGap);
         var shown = primary ? PrimaryShown : _secondaryVisible;
         var width = Math.Max(0, primary ? _primaryNow : _secondaryNow);
+        // Full height beside the panel - or above it, where the panel's alignment reaches under it.
+        var (reachLeft, reachRight) = PanelReach;
+        var panelUnder = onLeft ? reachLeft : reachRight;
+        Grid.SetRowSpan(card, panelUnder ? 1 : 3);
+        Grid.SetRowSpan(sash, panelUnder ? 1 : 3);
+        card.Margin = new Thickness(0, 0, 0, compact || panelUnder ? 0 : StatusGap);
         card.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
         column.Width = new GridLength(shown ? width : 0);
         gap.Width = new GridLength(shown && !compact ? CardGap : 0);
@@ -194,7 +200,8 @@ public partial class MainWindow
     private double MaxSideBarWidthNow(bool primary)
     {
         var other = primary ? (_secondaryVisible ? _secondaryNow + CardGap : 0) : (PrimaryShown ? _primaryNow + CardGap : 0);
-        return Math.Clamp(Workbench.ActualWidth - other - CardGap - MinPageWidth, MinSideBarWidth, MaxSideBarWidth);
+        var room = Body.ActualWidth - SidebarColumn.ActualWidth - EdgeLeft.ActualWidth - EdgeRight.ActualWidth;
+        return Math.Clamp(room - other - CardGap - MinPageWidth, MinSideBarWidth, MaxSideBarWidth);
     }
 
     private void SideBarSash_DragStarted(object sender, DragStartedEventArgs e)
@@ -202,7 +209,7 @@ public partial class MainWindow
         var primary = sender == PrimarySash;
         (primary ? _primarySlide : _secondarySlide).Stop();
         SetClosing(primary, false);
-        _sideDragFrom = Mouse.GetPosition(Workbench).X;
+        _sideDragFrom = Mouse.GetPosition(Body).X;
         _sideDragWidth = primary ? _primaryNow : _secondaryNow;
         ((Sash)sender).IsActive = true;
     }
@@ -211,7 +218,7 @@ public partial class MainWindow
     private void SideBarSash_DragDelta(object sender, DragDeltaEventArgs e)
     {
         var primary = sender == PrimarySash;
-        var moved = Mouse.GetPosition(Workbench).X - _sideDragFrom;
+        var moved = Mouse.GetPosition(Body).X - _sideDragFrom;
         // Toward the page: to the right for the side bar on the left.
         var onLeft = primary != _layout.SidebarRight;
         SetSideBarWidth(primary, Math.Clamp(_sideDragWidth + (onLeft ? moved : -moved), 0, MaxSideBarWidthNow(primary)));

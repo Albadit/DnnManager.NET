@@ -156,6 +156,9 @@ public partial class MainWindow : Window
 
         // The workspace - the window, where the user was, what was typed, the panel - as the last start
         // left it (after a close, a restart, an update or a crash), and kept as it changes.
+        // What the last DNN Manager left unfinished - taken now, before anything here can start an operation of its own (a
+        // page opened again compares by itself): later, that one's own record would be taken for the last start's.
+        _unfinished = runner.TakeUnfinished();
         var layout = workspace.Load<WindowLayout>();
         PlaceWindow(layout);
         _sidebarVisible = !layout.SidebarHidden;
@@ -448,13 +451,17 @@ public partial class MainWindow : Window
         }
     }
 
+    // The operation the last DNN Manager ended before it did - taken as the window is made.
+    private UnfinishedOperation? _unfinished;
+
     /// <summary>
     /// An operation the last DNN Manager ended before it did (a crash, Windows shutting down, Quit now): said, with what
     /// it had left to undo - that may still be there, half made.
     /// </summary>
     private void ReportUnfinished()
     {
-        if (_runner.TakeUnfinished() is not { } unfinished) return;
+        if (_unfinished is not { } unfinished) return;
+        _unfinished = null;
         var left = unfinished.Left.Count == 0
             ? "It hadn't changed anything that needed undoing yet."
             : $"It may have left half done what these would have undone: {string.Join("; ", unfinished.Left)}.";
@@ -806,14 +813,14 @@ public partial class MainWindow : Window
             _restoredLogHeight = LogRow.Height;
             PageRow.MinHeight = 0;
             PageRow.Height = new GridLength(0);
-            Workbench.Visibility = Visibility.Collapsed;
+            PageCard.Visibility = Visibility.Collapsed;
             LogRow.Height = new GridLength(1, GridUnitType.Star);
         }
         else
         {
             PageRow.Height = new GridLength(1, GridUnitType.Star);
             PageRow.MinHeight = MinPageHeight;
-            Workbench.Visibility = Visibility.Visible;
+            PageCard.Visibility = Visibility.Visible;
             if (LogOpen) LogRow.Height = _restoredLogHeight;
         }
         FitSashes();

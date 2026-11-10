@@ -142,7 +142,7 @@ public partial class MainWindow
         // Next is up (or right), previous down (or left) - in every next / previous pair.
         Add("view.nextTab", "Next tab", "Pages", "Ctrl+PageUp", () => StepTab(1), () => CanStepTab, "details category panel");
         Add("view.previousTab", "Previous tab", "Pages", "Ctrl+PageDown", () => StepTab(-1), () => CanStepTab, "details category panel");
-        Add("view.close", "Close this view", "Pages", "Ctrl+W", CloseView, () => CanCloseView, "back details settings troubleshoot");
+        Add("view.close", "Close this view", "Pages", "Ctrl+W", CloseView, () => CanCloseView, "back details settings troubleshoot tab editor");
 
         // ── Layout ──
         Add("view.toggleSidebar", "Show or hide the primary side bar", "Layout", "Ctrl+B", TogglePrimarySideBar,
@@ -430,12 +430,16 @@ public partial class MainWindow
         else if (PageHost.Content is ProjectsPage { Details: { } details }) details.StepTab(by);
     }
 
-    private bool CanCloseView => _modal is not null || PageHost.Content is ProjectsPage { DetailsOpen: true };
+    private bool CanCloseView => _modal is not null || PageHost.Content is ProjectsPage { DetailsOpen: true } or DeployPage { HasOpenTab: true };
 
-    /// <summary>Ctrl+W: Settings and Troubleshoot closed, back to the page under them; the Details back to the table.</summary>
+    /// <summary>
+    /// Ctrl+W: Settings and Troubleshoot closed, back to the page under them; the Details back to the table; Source
+    /// Control's chosen tab closed.
+    /// </summary>
     private void CloseView()
     {
         if (_modal is not null) CloseModal();
+        else if (PageHost.Content is DeployPage deploy) deploy.CloseActiveTab();
         else if (PageHost.Content is ProjectsPage projects)
         {
             projects.CloseDetails();

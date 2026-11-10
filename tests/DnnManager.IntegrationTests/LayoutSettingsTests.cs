@@ -24,6 +24,19 @@ public sealed class LayoutSettingsTests
     }
 
     [TestMethod]
+    [DataRow("center", "left", false)]
+    [DataRow("justify", "right", true)]
+    [DataRow("left", "left", false)]
+    [DataRow("left", "right", true)]
+    [DataRow("right", "left", true)]
+    [DataRow("right", "right", false)]
+    public void ThePanelReachesUnderTheSecondarySideBar_AcrossThePage(string alignment, string sidebar, bool under)
+    {
+        var layout = new LayoutSettings { PanelAlignment = alignment, SidebarPosition = sidebar };
+        Assert.AreEqual(under, layout.PanelUnderSecondarySideBar);
+    }
+
+    [TestMethod]
     public void ValuesItDoesNotKnow_AreNotAllowed()
     {
         var settings = new UserSettings();

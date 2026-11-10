@@ -43,7 +43,7 @@ public class SideBarLayoutTests
             var deploy = (DnnManager.Presentation.Pages.DeployPage)window.PageHost.Content;
             Assert.AreSame(deploy.SideBar, window.PrimaryHost.Content);
             Assert.AreEqual(Visibility.Visible, window.PrimarySideBar.Visibility);
-            Assert.AreEqual(0, Grid(window.PrimarySideBar));
+            Assert.AreEqual(2, Grid(window.PrimarySideBar));
             Assert.AreEqual(300, window.WorkbenchLeft.Width.Value);
             Assert.IsTrue(window.SidebarToggle.IsEnabled);
 
@@ -58,13 +58,29 @@ public class SideBarLayoutTests
             Assert.AreEqual(Visibility.Collapsed, window.SecondarySideBar.Visibility, "Hidden at first.");
             Invoke(window, "ToggleSecondarySideBar");
             Assert.AreEqual(Visibility.Visible, window.SecondarySideBar.Visibility);
-            Assert.AreEqual(4, Grid(window.SecondarySideBar));
+            Assert.AreEqual(6, Grid(window.SecondarySideBar));
             Assert.AreEqual(300, window.WorkbenchRight.Width.Value);
+
+            // Panel Alignment, as VS Code's: Center, the panel between the two side bars, full height beside it; Justify, under both;
+            // Left, under the one on the left only. The activity bar beside it all, whatever it is.
+            int Span(UIElement part) => System.Windows.Controls.Grid.GetColumnSpan(part);
+            int Rows(UIElement part) => System.Windows.Controls.Grid.GetRowSpan(part);
+            Assert.AreEqual((4, 1), (Grid(window.PanelCard), Span(window.PanelCard)), "Center: under the page only.");
+            Assert.AreEqual((3, 3), (Rows(window.PrimarySideBar), Rows(window.SecondarySideBar)));
+            Invoke(window, "ChangeLayout", (Action<DnnManager.Application.Configuration.LayoutSettings>)(l => l.PanelAlignment = "justify"));
+            Assert.AreEqual((2, 5), (Grid(window.PanelCard), Span(window.PanelCard)), "Justify: under both side bars.");
+            Assert.AreEqual((1, 1), (Rows(window.PrimarySideBar), Rows(window.SecondarySideBar)));
+            Invoke(window, "ChangeLayout", (Action<DnnManager.Application.Configuration.LayoutSettings>)(l => l.PanelAlignment = "left"));
+            Assert.AreEqual((2, 3), (Grid(window.PanelCard), Span(window.PanelCard)), "Left: under the left one.");
+            Assert.AreEqual((1, 3), (Rows(window.PrimarySideBar), Rows(window.SecondarySideBar)));
+            Assert.AreEqual(3, Rows(window.Sidebar), "The activity bar full height, always.");
+            Invoke(window, "ChangeLayout", (Action<DnnManager.Application.Configuration.LayoutSettings>)(l => l.PanelAlignment = "center"));
 
             // The side bar's side on the right: the two change places.
             Invoke(window, "ChangeLayout", (Action<DnnManager.Application.Configuration.LayoutSettings>)(l => l.SidebarPosition = "right"));
-            Assert.AreEqual(4, Grid(window.PrimarySideBar));
-            Assert.AreEqual(0, Grid(window.SecondarySideBar));
+            Assert.AreEqual(6, Grid(window.PrimarySideBar));
+            Assert.AreEqual(2, Grid(window.SecondarySideBar));
+            Assert.AreEqual(8, Grid(window.Sidebar));
 
             // Kept for the next start.
             var layout = (WindowLayout)window.GetType().GetMethod("CaptureLayout", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(window, [])!;

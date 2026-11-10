@@ -42,6 +42,7 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
         _connections = services.GetRequiredService<DeployConnections>();
         _files = services.GetRequiredService<DeployFiles>();
         InitializeComponent();
+        Tabs.ItemsSource = _tabs;
         // The servers, changes and history go to the window's primary side bar; the page keeps the editor.
         Root.Children.Remove(SideGrid);
         LoadServers(null);
@@ -171,6 +172,8 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
         if (!IsInitialized || e.AddedItems.Count == 0 && Selected is not null) return;
         _staged.Clear();
         _scan = Selected is { } s ? _scans.GetValueOrDefault(s.Connection.Id) : null;
+        // Another server's files: its tabs closed.
+        _tabs.Clear();
         ShowFile(null);
         ShowScan();
         LoadHistory();
@@ -356,7 +359,15 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
         Group(ChangeGroup.Incoming, "Incoming - to pull", [.. changes.Where(i => i.Direction == SyncDirection.Pull && !_staged.Contains(i.Path))], false);
         Group(ChangeGroup.Conflicts, "Conflicts - changed in both", [.. changes.Where(i => i.Direction == SyncDirection.Conflict)], false);
         Changes.ItemsSource = rows;
-        if (chosen is not null) Changes.SelectedItem = rows.FirstOrDefault(r => !r.IsHeader && r.Path.Equals(chosen, StringComparison.OrdinalIgnoreCase));
+        FollowTabs();
+        Dispatcher.BeginInvoke(UpdateStickyHeader, System.Windows.Threading.DispatcherPriority.Loaded);
+        // The row chosen again in the new list - its tab is open already.
+        _revealing = true;
+        try
+        {
+            if (chosen is not null) Changes.SelectedItem = rows.FirstOrDefault(r => !r.IsHeader && r.Path.Equals(chosen, StringComparison.OrdinalIgnoreCase));
+        }
+        finally { _revealing = false; }
         ChangesMessage.Text = changes.Count == 0 ? "The project and the server are the same - nothing to push or pull." : "";
         ChangesMessage.Visibility = changes.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         UpdateButtons();
@@ -415,16 +426,57 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
         }
     }
 
-    private void Changes_DoubleClick(object sender, MouseButtonEventArgs e)
+    /// <summary>A click on a group's header - in the list, or the one kept at its top - opens or closes the group, as in VS Code.</summary>
+    private void Header_Click(object sender, MouseButtonEventArgs e)
     {
-        if (Changes.SelectedItem is ChangeRow { IsHeader: true } row) Toggle(row.Group);
+        if ((sender as FrameworkElement)?.DataContext is not ChangeRow { IsHeader: true } row) return;
+        e.Handled = true;
+        Toggle(row.Group);
     }
 
     private void Toggle(ChangeGroup group)
     {
         if (!_collapsed.Remove(group)) _collapsed.Add(group);
         Fill();
+        // The group's header where it can be seen - closed from the top while scrolled down, it is no longer under it.
+        if (Changes.ItemsSource is IReadOnlyList<ChangeRow> rows && rows.FirstOrDefault(r => r.IsHeader && r.Group == group) is { } header)
+        {
+            Changes.SelectedItem = header;
+            Changes.ScrollIntoView(header);
+        }
+        UpdateStickyHeader();
     }
+
+    // ─── The header of the group scrolled through, kept at the list's top ──
+
+    /// <summary>
+    /// Scrolled down into a group, its header stays at the top of the list - VS Code's sticky scroll - so it can be closed
+    /// without scrolling back up. Hidden while the group's own header is there to be seen.
+    /// </summary>
+    private void UpdateStickyHeader()
+    {
+        StickyHeader.Content = StickyRow();
+        StickyHeader.Visibility = StickyHeader.Content is null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private ChangeRow? StickyRow()
+    {
+        if (Changes.ItemsSource is not IReadOnlyList<ChangeRow> rows || rows.Count == 0) return null;
+        // The row at the list's top edge.
+        var top = Changes.InputHitTest(new Point(8, 2)) as DependencyObject;
+        while (top is not null and not ListBoxItem) top = System.Windows.Media.VisualTreeHelper.GetParent(top);
+        if (top is not ListBoxItem { DataContext: ChangeRow first } item) return null;
+        // Its own header, all of it in sight: no need for another.
+        if (first.IsHeader && item.TranslatePoint(new Point(), Changes).Y >= 0) return null;
+        var at = -1;
+        for (var i = 0; i < rows.Count; i++)
+            if (ReferenceEquals(rows[i], first)) at = i;
+        for (var i = at; i >= 0; i--)
+            if (rows[i].IsHeader) return rows[i];
+        return null;
+    }
+
+    private void Changes_ScrollChanged(object sender, ScrollChangedEventArgs e) => UpdateStickyHeader();
 
     // The folder of the row the menu was opened on: stage or unstage everything in it.
     private string? MenuFolder => (Changes.SelectedItem as ChangeRow) is { IsHeader: false } row && row.Folder.Length > 0 ? row.Folder : null;
@@ -516,7 +568,139 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
 
     private void Change_Changed(object sender, SelectionChangedEventArgs e)
     {
-        if (Changes.SelectedItem is ChangeRow { Item: { } item }) _ = ShowFileAsync(item);
+        if (!_revealing && Changes.SelectedItem is ChangeRow { Item: { } item }) OpenTab(item, keep: false);
+    }
+
+    // ─── Tabs ──────────────────────────────────────────────────────────────
+
+    private readonly System.Collections.ObjectModel.ObservableCollection<EditorTab> _tabs = [];
+    // The list's row chosen to show the tab's file - not a click that opens it.
+    private bool _revealing;
+
+    private EditorTab? ActiveTab => Tabs.SelectedItem as EditorTab;
+
+    /// <summary>A file is open in a tab - Ctrl+W closes it.</summary>
+    public bool HasOpenTab => ActiveTab is not null;
+
+    /// <summary>Ctrl+W: the chosen tab closed.</summary>
+    public void CloseActiveTab()
+    {
+        if (ActiveTab is { } tab) CloseTab(tab);
+    }
+
+    /// <summary>
+    /// Opens <paramref name="item"/> as VS Code does: a click in the preview tab - the one open in italics, replaced by the
+    /// next click's file - and a double-click (<paramref name="keep"/>) in a tab that stays. Open already, its tab is chosen.
+    /// </summary>
+    private void OpenTab(SyncItem item, bool keep)
+    {
+        var tab = _tabs.FirstOrDefault(t => DeployPath.Comparer.Equals(t.Path, item.Path));
+        if (tab is null)
+        {
+            if (!keep && _tabs.FirstOrDefault(t => t.IsPreview) is { } preview)
+            {
+                preview.Item = item;
+                tab = preview;
+            }
+            else
+            {
+                tab = new EditorTab(item, preview: !keep);
+                // Next to the chosen tab, as VS Code opens one.
+                var at = ActiveTab is { } active ? _tabs.IndexOf(active) + 1 : _tabs.Count;
+                _tabs.Insert(at, tab);
+            }
+        }
+        else if (keep) tab.IsPreview = false;
+        Activate(tab);
+    }
+
+    /// <summary>Shows <paramref name="tab"/>'s file - also when it was the chosen tab already (the preview given another file).</summary>
+    private void Activate(EditorTab tab)
+    {
+        if (ReferenceEquals(Tabs.SelectedItem, tab)) _ = ShowFileAsync(tab.Item);
+        else Tabs.SelectedItem = tab;
+        Tabs.ScrollIntoView(tab);
+    }
+
+    private void Tab_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (ActiveTab is { } tab)
+        {
+            _ = ShowFileAsync(tab.Item);
+            Reveal(tab.Item);
+        }
+        else if (_tabs.Count == 0) ShowFile(null);
+    }
+
+    /// <summary>The tab's row chosen in the list, as VS Code follows the editor - without opening it again.</summary>
+    private void Reveal(SyncItem? item)
+    {
+        if (Changes.ItemsSource is not IReadOnlyList<ChangeRow> rows) return;
+        var row = item is null ? null : rows.FirstOrDefault(r => !r.IsHeader && DeployPath.Comparer.Equals(r.Path, item.Path));
+        _revealing = true;
+        try { Changes.SelectedItem = row; }
+        finally { _revealing = false; }
+    }
+
+    /// <summary>A double-click on a file keeps its tab open; on a group's header it does nothing more than its click.</summary>
+    private void Changes_DoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (Changes.SelectedItem is ChangeRow { Item: { } item }) OpenTab(item, keep: true);
+    }
+
+    private void Tab_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not EditorTab tab) return;
+        if (e.ChangedButton == MouseButton.Middle)
+        {
+            CloseTab(tab);
+            e.Handled = true;
+        }
+        else if (e.ChangedButton == MouseButton.Left && e.ClickCount == 2) tab.IsPreview = false;
+        // The history's operation shown: the click on the chosen tab brings its file back.
+        else if (e.ChangedButton == MouseButton.Left && ReferenceEquals(ActiveTab, tab) && FileView.Visibility != Visibility.Visible)
+            _ = ShowFileAsync(tab.Item);
+    }
+
+    private void CloseTab_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is EditorTab tab) CloseTab(tab);
+    }
+
+    /// <summary>Closes <paramref name="tab"/>; the chosen one closed, the tab beside it is chosen - as VS Code does.</summary>
+    private void CloseTab(EditorTab tab)
+    {
+        var at = _tabs.IndexOf(tab);
+        if (at < 0) return;
+        var wasActive = ReferenceEquals(ActiveTab, tab);
+        _tabs.RemoveAt(at);
+        if (_tabs.Count == 0)
+        {
+            ShowFile(null);
+            Reveal(null);
+            return;
+        }
+        if (wasActive) Tabs.SelectedItem = _tabs[Math.Min(at, _tabs.Count - 1)];
+    }
+
+    /// <summary>
+    /// A new comparison (or one staged): each tab's file as it compares now - a file no longer different closes its tab; the
+    /// chosen one shows again when its file changed.
+    /// </summary>
+    private void FollowTabs()
+    {
+        if (_scan is null) return;
+        foreach (var tab in _tabs.ToList())
+        {
+            var now = _scan.Changes.FirstOrDefault(i => DeployPath.Comparer.Equals(i.Path, tab.Path));
+            if (now is null) CloseTab(tab);
+            else if (!ReferenceEquals(now, tab.Item))
+            {
+                tab.Item = now;
+                if (ReferenceEquals(ActiveTab, tab)) _ = ShowFileAsync(now);
+            }
+        }
+        if (ActiveTab is { } active) Dispatcher.BeginInvoke(() => Reveal(active.Item), System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     /// <summary>The editor shows the file view - nothing chosen when <paramref name="item"/> is null.</summary>
@@ -525,27 +709,51 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
         OperationView.Visibility = Visibility.Collapsed;
         FileView.Visibility = Selected is null ? Visibility.Collapsed : Visibility.Visible;
         HistoryList.SelectedItem = null;
-        FileTab.Visibility = item is null ? Visibility.Collapsed : Visibility.Visible;
+        TabStrip.Visibility = _tabs.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        Breadcrumb.Visibility = item is null ? Visibility.Collapsed : Visibility.Visible;
         if (item is null)
         {
-            FileLetter.Text = FileTitle.Text = FileSubtitle.Text = "";
+            Breadcrumb.Text = "";
             ConflictBar.Visibility = Visibility.Collapsed;
             Diff.ShowMessage("Choose a file to see what changed.");
             return;
         }
-        FileLetter.Text = ChangeRow.LetterOf(item);
-        FileLetter.SetResourceReference(ForegroundProperty, FileLetter.Text switch { "A" => "SuccessText", "D" => "ErrorText", "!" => "DeployConflict", _ => "LogWarn" });
-        FileTitle.Text = DeployPath.Name(item.Path);
-        FileSubtitle.Text = $"{DeployPath.Folder(item.Path)} · {item.Describe().ToLowerInvariant()}";
+        var folder = DeployPath.Folder(item.Path);
+        Breadcrumb.Text = (folder.Length > 0 ? folder.Replace("/", " › ") + " › " : "") + DeployPath.Name(item.Path) + " · " + item.Describe().ToLowerInvariant();
         ConflictBar.Visibility = item.Direction == SyncDirection.Conflict ? Visibility.Visible : Visibility.Collapsed;
         ConflictText.Text = $"{item.Path}: {item.Describe().ToLowerInvariant()} since they last agreed. Nothing is pushed or pulled until you choose which " +
                             "version stays - the server only changes when you push.";
         MergeButton.IsEnabled = item is { Local: not null, Remote: not null };
     }
 
+    // Reading the server's versions of the next files ahead - stopped when another file is chosen.
+    private CancellationTokenSource? _prefetch;
+
+    // How many files after the chosen one are read ahead.
+    private const int PrefetchCount = 4;
+
+    /// <summary>
+    /// The server's versions of the files after <paramref name="item"/> in the list, read ahead on the connection kept for
+    /// viewing - going down the list, each shows at once, as in VS Code.
+    /// </summary>
+    private void Prefetch(SyncScan scan, SyncItem item)
+    {
+        if (Changes.ItemsSource is not IReadOnlyList<ChangeRow> rows) return;
+        var at = -1;
+        for (var i = 0; i < rows.Count; i++)
+            if (ReferenceEquals(rows[i].Item, item)) at = i;
+        if (at < 0) return;
+        var next = rows.Skip(at + 1).Select(r => r.Item).OfType<SyncItem>().Where(i => i.Remote is not null).Take(PrefetchCount).ToList();
+        if (next.Count == 0) return;
+        _prefetch?.Cancel();
+        var prefetch = _prefetch = new CancellationTokenSource();
+        _ = Task.Run(() => _files.PrefetchAsync(scan, next, prefetch.Token));
+    }
+
     private async Task ShowFileAsync(SyncItem item)
     {
         _diffLoad?.Cancel();
+        _prefetch?.Cancel();
         if (_scan is not { } scan) return;
         ShowFile(item);
         if (item.Remote is not null && !EnsurePassword(scan.Connection))
@@ -565,8 +773,10 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
                 return;
             }
             const string project = "In the project", server = "On the server";
-            if (item.Direction == SyncDirection.Pull) Diff.ShowDiff(item.Path, versions.Local, versions.Remote, project, server);
-            else Diff.ShowDiff(item.Path, versions.Remote, versions.Local, server, project);
+            if (item.Direction == SyncDirection.Pull) await Diff.ShowDiffAsync(item.Path, versions.Local, versions.Remote, project, server);
+            else await Diff.ShowDiffAsync(item.Path, versions.Remote, versions.Local, server, project);
+            if (!load.IsCancellationRequested && (item.Remote is not null || !_connections.NeedsPassword(_connections.Find(scan.Connection.Id) ?? scan.Connection)))
+                Prefetch(scan, item);
         }
         catch (OperationCanceledException)
         {
@@ -579,7 +789,7 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
 
     // ─── Conflicts ─────────────────────────────────────────────────────────
 
-    private SyncItem? ChosenConflict => Changes.SelectedItem is ChangeRow { Item: { Direction: SyncDirection.Conflict } item } ? item : null;
+    private SyncItem? ChosenConflict => ActiveTab is { Item: { Direction: SyncDirection.Conflict } item } ? item : null;
 
     private void KeepLocal_Click(object sender, RoutedEventArgs e)
     {
@@ -776,7 +986,7 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
         if (file.BeforeHash is not null && before is null || file.AfterHash is not null && after is null)
             HistoryDiff.ShowMessage("A version of this file isn't kept any more (or isn't text, or is too big to show).");
         else
-            HistoryDiff.ShowDiff(file.Path, before, after, "Before", "After");
+            await HistoryDiff.ShowDiffAsync(file.Path, before, after, "Before", "After");
     }
 
     private async void Rollback_Click(object sender, RoutedEventArgs e)

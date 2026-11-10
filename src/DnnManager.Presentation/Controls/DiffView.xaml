@@ -1,16 +1,25 @@
 <UserControl x:Class="DnnManager.Presentation.Controls.DiffView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:c="clr-namespace:DnnManager.Presentation.Controls">
+             xmlns:c="clr-namespace:DnnManager.Presentation.Controls"
+             xmlns:s="clr-namespace:System;assembly=System.Runtime">
     <!-- A file's two versions, line by line: unified (one column, - and +) or side by side (old left, new right), each
-         line coloured by its language. Only the changes and the lines around them - or the whole file. -->
+         line coloured by its language. Only the changes and the lines around them - or the whole file. Flush with the
+         editor's edges, as VS Code's; the line numbers as wide as the file's longest needs, the code as wide as its longest
+         line - scrolled sideways (NumberWidth, CodeWidth: set by Render). -->
     <UserControl.Resources>
         <FontFamily x:Key="Mono">Cascadia Mono, Consolas, Courier New</FontFamily>
+        <GridLength x:Key="NumberWidth">40</GridLength>
+        <s:Double x:Key="CodeWidth">0</s:Double>
+        <!-- How wide a whole line shown with Show more wraps (set by Render: the code's width, or a side's). -->
+        <s:Double x:Key="WrapWidth">0</s:Double>
+        <!-- Side by side: both sides' code moved sideways together by SplitScroll, as VS Code scrolls them. -->
+        <TranslateTransform x:Key="CodeShift" />
         <Style x:Key="Number" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{StaticResource Mono}" />
             <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
             <Setter Property="TextAlignment" Value="Right" />
-            <Setter Property="Padding" Value="0,0,8,0" />
+            <Setter Property="Padding" Value="0,0,6,0" />
         </Style>
         <Style x:Key="Code" TargetType="c:HighlightedText">
             <Setter Property="FontFamily" Value="{StaticResource Mono}" />
@@ -39,9 +48,9 @@
         <DataTemplate x:Key="UnifiedRow" DataType="{x:Type c:DiffRow}">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="48" />
-                    <ColumnDefinition Width="48" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="{DynamicResource NumberWidth}" />
+                    <ColumnDefinition Width="{DynamicResource NumberWidth}" />
+                    <ColumnDefinition Width="*" MinWidth="{DynamicResource CodeWidth}" />
                 </Grid.ColumnDefinitions>
                 <Border Grid.ColumnSpan="3" Background="{DynamicResource DiffHunkBg}" Visibility="{Binding HunkVisibility}">
                     <TextBlock Text="{Binding Hunk}" FontFamily="{StaticResource Mono}" Foreground="{DynamicResource TextMuted}" Padding="8,2" />
@@ -57,30 +66,46 @@
             </Grid>
         </DataTemplate>
 
-        <!-- Side by side: the old line on the left, the new one on the right. -->
+        <!-- Side by side: the old line on the left, the new one on the right - each half the width, the code cut off at its
+             edge and moved sideways by the one scroll bar under them (CodeShift): a long line on the left doesn't push the
+             right side off the screen. -->
         <DataTemplate x:Key="SplitRow" DataType="{x:Type c:DiffRow}">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="44" />
+                    <ColumnDefinition Width="{DynamicResource NumberWidth}" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="44" />
+                    <ColumnDefinition Width="{DynamicResource NumberWidth}" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <Border Grid.ColumnSpan="4" Background="{DynamicResource DiffHunkBg}" Visibility="{Binding HunkVisibility}">
                     <TextBlock Text="{Binding Hunk}" FontFamily="{StaticResource Mono}" Foreground="{DynamicResource TextMuted}" Padding="8,2" />
                 </Border>
                 <TextBlock Style="{StaticResource Number}" Text="{Binding Left.Number}" Visibility="{Binding LineVisibility}" />
-                <Border Grid.Column="1" Style="{StaticResource SideCell}" DataContext="{Binding Left}" Visibility="{Binding DataContext.LineVisibility, RelativeSource={RelativeSource AncestorType=Grid}}">
+                <Border Grid.Column="1" Style="{StaticResource SideCell}" DataContext="{Binding Left}" ClipToBounds="True" Visibility="{Binding DataContext.LineVisibility, RelativeSource={RelativeSource AncestorType=Grid}}">
                     <DockPanel>
                         <TextBlock Style="{StaticResource Mark}" />
-                        <c:HighlightedText Style="{StaticResource Code}" Line="{Binding}" TextTrimming="CharacterEllipsis" />
+                        <!-- Clipped here, not at the cell: moved sideways, the code passes under the mark, never over it. On a
+                             canvas, the code is as wide as its line - laid out in the side's width it would end there, and
+                             scrolling would show nothing past it. The canvas as tall as the code. -->
+                        <Border ClipToBounds="True">
+                            <Canvas Height="{Binding ActualHeight, ElementName=LeftCode}">
+                                <c:HighlightedText x:Name="LeftCode" Style="{StaticResource Code}" Line="{Binding}" RenderTransform="{StaticResource CodeShift}" />
+                            </Canvas>
+                        </Border>
                     </DockPanel>
                 </Border>
                 <TextBlock Grid.Column="2" Style="{StaticResource Number}" Text="{Binding Right.Number}" Visibility="{Binding LineVisibility}" />
-                <Border Grid.Column="3" Style="{StaticResource SideCell}" DataContext="{Binding Right}" Visibility="{Binding DataContext.LineVisibility, RelativeSource={RelativeSource AncestorType=Grid}}">
+                <Border Grid.Column="3" Style="{StaticResource SideCell}" DataContext="{Binding Right}" ClipToBounds="True" Visibility="{Binding DataContext.LineVisibility, RelativeSource={RelativeSource AncestorType=Grid}}">
                     <DockPanel>
                         <TextBlock Style="{StaticResource Mark}" />
-                        <c:HighlightedText Style="{StaticResource Code}" Line="{Binding}" TextTrimming="CharacterEllipsis" />
+                        <!-- Clipped here, not at the cell: moved sideways, the code passes under the mark, never over it. On a
+                             canvas, the code is as wide as its line - laid out in the side's width it would end there, and
+                             scrolling would show nothing past it. The canvas as tall as the code. -->
+                        <Border ClipToBounds="True">
+                            <Canvas Height="{Binding ActualHeight, ElementName=RightCode}">
+                                <c:HighlightedText x:Name="RightCode" Style="{StaticResource Code}" Line="{Binding}" RenderTransform="{StaticResource CodeShift}" />
+                            </Canvas>
+                        </Border>
                     </DockPanel>
                 </Border>
             </Grid>
@@ -89,7 +114,7 @@
 
     <DockPanel>
         <!-- What is compared with what, and how it is shown. -->
-        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+        <DockPanel DockPanel.Dock="Top" Margin="12,6,8,6">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                 <RadioButton x:Name="UnifiedMode" Content="Unified" GroupName="DiffMode" IsChecked="True" Margin="0,0,12,0" Checked="Mode_Changed"
                              ToolTip="Unified - one column: removed lines (-) above the lines that replace them (+)" />
@@ -102,10 +127,18 @@
             </StackPanel>
             <TextBlock x:Name="Titles" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
         </DockPanel>
-        <Border BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="{DynamicResource SmallRadius}">
+        <Border BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0">
             <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <!-- Side by side: both sides' code sideways at once. -->
+                <ScrollBar x:Name="SplitScroll" Grid.Row="1" Orientation="Horizontal" Visibility="Collapsed" ValueChanged="SplitScroll_Changed"
+                           AutomationProperties.Name="Scroll both sides sideways" />
                 <ListBox x:Name="Rows" BorderThickness="0" Background="{DynamicResource CardBg}" ItemTemplate="{StaticResource UnifiedRow}"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizing="True"
+                         SizeChanged="Rows_SizeChanged" PreviewMouseWheel="Rows_PreviewMouseWheel"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto" VirtualizingPanel.IsVirtualizing="True"
                          VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel"
                          AutomationProperties.Name="Differences">
                     <ListBox.ItemContainerStyle>
@@ -124,7 +157,7 @@
                         </Style>
                     </ListBox.ItemContainerStyle>
                 </ListBox>
-                <TextBlock x:Name="Message" TextWrapping="Wrap" Foreground="{DynamicResource TextMuted}" Margin="16" HorizontalAlignment="Center"
+                <TextBlock x:Name="Message" Grid.RowSpan="2" TextWrapping="Wrap" Foreground="{DynamicResource TextMuted}" Margin="16" HorizontalAlignment="Center"
                            VerticalAlignment="Center" TextAlignment="Center" Text="Choose a file to see what changed." />
             </Grid>
         </Border>

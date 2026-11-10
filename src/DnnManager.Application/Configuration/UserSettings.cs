@@ -700,12 +700,24 @@ public sealed class LayoutSettings
     public bool Compact => Density.Equals("compact", StringComparison.OrdinalIgnoreCase);
     public bool QuickInputCentered => QuickInputPosition.Equals("center", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Whether the panel reaches under the sidebar - with its alignment towards the sidebar's side, or justified.</summary>
+    /// <summary>
+    /// Whether the panel reaches under the primary side bar (beside the activity bar, on <see cref="SidebarPosition"/>'s
+    /// side) - with its alignment towards that side, or justified. The activity bar is never above the panel.
+    /// </summary>
     public bool PanelUnderSidebar => PanelAlignment.ToLowerInvariant() switch
     {
         "justify" => true,
         "left" => !SidebarRight,
         "right" => SidebarRight,
+        _ => false
+    };
+
+    /// <summary>Whether the panel reaches under the secondary side bar, across the page - its alignment towards that side, or justified.</summary>
+    public bool PanelUnderSecondarySideBar => PanelAlignment.ToLowerInvariant() switch
+    {
+        "justify" => true,
+        "left" => SidebarRight,
+        "right" => !SidebarRight,
         _ => false
     };
 

@@ -32,20 +32,19 @@ public partial class MainWindow
     {
         var layout = _layout;
         var right = layout.SidebarRight;
-        int side = right ? 1 : 0, page = 1 - side;
-        (right ? LeftColumn : RightColumn).Width = new GridLength(1, GridUnitType.Star);
+        // The activity bar's column on its side; the other one has nothing.
+        (right ? LeftColumn : RightColumn).Width = new GridLength(0);
         ApplySidebarWidth();
         Sidebar.Visibility = _sidebarVisible ? Visibility.Visible : Visibility.Collapsed;
-        Grid.SetColumn(Sidebar, side);
+        Grid.SetColumn(Sidebar, right ? RightColumnIndex : 0);
 
-        // The panel under the page only (the sidebar beside it, full height), or under the sidebar too.
-        var under = layout.PanelUnderSidebar;
-        Grid.SetRowSpan(Sidebar, under ? 1 : 3);
-        Grid.SetColumn(Workbench, page);
+        // The panel under the page - and under the side bar on a side its alignment reaches; the activity bar always full
+        // height beside it all.
+        var (fromLeft, toRight) = PanelReach;
         foreach (var part in new FrameworkElement[] { PanelSash, PanelCard })
         {
-            Grid.SetColumn(part, under ? 0 : page);
-            Grid.SetColumnSpan(part, under ? 2 : 1);
+            Grid.SetColumn(part, fromLeft ? LeftSideIndex : PageIndex);
+            Grid.SetColumnSpan(part, (toRight ? RightSideIndex : PageIndex) - (fromLeft ? LeftSideIndex : PageIndex) + 1);
         }
 
         DockPanel.SetDock(IisStatus, right ? Dock.Right : Dock.Left);
@@ -67,7 +66,7 @@ public partial class MainWindow
         Resources["LayoutButtonWidth"] = compact ? 24.0 : 28.0;
         Resources["LayoutButtonHeight"] = compact ? 20.0 : 24.0;
         Resources["StatusBarHeight"] = 24.0;
-        ApplyCards(compact, right, under);
+        ApplyCards(compact, right);
         ApplySideBars();
         // The activity bar to its width in this density.
         SlideSidebar();
@@ -96,6 +95,15 @@ public partial class MainWindow
     // a second border, so what is inside keeps its width (the icons-only sidebar its 48 px).
     private double SidebarCardExtra => _layout.Compact ? 0 : CardGap + 1;
 
+    // The body's columns (MainWindow.xaml): the activity bar's on the left, the left side bar, the page, the right side bar,
+    // the activity bar's on the right.
+    private const int LeftSideIndex = 2, PageIndex = 4, RightSideIndex = 6, RightColumnIndex = 8;
+
+    /// <summary>Whether the panel reaches under the side bar on the left, and the one on the right - Panel Alignment.</summary>
+    private (bool Left, bool Right) PanelReach => _layout.SidebarRight
+        ? (_layout.PanelUnderSecondarySideBar, _layout.PanelUnderSidebar)
+        : (_layout.PanelUnderSidebar, _layout.PanelUnderSecondarySideBar);
+
     /// <summary>The page shown: its view in the primary side bar, if it has one.</summary>
     private void ApplyPageChrome() => ShowPageSideBar();
 
@@ -104,18 +112,17 @@ public partial class MainWindow
     /// colour - the title bar and the status bar one surface with it, no lines between them. Compact: flush, divided by
     /// lines.
     /// </summary>
-    private void ApplyCards(bool compact, bool sidebarRight, bool panelUnderSidebar)
+    private void ApplyCards(bool compact, bool sidebarRight)
     {
         var radius = compact ? new CornerRadius(0) : (CornerRadius)FindResource("CardRadius");
         var border = new Thickness(compact ? 0 : 1);
-        // Right under the title bar, as they reach down to the status bar: the gap only between them and on the sides.
-        Workbench.Margin = compact ? new Thickness(0) : new Thickness(CardGap, 0, CardGap, 0);
-        PanelCard.Margin = compact ? new Thickness(0) : new Thickness(CardGap, 0, CardGap, StatusGap);
-        // On the window's edge; the page's card keeps the gap on its other side. Over the panel, the splitter's row is the gap
-        // under it.
-        var bottom = panelUnderSidebar ? 0 : StatusGap;
+        // Right under the title bar, as they reach down to the status bar: the gap only between them and on the sides - the
+        // edge columns beside the activity bar and at the window's other edge.
+        EdgeLeft.Width = EdgeRight.Width = new GridLength(compact ? 0 : CardGap);
+        PanelCard.Margin = compact ? new Thickness(0) : new Thickness(0, 0, 0, StatusGap);
+        // On the window's edge, full height.
         Sidebar.Margin = compact ? new Thickness(0)
-            : sidebarRight ? new Thickness(0, 0, CardGap, bottom) : new Thickness(CardGap, 0, 0, bottom);
+            : sidebarRight ? new Thickness(0, 0, CardGap, StatusGap) : new Thickness(CardGap, 0, 0, StatusGap);
         foreach (var card in new[] { Sidebar, PrimarySideBar, PageCard, SecondarySideBar, PanelCard })
         {
             card.CornerRadius = radius;
@@ -128,8 +135,6 @@ public partial class MainWindow
             PrimarySideBar.BorderThickness = sidebarRight ? new Thickness(1, 0, 0, 0) : new Thickness(0, 0, 1, 0);
             SecondarySideBar.BorderThickness = sidebarRight ? new Thickness(0, 0, 1, 0) : new Thickness(1, 0, 0, 0);
         }
-        // Its line along its card, not across the gaps at its ends.
-        PanelSash.Padding = compact ? new Thickness(0) : new Thickness(CardGap, 0, CardGap, 0);
 
         TitleBarFrame.BorderThickness = new Thickness(0, 0, 0, compact ? 1 : 0);
         Resources["StatusBarBorder"] = new Thickness(0, compact ? 1 : 0, 0, 0);
@@ -561,8 +566,8 @@ public partial class MainWindow
         const string visibility = "Visibility";
         Add(visibility, "Menu Bar", layout.MenuBarVisible, () => ChangeLayout(l => l.MenuBarVisible = !l.MenuBarVisible),
             "LayoutMenuBar", "LayoutMenuBarFill", "view.toggleMenuBar", "title name");
-        Add(visibility, "Activity Bar", _sidebarVisible, ToggleSidebar, right ? "LayoutSidebarRight" : "LayoutSidebarLeft",
-            right ? "LayoutSidebarRightFill" : "LayoutSidebarLeftFill", "view.toggleActivityBar", "pages icons navigation sidebar");
+        Add(visibility, "Activity Bar", _sidebarVisible, ToggleSidebar, right ? "LayoutActivityBarRight" : "LayoutActivityBarLeft",
+            right ? "LayoutActivityBarRightFill" : "LayoutActivityBarLeftFill", "view.toggleActivityBar", "pages icons navigation sidebar");
         Add(visibility, "Primary Side Bar", PrimaryShown, TogglePrimarySideBar, right ? "LayoutSidebarRight" : "LayoutSidebarLeft",
             right ? "LayoutSidebarRightFill" : "LayoutSidebarLeftFill", "view.toggleSidebar", "sidebar source control view");
         Add(visibility, "Secondary Side Bar", _secondaryVisible, ToggleSecondarySideBar, right ? "LayoutSidebarLeft" : "LayoutSidebarRight",

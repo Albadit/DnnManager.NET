@@ -13,6 +13,12 @@ All notable changes to DnnManager.NET are documented here.
   side a **secondary side bar** (**Ctrl+Alt+B**, empty for now). Both are
   dragged wider or narrower, and kept between starts; Customize Layout shows
   or hides each, the activity bar too.
+- **Source Control's diff opens files quickly.** Viewing a file reuses one
+  connection to the server (a sign-in per file took a second or more, and
+  counts towards Azure's limit), reads each file once, reads the next few files
+  ahead, and works out the diff off the UI thread. The diff fills the page and
+  scrolls sideways for long lines; a group's title in the list folds it with
+  one click and stays at the top while you scroll through the group.
 - **Deploy to a server, like git.** A new **Source Control** page (activity bar, Ctrl+3),
   laid out as VS Code's Source Control, connects your projects to their
   development, staging and production servers over **SFTP** (password or

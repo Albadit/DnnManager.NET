@@ -302,22 +302,31 @@
             <c:StatusBar x:Name="StatusBar" />
         </DockPanel>
 
-        <!-- The body: the page, the splitter and the bottom panel, the sidebar beside the page - and beside the panel too,
-             unless the panel reaches under it (Customize Layout's Panel Alignment). The panel is never taller than the
-             body leaves room for (FitPanel). The sidebar, the page and the panel are cards: in the Default density rounded,
-             with a gap around them on the frame's colour, as VS Code's; in the Compact density flush, divided by lines
-             (ApplyCards). -->
+        <!-- The body, as VS Code's: the activity bar full height on its side; the primary side bar beside it, the page, the
+             secondary side bar across from it; the bottom panel under the page - and under a side bar too where Customize
+             Layout's Panel Alignment reaches it there (Center: neither, Justify: both), the side bar then above it. The panel
+             is never taller than the body leaves room for (FitPanel). All of them cards: in the Default density rounded, with
+             a gap around them on the frame's colour; in the Compact density flush, divided by lines (ApplyCards). -->
         <Grid x:Name="Body" Grid.Row="1" ClipToBounds="True" Background="{DynamicResource SidebarBg}">
         <Grid.RowDefinitions>
             <RowDefinition x:Name="PageRow" Height="*" MinHeight="60" />
             <RowDefinition x:Name="SplitterRow" Height="5" />
             <RowDefinition x:Name="LogRow" Height="230" MinHeight="90" />
         </Grid.RowDefinitions>
-        <!-- The activity bar's column and the workbench's - which is which follows the side bar's side (ApplyLayout). The
-             activity bar is 48 wide - 40 in the Compact density. -->
+        <!-- From left to right: the activity bar's place on the left, the gap beside it, the left side bar and its gap, the
+             page, the right side bar's gap and the right side bar, the gap at the edge, the activity bar's place on the right
+             - which side bar is on which side follows the activity bar's side (ApplyLayout, ApplySideBars). The activity bar
+             is 48 wide - 40 in the Compact density. -->
         <Grid.ColumnDefinitions>
-            <ColumnDefinition x:Name="LeftColumn" Width="230" />
-            <ColumnDefinition x:Name="RightColumn" Width="*" />
+            <ColumnDefinition x:Name="LeftColumn" Width="48" />
+            <ColumnDefinition x:Name="EdgeLeft" Width="0" />
+            <ColumnDefinition x:Name="WorkbenchLeft" Width="0" />
+            <ColumnDefinition x:Name="WorkbenchLeftGap" Width="0" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition x:Name="WorkbenchRightGap" Width="0" />
+            <ColumnDefinition x:Name="WorkbenchRight" Width="0" />
+            <ColumnDefinition x:Name="EdgeRight" Width="0" />
+            <ColumnDefinition x:Name="RightColumn" Width="0" />
         </Grid.ColumnDefinitions>
 
         <!-- The activity bar (x:Name Sidebar): the pages, as icons with their names as tooltips; at the bottom the gear's menu
@@ -340,34 +349,26 @@
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="{StaticResource GlyphAdd}" /><TextBlock Style="{StaticResource SidebarLabel}" Text="New project" /></StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource SidebarNav}" GroupName="Nav" Tag="Deploy" Checked="Nav_Checked" x:Name="NavDeploy" ToolTip="Source Control - compare projects with their servers, push and pull files" s:CommandTip.Command="pages.deploy">
-                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="{StaticResource GlyphUpload}" /><TextBlock Style="{StaticResource SidebarLabel}" Text="Source Control" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><Grid Width="30"><Path Style="{StaticResource SourceControlIcon}" /></Grid><TextBlock Style="{StaticResource SidebarLabel}" Text="Source Control" /></StackPanel>
                 </RadioButton>
             </StackPanel>
         </DockPanel>
         </Border>
 
-        <!-- The workbench, as VS Code's: the primary side bar (beside the activity bar - the page's own view, Source Control's
-             changes), the page, and the secondary side bar on the other side - each a card, shown or hidden (Ctrl+B,
-             Ctrl+Alt+B) and dragged wider or narrower by the sash between them (MainWindow.SideBars). -->
-        <Grid x:Name="Workbench" Grid.Column="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition x:Name="WorkbenchLeft" Width="0" />
-                <ColumnDefinition x:Name="WorkbenchLeftGap" Width="0" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition x:Name="WorkbenchRightGap" Width="0" />
-                <ColumnDefinition x:Name="WorkbenchRight" Width="0" />
-            </Grid.ColumnDefinitions>
-            <Border x:Name="PrimarySideBar" Background="{DynamicResource WindowBg}" BorderBrush="{DynamicResource CardBorder}" Visibility="Collapsed">
+        <!-- The primary side bar (beside the activity bar - the page's own view, Source Control's changes) and the secondary
+             one across the page from it: cards, shown or hidden (Ctrl+B, Ctrl+Alt+B) and dragged wider or narrower by the sash
+             between them and the page (MainWindow.SideBars). -->
+            <Border x:Name="PrimarySideBar" Grid.Column="2" Grid.RowSpan="3" Background="{DynamicResource WindowBg}" BorderBrush="{DynamicResource CardBorder}" Visibility="Collapsed">
                 <ContentControl x:Name="PrimaryHost" Focusable="False" SizeChanged="CardContent_SizeChanged" />
             </Border>
 
             <!-- The page of the activity bar's entry chosen. -->
-            <Border x:Name="PageCard" Grid.Column="2" Background="{DynamicResource WindowBg}" BorderBrush="{DynamicResource CardBorder}">
+            <Border x:Name="PageCard" Grid.Column="4" Background="{DynamicResource WindowBg}" BorderBrush="{DynamicResource CardBorder}">
                 <ContentControl x:Name="PageHost" Focusable="False" SizeChanged="CardContent_SizeChanged" />
             </Border>
 
             <!-- Empty for now: room for views to come. -->
-            <Border x:Name="SecondarySideBar" Grid.Column="4" Background="{DynamicResource WindowBg}" BorderBrush="{DynamicResource CardBorder}" Visibility="Collapsed">
+            <Border x:Name="SecondarySideBar" Grid.Column="6" Grid.RowSpan="3" Background="{DynamicResource WindowBg}" BorderBrush="{DynamicResource CardBorder}" Visibility="Collapsed">
                 <ContentControl x:Name="SecondaryHost" Focusable="False" SizeChanged="CardContent_SizeChanged">
                     <StackPanel Margin="16,15,12,0">
                         <TextBlock Text="SECONDARY SIDE BAR" FontSize="{DynamicResource TextSmall}" FontWeight="SemiBold" Foreground="{DynamicResource TextMuted}" />
@@ -377,20 +378,19 @@
             </Border>
 
             <!-- Between a side bar and the page: dragged, the side bar's width - closed when dragged far enough. -->
-            <c:Sash x:Name="PrimarySash" Grid.Column="1" Panel.ZIndex="1" Visibility="Collapsed"
+            <c:Sash x:Name="PrimarySash" Grid.Column="3" Grid.RowSpan="3" Panel.ZIndex="1" Visibility="Collapsed"
                     DragStarted="SideBarSash_DragStarted" DragDelta="SideBarSash_DragDelta" DragCompleted="SideBarSash_DragCompleted" />
-            <c:Sash x:Name="SecondarySash" Grid.Column="3" Panel.ZIndex="1" Visibility="Collapsed"
+            <c:Sash x:Name="SecondarySash" Grid.Column="5" Grid.RowSpan="3" Panel.ZIndex="1" Visibility="Collapsed"
                     DragStarted="SideBarSash_DragStarted" DragDelta="SideBarSash_DragDelta" DragCompleted="SideBarSash_DragCompleted" />
-        </Grid>
 
         <!-- Between the page and the panel - the gap between their cards, or (Compact) their line: dragged, the panel's height;
              closed when dragged far enough down. While the panel is closed, along the page's bottom, to drag it open. -->
-        <c:Sash x:Name="PanelSash" Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Panel.ZIndex="1"
+        <c:Sash x:Name="PanelSash" Grid.Row="1" Grid.Column="4" Orientation="Horizontal" Panel.ZIndex="1"
                 DragStarted="Sash_DragStarted" DragDelta="PanelSash_DragDelta" DragCompleted="Sash_DragCompleted" />
 
         <!-- Activity, Logs and Terminal; opened and closed with the title bar's panel button, Ctrl+J, Ctrl+` or its own ✕.
              Maximized (its button, Ctrl+Shift+M) it takes the page's room. -->
-        <Border x:Name="PanelCard" Grid.Row="2" Grid.Column="1" Background="{DynamicResource LogBg}" BorderBrush="{DynamicResource CardBorder}">
+        <Border x:Name="PanelCard" Grid.Row="2" Grid.Column="4" Background="{DynamicResource LogBg}" BorderBrush="{DynamicResource CardBorder}">
             <c:TerminalPanel x:Name="TerminalPanel" SizeChanged="CardContent_SizeChanged" />
         </Border>
 

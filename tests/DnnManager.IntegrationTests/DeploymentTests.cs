@@ -289,6 +289,35 @@ public sealed class DeploymentWorkflowTests
     }
 
     [TestMethod]
+    public async Task Files_looked_at_share_one_connection_and_are_read_from_the_server_once()
+    {
+        using var h = new DeployHarness();
+        h.Server.CanHash = false;
+        foreach (var name in new[] { "a.txt", "b.txt", "c.txt", "d.txt" })
+        {
+            h.WriteLocal(name, "short");
+            h.Server.Write(name, "much longer on the server " + name);
+        }
+        var scan = await h.ScanAsync();
+        var items = scan.Changes.OrderBy(i => i.Path).ToList();
+        Assert.IsTrue(items.All(i => i.Remote is { Hash: null }), "Sizes differ: the scan didn't read them.");
+        var before = h.Server.Connections;
+        await using var files = new DeployFiles(h.Store, h.Snapshots, h.Factory);
+
+        var a = await files.VersionsAsync(scan, items[0], CancellationToken.None);
+        Assert.AreEqual("much longer on the server a.txt", System.Text.Encoding.UTF8.GetString(a.Remote!));
+        await files.VersionsAsync(scan, items[1], CancellationToken.None);
+        Assert.AreEqual(before + 1, h.Server.Connections, "One sign-in for every file looked at.");
+
+        // Read ahead: the next ones are there when chosen - on the same connection.
+        await files.PrefetchAsync(scan, items.Skip(2), CancellationToken.None);
+        h.Server.Write("d.txt", "changed after it was read");
+        var d = await files.VersionsAsync(scan, items[3], CancellationToken.None);
+        Assert.AreEqual("much longer on the server d.txt", System.Text.Encoding.UTF8.GetString(d.Remote!), "Read ahead, not read again.");
+        Assert.AreEqual(before + 1, h.Server.Connections);
+    }
+
+    [TestMethod]
     public async Task The_first_scan_without_server_hashes_reads_only_files_of_the_same_size()
     {
         using var h = new DeployHarness();

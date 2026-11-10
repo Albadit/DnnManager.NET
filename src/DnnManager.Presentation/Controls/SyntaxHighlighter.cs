@@ -180,21 +180,92 @@ public sealed class HighlightedText : TextBlock
         set => SetValue(LineProperty, value);
     }
 
+    /// <summary>How many columns a tab takes - as the diff measures a line's width (<see cref="Columns"/>).</summary>
+    public const int TabSize = 4;
+
+    /// <summary>The columns <paramref name="text"/> takes, its tabs <see cref="TabSize"/> each.</summary>
+    public static int Columns(string text)
+    {
+        var tabs = 0;
+        foreach (var c in text)
+            if (c == '\t') tabs++;
+        return text.Length + tabs * (TabSize - 1);
+    }
+
+    private static string Shown(string text) => text.Contains('\t') ? text.Replace("\t", new string(' ', TabSize)) : text;
+
     private void Build()
     {
         Inlines.Clear();
+        TextWrapping = TextWrapping.NoWrap;
+        ClearValue(MaxWidthProperty);
         if (Line is not { } line) return;
-        var text = line.Text;
+        var expanded = line is { Expanded: true, Full: not null };
+        var text = expanded ? line.Full! : line.Text;
+        if (expanded)
+        {
+            // The whole line, wrapped at the code's width: a row as tall as it needs, never wider than the others.
+            TextWrapping = TextWrapping.Wrap;
+            if (TryFindResource("WrapWidth") is double width && width >= 40) MaxWidth = width;
+        }
+        // No tokens (plain text) - or a whole minified line, whose thousands of tokens would take seconds to lay out: one run.
+        if (line.Tokens.Length == 0 || expanded && text.Length > 20_000)
+        {
+            Inlines.Add(new Run(Shown(text)));
+            AddShowMore(line, expanded);
+            return;
+        }
         var at = 0;
         foreach (var token in line.Tokens)
         {
             if (token.Start < at || token.Start + token.Length > text.Length) continue;
-            if (token.Start > at) Inlines.Add(new Run(text[at..token.Start]));
-            var run = new Run(text.Substring(token.Start, token.Length));
+            if (token.Start > at) Inlines.Add(new Run(Shown(text[at..token.Start])));
+            var run = new Run(Shown(text.Substring(token.Start, token.Length)));
             if (SyntaxHighlighter.Brush(token.Kind) is { } key) run.SetResourceReference(TextElement.ForegroundProperty, key);
             Inlines.Add(run);
             at = token.Start + token.Length;
         }
-        if (at < text.Length) Inlines.Add(new Run(text[at..]));
+        if (at < text.Length) Inlines.Add(new Run(Shown(text[at..])));
+        AddShowMore(line, expanded);
+    }
+
+    /// <summary>VS Code's Show more after a long line's start: a click shows the whole line, wrapped.</summary>
+    private void AddShowMore(DiffSide line, bool expanded)
+    {
+        if (line.Full is null || expanded) return;
+        // As tall as a line of the code, no taller: a taller one would push the line's text below its number.
+        var more = new Button
+        {
+            Content = line.MoreText, Padding = new Thickness(5, 0, 5, 0), Margin = new Thickness(6, 0, 0, 0), BorderThickness = new Thickness(0),
+            // The app's buttons are at least 30 high (its Button style): not this one.
+            Height = Math.Floor(FontSize * 1.15), MinHeight = 0, MinWidth = 0, FontSize = FontSize - 2, Cursor = System.Windows.Input.Cursors.Hand,
+            FontFamily = SystemFonts.MessageFontFamily, ToolTip = "Show the whole line, wrapped"
+        };
+        more.SetResourceReference(BackgroundProperty, "Accent");
+        more.SetResourceReference(ForegroundProperty, "OnAccent");
+        more.Template = ShowMoreTemplate;
+        more.Click += (_, _) =>
+        {
+            line.Expanded = true;
+            Build();
+        };
+        Inlines.Add(new InlineUIContainer(more) { BaselineAlignment = BaselineAlignment.Center });
+    }
+
+    // Show more: a flat blue label, as VS Code draws it.
+    private static readonly ControlTemplate ShowMoreTemplate = MakeShowMoreTemplate();
+
+    private static ControlTemplate MakeShowMoreTemplate()
+    {
+        var border = new FrameworkElementFactory(typeof(Border));
+        border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(BackgroundProperty));
+        border.SetValue(Border.PaddingProperty, new TemplateBindingExtension(PaddingProperty));
+        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(2));
+        var content = new FrameworkElementFactory(typeof(ContentPresenter));
+        content.SetValue(VerticalAlignmentProperty, VerticalAlignment.Center);
+        border.AppendChild(content);
+        var template = new ControlTemplate(typeof(Button)) { VisualTree = border };
+        template.Seal();
+        return template;
     }
 }

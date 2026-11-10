@@ -26,10 +26,11 @@
             <Setter Property="Height" Value="24" />
             <Setter Property="FontSize" Value="12" />
         </Style>
-        <!-- A row's buttons show while the pointer is on it, or it is chosen - VS Code's inline actions. -->
+        <!-- A row's buttons show while the pointer is on it, or it is chosen - VS Code's inline actions. Collapsed, not
+             hidden, the rest of the time: the name has the row's whole width. -->
         <Style x:Key="RowActions" TargetType="StackPanel">
             <Setter Property="Orientation" Value="Horizontal" />
-            <Setter Property="Visibility" Value="Hidden" />
+            <Setter Property="Visibility" Value="Collapsed" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
                     <Setter Property="Visibility" Value="Visible" />
@@ -56,23 +57,25 @@
 
         <!-- A group's header: chevron, title, count - and stage or unstage all of it. -->
         <DataTemplate x:Key="HeaderRow" DataType="{x:Type p:ChangeRow}">
-            <DockPanel Background="Transparent" Margin="0,4,0,0" MinHeight="24">
+            <DockPanel Background="Transparent" MinHeight="24" MouseLeftButtonUp="Header_Click" Cursor="Hand"
+                       ToolTip="Open or close the group">
+                <Border DockPanel.Dock="Right" Background="{DynamicResource HoverBg}" CornerRadius="8" Padding="6,0" Margin="4,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Count}" FontSize="{DynamicResource TextSmall}" />
+                </Border>
                 <StackPanel DockPanel.Dock="Right" Style="{StaticResource RowActions}">
                     <Button Style="{StaticResource SmallIcon}" Content="{StaticResource GlyphAdd}" Click="StageGroup_Click" Tag="{Binding}"
                             ToolTip="Stage all" Visibility="{Binding CanStageAll, Converter={StaticResource Visible}}" />
                     <Button Style="{StaticResource SmallIcon}" Content="{StaticResource GlyphDash}" Click="UnstageGroup_Click" Tag="{Binding}"
                             ToolTip="Unstage all" Visibility="{Binding CanUnstageAll, Converter={StaticResource Visible}}" />
                 </StackPanel>
-                <Border DockPanel.Dock="Right" Background="{DynamicResource HoverBg}" CornerRadius="8" Padding="6,0" Margin="6,0" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Count}" FontSize="{DynamicResource TextSmall}" />
-                </Border>
                 <TextBlock Style="{StaticResource Glyph}" FontSize="9" Width="16" Text="{Binding Chevron}" Foreground="{DynamicResource TextMuted}" />
-                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Title}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
             </DockPanel>
         </DataTemplate>
-        <!-- A file: its name, its folder (muted), its buttons, its letter. -->
+        <!-- A file: its name, its folder (muted), its buttons, its letter - its icon under the group's chevron, as VS Code
+             indents it. A click opens it in the preview tab, a double-click keeps it open (Changes_DoubleClick). -->
         <DataTemplate x:Key="FileRow" DataType="{x:Type p:ChangeRow}">
-            <DockPanel Background="Transparent" Margin="16,0,0,0" MinHeight="24" ToolTip="{Binding Tip}">
+            <DockPanel Background="Transparent" MinHeight="24" ToolTip="{Binding Tip}">
                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource Letter}" />
                 <StackPanel DockPanel.Dock="Right" Style="{StaticResource RowActions}">
                     <Button Style="{StaticResource SmallIcon}" Content="{StaticResource GlyphAdd}" Click="Stage_Click" Tag="{Binding}"
@@ -80,11 +83,10 @@
                     <Button Style="{StaticResource SmallIcon}" Content="{StaticResource GlyphDash}" Click="Unstage_Click" Tag="{Binding}"
                             ToolTip="Unstage" Visibility="{Binding IsStaged, Converter={StaticResource Visible}}" />
                 </StackPanel>
-                <TextBlock DockPanel.Dock="Left" Style="{StaticResource Glyph}" Text="{Binding Arrow}" Foreground="{DynamicResource TextMuted}" Width="14"
-                           FontFamily="{DynamicResource {x:Static SystemFonts.MessageFontFamilyKey}}" />
-                <TextBlock DockPanel.Dock="Left" Style="{StaticResource Glyph}" Text="{Binding Icon}" Foreground="{Binding IconBrush}" Margin="0,0,6,0" />
+                <TextBlock DockPanel.Dock="Left" Style="{StaticResource Glyph}" Text="{Binding Icon}" Foreground="{Binding IconBrush}" Width="16"
+                           TextAlignment="Center" Margin="0,0,6,0" />
                 <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
-                    <Run Text="{Binding Name, Mode=OneWay}" />
+                    <Run Text="{Binding Arrow, Mode=OneWay}" Foreground="{DynamicResource TextMuted}" /><Run Text="{Binding Name, Mode=OneWay}" />
                     <Run Text="{Binding Folder, Mode=OneWay}" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextSmall}" />
                 </TextBlock>
             </DockPanel>
@@ -142,7 +144,7 @@
 
                 <!-- SERVERS - every project's, VS Code's repositories. -->
                 <StackPanel Grid.Row="2">
-                    <DockPanel Margin="8,2,8,0">
+                    <DockPanel Margin="4,2,8,0">
                         <ToggleButton x:Name="ServersToggle" DockPanel.Dock="Left" Style="{StaticResource ExpandToggle}" IsChecked="True" Focusable="True"
                                       Foreground="{DynamicResource TextMuted}" AutomationProperties.Name="Servers" />
                         <TextBlock Style="{StaticResource SectionTitle}" Text="SERVERS" Margin="2,0,0,0" />
@@ -177,7 +179,7 @@
                 </StackPanel>
 
                 <!-- CHANGES - the message, Push (its ▾ the rest), and the groups. -->
-                <Border Grid.Row="3" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Padding="8,4,8,0">
+                <Border Grid.Row="3" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Padding="4,4,8,0">
                     <DockPanel>
                         <TextBlock x:Name="ScanSummary" DockPanel.Dock="Right" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextSmall}"
                                    VerticalAlignment="Center" />
@@ -215,7 +217,8 @@
                 <Grid Grid.Row="5">
                     <ListBox x:Name="Changes" BorderThickness="0" Background="Transparent" Margin="0,0,0,4"
                              ItemTemplateSelector="{StaticResource RowTemplates}" SelectionChanged="Change_Changed" KeyDown="Changes_KeyDown"
-                             MouseDoubleClick="Changes_DoubleClick" AutomationProperties.Name="Changes" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             MouseDoubleClick="Changes_DoubleClick"
+                             ScrollViewer.ScrollChanged="Changes_ScrollChanged" AutomationProperties.Name="Changes" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel">
                         <ListBox.ItemContainerStyle>
                             <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
@@ -235,6 +238,18 @@
                         </ListBox.ContextMenu>
                     </ListBox>
                     <TextBlock x:Name="ChangesMessage" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="16,8" VerticalAlignment="Top" />
+                    <!-- The header of the group scrolled through, over the list's top: closed from here without scrolling up. -->
+                    <ContentControl x:Name="StickyHeader" VerticalAlignment="Top" Margin="4,0,4,0" Padding="4,1" Visibility="Collapsed"
+                                    ContentTemplate="{StaticResource HeaderRow}" Focusable="False" Background="{DynamicResource WindowBg}">
+                        <ContentControl.Template>
+                            <ControlTemplate TargetType="ContentControl">
+                                <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" BorderBrush="{DynamicResource CardBorder}"
+                                        BorderThickness="0,0,0,1">
+                                    <ContentPresenter />
+                                </Border>
+                            </ControlTemplate>
+                        </ContentControl.Template>
+                    </ContentControl>
                 </Grid>
 
                 <!-- Dragged up or down: the history bigger or smaller, as VS Code's views. -->
@@ -242,7 +257,8 @@
                         DragStarted="HistorySash_DragStarted" DragDelta="HistorySash_DragDelta" Panel.ZIndex="1" />
                 <!-- HISTORY - VS Code's graph, at the bottom. -->
                 <DockPanel Grid.Row="7">
-                    <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Padding="8,4">
+                    <!-- Its chevron as far from the side as from the bottom, where it is when folded - as the other titles' from the side. -->
+                    <Border x:Name="HistoryHeader" DockPanel.Dock="Top" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Padding="4,4,8,4">
                         <DockPanel>
                             <ToggleButton x:Name="HistoryToggle" DockPanel.Dock="Left" Style="{StaticResource ExpandToggle}" IsChecked="True" Focusable="True"
                                           Foreground="{DynamicResource TextMuted}" AutomationProperties.Name="History" Click="HistoryToggle_Click" />
@@ -271,9 +287,9 @@
             </Grid>
 
         <!-- ─── The editor: a file's diff, or an operation of the history ── -->
-        <Grid x:Name="EditorGrid" Margin="16,12,16,12">
+        <Grid x:Name="EditorGrid">
             <!-- No server yet. -->
-            <Border x:Name="EmptyState" Style="{StaticResource Card}" VerticalAlignment="Top" Visibility="Collapsed">
+            <Border x:Name="EmptyState" Style="{StaticResource Card}" VerticalAlignment="Top" Margin="16,12" Visibility="Collapsed">
                 <StackPanel>
                     <TextBlock Style="{StaticResource CardTitle}" Text="Connect a server" />
                     <TextBlock x:Name="EmptyText" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,0,0,12"
@@ -284,16 +300,70 @@
 
             <!-- A file. -->
             <DockPanel x:Name="FileView">
-                <!-- Its tab, as VS Code's editor shows it. -->
-                <Border x:Name="FileTab" DockPanel.Dock="Top" BorderBrush="{DynamicResource Accent}" BorderThickness="0,0,0,2" HorizontalAlignment="Left"
-                        Padding="2,0,12,6" Margin="0,0,0,10" Visibility="Collapsed">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="FileLetter" FontWeight="SemiBold" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock x:Name="FileTitle" FontWeight="SemiBold" VerticalAlignment="Center" />
-                        <TextBlock x:Name="FileSubtitle" Foreground="{DynamicResource TextMuted}" Margin="8,0,0,0" VerticalAlignment="Center" />
-                    </StackPanel>
+                <!-- The open files, as VS Code's tabs: the chosen one on the editor's colour with a line along its top, a preview's
+                     name in italics; × closes one (a middle-click too), a double-click keeps a preview open. -->
+                <Border x:Name="TabStrip" DockPanel.Dock="Top" Background="{DynamicResource SidebarBg}" BorderBrush="{DynamicResource CardBorder}"
+                        BorderThickness="0,0,0,1" Visibility="Collapsed">
+                    <ListBox x:Name="Tabs" Background="Transparent" BorderThickness="0" SelectionChanged="Tab_Changed" AutomationProperties.Name="Open files"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="AutomationProperties.Name" Value="{Binding Path}" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="Bd" Background="Transparent" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,1,0">
+                                                <Grid>
+                                                    <Border x:Name="Line" Height="1" VerticalAlignment="Top" Background="Transparent" />
+                                                    <ContentPresenter Margin="10,0,4,0" VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}" /></Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource WindowBg}" />
+                                                    <Setter TargetName="Line" Property="Background" Value="{DynamicResource Accent}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type p:EditorTab}">
+                                <StackPanel Orientation="Horizontal" Height="34" Background="Transparent" ToolTip="{Binding Tip}" MouseDown="Tab_MouseDown">
+                                    <TextBlock Style="{StaticResource Glyph}" Text="{Binding Icon}" Foreground="{Binding IconBrush}" Margin="0,0,6,0" />
+                                    <TextBlock Text="{Binding Name}" FontStyle="{Binding NameStyle}" VerticalAlignment="Center" />
+                                    <TextBlock Style="{StaticResource Letter}" Margin="4,0,0,0" />
+                                    <Button Width="22" Height="22" FontSize="10" Content="{StaticResource GlyphClose}" Click="CloseTab_Click"
+                                            Tag="{Binding}" ToolTip="Close" AutomationProperties.Name="Close" Margin="2,0,0,0">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource SmallIcon}">
+                                                <Setter Property="Visibility" Value="Hidden" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
                 </Border>
-                <Border x:Name="ConflictBar" DockPanel.Dock="Top" Style="{StaticResource WarnBanner}" Margin="0,0,0,8" Visibility="Collapsed">
+                <!-- Where the file is, and what happened to it - VS Code's breadcrumbs. -->
+                <TextBlock x:Name="Breadcrumb" DockPanel.Dock="Top" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextSmall}"
+                           Margin="12,6,12,2" TextTrimming="CharacterEllipsis" Visibility="Collapsed" />
+                <Border x:Name="ConflictBar" DockPanel.Dock="Top" Style="{StaticResource WarnBanner}" Margin="12,4,12,4" Visibility="Collapsed">
                     <StackPanel>
                         <TextBlock x:Name="ConflictText" TextWrapping="Wrap" Margin="0,0,0,8" />
                         <WrapPanel>
@@ -311,7 +381,7 @@
 
             <!-- An operation of the history. -->
             <DockPanel x:Name="OperationView" Visibility="Collapsed">
-                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                <DockPanel DockPanel.Dock="Top" Margin="16,12,12,8">
                     <WrapPanel DockPanel.Dock="Right">
                         <Button x:Name="RollbackButton" Margin="6,0,0,0" Click="Rollback_Click"
                                 ToolTip="Roll back - put every file of this operation back as it was before it">
@@ -326,7 +396,7 @@
                         <TextBlock x:Name="OperationText" Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap" Margin="0,4,0,0" />
                     </StackPanel>
                 </DockPanel>
-                <ListBox x:Name="OperationFiles" DockPanel.Dock="Top" MaxHeight="160" Margin="0,0,0,10" SelectionChanged="OperationFile_Changed"
+                <ListBox x:Name="OperationFiles" DockPanel.Dock="Top" MaxHeight="160" Margin="16,0,12,4" SelectionChanged="OperationFile_Changed"
                          AutomationProperties.Name="Files of the operation" BorderThickness="1" BorderBrush="{DynamicResource CardBorder}">
                     <ListBox.ItemTemplate>
                         <DataTemplate DataType="{x:Type p:OperationFileRow}">

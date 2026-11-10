@@ -68,6 +68,24 @@
     <!-- ═══ Drawn icons ══════════════════════════════════════════════════════════════════════════════════════════ -->
 
     <!-- How a line icon is stroked: <Path Style="{StaticResource IconStroke}" Data="…" Stroke="…" />. -->
+    <!-- Source Control, as VS Code's: three commits, a branch leaving the line - drawn, the icon font has none. 16 × 16,
+         stroked in the text's colour where it stands (the activity bar's entry, a Settings category, a button). -->
+    <Geometry x:Key="SourceControlGeometry">M2.25,2.75 A1.75,1.75 0 1 1 5.75,2.75 A1.75,1.75 0 1 1 2.25,2.75 Z M2.25,13.25 A1.75,1.75 0 1 1 5.75,13.25 A1.75,1.75 0 1 1 2.25,13.25 Z M10.25,4.75 A1.75,1.75 0 1 1 13.75,4.75 A1.75,1.75 0 1 1 10.25,4.75 Z M4,4.5 V11.5 M12,6.5 C12,9.75 4,8.5 4,11.5</Geometry>
+    <Style x:Key="SourceControlIcon" TargetType="Path">
+        <Setter Property="Data" Value="{StaticResource SourceControlGeometry}" />
+        <Setter Property="Width" Value="16" />
+        <Setter Property="Height" Value="16" />
+        <Setter Property="Stretch" Value="None" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="StrokeThickness" Value="1.3" />
+        <Setter Property="StrokeStartLineCap" Value="Round" />
+        <Setter Property="StrokeEndLineCap" Value="Round" />
+        <Setter Property="StrokeLineJoin" Value="Round" />
+        <Setter Property="SnapsToDevicePixels" Value="False" />
+        <Setter Property="Stroke" Value="{Binding (TextElement.Foreground), RelativeSource={RelativeSource Self}}" />
+    </Style>
+
     <Style x:Key="IconStroke" TargetType="Path">
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="StrokeStartLineCap" Value="Round" />
@@ -84,6 +102,11 @@
     <Geometry x:Key="LayoutSidebarLeftFill">M6,2.5 V13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z</Geometry>
     <Geometry x:Key="LayoutSidebarRight">M2.5,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z M10,2.5 V13.5</Geometry>
     <Geometry x:Key="LayoutSidebarRightFill">M10,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H10 Z</Geometry>
+    <!-- The activity bar: a narrow strip along the frame's edge, as VS Code draws it - the side bar's is wider. -->
+    <Geometry x:Key="LayoutActivityBarLeft">M2.5,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z M4,2.5 V13.5</Geometry>
+    <Geometry x:Key="LayoutActivityBarLeftFill">M4,2.5 V13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z</Geometry>
+    <Geometry x:Key="LayoutActivityBarRight">M2.5,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z M12,2.5 V13.5</Geometry>
+    <Geometry x:Key="LayoutActivityBarRightFill">M12,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H12 Z</Geometry>
     <Geometry x:Key="LayoutPanel">M2.5,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z M1.5,9.5 H14.5</Geometry>
     <Geometry x:Key="LayoutPanelFill">M1.5,9.5 H14.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 Z</Geometry>
     <Geometry x:Key="LayoutMenuBar">M2.5,2.5 H13.5 A1,1 0 0 1 14.5,3.5 V12.5 A1,1 0 0 1 13.5,13.5 H2.5 A1,1 0 0 1 1.5,12.5 V3.5 A1,1 0 0 1 2.5,2.5 Z M1.5,4.5 H14.5</Geometry>

@@ -474,7 +474,7 @@ narrow the list; **↺** next to its name puts the defaults back.
 |---|---|
 | **Visibility** | **Menu Bar** (for now the app's name in the title bar), **Activity Bar**, **Primary Side Bar** (**Ctrl+B**), **Secondary Side Bar** (**Ctrl+Alt+B**), **Panel** (**Ctrl+J**) and **Status Bar**, shown or hidden. With the activity bar hidden, the pages are still in the command palette and their shortcuts, and the IIS cell of the status bar keeps its state and buttons. |
 | **Primary Side Bar Position** | **Left** (the default) or **Right** - the activity bar and the primary side bar on that side, the secondary side bar on the other. |
-| **Panel Alignment** | How far the bottom panel reaches: **Center** (the default) - under the side bars and the page, the activity bar full height beside it; **Justify** - the window's whole width, under the activity bar too; **Left** / **Right** - to that edge of the window, so under the activity bar when it is on that side. |
+| **Panel Alignment** | How far the bottom panel reaches, as in VS Code: **Center** (the default) - under the page only, between the two side bars, which are full height beside it; **Justify** - under both side bars too; **Left** / **Right** - under the side bar on that side too. The activity bar is always full height, whatever the alignment. |
 | **Quick Input Position** | Where the command palette opens: **Top** (over the title bar's search, the default) or **Center**. |
 | **Layout Density** | **Default** - the activity bar, the side bars, the page and the panel as rounded cards with a 5-pixel gap between them and along the window's sides, right under the title bar and down to the status bar - one surface with them, without lines, as VS Code's. **Compact** - all of them flush, divided by lines, and the frame narrower: a narrower activity bar (40 pixels instead of 48) with tighter entries, narrower title bar buttons. The title bar and the status bar are as low in both. |
 
@@ -539,7 +539,7 @@ DNN Manager works without a mouse, the way VS Code does.
   | **Ctrl+1** / **Ctrl+2** / **Ctrl+3** | Projects / New project / Source Control |
   | **Ctrl+Tab** / **Ctrl+Shift+Tab** | Next / previous page |
   | **Ctrl+PageUp** / **Ctrl+PageDown** | Next / previous tab - the Details' tabs, the Settings categories, the panel's tabs (when it has the keyboard) |
-  | **Ctrl+W** | Close the view: Settings or Troubleshoot, back to the page under them; the Details back to the table |
+  | **Ctrl+W** | Close the view: Settings or Troubleshoot, back to the page under them; the Details back to the table; Source Control's chosen tab |
   | **Ctrl+J** | Show or hide the bottom panel |
   | **Ctrl+`** / **Ctrl+Shift+`** | The terminal (again in it: hides the panel) / a new terminal |
   | **Ctrl+Shift+U** | Show Output |
@@ -1172,8 +1172,12 @@ a server folder your account may not list - is left out, on both sides, and the
 line above the list says so: it is never taken for deleted. So is a name the
 project and the server spell with different capitals (`Readme.md`,
 `README.md`), which Windows can't tell apart (**CHANGES** says how many were
-left out; point at it for which). Each group counts its files; double-click
-a group's title (or **Space** on it) to fold it. A file that looks
+left out; point at it for which). Each group counts its files; click a
+group's title (or **Space** on it) to fold it. Scrolled down a group, its title
+stays at the top of the list, so it folds from there. As in VS Code, a row's
+buttons show while the pointer is on it (or it is chosen): on a group's title
+**+** / **−** (stage or unstage all of it), left of its count; on a file **+** /
+**−**, left of its letter. A file that looks
 like a secret or one environment's own configuration (`web.config`, a `.pfx`,
 `.env`, `appsettings*.json`…) is marked *secret or configuration?*.
 
@@ -1187,11 +1191,25 @@ hashes them on the server instead - nothing is downloaded). After that only
 what changed is read: a file the server lists as it did at the last sync isn't
 read again.
 
-Choose a file to see its **diff** - what the push or pull would change:
+Click a file to see its **diff** - what the push or pull would change - in a
+tab, as in VS Code: a click opens it in the *preview* tab (its name in
+italics), which the next file you click replaces; a **double-click** (on the
+file or its tab) keeps the tab open, so several can be open side by side. Click
+a tab to go back to its file; **×**, a middle-click or **Ctrl+W** closes it.
+Under the tabs, the file's folder and what happened to it. Each tab follows
+**Compare**: a file no longer different closes its tab. The diff shows it
 **Unified** or **Side by side**, only the changes or the **Whole file**,
 coloured for C#, JavaScript, CSS, HTML / XML / ascx and SQL; the copy button
-copies it as `git diff` writes it. A binary file, or one over 4 MB, says its
-sizes instead.
+copies it as `git diff` writes it. It fills the page from edge to edge, and a
+line longer than the page scrolls sideways - **Side by side**, each side keeps
+half the width and one scroll bar under them (or **Shift** and the wheel) moves
+both. Of a very long line - a minified `.min.js` is one line of hundreds of KB -
+the first 1,000 characters show, then **Show more (… KB)**, which shows the
+whole line wrapped, as VS Code does. A binary file, or one over 4 MB,
+says its sizes instead. The server's version is read over one connection that
+stays open while you look through the files (closed after a minute without
+use), each file once per comparison - and the next few files of the list are
+read ahead, so going down the list each one shows at once.
 
 ### Push
 

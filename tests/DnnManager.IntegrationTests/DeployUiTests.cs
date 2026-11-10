@@ -91,6 +91,26 @@ public sealed class DeployUiTests
                 Assert.AreEqual("M", Rows().Single(r => r.Path == "index.html").Letter);
                 StringAssert.Contains(((ListBox)page.FindName("ServersList")).Items.Cast<ServerRow>().Single().Counts, "↑1 ↓2 !1");
 
+                // Tabs, as VS Code's: a click opens the preview tab, the next click's file replaces it; a double-click keeps it.
+                var tabs = (ListBox)page.FindName("Tabs");
+                List<EditorTab> Open() => [.. tabs.Items.Cast<EditorTab>()];
+                changes.SelectedItem = Rows().Single(r => r.Path == "index.html");
+                Assert.AreEqual(1, Open().Count);
+                Assert.IsTrue(Open()[0].IsPreview, "A click: the preview tab.");
+                changes.SelectedItem = Rows().Single(r => r.Path == "new-feature.js");
+                Assert.AreEqual("new-feature.js", Open().Single().Path, "The next click's file replaces the preview.");
+                page.GetType().GetMethod("Changes_DoubleClick", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                    .Invoke(page, [changes, null]);
+                Assert.IsFalse(Open().Single().IsPreview, "A double-click keeps it.");
+                changes.SelectedItem = Rows().Single(r => r.Path == "index.html");
+                CollectionAssert.AreEqual(new[] { "new-feature.js", "index.html" }, Open().Select(t => t.Path).ToList(), "Kept, another opens beside it.");
+                Assert.AreEqual("index.html", ((EditorTab)tabs.SelectedItem).Path);
+                Assert.IsTrue(page.HasOpenTab);
+                page.CloseActiveTab();
+                Assert.AreEqual("new-feature.js", ((EditorTab)tabs.SelectedItem).Path, "Closed: the tab beside it is chosen.");
+                page.CloseActiveTab();
+                Assert.IsFalse(page.HasOpenTab);
+
                 // Staged, a file moves to Staged Changes, and Push says how many.
                 var primary = (Button)page.FindName("PrimaryButton");
                 Assert.IsFalse(primary.IsEnabled);
@@ -141,6 +161,74 @@ public sealed class DeployUiTests
         finally
         {
             TestEnvironment.DeleteDirectory(run);
+        }
+    }
+
+    [TestMethod]
+    public async Task A_minified_line_shows_its_start_and_show_more_in_both_views() => await WpfUi.RunAsync(async () =>
+    {
+        // A minified script: one line of 250 KB.
+        var minified = "/*! license */\n!function(e,t){" + string.Concat(Enumerable.Repeat("var a=\"x\";return e(t);", 12_000)) + "}();\n";
+        var diff = new DnnManager.Presentation.Controls.DiffView();
+        var host = Host(diff);
+        await diff.ShowDiffAsync("js/formio.full.min.js", null, System.Text.Encoding.UTF8.GetBytes(minified), "On the server", "In the project");
+        var rows = (ListBox)diff.FindName("Rows");
+        var line = rows.Items.Cast<DnnManager.Presentation.Controls.DiffRow>().Single(r => r.Hunk is null && r.Unified.Number == "2").Unified;
+        Assert.AreEqual(DnnManager.Presentation.Controls.DiffSide.MaxShown, line.Text.Length, "Its start only.");
+        StringAssert.StartsWith(line.MoreText, "Show more (");
+        var width = (double)diff.Resources["CodeWidth"];
+        Assert.IsTrue(width < 20_000, $"As wide as its start, not the whole line: {width}");
+        Layout(host);
+        var shown = FindAll<DnnManager.Presentation.Controls.HighlightedText>(rows).First(t => t.Line?.Full is not null);
+        var plain = FindAll<DnnManager.Presentation.Controls.HighlightedText>(rows).First(t => t.Line?.Full is null);
+        Assert.IsTrue(shown.ActualHeight <= plain.ActualHeight + 1,
+            $"Show more no taller than a line - the line's text level with its number: {shown.ActualHeight} against {plain.ActualHeight}.");
+        Save(host, "deploy-minified-unified.png");
+
+        // Side by side: each side half the width - the new one on the screen, one scroll bar for both.
+        ((RadioButton)diff.FindName("SplitMode")).IsChecked = true;
+        for (var i = 0; i < 100 && rows.ItemTemplate != diff.Resources["SplitRow"]; i++) await Task.Delay(20);
+        Layout(host);
+        var code = FindAll<DnnManager.Presentation.Controls.HighlightedText>(rows).Where(t => t.Line?.Full is not null).ToList();
+        Assert.AreEqual(1, code.Count);
+        var at = code[0].TranslatePoint(new Point(), host);
+        Assert.IsTrue(at.X > 300 && at.X < host.ActualWidth - 100, $"Side by side, the new side is on the screen: at {at.X}.");
+        Assert.AreEqual(Visibility.Visible, ((System.Windows.Controls.Primitives.ScrollBar)diff.FindName("SplitScroll")).Visibility, "One scroll bar for both sides.");
+        Save(host, "deploy-minified-split.png");
+
+        // Scrolled sideways: the code moves under its mark and number, cut off at the code's own edge - never over them.
+        var scroll = (System.Windows.Controls.Primitives.ScrollBar)diff.FindName("SplitScroll");
+        scroll.Value = 300;
+        Layout(host);
+        var clip = (Border)VisualTreeHelper.GetParent(VisualTreeHelper.GetParent(code[0]));
+        Assert.IsTrue(clip.ClipToBounds, "The code clipped at its own edge.");
+        Assert.IsTrue(code[0].ActualWidth > clip.ActualWidth + 300, $"The code as wide as its line, not the side: {code[0].ActualWidth} in {clip.ActualWidth}.");
+        var mark = FindAll<TextBlock>((DependencyObject)VisualTreeHelper.GetParent(clip)).First(t => t.Text == "+");
+        Assert.IsTrue(clip.TranslatePoint(new Point(), host).X >= mark.TranslatePoint(new Point(mark.ActualWidth, 0), host).X - 0.5,
+            "The code's clip starts after the mark.");
+        Save(host, "deploy-minified-split-scrolled.png");
+        scroll.Value = 0;
+
+        // Show more, clicked: the whole line, wrapped at the side's width - the row as tall as it.
+        var more = (Button)((InlineUIContainer)code[0].Inlines.Last()).Child;
+        StringAssert.StartsWith((string)more.Content, "Show more (");
+        var before = code[0].ActualHeight;
+        ((System.Windows.Automation.Provider.IInvokeProvider)new System.Windows.Automation.Peers.ButtonAutomationPeer(more)).Invoke();
+        await Task.Delay(50);
+        Layout(host);
+        Assert.AreEqual(TextWrapping.Wrap, code[0].TextWrapping);
+        Assert.IsTrue(code[0].ActualHeight > before * 10, $"The row grew with the whole line: {code[0].ActualHeight}.");
+        Assert.IsTrue(code[0].ActualWidth <= host.ActualWidth / 2, $"Wrapped at a side's width: {code[0].ActualWidth}.");
+        Save(host, "deploy-minified-more.png");
+    });
+
+    private static IEnumerable<T> FindAll<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T found) yield return found;
+            foreach (var deeper in FindAll<T>(child)) yield return deeper;
         }
     }
 
