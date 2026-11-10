@@ -74,6 +74,11 @@ public partial class MainWindow
             r => _ = _store.ControlSitesAsync(SiteAction.Restart, [r]), "recycle iis site");
         AddForProject("project.openWebsite", "Open website", null, r => r.HasUrl, r => Shell.Open(r.Url), "browser url");
         AddForProject("project.openFolder", "Open project folder", null, r => Directory.Exists(r.Path), r => Shell.Open(r.Path), "explorer files");
+        AddForProject("project.deploy", "Source Control for project", null, _ => true, r =>
+        {
+            Go(NavDeploy);
+            if (PageHost.Content is DeployPage deploy) deploy.ShowProject(r.Name);
+        }, "ftp sftp push pull server live");
         AddForProject("project.logs", "Show project logs", null, _ => true, r =>
         {
             OpenPanel();
@@ -113,6 +118,7 @@ public partial class MainWindow
         // ── Pages ──
         Add("pages.projects", "Go to Projects", "Pages", "Ctrl+1", () => Go(NavProjects), keywords: "table sites");
         Add("pages.newProject", "New project", "Pages", "Ctrl+2", () => Go(NavSetup), keywords: "create setup install");
+        Add("pages.deploy", "Go to Source Control", "Pages", "Ctrl+3", () => Go(NavDeploy), keywords: "deploy ftp sftp push pull server live");
         Add("settings.open", "Open Settings", "Pages", "Ctrl+,", () => { if (ModalKey == "Settings") CloseModal(); else ShowModal("Settings"); }, keywords: "preferences options", inTerminal: true);
         Add("troubleshoot.open", "Run troubleshooting", "Pages", null, () => ShowModal("Troubleshoot"), keywords: "restart reset clean up data");
 
@@ -125,6 +131,7 @@ public partial class MainWindow
             ("settings.databaseServer", "Sql", "Database server", "sql server express localdb connection ssms"),
             ("settings.docker", "Docker", "Docker container", "container volume edition collation compose"),
             ("settings.iis", "Iis", "IIS", "windows features"),
+            ("settings.deploy", "Deploy", "Source Control", "deploy ftp sftp server push pull history versions ignore rules"),
             ("settings.keyboard", "Keyboard", "Keyboard shortcuts", "keys bindings hotkeys"),
             ("settings.help", "Help", "Help", "getting started guide tour tutorial what's new"),
             ("settings.about", "About", "About", "version license repository folders"),
@@ -138,11 +145,14 @@ public partial class MainWindow
         Add("view.close", "Close this view", "Pages", "Ctrl+W", CloseView, () => CanCloseView, "back details settings troubleshoot");
 
         // ── Layout ──
-        Add("view.toggleSidebar", "Show or hide the sidebar", "Layout", "Ctrl+B", ToggleSidebar, keywords: "primary side bar pages",
-            inTerminal: true);
+        Add("view.toggleSidebar", "Show or hide the primary side bar", "Layout", "Ctrl+B", TogglePrimarySideBar,
+            keywords: "sidebar source control changes view", inTerminal: true);
+        Add("view.toggleSecondarySideBar", "Show or hide the secondary side bar", "Layout", "Ctrl+Alt+B", ToggleSecondarySideBar,
+            keywords: "auxiliary bar right", inTerminal: true);
+        Add("view.toggleActivityBar", "Show or hide the activity bar", "Layout", null, ToggleSidebar, keywords: "pages icons navigation sidebar");
         // What dragging the sashes does - from the keyboard.
-        Add("view.sidebarWider", "Make the sidebar wider", "Layout", null, () => ResizeSidebarBy(KeyboardResizeStep), keywords: "size width sash");
-        Add("view.sidebarNarrower", "Make the sidebar narrower", "Layout", null, () => ResizeSidebarBy(-KeyboardResizeStep), keywords: "size width sash");
+        Add("view.sidebarWider", "Make the primary side bar wider", "Layout", null, () => ResizePrimaryBy(KeyboardResizeStep), keywords: "size width sash");
+        Add("view.sidebarNarrower", "Make the primary side bar narrower", "Layout", null, () => ResizePrimaryBy(-KeyboardResizeStep), keywords: "size width sash");
         Add("view.toggleMenuBar", "Show or hide the menu bar", "Layout", null,
             () => ChangeLayout(l => l.MenuBarVisible = !l.MenuBarVisible), keywords: "title name");
         Add("view.toggleStatusBar", "Show or hide the status bar", "Layout", null,
@@ -400,7 +410,7 @@ public partial class MainWindow
     }
 
     // The sidebar's pages, in order - Ctrl+Tab goes round them.
-    private RadioButton[] SidebarPages => [NavProjects, NavSetup];
+    private RadioButton[] SidebarPages => [NavProjects, NavSetup, NavDeploy];
 
     private void StepPage(int by)
     {

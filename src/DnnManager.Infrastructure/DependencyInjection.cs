@@ -50,6 +50,9 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ProcessSampler>();
         services.AddSingleton<StartupTask>();
         services.AddSingleton<AppDataCleaner>();
+        services.AddSingleton<Application.Deployment.IDeployStore, Deployment.DeployStore>();
+        services.AddSingleton<Application.Deployment.ISnapshotStore, Deployment.SnapshotStore>();
+        services.AddSingleton<Application.Deployment.IRemoteFileSystemFactory, Deployment.RemoteFileSystemFactory>();
 
         // What keeps the Projects page current without a Refresh: the monitor, and the things in Windows that tell it
         // when to look again (see ServerStateMonitor).

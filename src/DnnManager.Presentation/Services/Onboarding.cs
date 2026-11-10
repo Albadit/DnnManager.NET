@@ -69,6 +69,7 @@ public static class Onboarding
     {
         "Details" => [Details],
         "Setup" => [NewProject],
+        "Deploy" => [Deploy],
         "Settings" => [Settings],
         "Troubleshoot" => [Troubleshooting],
         _ => [Websites, Actions]
@@ -308,6 +309,24 @@ public static class Onboarding
     };
 
     // ─── Help for a page ────────────────────────────────────────────────────
+
+    private static readonly GuideStep Deploy = new(
+        "Source Control",
+        "Your projects' live, staging and development servers, kept in step file by file - as Source Control does in VS Code. " +
+        "Nothing is sent or overwritten until you choose the file and confirm it.",
+        [
+            new("On the left", [
+                new("GlyphGlobe", "Servers", "Every project's servers. Choose one to compare with it; right-click to edit, test or remove it."),
+                new("GlyphRefresh", "Compare (F5)", "What changed in the project, on the server - someone edited the live site - or in both, since they last agreed.", GuideRisk.Safe),
+                new("GlyphAdd", "+ on a file", "Stages it. Staged files are what Push or Pull sends - M modified, A added, D deleted, ! changed in both."),
+                new("GlyphUpload", "Push / Pull", "With a message. A review lists every file first; Production asks you to confirm. What is replaced is kept.", GuideRisk.Careful),
+                new("GlyphHistory", "History", "Every push and pull - choose one to see its files, and roll it back.")
+            ]),
+            new("On the right", [
+                new("GlyphList", "The diff", "What a push or pull would change in the chosen file - unified or side by side."),
+                new("GlyphWarning", "A conflict", "Keep the project's version, take the server's, or merge them. The server only changes when you push.", GuideRisk.Careful)
+            ])
+        ]);
 
     private static readonly GuideStep Details = new(
         "A website's details",

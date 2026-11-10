@@ -29,6 +29,7 @@ public sealed class UserSettings
     public KeyboardSettings Keyboard { get; set; } = new();
     public LayoutSettings Layout { get; set; } = new();
     public BackupSettings Backups { get; set; } = new();
+    public DeploySettings Deploy { get; set; } = new();
 
     /// <summary>The values that aren't allowed, each with the key it is about; empty when the settings are usable.</summary>
     public IReadOnlyList<SettingsProblem> Validate()
@@ -122,6 +123,9 @@ public sealed class UserSettings
         OneOf(Layout.Density, LayoutSettings.Densities, "layout.density");
         Check(Backups.KeepDays is >= 0 and <= BackupSettings.MaxKeepDays, "backups.keepDays",
             $"must be a number of days between 1 and {BackupSettings.MaxKeepDays}, or 0 to keep them for good.");
+        Check(Deploy.KeepVersionsDays is >= 0 and <= DeploySettings.MaxKeepVersionsDays, "deploy.keepVersionsDays",
+            $"must be a number of days between 1 and {DeploySettings.MaxKeepVersionsDays}, or 0 to keep them for good.");
+        Check(Deploy.Parallel is >= 1 and <= 16, "deploy.parallel", "must be a number of files between 1 and 16.");
         return problems;
     }
 
@@ -182,7 +186,12 @@ public sealed class UserSettings
         Updates = new UpdateSettings { CheckAtStart = options.CheckForUpdatesAtStart },
         Keyboard = new KeyboardSettings { Shortcuts = new Dictionary<string, string>(options.KeyboardShortcuts, StringComparer.Ordinal) },
         Layout = options.Layout.Copy(),
-        Backups = new BackupSettings { KeepDays = options.BackupKeepDays }
+        Backups = new BackupSettings { KeepDays = options.BackupKeepDays },
+        Deploy = new DeploySettings
+        {
+            CompareOnOpen = options.Deploy.CompareOnOpen, KeepVersionsDays = options.Deploy.KeepVersionsDays, Parallel = options.Deploy.Parallel,
+            KeepBackups = options.Deploy.KeepBackups, VerifyUploads = options.Deploy.VerifyUploads, IgnoreRules = options.Deploy.IgnoreRules
+        }
     };
 
     /// <summary>
@@ -216,6 +225,7 @@ public sealed class UserSettings
             "appearance.theme" => "Theme",
             "terminal.fontSize" => "Terminal__FontSize",
             "backups.keepDays" => "BackupKeepDays",
+            _ when key.StartsWith("deploy.", StringComparison.Ordinal) => Under("Deploy", key["deploy.".Length..]),
             _ when key.StartsWith("projects.dnnDefaults.", StringComparison.Ordinal) => Under("DnnDefaults", key["projects.dnnDefaults.".Length..]),
             _ when key.StartsWith("projects.keepWarm.", StringComparison.Ordinal) => Under("KeepWarm", key["projects.keepWarm.".Length..]),
             _ when key.StartsWith("layout.", StringComparison.Ordinal) => Under("Layout", key["layout.".Length..]),
@@ -259,6 +269,11 @@ public sealed class UserSettings
         KeepRunningWhenClosed = Window.KeepRunningWhenClosed,
         CheckForUpdatesAtStart = Updates.CheckAtStart,
         BackupKeepDays = Backups.KeepDays,
+        Deploy = new DeployOptions
+        {
+            CompareOnOpen = Deploy.CompareOnOpen, KeepVersionsDays = Deploy.KeepVersionsDays, Parallel = Deploy.Parallel,
+            KeepBackups = Deploy.KeepBackups, VerifyUploads = Deploy.VerifyUploads, IgnoreRules = Deploy.IgnoreRules
+        },
         Docker = new DockerOptions
         {
             ContainerName = Docker.ContainerName,
@@ -497,6 +512,39 @@ public sealed class BackupSettings
     /// each start, the ones older than this many days are deleted.
     /// </summary>
     public int KeepDays { get; set; }
+}
+
+/// <summary>
+/// Deploy (the Deploy page): whether it compares by itself, how long the history keeps the file versions it rolls back
+/// to, and what a new server starts with - each server keeps its own once made (edit it to change them).
+/// </summary>
+public sealed class DeploySettings
+{
+    public const int MaxKeepVersionsDays = 3650;
+
+    /// <summary>The choices Settings offers, in days; 0 keeps them for good.</summary>
+    public static readonly int[] KeepVersionsChoices = [30, 60, 90, 180, 365, 0];
+
+    /// <summary>The chosen server is compared once, by itself, when the Deploy page is opened.</summary>
+    public bool CompareOnOpen { get; set; } = true;
+
+    /// <summary>
+    /// How long the history keeps what its pushes and pulls replaced and wrote (<c>deploy-snapshots\</c>) - what a rollback
+    /// and a history's diff need. 0: kept for good. A version a baseline still needs is always kept.
+    /// </summary>
+    public int KeepVersionsDays { get; set; } = 90;
+
+    /// <summary>A new server's files at the same time.</summary>
+    public int Parallel { get; set; } = 4;
+
+    /// <summary>A new server keeps what a push or pull replaces, to roll back to.</summary>
+    public bool KeepBackups { get; set; } = true;
+
+    /// <summary>A new server checks each upload by its SHA-256 (off: by its size).</summary>
+    public bool VerifyUploads { get; set; } = true;
+
+    /// <summary>A new server's ignored files, like a .gitignore - DNN's own by default.</summary>
+    public string IgnoreRules { get; set; } = Deployment.IgnoreRules.Defaults;
 }
 
 public sealed class SsmsSettings

@@ -110,7 +110,7 @@ public sealed class AppDatabaseTests
         var current = CurrentVersion();
         using (var connection = Raw(Database.Path))
         {
-            AsTheVersionBefore(connection, current);
+            AsTheVersionBeforeTheSha256s(connection, current);
             AppDatabase.Execute(connection,
                 "INSERT INTO dnn_releases (api, position, version, tag, url, prerelease, saved_utc) " +
                 "VALUES ('https://api.github.com/repos/dnnsoftware/Dnn.Platform/releases', 0, '10.0.0', 'v10.0.0', 'https://github.com/x.zip', 0, '2026-01-01T00:00:00Z')");
@@ -196,14 +196,52 @@ public sealed class AppDatabaseTests
     }
 
     /// <summary>
-    /// Makes a current file the version before: the last step (the SHA-256 columns of <c>dnn_releases</c>) undone, so it
-    /// runs again as it does for a user's older file.
+    /// Makes a current file the version before: the last step (FTP's encryption column) undone, so it runs again as it
+    /// does for a user's older file.
     /// </summary>
     private static void AsTheVersionBefore(SqliteConnection connection, long current)
     {
+        AppDatabase.Execute(connection, "ALTER TABLE deploy_connections DROP COLUMN ftp_encryption");
+        AppDatabase.Execute(connection, $"PRAGMA user_version = {current - 1}");
+    }
+
+    /// <summary>Before the deployments: their tables gone too.</summary>
+    private static void AsTheVersionBeforeDeployments(SqliteConnection connection, long current)
+    {
+        AsTheVersionBefore(connection, current);
+        foreach (var table in new[] { "deploy_operation_files", "deploy_operations", "deploy_local_hashes", "deploy_baseline", "deploy_connections" })
+            AppDatabase.Execute(connection, $"DROP TABLE {table}");
+        AppDatabase.Execute(connection, $"PRAGMA user_version = {current - 2}");
+    }
+
+    /// <summary>Before the SHA-256 columns of <c>dnn_releases</c> too.</summary>
+    private static void AsTheVersionBeforeTheSha256s(SqliteConnection connection, long current)
+    {
+        AsTheVersionBeforeDeployments(connection, current);
         AppDatabase.Execute(connection, "ALTER TABLE dnn_releases DROP COLUMN sha256");
         AppDatabase.Execute(connection, "ALTER TABLE dnn_releases DROP COLUMN upgrade_sha256");
-        AppDatabase.Execute(connection, $"PRAGMA user_version = {current - 1}");
+        AppDatabase.Execute(connection, $"PRAGMA user_version = {current - 3}");
+    }
+
+    [TestMethod]
+    public void A_saved_FTPS_or_FTP_connection_gets_its_encryption()
+    {
+        var current = CurrentVersion();
+        using (var connection = Raw(Database.Path))
+        {
+            AsTheVersionBefore(connection, current);
+            foreach (var (id, protocol) in new[] { ("a", "Ftps"), ("b", "Ftp"), ("c", "Sftp") })
+                AppDatabase.Execute(connection,
+                    "INSERT INTO deploy_connections (id, site, name, environment, protocol, host, port, user_name, auth, remote_root, ignore_rules, parallel, keep_backups, verify, created_utc) " +
+                    $"VALUES ('{id}', 's', 'n', 'Production', '{protocol}', 'h', 21, 'u', 'Password', '/', '', 1, 1, 'Checksum', '2026-01-01T00:00:00Z')");
+        }
+        using (var connection = Database.Open())
+        {
+            var rows = AppDatabase.KeyValues(connection, "SELECT id, protocol || '/' || IFNULL(ftp_encryption, '-') FROM deploy_connections");
+            Assert.AreEqual("Ftp/RequireExplicit", rows["a"], "FTPS was explicit TLS.");
+            Assert.AreEqual("Ftp/PlainOnly", rows["b"], "FTP was plain.");
+            Assert.AreEqual("Sftp/-", rows["c"]);
+        }
     }
 
     /// <summary>Overwrites every page after the first with junk - a file a crash or a disk left broken.</summary>

@@ -109,6 +109,7 @@ public partial class SettingsPage : UserControl
             ["Releases"] = (ReleasesPanel, "dnn releases repositories github versions install packages keep download upgrade path stops steps"),
             ["Sql"] = (SqlPanel, "database server sql server express localdb file connection type local container docker host port user username sa password windows authentication login username ssms management studio remember test connection"),
             ["Docker"] = (DockerPanel, "docker container name volume edition mssql_pid collation desktop engine install start set up docker-compose compose yml test"),
+            ["Deploy"] = (DeployPanel, "source control deploy deployment ftp sftp ftps server live staging production push pull compare open history versions snapshots rollback roll back keep days parallel files at the same time backups verify checksum sha-256 ignore ignored gitignore rules web.config app_data"),
             ["Iis"] = (IisPanel, "iis windows features test set up enable " + string.Join(' ', _options.RequiredIisFeatures.Select(f => $"{f.Label} {f.Name}"))),
             ["Keyboard"] = (KeyboardPanel, "keyboard shortcuts shortcut keys key bindings keybindings hotkeys accelerators command palette " +
                                            string.Join(' ', services.GetRequiredService<AppCommands>().All.Select(c => $"{c.Title} {c.Area}"))),
@@ -144,7 +145,7 @@ public partial class SettingsPage : UserControl
 
         foreach (var box in new[] { BaseDirectory, SitePort, HostnameSuffix, ReleaseApis, ContainerName, ContainerIp, ContainerUser,
                                     VolumeName, DefaultPort, Collation, MssqlPid, HostUsername, HostEmail, WebsiteName,
-                                    ServerName, ServerUserName, KeepWarmPingPath, KeepWarmWarmUpPath })
+                                    ServerName, ServerUserName, KeepWarmPingPath, KeepWarmWarmUpPath, DeployParallel, DeployIgnoreRules })
             box.TextChanged += (_, _) => Edited();
         SaPassword.PasswordChanged += (_, _) => Edited();
         HostPassword.PasswordChanged += (_, _) => Edited();
@@ -155,7 +156,10 @@ public partial class SettingsPage : UserControl
         foreach (var days in BackupSettings.KeepDayChoices) BackupKeepDays.Items.Add(BackupKeepDaysItem(days));
         BackupsHint.Text = "Older ones are deleted at each start - they can't be brought back.";
         BackupsHint.ToolTip = $"Project backups: {paths.BackupsDirectory}\nDeployment packages: {paths.DeploymentsDirectory}";
-        foreach (var box in new[] { SsmsRememberPassword, KeepDnnPackages, KeepRunningWhenClosed, CheckForUpdatesAtStart })
+        foreach (var days in DeploySettings.KeepVersionsChoices)
+            DeployKeepVersions.Items.Add(new ComboBoxItem { Content = days == 0 ? "For good" : days < 365 ? $"{days} days" : "1 year", Tag = days });
+        DeployIgnoreRules.TextChanged += (_, _) => ShowRulesProblems();
+        foreach (var box in new[] { SsmsRememberPassword, KeepDnnPackages, KeepRunningWhenClosed, CheckForUpdatesAtStart, DeployCompareOnOpen, DeployKeepBackups, DeployVerifyUploads })
         {
             box.Checked += (_, _) => Edited();
             box.Unchecked += (_, _) => Edited();
@@ -526,6 +530,7 @@ public partial class SettingsPage : UserControl
         Select(DnnTemplate, dnn.Template);
         ShowKeepWarm(p.KeepWarm);
         ShowBackupKeepDays(saved.Backups.KeepDays);
+        ShowDeploy(saved.Deploy);
         HostPassword.Password = hostPassword;
         ShowServer(sql);
         ServerPassword.Password = serverPassword;
@@ -557,7 +562,9 @@ public partial class SettingsPage : UserControl
             InstallAutomatic.IsChecked == true, HostUsername.Text.Trim(), HostPassword.Password, HostEmail.Text.Trim(), WebsiteName.Text.Trim(),
             (DnnLanguage.SelectedItem as ComboBoxItem)?.Tag, (DnnTemplate.SelectedItem as ComboBoxItem)?.Tag,
             (KeepWarmInterval.SelectedItem as ComboBoxItem)?.Tag, KeepWarmSettings.NormalizePath(KeepWarmPingPath.Text),
-            KeepWarmSettings.NormalizePath(KeepWarmWarmUpPath.Text), (BackupKeepDays.SelectedItem as ComboBoxItem)?.Tag);
+            KeepWarmSettings.NormalizePath(KeepWarmWarmUpPath.Text), (BackupKeepDays.SelectedItem as ComboBoxItem)?.Tag,
+            DeployCompareOnOpen.IsChecked == true, (DeployKeepVersions.SelectedItem as ComboBoxItem)?.Tag, DeployParallel.Text.Trim(),
+            DeployKeepBackups.IsChecked == true, DeployVerifyUploads.IsChecked == true, DeployIgnoreRules.Text.Replace("\r\n", "\n"));
     }
 
     /// <summary>The form has edits that aren't saved - leaving the page would lose them.</summary>
@@ -716,6 +723,7 @@ public partial class SettingsPage : UserControl
         _ when key.StartsWith("sqlServer.", StringComparison.Ordinal) => "Sql",
         _ when key.StartsWith("docker.", StringComparison.Ordinal) => "Docker",
         _ when key.StartsWith("iis.", StringComparison.Ordinal) => "Iis",
+        _ when key.StartsWith("deploy.", StringComparison.Ordinal) => "Deploy",
         _ => null
     };
 
@@ -794,6 +802,20 @@ public partial class SettingsPage : UserControl
         settings.Updates.CheckAtStart = CheckForUpdatesAtStart.IsChecked == true;
         settings.Terminal = ChosenTerminal;
         settings.Backups.KeepDays = (BackupKeepDays.SelectedItem as ComboBoxItem)?.Tag as int? ?? settings.Backups.KeepDays;
+        if (!int.TryParse(DeployParallel.Text.Trim(), out var parallel) || parallel is < 1 or > 16)
+            return ("Files at the same time: a number from 1 to 16.", "Deploy");
+        if (DnnManager.Application.Deployment.IgnoreRules.Parse(DeployIgnoreRules.Text).Problems is { Count: > 0 } ruleProblems)
+            return ($"Ignored files: {ruleProblems[0]}", "Deploy");
+        settings.Deploy = new DeploySettings
+        {
+            CompareOnOpen = DeployCompareOnOpen.IsChecked == true,
+            KeepVersionsDays = (DeployKeepVersions.SelectedItem as ComboBoxItem)?.Tag as int? ?? settings.Deploy.KeepVersionsDays,
+            Parallel = parallel,
+            KeepBackups = DeployKeepBackups.IsChecked == true,
+            VerifyUploads = DeployVerifyUploads.IsChecked == true,
+            // As written, with Windows' line endings made plain - a rule is a line.
+            IgnoreRules = DeployIgnoreRules.Text.Replace("\r\n", "\n")
+        };
         return (null, null);
     }
 
@@ -948,6 +970,34 @@ public partial class SettingsPage : UserControl
         KeepWarmInterval.SelectedItem = KeepWarmInterval.Items.OfType<ComboBoxItem>().First(i => i.Tag as int? == keepWarm.PingMinutes);
         KeepWarmPingPath.Text = keepWarm.PingPath;
         KeepWarmWarmUpPath.Text = keepWarm.WarmUpPath;
+    }
+
+    // ─── Deploy ───────────────────────────────────────────────────────────
+
+    private void ShowDeploy(DeploySettings deploy)
+    {
+        DeployCompareOnOpen.IsChecked = deploy.CompareOnOpen;
+        // A number of days saved by hand that isn't one of the choices is offered too, so it isn't lost by opening Settings.
+        if (DeployKeepVersions.Items.OfType<ComboBoxItem>().All(i => i.Tag as int? != deploy.KeepVersionsDays))
+            DeployKeepVersions.Items.Insert(0, new ComboBoxItem { Content = $"{deploy.KeepVersionsDays} days", Tag = deploy.KeepVersionsDays });
+        DeployKeepVersions.SelectedItem = DeployKeepVersions.Items.OfType<ComboBoxItem>().First(i => i.Tag as int? == deploy.KeepVersionsDays);
+        DeployParallel.Text = deploy.Parallel.ToString();
+        DeployKeepBackups.IsChecked = deploy.KeepBackups;
+        DeployVerifyUploads.IsChecked = deploy.VerifyUploads;
+        DeployIgnoreRules.Text = deploy.IgnoreRules.Replace("\r\n", "\n").Replace("\n", Environment.NewLine);
+    }
+
+    private void DeployKeepVersions_Changed(object sender, SelectionChangedEventArgs e) => Edited();
+
+    private void DeployRulesDefaults_Click(object sender, RoutedEventArgs e) =>
+        DeployIgnoreRules.Text = DnnManager.Application.Deployment.IgnoreRules.Defaults.Replace("\r\n", "\n").Replace("\n", Environment.NewLine);
+
+    /// <summary>A line that isn't a pattern, said under the rules as they are typed.</summary>
+    private void ShowRulesProblems()
+    {
+        var problems = DnnManager.Application.Deployment.IgnoreRules.Parse(DeployIgnoreRules.Text).Problems;
+        DeployRulesProblem.Text = string.Join(Environment.NewLine, problems);
+        DeployRulesProblem.Visibility = problems.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
     }
 
     // ─── Backups ──────────────────────────────────────────────────────────

@@ -394,6 +394,40 @@ downloaded anew (that needs internet).
   or backup - nothing of it is written. It wasn't made by DNN or DNN Manager;
   use another copy.
 
+### Deploy: "closed the connection while DNN Manager signed in" (FTP)
+
+*Could not connect to …: An existing connection was forcibly closed by the
+remote host* - the server cut the connection off while DNN Manager signed in.
+
+- **Plain FTP** (Encryption *Only use plain FTP*, or *explicit TLS if
+  available* on a server that then fell back to it): the server only takes FTP
+  over TLS. An Azure App Service set to **FTPS only** does exactly this, for the
+  app's own deployment user. Edit the server (right-click it on the Source Control page → Edit connection…) and
+  choose **Require implicit FTP over TLS** (FileZilla's setting for Azure;
+  port 990) or **Require explicit FTP over TLS** (port 21), leave the port
+  empty, and **Test connection** - it shows the certificate to trust.
+- **Explicit TLS on port 990** times out instead: 990 is implicit TLS's port -
+  choose *Require implicit FTP over TLS*, or port 21.
+- Several failed sign-ins in a row (a wrong password) can make a server refuse
+  your address for a few minutes - wait, then try again with the right one.
+- **Azure and explicit TLS:** Azure's FTP closes an explicit-TLS connection
+  now and then, after a folder's listing has come in. DNN Manager reconnects
+  and lists that folder again (four tries), so a compare gets through - but
+  **Require implicit FTP over TLS** (port 990, FileZilla's setting for Azure)
+  isn't cut off at all, and is the quicker of the two.
+
+*Signing in to … as … was refused - check the user name and password* on
+**Compare**, **Push** or **Pull**, while **Test connection** works - the
+server limits how many sign-ins come in a short time. Azure's FTP answers
+`530 User cannot log in` once there have been many, even with the right
+password. A compare lists the server over several connections at once
+(**Files at the same time**), and each one signs in. When the same password
+has signed in before in this session, DNN Manager takes the refusal for that
+limit: it says *refused another sign-in for now*, carries on over fewer
+connections, and waits 20 seconds before signing in again. If the very first
+sign-in is refused, wait a few minutes and try again. If it keeps happening,
+lower **Files at the same time** for that server (Edit connection…) to 2 or 1.
+
 ### A remote SQL Server: "The certificate chain was issued by an authority that is not trusted"
 
 DNN Manager checks the certificate of a SQL Server on another computer (a

@@ -2,6 +2,51 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## Unreleased
+
+### Added
+
+- **The window laid out as VS Code's.** The sidebar is now the **activity bar**:
+  the pages as icons only, always (their names as tooltips). Beside it the
+  **primary side bar** holds a page's own view - Source Control's servers,
+  changes and history - with **Ctrl+B** to hide or show it; on the page's other
+  side a **secondary side bar** (**Ctrl+Alt+B**, empty for now). Both are
+  dragged wider or narrower, and kept between starts; Customize Layout shows
+  or hides each, the activity bar too.
+- **Deploy to a server, like git.** A new **Source Control** page (activity bar, Ctrl+3),
+  laid out as VS Code's Source Control, connects your projects to their
+  development, staging and production servers over **SFTP** (password or
+  private key), **FTPS** or **FTP**, and compares the two through the content
+  they last agreed on: what changed here is yours to push, what someone changed
+  on the live site yours to pull, a file changed in both a conflict - never
+  decided by which clock is later. Each change has its diff (unified or side by
+  side, coloured by language); you stage the files you want, write a message
+  and push or pull only those, after a review of every operation. Nothing is
+  overwritten unseen: a file changed since the comparison - on the server, or
+  your own work in the project - stops it before anything changes. Conflicts:
+  keep the project's version, take the server's, or merge them. Uploads go
+  under a temporary name, are checked by their SHA-256 and renamed into place;
+  network failures are tried again and an interrupted SFTP upload resumes; a
+  failed or cancelled push puts back what it sent. Every push and pull is kept
+  in a history with each file before and after, and can be rolled back. A
+  server's host key or certificate is trusted only once you've seen it; the
+  password and key are saved encrypted for your Windows account; secrets and
+  each environment's own configuration (`web.config`, `App_Data`, keys) are
+  left out or asked about. The connection is set up as in FileZilla's Site
+  Manager - the same protocols, FTP encryptions (explicit or implicit TLS,
+  plain) and logon types (Normal, Ask for password, Anonymous, Key file), in
+  the same words - so an Azure App Service connects as FileZilla does.
+  **Settings → Source Control** says whether the page compares by itself when it opens,
+  how long the history keeps its file versions, and what a new server starts
+  with (files at the same time, backups, upload checks, ignored files). See the
+  [user guide](.docs/user-guide.md#deploy-to-a-server).
+
+### Security
+
+- **New dependencies:** SSH.NET 2026.0.0 (SFTP - the version before it has
+  two advisories) and FluentFTP 55.1.0 (FTP / FTPS), both MIT, locked by hash
+  in `packages.lock.json`.
+
 ## v1.8.7
 
 ### Fixed

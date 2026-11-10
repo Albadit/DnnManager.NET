@@ -145,6 +145,10 @@
                         ToolTip="Open the website in your browser" s:CommandTip.Command="project.openWebsite">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphGlobe}" /><TextBlock Text="Open site" /></StackPanel>
                 </Button>
+                <Button AutomationProperties.Name="Source Control" Style="{StaticResource HeaderButton}" Click="Deploy_Click"
+                        ToolTip="Source Control - compare with the project's servers, push and pull files" s:CommandTip.Command="project.deploy">
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphUpload}" /><TextBlock Text="Source Control" /></StackPanel>
+                </Button>
                 <Button AutomationProperties.Name="Open the website's files in File Explorer" Style="{StaticResource HeaderButton}" Click="OpenFolder_Click" ToolTip="Open the website's files in File Explorer"
                         s:CommandTip.Command="project.openFolder">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphFolderOpen}" /><TextBlock Text="Open folder" /></StackPanel>

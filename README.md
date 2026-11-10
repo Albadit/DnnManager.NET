@@ -36,6 +36,11 @@ project takes its IIS site, folder and database with it.
 - **Import, export and clone** sites as `.zip` + `.bacpac`, also from Azure SQL.
 - **Host an existing folder** - the IIS site and database for code you already
   have.
+- **Deploy like git, over SFTP or FTP** - compare a project with its live,
+  staging or development server, see each change's diff, and push your work or
+  pull a fix someone made on the live site - only the files you pick, never
+  overwriting anything unseen; conflicts resolved or merged, every push and pull
+  in a history you can roll back.
 - **A bottom panel like VS Code's** - Output, live DNN / IIS / Windows logs, and
   terminals (PowerShell, Command Prompt, Git Bash) opened in a project's folder.
 - **Open with…** Visual Studio, VS Code, Rider, Cursor and others, or SQL Server
@@ -135,6 +140,7 @@ update the docs when behaviour changes. Follow the conventions in
 
 ## License
 
-[MIT](LICENSE). The terminal icons and keep warm's flame are
+[MIT](LICENSE). SFTP and FTP go through [SSH.NET](https://github.com/sshnet/SSH.NET)
+and [FluentFTP](https://github.com/robinrodricks/FluentFTP), both MIT. The terminal icons and keep warm's flame are
 [Codicons](https://github.com/microsoft/vscode-codicons) by Microsoft, licensed
 under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).

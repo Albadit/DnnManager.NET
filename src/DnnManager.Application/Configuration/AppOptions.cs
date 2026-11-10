@@ -42,6 +42,7 @@ public sealed class AppOptions
         KeepRunningWhenClosed = other.KeepRunningWhenClosed;
         CheckForUpdatesAtStart = other.CheckForUpdatesAtStart;
         BackupKeepDays = other.BackupKeepDays;
+        Deploy = other.Deploy;
         Changed?.Invoke();
     }
 
@@ -126,6 +127,9 @@ public sealed class AppOptions
     /// them for good. Set in Settings - Projects.
     /// </summary>
     public int BackupKeepDays { get; set; }
+
+    /// <summary>Deploy - see <see cref="DeploySettings"/>.</summary>
+    public DeployOptions Deploy { get; set; } = new();
 
     /// <summary>The host header a project's IIS site is bound to: <c>{project}.{HostnameSuffix}</c>.</summary>
     public string HostnameFor(string projectName) => $"{projectName}.{HostnameSuffix}";
@@ -227,4 +231,15 @@ public sealed class DnnUpgradeStopSetting
     public bool ReplacesListed { get; set; }
     /// <summary>Taken off the path: upgrades don't stop at this version.</summary>
     public bool Removed { get; set; }
+}
+
+/// <summary>Deploy's settings as the app uses them (<see cref="DeploySettings"/>).</summary>
+public sealed class DeployOptions
+{
+    public bool CompareOnOpen { get; set; } = true;
+    public int KeepVersionsDays { get; set; } = 90;
+    public int Parallel { get; set; } = 4;
+    public bool KeepBackups { get; set; } = true;
+    public bool VerifyUploads { get; set; } = true;
+    public string IgnoreRules { get; set; } = Deployment.IgnoreRules.Defaults;
 }

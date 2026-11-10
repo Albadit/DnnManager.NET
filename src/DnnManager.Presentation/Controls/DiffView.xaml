@@ -1,0 +1,132 @@
+<UserControl x:Class="DnnManager.Presentation.Controls.DiffView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:DnnManager.Presentation.Controls">
+    <!-- A file's two versions, line by line: unified (one column, - and +) or side by side (old left, new right), each
+         line coloured by its language. Only the changes and the lines around them - or the whole file. -->
+    <UserControl.Resources>
+        <FontFamily x:Key="Mono">Cascadia Mono, Consolas, Courier New</FontFamily>
+        <Style x:Key="Number" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource Mono}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+            <Setter Property="TextAlignment" Value="Right" />
+            <Setter Property="Padding" Value="0,0,8,0" />
+        </Style>
+        <Style x:Key="Code" TargetType="c:HighlightedText">
+            <Setter Property="FontFamily" Value="{StaticResource Mono}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+            <Setter Property="Padding" Value="4,0,8,0" />
+        </Style>
+        <!-- A side of a row: its colour by what it is. -->
+        <Style x:Key="SideCell" TargetType="Border">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Kind}" Value="Added"><Setter Property="Background" Value="{DynamicResource DiffAddedBg}" /></DataTrigger>
+                <DataTrigger Binding="{Binding Kind}" Value="Removed"><Setter Property="Background" Value="{DynamicResource DiffRemovedBg}" /></DataTrigger>
+                <DataTrigger Binding="{Binding Kind}" Value="Empty"><Setter Property="Background" Value="{DynamicResource DiffEmptyBg}" /></DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="Mark" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource Mono}" />
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Text" Value="{Binding Mark}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Kind}" Value="Added"><Setter Property="Foreground" Value="{DynamicResource DiffAddedMark}" /></DataTrigger>
+                <DataTrigger Binding="{Binding Kind}" Value="Removed"><Setter Property="Foreground" Value="{DynamicResource DiffRemovedMark}" /></DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Unified: the numbers of both, the mark, the line. -->
+        <DataTemplate x:Key="UnifiedRow" DataType="{x:Type c:DiffRow}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="48" />
+                    <ColumnDefinition Width="48" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.ColumnSpan="3" Background="{DynamicResource DiffHunkBg}" Visibility="{Binding HunkVisibility}">
+                    <TextBlock Text="{Binding Hunk}" FontFamily="{StaticResource Mono}" Foreground="{DynamicResource TextMuted}" Padding="8,2" />
+                </Border>
+                <TextBlock Style="{StaticResource Number}" Text="{Binding Left.Number}" Visibility="{Binding LineVisibility}" />
+                <TextBlock Grid.Column="1" Style="{StaticResource Number}" Text="{Binding Right.Number}" Visibility="{Binding LineVisibility}" />
+                <Border Grid.Column="2" Style="{StaticResource SideCell}" DataContext="{Binding Unified}" Visibility="{Binding DataContext.LineVisibility, RelativeSource={RelativeSource AncestorType=Grid}}">
+                    <DockPanel>
+                        <TextBlock Style="{StaticResource Mark}" />
+                        <c:HighlightedText Style="{StaticResource Code}" Line="{Binding}" />
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Side by side: the old line on the left, the new one on the right. -->
+        <DataTemplate x:Key="SplitRow" DataType="{x:Type c:DiffRow}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="44" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="44" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.ColumnSpan="4" Background="{DynamicResource DiffHunkBg}" Visibility="{Binding HunkVisibility}">
+                    <TextBlock Text="{Binding Hunk}" FontFamily="{StaticResource Mono}" Foreground="{DynamicResource TextMuted}" Padding="8,2" />
+                </Border>
+                <TextBlock Style="{StaticResource Number}" Text="{Binding Left.Number}" Visibility="{Binding LineVisibility}" />
+                <Border Grid.Column="1" Style="{StaticResource SideCell}" DataContext="{Binding Left}" Visibility="{Binding DataContext.LineVisibility, RelativeSource={RelativeSource AncestorType=Grid}}">
+                    <DockPanel>
+                        <TextBlock Style="{StaticResource Mark}" />
+                        <c:HighlightedText Style="{StaticResource Code}" Line="{Binding}" TextTrimming="CharacterEllipsis" />
+                    </DockPanel>
+                </Border>
+                <TextBlock Grid.Column="2" Style="{StaticResource Number}" Text="{Binding Right.Number}" Visibility="{Binding LineVisibility}" />
+                <Border Grid.Column="3" Style="{StaticResource SideCell}" DataContext="{Binding Right}" Visibility="{Binding DataContext.LineVisibility, RelativeSource={RelativeSource AncestorType=Grid}}">
+                    <DockPanel>
+                        <TextBlock Style="{StaticResource Mark}" />
+                        <c:HighlightedText Style="{StaticResource Code}" Line="{Binding}" TextTrimming="CharacterEllipsis" />
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <DockPanel>
+        <!-- What is compared with what, and how it is shown. -->
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <RadioButton x:Name="UnifiedMode" Content="Unified" GroupName="DiffMode" IsChecked="True" Margin="0,0,12,0" Checked="Mode_Changed"
+                             ToolTip="Unified - one column: removed lines (-) above the lines that replace them (+)" />
+                <RadioButton x:Name="SplitMode" Content="Side by side" GroupName="DiffMode" Margin="0,0,12,0" Checked="Mode_Changed"
+                             ToolTip="Side by side - the old version on the left, the new one on the right" />
+                <CheckBox x:Name="WholeFile" Content="Whole file" Margin="0,0,12,0" Click="Mode_Changed"
+                          ToolTip="Whole file - every line, not only the changes and the lines around them" />
+                <Button x:Name="CopyButton" Style="{StaticResource IconButton}" Content="{StaticResource GlyphCopy}" Click="Copy_Click"
+                        ToolTip="Copy the diff - as git diff writes it" />
+            </StackPanel>
+            <TextBlock x:Name="Titles" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
+        </DockPanel>
+        <Border BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="{DynamicResource SmallRadius}">
+            <Grid>
+                <ListBox x:Name="Rows" BorderThickness="0" Background="{DynamicResource CardBg}" ItemTemplate="{StaticResource UnifiedRow}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizing="True"
+                         VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel"
+                         AutomationProperties.Name="Differences">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0" />
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="AutomationProperties.Name" Value="{Binding Spoken}" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <ContentPresenter />
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+                <TextBlock x:Name="Message" TextWrapping="Wrap" Foreground="{DynamicResource TextMuted}" Margin="16" HorizontalAlignment="Center"
+                           VerticalAlignment="Center" TextAlignment="Center" Text="Choose a file to see what changed." />
+            </Grid>
+        </Border>
+    </DockPanel>
+</UserControl>

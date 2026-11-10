@@ -13,7 +13,9 @@ namespace DnnManager.Infrastructure.Data;
 /// (<see cref="State.StateStore"/>);</item>
 /// <item><c>projects</c> - how DNN Manager installed the projects it set up;</item>
 /// <item><c>keep_warm</c> - the sites kept warm, a row each (how, is the settings');</item>
-/// <item><c>dnn_releases</c> - each repository's DNN versions as GitHub last listed them, for offline use.</item>
+/// <item><c>dnn_releases</c> - each repository's DNN versions as GitHub last listed them, for offline use;</item>
+/// <item><c>deploy_*</c> - deployments: the servers of each project, their baselines, the projects' file hashes and the
+/// history of every push and pull (<see cref="Deployment.DeployStore"/>).</item>
 /// </list>
 /// Each read or write opens the file for itself and closes it again (no pool): nothing holds it open between them, and
 /// SQLite makes every write whole or not at all.
@@ -86,6 +88,88 @@ public sealed class AppDatabase
         """
         ALTER TABLE dnn_releases ADD COLUMN sha256 TEXT;
         ALTER TABLE dnn_releases ADD COLUMN upgrade_sha256 TEXT;
+        """,
+        // Deployments: each project's servers (their secrets DPAPI-encrypted), each one's baseline, the hashes of the
+        // projects' files, and the history of every push, pull and rollback with each file's contents before and after.
+        """
+        CREATE TABLE deploy_connections (
+            id               TEXT NOT NULL PRIMARY KEY,
+            site             TEXT NOT NULL COLLATE NOCASE,
+            name             TEXT NOT NULL,
+            environment      TEXT NOT NULL,
+            protocol         TEXT NOT NULL,
+            host             TEXT NOT NULL,
+            port             INTEGER NOT NULL,
+            user_name        TEXT NOT NULL,
+            auth             TEXT NOT NULL,
+            remote_root      TEXT NOT NULL,
+            trusted_host_key TEXT,
+            ignore_rules     TEXT NOT NULL,
+            parallel         INTEGER NOT NULL,
+            keep_backups     INTEGER NOT NULL,
+            verify           TEXT NOT NULL,
+            created_utc      TEXT NOT NULL,
+            last_checked_utc TEXT,
+            last_error       TEXT,
+            last_sync_utc    TEXT,
+            password         TEXT,
+            private_key      TEXT,
+            passphrase       TEXT);
+        CREATE INDEX deploy_connections_site ON deploy_connections (site);
+        CREATE TABLE deploy_baseline (
+            connection_id       TEXT NOT NULL,
+            path                TEXT NOT NULL COLLATE NOCASE,
+            hash                TEXT NOT NULL,
+            size                INTEGER NOT NULL,
+            remote_size         INTEGER,
+            remote_modified_utc TEXT,
+            PRIMARY KEY (connection_id, path));
+        CREATE TABLE deploy_local_hashes (
+            root           TEXT NOT NULL COLLATE NOCASE,
+            path           TEXT NOT NULL COLLATE NOCASE,
+            size           INTEGER NOT NULL,
+            modified_ticks INTEGER NOT NULL,
+            hash           TEXT NOT NULL,
+            PRIMARY KEY (root, path));
+        CREATE TABLE deploy_operations (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            connection_id   TEXT NOT NULL,
+            site            TEXT NOT NULL COLLATE NOCASE,
+            connection_name TEXT NOT NULL,
+            environment     TEXT NOT NULL,
+            kind            TEXT NOT NULL,
+            started_utc     TEXT NOT NULL,
+            ended_utc       TEXT,
+            user_name       TEXT NOT NULL,
+            message         TEXT NOT NULL,
+            status          TEXT NOT NULL,
+            error           TEXT,
+            retries         INTEGER NOT NULL,
+            rollback_of     INTEGER,
+            rolled_back_by  INTEGER,
+            review_folder   TEXT);
+        CREATE INDEX deploy_operations_connection ON deploy_operations (connection_id, id);
+        CREATE TABLE deploy_operation_files (
+            operation_id     INTEGER NOT NULL,
+            path             TEXT NOT NULL,
+            side             TEXT NOT NULL,
+            action           TEXT NOT NULL,
+            before_hash      TEXT,
+            after_hash       TEXT,
+            base_before      TEXT,
+            base_before_size INTEGER,
+            conflict         TEXT,
+            resolution       TEXT,
+            error            TEXT,
+            attempts         INTEGER NOT NULL,
+            PRIMARY KEY (operation_id, path, side));
+        """,
+        // FTP's encryption a choice of its own (FileZilla's four) - a connection saved as protocol 'Ftps' was explicit TLS,
+        // one saved as 'Ftp' plain: both become 'Ftp' with their encryption.
+        """
+        ALTER TABLE deploy_connections ADD COLUMN ftp_encryption TEXT;
+        UPDATE deploy_connections SET ftp_encryption = 'RequireExplicit', protocol = 'Ftp' WHERE protocol = 'Ftps';
+        UPDATE deploy_connections SET ftp_encryption = 'PlainOnly' WHERE protocol = 'Ftp' AND ftp_encryption IS NULL;
         """
     ];
 

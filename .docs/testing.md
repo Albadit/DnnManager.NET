@@ -38,6 +38,8 @@ They need nothing installed and take about 40 seconds:
 | `SearchQueryTests.cs` | The panel's search stops within its time on a pattern that backtracks for ever |
 | `AccessibilityTests.cs` | Names for password fields and icon buttons, the Logs view read by a screen reader, both themes with the same colours, a Contrast theme's colours, and every control that needs nothing else loading |
 | `PagesLoadTests.cs` | The main window and every page, made as the app makes them - their XAML, bindings and resources - over a stand-in IIS; the upgrade path dialog, and what it refuses as it is typed |
+| `DeploymentTests.cs` | Deployments' rules: the three-way decision table (push, pull, conflict, deletions, never by time), `.gitignore`-style rules and the defaults, files flagged as secrets, paths that could leave a folder refused, the line diff (property-checked), hunks, side by side, the three-way merge and its markers, text kept as written. Then every workflow end to end against a stand-in server (`Support/FolderServer.cs`): the first scan and the baseline, reading only what changed, a push of one file recorded in the history, the request's example (files edited on the live server pulled selectively, the project's own work never overwritten), changes since the scan refused on both sides, conflicts kept / taken / merged, deletions only when chosen, network retries, a resumed upload, a failed or cancelled push put back, rollbacks of a push and a pull, a review pull, ignored and secret files, the lock (and taking over a stale one, by the server's clock), secrets encrypted; a file changed on the server while a push runs left as it is, an unreadable file or unlistable server folder never taken for deleted, names differing only in case left out |
+| `DeployUiTests.cs` | The Source Control page made as the app makes it, over the stand-in server: it compares by itself when opened, groups the changes as VS Code does (staged, to push, to pull, conflicts) with their letters, stages, shows a pull's diff, a conflict's choices and the history; the review of a Production push needing its ticks; the connection and merge dialogs. With `DEPLOY_TEST_SCREENSHOTS` set to a folder it saves what it drew there |
 | `LayeringTests.cs` | The layers' rule: Domain uses nothing of DNN Manager's, Application no Infrastructure or Presentation, Infrastructure no Presentation; Presentation only the Infrastructure namespaces on its list; `Process.Start` and `new ProcessStartInfo` only in the files allowed to start a process (`ProcessRunner`, `ElevatedStart`, DNN Manager's own restarts and update) - a source scan |
 | `ElevationBoundaryTests.cs` | What the user's account can change doesn't widen DNN Manager's rights: the projects folder never a system folder, release sources and names that go into SQL held to their rules, `DNNMANAGER_*` overrides held to the saved settings' rules, the folder guard leaving a system folder alone, a restore or **Clear website cache** never going through a junction, a DNN package that isn't GitHub's file refused, IIS feature names only, an elevated program getting none of the user's code-loading variables, which servers count as this PC, IIS's rights lowered on an older site |
 | `SecurityHardeningTests.cs` | `SafePath` and `SafeZip`: `Under` strictly inside, links found on the way, `DeleteTree` unlinking a junction, a hard-linked file replaced rather than written into, zip entries on another file's stream or outside refused, short names (`WEB~1.CON`), a zip bigger than the disk refused, a package with an unsafe path writing nothing; a `web.config` with a DTD not read; the SHA-256s kept for offline use; a redirect to http said so; this PC's addresses cached; signing in as you only on this PC and the chosen server; a program found by its own path; a quick question's time limit; a terminal without administrator rights running and answering |
@@ -75,6 +77,17 @@ Express, SQL Server Express LocalDB and Docker Desktop; a test whose
 prerequisite is missing is *inconclusive*, not failed. The package is
 downloaded once into `%LOCALAPPDATA%\DnnManagerTests\cache` (or set
 `DNNMANAGER_TEST_DNN_ZIP` to one you have).
+
+`DeploymentServerTests` pushes, pulls and rolls back against real servers in
+Docker (Linux containers; inconclusive without): OpenSSH with a shell
+(`lscr.io/linuxserver/openssh-server` - the server hashes files with
+`sha256sum`), an SFTP-only chroot (`atmoz/sftp:alpine` - files read back),
+vsftpd over plain FTP and over FTPS with a self-signed certificate made by the
+test (`delfer/alpine-ftp-server`, ports 21021-21022 and 21600-21709 on
+127.0.0.1). It trusts each server's identity as the dialog does, checks that
+another identity and a wrong password are refused, that the lock is exclusive
+and that a replaced file keeps its permissions. The containers are removed at
+the end.
 
 `DnnUpgradeTests` upgrades real sites with DNN Manager's own
 `UpgradeDnnUseCase` (see [Upgrading DNN](dnn-upgrades.md)), each taking 10 to 30

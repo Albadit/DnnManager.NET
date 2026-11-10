@@ -253,7 +253,7 @@
                         <Path Style="{StaticResource IconStroke}" Data="{StaticResource LayoutDefault}"
                               Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                     </Button>
-                    <Button x:Name="SidebarToggle" AutomationProperties.Name="Show or hide the sidebar" Style="{StaticResource LayoutButton}" s:CommandTip.Command="view.toggleSidebar" Click="ToggleSidebar_Click">
+                    <Button x:Name="SidebarToggle" AutomationProperties.Name="Show or hide the primary side bar" Style="{StaticResource LayoutButton}" s:CommandTip.Command="view.toggleSidebar" Click="TogglePrimary_Click">
                         <Grid x:Name="SidebarIcon" Width="16" Height="16" RenderTransformOrigin="0.5,0.5">
                             <Path x:Name="SidebarIconFill" Data="{StaticResource LayoutSidebarLeftFill}"
                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
@@ -266,6 +266,14 @@
                             <Path x:Name="PanelIconFill" Data="{StaticResource LayoutPanelFill}"
                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                             <Path Style="{StaticResource IconStroke}" Data="{StaticResource LayoutPanel}"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                        </Grid>
+                    </Button>
+                    <Button x:Name="SecondaryToggle" AutomationProperties.Name="Show or hide the secondary side bar" Style="{StaticResource LayoutButton}" s:CommandTip.Command="view.toggleSecondarySideBar" Click="ToggleSecondary_Click">
+                        <Grid x:Name="SecondaryIcon" Width="16" Height="16" RenderTransformOrigin="0.5,0.5">
+                            <Path x:Name="SecondaryIconFill" Data="{StaticResource LayoutSidebarRightFill}"
+                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            <Path Style="{StaticResource IconStroke}" Data="{StaticResource LayoutSidebarRight}"
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                         </Grid>
                     </Button>
@@ -305,15 +313,15 @@
             <RowDefinition x:Name="SplitterRow" Height="5" />
             <RowDefinition x:Name="LogRow" Height="230" MinHeight="90" />
         </Grid.RowDefinitions>
-        <!-- The sidebar's column and the page's - which is which follows the sidebar's side (ApplyLayout). The sidebar is
-             230 wide, or 48 (icons only) in a narrow window - 190 and 40 in the Compact density - see IsCompact. -->
+        <!-- The activity bar's column and the workbench's - which is which follows the side bar's side (ApplyLayout). The
+             activity bar is 48 wide - 40 in the Compact density. -->
         <Grid.ColumnDefinitions>
             <ColumnDefinition x:Name="LeftColumn" Width="230" />
             <ColumnDefinition x:Name="RightColumn" Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- Sidebar: pages; at the bottom the gear's menu (Settings, Keyboard Shortcuts, Themes, Customize Layout,
-             Troubleshoot…). In a narrow window only the icons (with their names as tooltips) are left. Ctrl+B hides it. -->
+        <!-- The activity bar (x:Name Sidebar): the pages, as icons with their names as tooltips; at the bottom the gear's menu
+             (Settings, Keyboard Shortcuts, Themes, Customize Layout, Troubleshoot…). Hidden from Customize Layout. -->
         <Border x:Name="Sidebar" Grid.RowSpan="3" Background="{DynamicResource SidebarBg}" BorderBrush="{DynamicResource SidebarBorder}" BorderThickness="0,0,1,0">
         <DockPanel>
             <!-- The gear as far from the bottom - and the first entry from the top - as the entries are from the sides
@@ -331,14 +339,49 @@
                 <RadioButton Style="{StaticResource SidebarNav}" GroupName="Nav" Tag="Setup" Checked="Nav_Checked" x:Name="NavSetup" ToolTip="New project - create a website, or one from a backup" s:CommandTip.Command="pages.newProject">
                     <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="{StaticResource GlyphAdd}" /><TextBlock Style="{StaticResource SidebarLabel}" Text="New project" /></StackPanel>
                 </RadioButton>
+                <RadioButton Style="{StaticResource SidebarNav}" GroupName="Nav" Tag="Deploy" Checked="Nav_Checked" x:Name="NavDeploy" ToolTip="Source Control - compare projects with their servers, push and pull files" s:CommandTip.Command="pages.deploy">
+                    <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource NavGlyph}" Text="{StaticResource GlyphUpload}" /><TextBlock Style="{StaticResource SidebarLabel}" Text="Source Control" /></StackPanel>
+                </RadioButton>
             </StackPanel>
         </DockPanel>
         </Border>
 
-        <!-- The page of the sidebar entry chosen. -->
-        <Border x:Name="PageCard" Grid.Column="1" Background="{DynamicResource WindowBg}" BorderBrush="{DynamicResource CardBorder}">
-            <ContentControl x:Name="PageHost" Focusable="False" SizeChanged="CardContent_SizeChanged" />
-        </Border>
+        <!-- The workbench, as VS Code's: the primary side bar (beside the activity bar - the page's own view, Source Control's
+             changes), the page, and the secondary side bar on the other side - each a card, shown or hidden (Ctrl+B,
+             Ctrl+Alt+B) and dragged wider or narrower by the sash between them (MainWindow.SideBars). -->
+        <Grid x:Name="Workbench" Grid.Column="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="WorkbenchLeft" Width="0" />
+                <ColumnDefinition x:Name="WorkbenchLeftGap" Width="0" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="WorkbenchRightGap" Width="0" />
+                <ColumnDefinition x:Name="WorkbenchRight" Width="0" />
+            </Grid.ColumnDefinitions>
+            <Border x:Name="PrimarySideBar" Background="{DynamicResource WindowBg}" BorderBrush="{DynamicResource CardBorder}" Visibility="Collapsed">
+                <ContentControl x:Name="PrimaryHost" Focusable="False" SizeChanged="CardContent_SizeChanged" />
+            </Border>
+
+            <!-- The page of the activity bar's entry chosen. -->
+            <Border x:Name="PageCard" Grid.Column="2" Background="{DynamicResource WindowBg}" BorderBrush="{DynamicResource CardBorder}">
+                <ContentControl x:Name="PageHost" Focusable="False" SizeChanged="CardContent_SizeChanged" />
+            </Border>
+
+            <!-- Empty for now: room for views to come. -->
+            <Border x:Name="SecondarySideBar" Grid.Column="4" Background="{DynamicResource WindowBg}" BorderBrush="{DynamicResource CardBorder}" Visibility="Collapsed">
+                <ContentControl x:Name="SecondaryHost" Focusable="False" SizeChanged="CardContent_SizeChanged">
+                    <StackPanel Margin="16,15,12,0">
+                        <TextBlock Text="SECONDARY SIDE BAR" FontSize="{DynamicResource TextSmall}" FontWeight="SemiBold" Foreground="{DynamicResource TextMuted}" />
+                        <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,16,0,0" Text="Nothing to show here yet." />
+                    </StackPanel>
+                </ContentControl>
+            </Border>
+
+            <!-- Between a side bar and the page: dragged, the side bar's width - closed when dragged far enough. -->
+            <c:Sash x:Name="PrimarySash" Grid.Column="1" Panel.ZIndex="1" Visibility="Collapsed"
+                    DragStarted="SideBarSash_DragStarted" DragDelta="SideBarSash_DragDelta" DragCompleted="SideBarSash_DragCompleted" />
+            <c:Sash x:Name="SecondarySash" Grid.Column="3" Panel.ZIndex="1" Visibility="Collapsed"
+                    DragStarted="SideBarSash_DragStarted" DragDelta="SideBarSash_DragDelta" DragCompleted="SideBarSash_DragCompleted" />
+        </Grid>
 
         <!-- Between the page and the panel - the gap between their cards, or (Compact) their line: dragged, the panel's height;
              closed when dragged far enough down. While the panel is closed, along the page's bottom, to drag it open. -->
@@ -351,21 +394,6 @@
             <c:TerminalPanel x:Name="TerminalPanel" SizeChanged="CardContent_SizeChanged" />
         </Border>
 
-        <!-- The sidebar's edge, on the page's side: dragged, the sidebar's width - closed when dragged far enough, opened
-             again from the window's edge. Not while it shows only its icons. Where it meets the panel's sash, the corner drags
-             both at once. Placed and shown by ApplyLayout and FitSashes. The sashes lie over the cards (ZIndex): over a line
-             they reach half into the card on its other side. -->
-        <c:Sash x:Name="SidebarSash" Grid.RowSpan="3" Grid.Column="1" HorizontalAlignment="Left" Panel.ZIndex="1"
-                DragStarted="Sash_DragStarted" DragDelta="SidebarSash_DragDelta" DragCompleted="Sash_DragCompleted" />
-        <Thumb x:Name="SashCorner" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Left" Cursor="SizeAll" Focusable="False"
-               Panel.ZIndex="2"
-               DragStarted="Sash_DragStarted" DragDelta="SashCorner_DragDelta" DragCompleted="Sash_DragCompleted">
-            <Thumb.Template>
-                <ControlTemplate TargetType="Thumb">
-                    <Border Background="Transparent" />
-                </ControlTemplate>
-            </Thumb.Template>
-        </Thumb>
         </Grid>
 
         <!-- Settings and Troubleshoot open over the page, as VS Code's modal editors: the page dimmed behind them, a click

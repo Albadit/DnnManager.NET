@@ -129,6 +129,10 @@ public partial class ProjectView : UserControl
         ShowVisiblePanel();
     }
 
+    /// <summary>The Deploy page, on this project's servers.</summary>
+    private void Deploy_Click(object sender, RoutedEventArgs e) =>
+        _services.GetRequiredService<AppCommands>().All.FirstOrDefault(c => c.Id == "project.deploy")?.RunOn?.Invoke(_row);
+
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
         base.OnPreviewKeyDown(e);
