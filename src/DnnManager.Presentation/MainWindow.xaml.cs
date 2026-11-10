@@ -813,14 +813,14 @@ public partial class MainWindow : Window
             _restoredLogHeight = LogRow.Height;
             PageRow.MinHeight = 0;
             PageRow.Height = new GridLength(0);
-            Workbench.Visibility = Visibility.Collapsed;
+            PageCard.Visibility = Visibility.Collapsed;
             LogRow.Height = new GridLength(1, GridUnitType.Star);
         }
         else
         {
             PageRow.Height = new GridLength(1, GridUnitType.Star);
             PageRow.MinHeight = MinPageHeight;
-            Workbench.Visibility = Visibility.Visible;
+            PageCard.Visibility = Visibility.Visible;
             if (LogOpen) LogRow.Height = _restoredLogHeight;
         }
         FitSashes();
