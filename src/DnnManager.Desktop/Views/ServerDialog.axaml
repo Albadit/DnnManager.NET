@@ -1,0 +1,87 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DnnManager.Desktop.Views.ServerDialog"
+        Title="Server" Width="620" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+  <!-- A project's server, as FileZilla's Site Manager asks for it: where it is, how to sign in, its folder - and the
+       folder on this computer it is compared with. -->
+  <ScrollViewer MaxHeight="760">
+    <StackPanel Margin="20" Spacing="12">
+      <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+            RowSpacing="8" ColumnSpacing="10">
+        <TextBlock Grid.Row="0" Text="Project:" VerticalAlignment="Center" />
+        <AutoCompleteBox Grid.Row="0" Grid.Column="1" x:Name="ProjectBox" FilterMode="ContainsOrdinal" MinimumPrefixLength="0"
+                         PlaceholderText="A folder in the projects folder - or a new name" />
+
+        <TextBlock Grid.Row="1" Text="Name:" VerticalAlignment="Center" />
+        <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*,10,160">
+          <TextBox x:Name="NameBox" PlaceholderText="e.g. Live" />
+          <ComboBox Grid.Column="2" x:Name="EnvironmentBox" HorizontalAlignment="Stretch" />
+        </Grid>
+
+        <TextBlock Grid.Row="2" Text="Protocol:" VerticalAlignment="Center" />
+        <ComboBox Grid.Row="2" Grid.Column="1" x:Name="ProtocolBox" HorizontalAlignment="Stretch" SelectionChanged="Protocol_Changed">
+          <ComboBoxItem>SFTP - SSH File Transfer Protocol</ComboBoxItem>
+          <ComboBoxItem>FTP - File Transfer Protocol</ComboBoxItem>
+        </ComboBox>
+
+        <TextBlock Grid.Row="3" Text="Host:" VerticalAlignment="Center" />
+        <Grid Grid.Row="3" Grid.Column="1" ColumnDefinitions="*,10,Auto,6,80">
+          <TextBox x:Name="HostBox" PlaceholderText="ftp.example.com" />
+          <TextBlock Grid.Column="2" Text="Port:" VerticalAlignment="Center" />
+          <TextBox Grid.Column="4" x:Name="PortBox" />
+        </Grid>
+
+        <TextBlock Grid.Row="4" Text="Encryption:" VerticalAlignment="Center" x:Name="EncryptionLabel" />
+        <ComboBox Grid.Row="4" Grid.Column="1" x:Name="EncryptionBox" HorizontalAlignment="Stretch" SelectionChanged="Encryption_Changed" />
+
+        <TextBlock Grid.Row="5" Text="Logon type:" VerticalAlignment="Center" />
+        <ComboBox Grid.Row="5" Grid.Column="1" x:Name="LogonBox" HorizontalAlignment="Stretch" SelectionChanged="Logon_Changed" />
+
+        <TextBlock Grid.Row="6" Text="User:" VerticalAlignment="Center" x:Name="UserLabel" />
+        <TextBox Grid.Row="6" Grid.Column="1" x:Name="UserBox" />
+
+        <TextBlock Grid.Row="7" Text="Password:" VerticalAlignment="Center" x:Name="PasswordLabel" />
+        <TextBox Grid.Row="7" Grid.Column="1" x:Name="PasswordBox" PasswordChar="•" />
+
+        <TextBlock Grid.Row="8" Text="Key file:" VerticalAlignment="Center" x:Name="KeyLabel" />
+        <Grid Grid.Row="8" Grid.Column="1" ColumnDefinitions="*,6,Auto" x:Name="KeyRow">
+          <TextBox x:Name="KeyBox" IsReadOnly="True" PlaceholderText="OpenSSH or PuTTY private key" />
+          <Button Grid.Column="2" Content="Browse…" Click="ChooseKey_Click" />
+        </Grid>
+
+        <TextBlock Grid.Row="9" Text="Passphrase:" VerticalAlignment="Center" x:Name="PassphraseLabel" />
+        <TextBox Grid.Row="9" Grid.Column="1" x:Name="PassphraseBox" PasswordChar="•" PlaceholderText="If the key has one" />
+
+        <TextBlock Grid.Row="10" Text="Remote folder:" VerticalAlignment="Center" />
+        <TextBox Grid.Row="10" Grid.Column="1" x:Name="RootBox" PlaceholderText="/var/www/shop" />
+
+        <TextBlock Grid.Row="11" Text="Local folder:" VerticalAlignment="Center" />
+        <Grid Grid.Row="11" Grid.Column="1" ColumnDefinitions="*,6,Auto">
+          <TextBox x:Name="LocalBox" />
+          <Button Grid.Column="2" Content="Browse…" Click="ChooseLocal_Click" />
+        </Grid>
+        <TextBlock Grid.Row="12" Grid.Column="1" x:Name="LocalHint" Classes="muted" FontSize="11" TextWrapping="Wrap" />
+
+        <TextBlock Grid.Row="13" Text="Ignored files:" VerticalAlignment="Top" Margin="0,6,0,0" />
+        <TextBox Grid.Row="13" Grid.Column="1" x:Name="RulesBox" AcceptsReturn="True" Height="90" FontFamily="{StaticResource CodeFont}"
+                 PlaceholderText=".gitignore rules - one per line" />
+      </Grid>
+
+      <TextBlock x:Name="IdentityLine" Classes="muted" FontSize="11" TextWrapping="Wrap" />
+      <StackPanel Spacing="4">
+        <ProgressBar x:Name="Testing" IsIndeterminate="True" IsVisible="False" Height="4" MinHeight="4" />
+        <TextBlock x:Name="TestResult" TextWrapping="Wrap" />
+        <TextBlock x:Name="Problems" Foreground="IndianRed" TextWrapping="Wrap" IsVisible="False" />
+      </StackPanel>
+
+      <DockPanel>
+        <Button x:Name="TestButton" DockPanel.Dock="Left" Content="Test connection" Click="Test_Click" />
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+          <Button Content="Cancel" IsCancel="True" Click="Cancel_Click" MinWidth="88" HorizontalContentAlignment="Center" />
+          <Button x:Name="OkButton" Content="Save" Classes="accent" IsDefault="True" Click="Ok_Click" MinWidth="88" HorizontalContentAlignment="Center" />
+        </StackPanel>
+      </DockPanel>
+    </StackPanel>
+  </ScrollViewer>
+</Window>

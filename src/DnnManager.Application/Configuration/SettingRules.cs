@@ -17,7 +17,9 @@ public static class SettingRules
     /// </summary>
     public static string? ProjectsFolderProblem(string folder)
     {
-        if (string.IsNullOrWhiteSpace(folder) || !Path.IsPathFullyQualified(folder)) return "must be a full path, e.g. C:\\DNN.";
+        // C:\DNN on Windows, ~/DNN written out elsewhere.
+        var example = Platform.ExampleProjectsFolder;
+        if (string.IsNullOrWhiteSpace(folder) || !Path.IsPathFullyQualified(folder)) return $"must be a full path, e.g. {example}.";
         string full;
         try
         {
@@ -25,13 +27,19 @@ public static class SettingRules
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
         {
-            return "must be a full path, e.g. C:\\DNN.";
+            return $"must be a full path, e.g. {example}.";
         }
-        const string useOwn = " - use a folder of its own, e.g. C:\\DNN.";
+        var useOwn = $" - use a folder of its own, e.g. {example}.";
         if (Path.GetPathRoot(full) is { } root && Path.TrimEndingDirectorySeparator(root).Equals(full, StringComparison.OrdinalIgnoreCase))
-            return "can't be a drive" + useOwn;
+            return (Platform.IsWindows ? "can't be a drive" : "can't be the system's root folder") + useOwn;
         // A share or a device path: the folders below can't be told apart there.
-        if (full.StartsWith(@"\\", StringComparison.Ordinal)) return "must be a folder on this computer, e.g. C:\\DNN.";
+        if (full.StartsWith(@"\\", StringComparison.Ordinal)) return $"must be a folder on this computer, e.g. {example}.";
+
+        // macOS and Linux: the system's own folders (/usr, /etc, /System, /Library…).
+        if (!Platform.IsWindows)
+            foreach (var system in Platform.UnixSystemFolders)
+                if (SafePath.IsSameOrInside(full, system))
+                    return $"can't be a system folder or a folder in one ({system})" + useOwn;
 
         foreach (var system in new[]
                  {

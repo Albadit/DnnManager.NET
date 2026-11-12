@@ -16,9 +16,8 @@ namespace DnnManager.Infrastructure.Deployment;
 /// </summary>
 public sealed class DeployStore(AppDatabase database) : IDeployStore
 {
-    private const string Prefix = "dpapi:";
-
-    // Ties the encrypted values to DNN Manager's deployments: another program's DPAPI data can't be passed off as them.
+    // Ties the encrypted values to DNN Manager's deployments: another program's encrypted data can't be passed off as them
+    // (Settings.UserCipher: DPAPI on Windows, AES-GCM with the user's own key elsewhere).
     private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("DnnManager.deploy.v1");
 
     private readonly object _write = new();
@@ -35,6 +34,16 @@ public sealed class DeployStore(AppDatabase database) : IDeployStore
         using var command = AppDatabase.Command(connection,
             $"SELECT {ConnectionColumns} FROM deploy_connections WHERE site = $site ORDER BY name COLLATE NOCASE", ("$site", site));
         return ReadConnections(command);
+    }
+
+    public IReadOnlyList<string> Sites()
+    {
+        using var connection = database.Open();
+        using var command = AppDatabase.Command(connection, "SELECT DISTINCT site FROM deploy_connections ORDER BY site COLLATE NOCASE");
+        using var reader = command.ExecuteReader();
+        var sites = new List<string>();
+        while (reader.Read()) sites.Add(reader.GetString(0));
+        return sites;
     }
 
     public DeployConnection? Connection(Guid id)
@@ -151,17 +160,17 @@ public sealed class DeployStore(AppDatabase database) : IDeployStore
     private static string? Protect(string? plain) =>
         string.IsNullOrEmpty(plain)
             ? null
-            : Prefix + Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(plain), Entropy, DataProtectionScope.CurrentUser));
+            : Settings.UserCipher.Protect(Encoding.UTF8.GetBytes(plain), Entropy);
 
-    /// <summary>The secret in the column - null when there is none, or it was encrypted by another Windows user or PC.</summary>
+    /// <summary>The secret in the column - null when there is none, or it was encrypted by another user, computer or system.</summary>
     private static string? Unprotect(SqliteDataReader reader, int column)
     {
         if (reader.IsDBNull(column)) return null;
         var value = reader.GetString(column);
-        if (!value.StartsWith(Prefix, StringComparison.Ordinal)) return null;
+        if (!Settings.UserCipher.IsProtected(value)) return null;
         try
         {
-            return Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(value[Prefix.Length..]), Entropy, DataProtectionScope.CurrentUser));
+            return Encoding.UTF8.GetString(Settings.UserCipher.Unprotect(value, Entropy));
         }
         catch (Exception ex) when (ex is CryptographicException or FormatException)
         {

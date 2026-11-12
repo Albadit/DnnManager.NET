@@ -22,7 +22,8 @@ public sealed class OutputOrderTests
             OnUiThread(() =>
             {
                 using var file = new DailyLogFile(new AppDataPaths(dir));
-                var log = new ActivityLog(file, Dispatcher.CurrentDispatcher);
+                var ui = Dispatcher.CurrentDispatcher;
+                var log = new ActivityLog(file, action => ui.InvokeAsync(action));
                 var time = new DateTime(2026, 10, 5, 0, 12, 31);
                 log.Clock = () => time = time.AddSeconds(1);
 

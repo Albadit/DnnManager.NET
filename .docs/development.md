@@ -43,6 +43,18 @@ dotnet clean
 
 Fast tests: `dotnet test tests\DnnManager.IntegrationTests --filter "TestCategory!=Integration"` - see [testing.md](testing.md).
 
+**The cross-platform app** (macOS, Linux, Windows - Avalonia) builds on any of
+them, without Windows or administrator rights:
+
+```bash
+dotnet run --project src/DnnManager.Desktop     # build and start
+dotnet test tests/DnnManager.Desktop.Tests      # its tests, headless
+```
+
+`DNNMANAGER_DATA_DIR` set to a folder keeps its data there instead of
+`Documents/DnnManager` - to try it apart from your real servers. More in
+[cross-platform.md](cross-platform.md).
+
 ## Run
 
 The app self-elevates: launched without Administrator rights it shows a UAC

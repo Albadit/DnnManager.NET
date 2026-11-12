@@ -31,6 +31,9 @@ public sealed class DeployConnections(IDeployStore store, IRemoteFileSystemFacto
 
     public IReadOnlyList<DeployConnection> For(string site) => store.Connections(site);
 
+    /// <summary>The projects that have a server.</summary>
+    public IReadOnlyList<string> Sites() => store.Sites();
+
     public DeployConnection? Find(Guid id) => store.Connection(id);
 
     /// <summary>Whether a password, key or passphrase is saved for the connection - never the secret itself.</summary>

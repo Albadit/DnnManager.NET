@@ -29,6 +29,9 @@
     .github\scripts\publish-release.ps1 -NotesFile .docs\release-notes\v1.7.0.md -Commit 9030c5f -SkipTests
 .EXAMPLE
     .github\scripts\publish-release.ps1 -List commits
+.EXAMPLE
+    .github\scripts\publish-release.ps1 -PreRelease
+    Only the pre-releases' notes (vX.Y.Z-suffix.md, such as v2.0.0-rc1.md) - the VS Code task "release: pre-release (GitHub)".
 #>
 [CmdletBinding()]
 param(
@@ -38,6 +41,9 @@ param(
     [string]$Commit,
     # Tags without running the fast tests here first (the release workflow runs none - CI tests the pushed commit).
     [switch]$SkipTests,
+    # Only pre-releases: the notes listed are the vX.Y.Z-suffix.md ones (v2.0.0-rc1.md), and another is refused.
+    # GitHub publishes them as a pre-release, which no DNN Manager's Update button offers.
+    [switch]$PreRelease,
     # Only prints the choices for VS Code's picker (Tasks Shell Input), one "value||label||description||detail" per line.
     [ValidateSet('notes', 'commits')]
     [string]$List
@@ -81,7 +87,8 @@ Set-ReleaseContext -Repository $script:repo
 
 # The notes files - the not yet tagged ones first (the next release on top), then the released ones; newest first.
 function Get-NotesFiles([string[]]$tags) {
-    $all = @(Get-ChildItem $notesDir -Filter 'v*.md' | Where-Object { $_.BaseName -match '^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$' } |
+    $pattern = if ($PreRelease) { '^v\d+\.\d+\.\d+-[0-9A-Za-z.-]+$' } else { '^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$' }
+    $all = @(Get-ChildItem $notesDir -Filter 'v*.md' | Where-Object { $_.BaseName -match $pattern } |
             Sort-Object { [version](($_.BaseName.TrimStart('v')) -replace '-.*$', '') }, { $_.BaseName } -Descending)
     @($all | Where-Object { $tags -notcontains $_.BaseName }) + @($all | Where-Object { $tags -contains $_.BaseName })
 }
@@ -139,11 +146,17 @@ $tags = @(Invoke-Git @('tag', '--list', 'v*'))
 # --- 1. The release-notes file: its name is the version, the tag and the title ---
 
 $files = @(Get-NotesFiles $tags)
-if ($files.Count -eq 0) { throw "No vX.Y.Z.md files in $notesDir - write the release notes first." }
+if ($files.Count -eq 0) {
+    if ($PreRelease) { throw "No pre-release notes (vX.Y.Z-suffix.md, such as v2.0.0-rc1.md) in $notesDir - write them first." }
+    throw "No vX.Y.Z.md files in $notesDir - write the release notes first."
+}
 if ($NotesFile) {
     $path = if ([IO.Path]::IsPathRooted($NotesFile)) { $NotesFile } else { Join-Path $root $NotesFile }
     $notes = $files | Where-Object { $_.FullName -eq [IO.Path]::GetFullPath($path) } | Select-Object -First 1
-    if (-not $notes) { throw "$NotesFile isn't a release-notes file (.docs\release-notes\vX.Y.Z.md)." }
+    if (-not $notes) {
+        if ($PreRelease) { throw "$NotesFile isn't a pre-release's notes (.docs\release-notes\vX.Y.Z-suffix.md, such as v2.0.0-rc1.md)." }
+        throw "$NotesFile isn't a release-notes file (.docs\release-notes\vX.Y.Z.md)."
+    }
 }
 else {
     $labels = $files | ForEach-Object { if ($tags -contains $_.BaseName) { "$($_.Name)  (already tagged)" } else { $_.Name } }
@@ -261,7 +274,7 @@ else {
 
 Write-Step 'Ready to release'
 Write-Host "  Tag      $tag -> $($selected.Short), pushed to origin"
-Write-Host "  Then     GitHub's release workflow builds both exes from it, attests them and publishes"
+Write-Host "  Then     GitHub's release workflow builds both exes and the macOS and Linux packages from it, attests them and publishes"
 Write-Host "           $tag$(if ($prerelease) { ' as a pre-release' } else { ' as the latest release' }) with .docs\release-notes\$($notes.Name)"
 if (-not (Confirm-Step "Push the tag $tag now?")) {
     Write-Host 'Nothing was tagged.' -ForegroundColor Yellow

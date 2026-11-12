@@ -6,6 +6,22 @@ All notable changes to DnnManager.NET are documented here.
 
 ### Added
 
+- **DNN Manager for macOS, Linux and Windows.** A new app, built with Avalonia
+  (free and open source), runs **Source Control** on macOS (Apple Silicon and
+  Intel), Linux and Windows: add a project's FTP or SFTP servers, compare,
+  stage, push and pull after a review, resolve a conflict by keeping either
+  side, see a file's diff side by side or in one column, and roll back from the
+  history - with the same database and servers as the Windows app. Making and
+  running DNN sites needs IIS, which only Windows has: those pages say so and
+  suggest a Windows virtual machine. Saved passwords on macOS and Linux are
+  encrypted with a key only you can read. Each release has a package for macOS
+  (Apple Silicon, Intel) and Linux (x64, arm64) beside the Windows files - the
+  macOS app signed ad hoc, free and not notarized: the first time, right-click →
+  Open. See [.docs/cross-platform.md](.docs/cross-platform.md).
+- **Pre-releases from VS Code.** The task **release: pre-release (GitHub)**
+  releases a version such as 2.0.0-rc1 from its notes
+  (`.docs/release-notes/v2.0.0-rc1.md`) as a GitHub pre-release, which the
+  Update button never offers.
 - **The window laid out as VS Code's.** The sidebar is now the **activity bar**:
   the pages as icons only, always (their names as tooltips). Beside it the
   **primary side bar** holds a page's own view - Source Control's servers,

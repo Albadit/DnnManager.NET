@@ -50,6 +50,9 @@ public sealed class OperationRunner : INotifyPropertyChanged
         _log.RunShown += () => { if (_title is not null && _current is null) Current = _title; };
     }
 
+    /// <summary>Another operation was asked for while one runs - what to tell the user (the app shows it as a warning toast).</summary>
+    public event Action<string>? Refused;
+
     /// <summary>An operation is going on - also while it is still asking whether to go ahead: a second one waits.</summary>
     public bool IsBusy => _title is not null;
 
@@ -100,7 +103,7 @@ public sealed class OperationRunner : INotifyPropertyChanged
         // Pages stay usable (scrolling, browsing) while an operation runs; only a second one is refused - said, not asked.
         if (IsBusy)
         {
-            Toast.Show($"'{_title}' is still running - wait for it to finish, or cancel it first.", ToastKind.Warning);
+            Refused?.Invoke($"'{_title}' is still running - wait for it to finish, or cancel it first.");
             return false;
         }
 

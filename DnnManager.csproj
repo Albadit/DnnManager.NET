@@ -57,6 +57,19 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The Domain, Application and Infrastructure layers are DnnManager.Core (src\DnnManager.Core), shared with the
+         cross-platform app (src\DnnManager.Desktop, Avalonia) - this project is the Windows app's WPF interface. -->
+    <Compile Remove="src\DnnManager.Domain\**;src\DnnManager.Application\**;src\DnnManager.Infrastructure\**;src\DnnManager.Core\**;src\DnnManager.Ui\**;src\DnnManager.Desktop\**" />
+    <Page Remove="src\DnnManager.Desktop\**" />
+    <None Remove="src\DnnManager.Core\**;src\DnnManager.Ui\**;src\DnnManager.Desktop\**" />
+    <EmbeddedResource Remove="src\DnnManager.Desktop\**" />
+    <AvaloniaXaml Remove="src\DnnManager.Desktop\**" />
+    <ProjectReference Include="src\DnnManager.Core\DnnManager.Core.csproj" />
+    <!-- What both interfaces share and neither draws: the activity log, the operation runner, the live settings. -->
+    <ProjectReference Include="src\DnnManager.Ui\DnnManager.Ui.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- The DNN mark: the exe's icon (ApplicationIcon above) and every window's title-bar icon. -->
     <Resource Include="src\DnnManager.Presentation\Assets\dnn.ico" />
     <!-- Each release's notes, as GitHub shows them - "What's new" after an update reads them from here, offline too
@@ -64,21 +77,7 @@
     <EmbeddedResource Include=".docs\release-notes\v*.md" LogicalName="ReleaseNotes.%(Filename)%(Extension)" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="FluentFTP" Version="55.1.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.12" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.12" />
-    <PackageReference Include="Microsoft.Web.Administration" Version="11.1.0" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.7" />
-    <!-- DNN Manager's own data - settings, workspace, project records, keep warm - in Documents\DnnManager\dnnmanager.db. -->
-    <!-- It brings SQLitePCLRaw 2.1.12 - SQLite 3.53.3, past the fix for GHSA-2m69-gcr7-jv3q (3.50.2); 10.0.10 and older
-         brought 2.1.11, which DNN Manager pinned over until then. Upgrading it upgrades SQLite. -->
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
-    <PackageReference Include="SSH.NET" Version="2026.0.0" />
-    <!-- The state of the IIS service (W3SVC) for the status bar. -->
-    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.12" />
-  </ItemGroup>
+  <!-- The packages are DnnManager.Core's (src\DnnManager.Core\DnnManager.Core.csproj). -->
 
   <!-- The version of a local build: the newest version tag (v1.7.1 -> 1.7.1) reachable from the commit built - the
        GitHub release it is, or comes after - so there is no version number to raise by hand. The release workflow

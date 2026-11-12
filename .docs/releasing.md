@@ -26,9 +26,11 @@ until 1.7.2 is tagged ([`DnnManager.csproj`](../DnnManager.csproj), target
 4. Commit and push, then run the task **release (GitHub)** (see
    [Release from VS Code](#release-from-vs-code)). It pushes the version tag, and
    GitHub's [release workflow](#the-release-workflow) builds the release from that
-   tag: `DnnManager_Portable-X.Y.Z-x64.exe`, `DnnManager_Setup-X.Y.Z-x64.exe` and
-   `SHA256SUMS.txt`, signs them once signing is set up, tries them, and puts them
-   on a draft release. It runs no tests: [CI](#the-build-workflow) tests every
+   tag: `DnnManager_Portable-X.Y.Z-x64.exe`, `DnnManager_Setup-X.Y.Z-x64.exe`, the
+   [cross-platform app](cross-platform.md)'s packages for macOS and Linux
+   (`DnnManager-X.Y.Z-macos-arm64.zip`, `-macos-x64.zip`, `-linux-x64.tar.gz`,
+   `-linux-arm64.tar.gz`) and `SHA256SUMS.txt`. It signs the exes once signing is
+   set up, tries them, and puts everything on a draft release. It runs no tests: [CI](#the-build-workflow) tests every
    commit you push, and the task runs the fast tests on your PC before it tags.
 5. **Approve the job *Publish the release*** on the run's page on GitHub (the
    `publish` environment's required reviewer). It checks the tag and the files
@@ -66,6 +68,16 @@ and from GitHub - by the extension
 6. It stops once the tag is pushed and names the workflow's page on GitHub:
    follow the run there, and approve *Publish the release* once the draft is
    ready. Answer *N* at step 5 and nothing is tagged.
+
+**A pre-release** (a release candidate such as `2.0.0-rc1`): write its notes as
+`.docs/release-notes/v2.0.0-rc1.md`, commit and push, then run **Ctrl+Shift+B →
+release: pre-release (GitHub)**. It works as **release (GitHub)**, but the picker
+lists only the notes of pre-releases (`vX.Y.Z-suffix.md`), and the script
+(`publish-release.ps1 -PreRelease`) refuses any other. GitHub publishes it as a
+*pre-release*: the **Update** button never offers it, so only people who download
+it from the release page get it. The final version (`v2.0.0.md`) is released with
+**release (GitHub)** as usual, and is offered to everyone, including those on the
+pre-release.
 
 The only credential it uses is the one Git pushes the tag with (see
 [Set up GitHub](#set-up-github)). It asks GitHub's public API, without signing in,
@@ -176,6 +188,8 @@ never cancelled half way. Its jobs run in this order:
 ```mermaid
 flowchart LR
     build["build<br/>publish"] --> sign["sign<br/>sign, Setup, SHA256SUMS, attest"]
+    build --> desktop["desktop<br/>macOS and Linux packages"]
+    desktop --> sign
     sign --> smoke["smoke<br/>install, start, uninstall"]
     sign --> draft["draft<br/>upload, check digests"]
     smoke --> draft
@@ -189,7 +203,15 @@ flowchart LR
   (`build.ps1 -PublishOnly`) - all unsigned. It runs the packages' code, so it gets
   no OpenID Connect token: it may only read the repository. No tests run in the
   release workflow - [CI](#the-build-workflow) runs them on every commit pushed.
-- **Sign, package and attest** (environment `release`) - takes the build's files;
+- **macOS and Linux** (desktop) - once the build has the version, calls the
+  [Desktop workflow](../.github/workflows/desktop.yml) with it. That workflow
+  publishes the [cross-platform app](cross-platform.md) on a `macos-15` runner for
+  each Mac (signed ad hoc with `codesign -s -`, which is free; not notarized) and on
+  `ubuntu-24.04` for each Linux, and packages it with
+  [`package.ps1`](../src/DnnManager.Desktop/Packaging/package.ps1). Like the build,
+  it may only read the repository.
+- **Sign, package and attest** (environment `release`) - takes the build's files
+  and the macOS and Linux packages;
   it restores no package and runs no test. When [code signing](#code-signing) is
   set up, it signs in to Azure just before the first file is signed, signs the
   portable exe, then builds Setup with the pinned Inno Setup (`build.ps1
@@ -197,8 +219,9 @@ flowchart LR
   launcher before they go in and has Inno sign Setup and its uninstaller; then it
   signs out of Azure. It checks that both exes and the launcher report the
   version (and are signed), writes `SHA256SUMS.txt` and the notes, and attests
-  the provenance of both exes (`actions/attest-build-provenance`, signed by GitHub
-  through Sigstore): which workflow built them, from which tag and commit.
+  the provenance of both exes and the macOS and Linux packages
+  (`actions/attest-build-provenance`, signed by GitHub through Sigstore): which
+  workflow built them, from which tag and commit.
 - **Try the files** (smoke) - on a fresh runner,
   [`smoke-test.ps1`](../.github/scripts/smoke-test.ps1) installs Setup silently
   into a temporary folder, checks `DnnManager.exe` and the launcher (a Native AOT

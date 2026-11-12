@@ -17,12 +17,17 @@ and debug it, see [development.md](development.md).
 
 ## Layers
 
-One project (`DnnManager.csproj`), four layers as folders and namespaces under
-`src/`. Each layer may use the ones below it:
+Four layers as folders and namespaces under `src/`. Domain, Application and
+Infrastructure are compiled into **`DnnManager.Core`** (`net10.0`, every OS); the
+Windows app's interface - **`DnnManager.csproj`**, WPF - and the cross-platform
+one - **`src/DnnManager.Desktop`**, Avalonia, macOS, Linux and Windows - each
+build on it, with **`DnnManager.Ui`** between them: what both interfaces share
+and neither draws (the activity log, Output's model, the operation runner, the
+live settings). Each layer may use the ones below it:
 
 ```mermaid
 flowchart TD
-    P["Presentation<br/>WPF pages, controls, themes<br/>composition root (Program.cs)"]
+    P["Presentation (WPF) / Desktop (Avalonia)<br/>pages, controls, themes<br/>composition root (Program.cs)"]
     A["Application<br/>use cases, interfaces, settings model"]
     I["Infrastructure<br/>IIS, SQL, Docker, GitHub, files,<br/>monitor, keep warm, diagnostics"]
     D["Domain<br/>records and rules - no dependencies"]
@@ -57,6 +62,13 @@ flowchart TD
   purpose, or goes through an Application interface), and fails on a
   `Process.Start` or `new ProcessStartInfo` outside the few files allowed to
   start a process ([ADR 0004](adr/0004-elevation-boundary.md)).
+- **macOS and Linux:** what only Windows has (IIS, LocalDB, the hosts file, the
+  registry, DPAPI) stays in Infrastructure and compiles everywhere;
+  [`Application/Platform.cs`](../src/DnnManager.Application/Platform.cs) says
+  which features this system has, and the cross-platform app offers only those
+  ([cross-platform.md](cross-platform.md), [ADR 0006](adr/0006-cross-platform-avalonia.md)).
+  `LayeringTests` holds `DnnManager.Ui` and `DnnManager.Desktop` to the same rules
+  as Presentation.
 - **One more project**, [`src/DnnManager.Launcher`](../src/DnnManager.Launcher/DnnManager.Launcher.csproj):
   `DnnManager-launcher.exe`, compiled with Native AOT. It has nothing of the app
   but [`Startup/LaunchEnvironment.cs`](../src/DnnManager.Infrastructure/Startup/LaunchEnvironment.cs),
@@ -355,24 +367,32 @@ DNN Manager's own data is one SQLite file, `Documents\DnnManager\dnnmanager.db`
 
 ## Project layout
 
-One `.csproj` at the root; the source is organised by layer under `src/` and
-compiled into a single assembly (`DnnManager.exe`). The launcher
-(`src/DnnManager.Launcher`) and the tests are projects of their own.
+The Windows app's `.csproj` at the root compiles `src/DnnManager.Presentation`
+into `DnnManager.exe`; the layers below it are `DnnManager.Core.dll`
+(`src/DnnManager.Core` compiles `src/DnnManager.Domain`, `.Application` and
+`.Infrastructure`) and `DnnManager.Ui.dll`. The cross-platform app
+(`src/DnnManager.Desktop`), the launcher (`src/DnnManager.Launcher`) and the tests
+are projects of their own.
 
 ```
 DnnManager.NET/
-├── DnnManager.csproj            ← the app (net10.0-windows, WPF WinExe)
+├── DnnManager.csproj            ← the Windows app (net10.0-windows, WPF WinExe) - src/DnnManager.Presentation
 ├── global.json                  ← the exact .NET SDK (rollForward: disable)
 ├── nuget.config                 ← packages from nuget.org only (source mapping)
 ├── app.manifest                 ← asInvoker; AdminElevation relaunches elevated
 ├── tests/
-│   └── DnnManager.IntegrationTests/  ← MSTest: fast unit tests, and the automatic DNN setup end to end (IIS Express, LocalDB, Docker) - see testing.md
+│   ├── DnnManager.IntegrationTests/  ← MSTest: fast unit tests, and the automatic DNN setup end to end (IIS Express, LocalDB, Docker) - see testing.md
+│   └── DnnManager.Desktop.Tests/     ← MSTest: the cross-platform app's windows, headless (Avalonia.Headless) - on Windows, macOS and Linux
 └── src/
+    ├── DnnManager.Core/         ← DnnManager.Core.csproj (net10.0): compiles Domain, Application and Infrastructure below, for every OS
+    ├── DnnManager.Ui/           ← what both interfaces share: ActivityLog + OutputModel, OperationRunner, LiveSettings, GuiProgressReporter, UiThread
+    ├── DnnManager.Desktop/      ← the cross-platform app (Avalonia): Program, App, Views/ (MainWindow, SourceControlView, ServerDialog, SettingsView), Services/Dialogs, Packaging/package.ps1
     ├── DnnManager.Domain/
     │   ├── Models.cs            ← DnnProject, DnnRelease, DatabaseConfig, …
     │   ├── ProjectName.cs       ← project name validation
     │   └── Result.cs            ← Result / Result<T> (no exceptions across layers)
     ├── DnnManager.Application/
+    │   ├── Platform.cs          ← what this OS has (IIS, LocalDB… Windows only) and why not; the default projects folder
     │   ├── SafePath.cs          ← paths in folders others can write: inside a folder, links on the way, deleting a tree
     │   ├── Abstractions/        ← the interfaces use cases consume (one file each), SqlServerAddress, the records they exchange
     │   ├── Configuration/       ← UserSettings (the settings' layout, defaults, validation), AppOptions, SettingRules (the rules for what feeds admin actions)
@@ -385,7 +405,7 @@ DnnManager.NET/
     │   ├── Dnn/                 ← DNN's unattended install (Install.aspx), its template and output, the host password's hash; DnnLogFiles (reading DNN's logs)
     │   ├── Github/              ← GitHubDnnReleaseService (the release list), DnnPackageInstaller (download, check, extract), HttpConnectivityChecker
     │   ├── Data/                ← AppDatabase (dnnmanager.db, its tables and their steps), ValueRows (an object as key / value rows)
-    │   ├── Settings/            ← AppDataPaths (Documents\DnnManager), SettingsStore, AppDataCleaner, WindowsCredentialStore
+    │   ├── Settings/            ← AppDataPaths (Documents\DnnManager), SettingsStore, AppDataCleaner, WindowsCredentialStore; UserCipher (secrets: DPAPI on Windows, AES-GCM with the user's key elsewhere)
     │   ├── State/               ← StateStore (the workspace, by area)
     │   ├── Files/               ← file copy, site .zip import / export, daily log file; PrivateTemp (the admin-only temporary and tools folders), ProjectsFolderGuard, StalledRead, SafeZip (every zip unpacked), RedirectionTrust
     │   ├── Projects/            ← file-system project repository; ProjectRecords (how each project was installed), KeepWarmRecords
@@ -422,7 +442,7 @@ DnnManager.NET/
         ├── Terminal/            ← the terminal itself: screen buffer + VT parser, the view that draws it, the shell session
         ├── Themes/              ← LightTheme / DarkTheme colour palettes, Tokens (radii, heights, padding), Icons (every icon)
         │   └── Controls/        ← the reusable control styles, one dictionary per kind (see Control styles)
-        └── Services/            ← ActivityLog + OutputModel (the Output tab's runs, stages and lines), OperationRunner, ServerStore, EfficiencyMode + WindowOcclusion, TrayIcon (the notification area's icon), LiveSettings, DnnReleaseCatalog, ReleaseNotes (the notes built into the exe), TerminalService, ThemeManager (with Windows' Contrast themes), Toast (ToastQueue: toasts that stay wait their turn; screen-reader announcements), AccessibleName, SecretClipboard, IdeLocator, SsmsConnectDialog, SettingsStartup, ByteSize, GUI adapters
+        └── Services/            ← (ActivityLog, OutputModel, OperationRunner, LiveSettings and ByteSize are in src/DnnManager.Ui) ServerStore, EfficiencyMode + WindowOcclusion, TrayIcon (the notification area's icon), LiveSettings, DnnReleaseCatalog, ReleaseNotes (the notes built into the exe), TerminalService, ThemeManager (with Windows' Contrast themes), Toast (ToastQueue: toasts that stay wait their turn; screen-reader announcements), AccessibleName, SecretClipboard, IdeLocator, SsmsConnectDialog, SettingsStartup, ByteSize, GUI adapters
 ```
 
 ## Key design decisions

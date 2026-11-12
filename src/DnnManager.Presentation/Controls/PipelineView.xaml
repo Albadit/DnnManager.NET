@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:c="clr-namespace:DnnManager.Presentation.Controls"
              xmlns:s="clr-namespace:DnnManager.Presentation.Services"
+             xmlns:o="clr-namespace:DnnManager.Presentation.Services;assembly=DnnManager.Ui"
              FontSize="{DynamicResource TextCaption}">
     <!-- The Output tab, the "Pipeline Rail": the newest operation's status, title and times on top; its stages - and
          the sites kept warm, and its summary - on the left; on the right the log of every operation, grouped by stage.
@@ -84,7 +85,7 @@
             </Style.Triggers>
         </Style>
 
-        <DataTemplate x:Key="StageRow" DataType="{x:Type s:OutputStage}">
+        <DataTemplate x:Key="StageRow" DataType="{x:Type o:OutputStage}">
             <Button Style="{StaticResource StageButton}" IsEnabled="{Binding IsShownInLog}" Click="Stage_Click"
                     AutomationProperties.Name="{Binding Title}">
             <Border x:Name="Row" Padding="6,4,6,4" Margin="4,1" CornerRadius="{StaticResource ControlRadius}" Background="Transparent"
@@ -111,22 +112,22 @@
                     </MultiDataTrigger.Conditions>
                     <Setter TargetName="Row" Property="Background" Value="{DynamicResource HoverBg}" />
                 </MultiDataTrigger>
-                <DataTrigger Binding="{Binding Status}" Value="{x:Static s:StageStatus.Pending}">
+                <DataTrigger Binding="{Binding Status}" Value="{x:Static o:StageStatus.Pending}">
                     <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource OutDim}" />
                     <Setter TargetName="Duration" Property="Foreground" Value="{DynamicResource OutDim}" />
                 </DataTrigger>
-                <DataTrigger Binding="{Binding Status}" Value="{x:Static s:StageStatus.Running}">
+                <DataTrigger Binding="{Binding Status}" Value="{x:Static o:StageStatus.Running}">
                     <Setter TargetName="Icon" Property="Visibility" Value="Collapsed" />
                     <Setter TargetName="Spin" Property="Visibility" Value="Visible" />
                     <Setter TargetName="Row" Property="Background" Value="{DynamicResource SelectionBg}" />
                     <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource LogHeaderFg}" />
                 </DataTrigger>
-                <DataTrigger Binding="{Binding Status}" Value="{x:Static s:StageStatus.Ok}">
+                <DataTrigger Binding="{Binding Status}" Value="{x:Static o:StageStatus.Ok}">
                     <Setter TargetName="Icon" Property="Data" Value="{StaticResource StepCheck}" />
                     <Setter TargetName="Icon" Property="Stroke" Value="{DynamicResource OutOk}" />
                     <Setter TargetName="Icon" Property="StrokeThickness" Value="2" />
                 </DataTrigger>
-                <DataTrigger Binding="{Binding Status}" Value="{x:Static s:StageStatus.Warning}">
+                <DataTrigger Binding="{Binding Status}" Value="{x:Static o:StageStatus.Warning}">
                     <Setter TargetName="Icon" Property="Data" Value="{StaticResource StepTriangle}" />
                     <Setter TargetName="Icon" Property="Stroke" Value="{DynamicResource OutWarn}" />
                     <Setter TargetName="Icon" Property="StrokeThickness" Value="1.6" />
@@ -134,7 +135,7 @@
                     <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource OutWarnText}" />
                     <Setter TargetName="Duration" Property="Foreground" Value="{DynamicResource OutWarn}" />
                 </DataTrigger>
-                <DataTrigger Binding="{Binding Status}" Value="{x:Static s:StageStatus.Failed}">
+                <DataTrigger Binding="{Binding Status}" Value="{x:Static o:StageStatus.Failed}">
                     <Setter TargetName="Icon" Property="Data" Value="{StaticResource StepCross}" />
                     <Setter TargetName="Icon" Property="Stroke" Value="{DynamicResource OutError}" />
                     <Setter TargetName="Icon" Property="StrokeThickness" Value="2" />
@@ -142,14 +143,14 @@
                     <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource OutErrorText}" />
                     <Setter TargetName="Duration" Property="Foreground" Value="{DynamicResource OutErrorSoft}" />
                 </DataTrigger>
-                <DataTrigger Binding="{Binding Status}" Value="{x:Static s:StageStatus.Skipped}">
+                <DataTrigger Binding="{Binding Status}" Value="{x:Static o:StageStatus.Skipped}">
                     <Setter TargetName="Icon" Property="Data" Value="{StaticResource StepDash}" />
                     <Setter TargetName="Icon" Property="Stroke" Value="{DynamicResource OutSkippedIcon}" />
                     <Setter TargetName="Icon" Property="StrokeThickness" Value="2" />
                     <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource OutDim}" />
                     <Setter TargetName="Duration" Property="Foreground" Value="{DynamicResource OutDim}" />
                 </DataTrigger>
-                <DataTrigger Binding="{Binding Status}" Value="{x:Static s:StageStatus.Cancelled}">
+                <DataTrigger Binding="{Binding Status}" Value="{x:Static o:StageStatus.Cancelled}">
                     <Setter TargetName="Icon" Property="Data" Value="{StaticResource StepCross}" />
                     <Setter TargetName="Icon" Property="Stroke" Value="{DynamicResource OutMuted}" />
                     <Setter TargetName="Icon" Property="StrokeThickness" Value="2" />
@@ -233,7 +234,7 @@
                         <StackPanel>
                             <ItemsControl x:Name="Facts" Focusable="False">
                                 <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type s:OutputFact}">
+                                    <DataTemplate DataType="{x:Type o:OutputFact}">
                                         <DockPanel>
                                             <TextBlock DockPanel.Dock="Right" Style="{StaticResource SummaryValue}" Text="{Binding Value}" />
                                             <TextBlock Style="{StaticResource SummaryKey}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />

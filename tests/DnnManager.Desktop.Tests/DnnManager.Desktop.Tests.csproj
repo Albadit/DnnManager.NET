@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Tests of the cross-platform app (src/DnnManager.Desktop, Avalonia) - run on Windows, macOS and Linux alike: its
+    windows made headless (Avalonia.Headless, drawn with Skia), over a stand-in server that is a folder (FolderServer,
+    shared with the Windows app's tests), with DNN Manager's data in a folder of the test's own.
+    With DESKTOP_TEST_SCREENSHOTS set to a folder, what they drew is saved there.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\DnnManager.IntegrationTests\Support\FolderServer.cs" Link="Support\FolderServer.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="MSTest.TestAdapter" Version="4.5.1" />
+    <PackageReference Include="MSTest.TestFramework" Version="4.5.1" />
+    <PackageReference Include="Avalonia.Headless" Version="12.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DnnManager.Desktop\DnnManager.Desktop.csproj" />
+  </ItemGroup>
+
+</Project>

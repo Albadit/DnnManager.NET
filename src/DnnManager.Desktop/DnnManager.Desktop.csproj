@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    DNN Manager for Windows, macOS and Linux - its interface in Avalonia (MIT licensed, free), on the same
+    DnnManager.Core and DnnManager.Ui as the Windows app (DnnManager.csproj, WPF). What only Windows has - IIS, making
+    sites, LocalDB, the hosts file - says so on macOS and Linux (Application.Platform); Source Control works everywhere.
+
+    Run:      dotnet run (in src/DnnManager.Desktop)
+    Publish:  dotnet publish src/DnnManager.Desktop -c Release -r osx-arm64 (osx-x64, linux-x64, linux-arm64, win-x64)
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>DnnManager.Desktop</RootNamespace>
+    <AssemblyName>DnnManager.Desktop</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ApplicationIcon>..\DnnManager.Presentation\Assets\dnn.ico</ApplicationIcon>
+    <Product>DNN Manager</Product>
+    <Company>Albadit</Company>
+    <Version Condition="'$(Version)' == ''">0.0.0</Version>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <!-- The systems it is published for - in packages.lock.json too, so a locked restore can publish each. -->
+    <RuntimeIdentifiers>win-x64;win-arm64;osx-x64;osx-arm64;linux-x64;linux-arm64</RuntimeIdentifiers>
+    <PublishSingleFile Condition="'$(RuntimeIdentifier)' != ''">true</PublishSingleFile>
+    <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DnnManager.Desktop.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="..\DnnManager.Presentation\Assets\dnn.ico" Link="Assets\dnn.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <!-- One font on every system - Linux may have none of Windows' or macOS's. -->
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DnnManager.Core\DnnManager.Core.csproj" />
+    <ProjectReference Include="..\DnnManager.Ui\DnnManager.Ui.csproj" />
+  </ItemGroup>
+
+</Project>

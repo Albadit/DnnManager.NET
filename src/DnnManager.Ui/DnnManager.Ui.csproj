@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    DnnManager.Ui: what both of DNN Manager's interfaces share and neither draws - the activity log and the Output
+    tab's model, the operation runner, the live settings. No UI framework here: the Windows app (DnnManager.csproj,
+    WPF) and the cross-platform one (src/DnnManager.Desktop, Avalonia) each give it their UI thread (UiThread.Post).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>DnnManager.Presentation</RootNamespace>
+    <AssemblyName>DnnManager.Ui</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DnnManager" />
+    <InternalsVisibleTo Include="DnnManager.Desktop" />
+    <InternalsVisibleTo Include="DnnManager.IntegrationTests" />
+    <InternalsVisibleTo Include="DnnManager.Desktop.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DnnManager.Core\DnnManager.Core.csproj" />
+  </ItemGroup>
+
+</Project>

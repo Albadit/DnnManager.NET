@@ -19,7 +19,7 @@ namespace DnnManager.Presentation;
 internal static class Program
 {
     /// <summary>Prefix of the environment variables that override settings, e.g. <c>DNNMANAGER_DnnManager__SitePort</c>.</summary>
-    public const string EnvironmentPrefix = "DNNMANAGER_";
+    public const string EnvironmentPrefix = LiveSettings.EnvironmentPrefix;
 
     [STAThread]
     private static int Main(string[] args)
@@ -63,6 +63,8 @@ internal static class Program
 
         var app = new App();
         app.InitializeComponent();
+        // The shared presentation code (the activity log) writes on WPF's UI thread.
+        UiThread.Post = action => app.Dispatcher.InvokeAsync(action);
         // The keyboard's place, always visible.
         FocusRing.Install();
         using var activation = SingleInstance.Listen(app.Dispatcher);
@@ -138,6 +140,8 @@ internal static class Program
         using var host = builder.Build();
 
         App.Log = host.Services.GetRequiredService<ILogger<App>>();
+        // A second operation asked for while one runs: said, not asked.
+        host.Services.GetRequiredService<OperationRunner>().Refused += message => Toast.Show(message, ToastKind.Warning);
         App.LogsDirectory = host.Services.GetRequiredService<AppDataPaths>().LogsDirectory;
         var log = host.Services.GetRequiredService<ActivityLog>();
         foreach (var notice in startupNotices)

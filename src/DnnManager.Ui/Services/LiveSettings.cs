@@ -12,6 +12,9 @@ namespace DnnManager.Presentation.Services;
 /// </summary>
 public sealed class LiveSettings(IOptions<AppOptions> options, IConfiguration configuration, ActivityLog log)
 {
+    /// <summary>Prefix of the environment variables that override settings, e.g. <c>DNNMANAGER_DnnManager__SitePort</c>.</summary>
+    public const string EnvironmentPrefix = "DNNMANAGER_";
+
     private readonly AppOptions _options = options.Value;
     private readonly IConfiguration _configuration = configuration;
     private readonly ActivityLog _log = log;
@@ -44,7 +47,10 @@ public sealed class LiveSettings(IOptions<AppOptions> options, IConfiguration co
 
     /// <summary>What the start and a save say when the environment variables are left out.</summary>
     public static string OverridesIgnored(IReadOnlyList<string> problems) =>
-        $"The {Program.EnvironmentPrefix}* environment variables are ignored - they set values that aren't allowed: " +
+        $"The {EnvironmentPrefix}* environment variables are ignored - they set values that aren't allowed: " +
         string.Join(" ", problems.Select(p => "• " + p)) +
-        " Remove or correct them (Windows Settings → System → About → Advanced system settings → Environment Variables), then restart DNN Manager.";
+        " Remove or correct them " + (OperatingSystem.IsWindows()
+            ? "(Windows Settings → System → About → Advanced system settings → Environment Variables)"
+            : "(where your shell or session sets them - ~/.zprofile, ~/.profile or ~/.config/environment.d)") +
+        ", then restart DNN Manager.";
 }

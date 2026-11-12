@@ -73,6 +73,43 @@ jobs:
           # The launcher as a plain .NET build: it compiles; the release workflow publishes it with Native AOT.
           dotnet build src/DnnManager.Launcher/DnnManager.Launcher.csproj -c Release --no-restore -p:ContinuousIntegrationBuild=true -warnaserror
 
+  cross-platform:
+    # The cross-platform app (src/DnnManager.Desktop, Avalonia) and the layers it shares with the Windows app, built and
+    # tested on each system it runs on - warnings are errors here too. Its tests draw its windows headless: no screen needed.
+    name: Cross-platform (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # Pinned images, as the Windows jobs: a new one is a change in review.
+        os: [windows-2025, macos-15, ubuntu-24.04]
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore tests/DnnManager.Desktop.Tests/DnnManager.Desktop.Tests.csproj --locked-mode
+
+      - name: Build (Release)
+        run: >-
+          dotnet build tests/DnnManager.Desktop.Tests/DnnManager.Desktop.Tests.csproj -c Release --no-restore
+          -p:ContinuousIntegrationBuild=true -warnaserror
+
+      - name: Test
+        run: >-
+          dotnet test tests/DnnManager.Desktop.Tests/DnnManager.Desktop.Tests.csproj -c Release --no-build
+          --logger "console;verbosity=normal"
+
   test:
     name: Test
     runs-on: windows-2025

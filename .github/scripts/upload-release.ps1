@@ -25,7 +25,7 @@
 param(
     # The tag being released, vX.Y.Z or vX.Y.Z-suffix.
     [Parameter(Mandatory)] [string]$Tag,
-    # The signing job's files: both exes, SHA256SUMS.txt and release-notes.md.
+    # The signing job's files: both exes, the macOS and Linux packages, SHA256SUMS.txt and release-notes.md.
     [Parameter(Mandatory)] [string]$Directory,
     [Parameter(Mandatory)] [ValidateSet('Draft', 'Publish')] [string]$Stage,
     [string]$Repository = $env:GITHUB_REPOSITORY,
@@ -43,7 +43,10 @@ if ($Repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw "$Reposit
 if ($Commit -notmatch '^[0-9a-f]{40}$') { throw "'$Commit' isn't a commit (GITHUB_SHA)." }
 if (-not $env:GH_TOKEN) { throw 'GH_TOKEN isn''t set.' }
 
-$assets = "DnnManager_Portable-$version-x64.exe", "DnnManager_Setup-$version-x64.exe"
+# The Windows app (what its Update button downloads - an .exe), and the cross-platform app for macOS and Linux.
+$assets = "DnnManager_Portable-$version-x64.exe", "DnnManager_Setup-$version-x64.exe",
+          "DnnManager-$version-macos-arm64.zip", "DnnManager-$version-macos-x64.zip",
+          "DnnManager-$version-linux-x64.tar.gz", "DnnManager-$version-linux-arm64.tar.gz"
 $sumsPath = Join-Path $Directory 'SHA256SUMS.txt'
 $notesPath = Join-Path $Directory 'release-notes.md'
 

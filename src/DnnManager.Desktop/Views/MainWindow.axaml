@@ -1,0 +1,75 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:DnnManager.Desktop.Views"
+        x:Class="DnnManager.Desktop.Views.MainWindow"
+        x:DataType="v:MainWindow"
+        Title="DNN Manager" Icon="/Assets/dnn.ico"
+        Width="1280" Height="800" MinWidth="760" MinHeight="480"
+        Background="{DynamicResource EditorBrush}">
+  <!-- VS Code's layout: the activity bar (left), the view it shows, Output below (Ctrl+`), the status bar. -->
+  <DockPanel>
+    <!-- Status bar: what runs, and the system. -->
+    <Border DockPanel.Dock="Bottom" Background="{DynamicResource StatusBarBrush}" Height="24">
+      <DockPanel Margin="8,0">
+        <Button DockPanel.Dock="Right" Classes="icon" Foreground="White" Content="Output" Click="ToggleOutput_Click"
+                ToolTip.Tip="Show or hide Output (Ctrl+`)" Padding="6,0" />
+        <TextBlock x:Name="PlatformText" DockPanel.Dock="Right" Foreground="White" VerticalAlignment="Center" Margin="12,0" />
+        <TextBlock x:Name="StatusText" Foreground="White" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+      </DockPanel>
+    </Border>
+
+    <!-- Activity bar. -->
+    <Border DockPanel.Dock="Left" Background="{DynamicResource ActivityBarBrush}" Width="48">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Bottom">
+          <ToggleButton x:Name="NavSettings" Classes="activity" ToolTip.Tip="Settings" Click="Nav_Click" Tag="Settings">
+            <Path Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="1.3" Width="22" Height="22" Stretch="Uniform"
+                  Data="M8,5.5 A2.5,2.5 0 1 1 7.99,5.5 Z M8,1 V3 M8,13 V15 M1,8 H3 M13,8 H15 M3,3 L4.5,4.5 M11.5,11.5 L13,13 M13,3 L11.5,4.5 M4.5,11.5 L3,13" />
+          </ToggleButton>
+        </StackPanel>
+        <StackPanel>
+          <ToggleButton x:Name="NavSourceControl" Classes="activity" ToolTip.Tip="Source Control (Ctrl+Shift+G) - compare projects with their servers, push and pull files"
+                        Click="Nav_Click" Tag="SourceControl" IsChecked="True">
+            <Path Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="1.3" Width="22" Height="22" Stretch="Uniform"
+                  Data="M2.25,2.75 A1.75,1.75 0 1 1 5.75,2.75 A1.75,1.75 0 1 1 2.25,2.75 Z M2.25,13.25 A1.75,1.75 0 1 1 5.75,13.25 A1.75,1.75 0 1 1 2.25,13.25 Z M10.25,4.75 A1.75,1.75 0 1 1 13.75,4.75 A1.75,1.75 0 1 1 10.25,4.75 Z M4,4.5 V11.5 M12,6.5 C12,9.75 4,8.5 4,11.5" />
+          </ToggleButton>
+          <ToggleButton x:Name="NavProjects" Classes="activity" Click="Nav_Click" Tag="Projects">
+            <Path Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="1.3" Width="22" Height="22" Stretch="Uniform"
+                  Data="M1,3 H15 M1,8 H15 M1,13 H15" />
+          </ToggleButton>
+          <ToggleButton x:Name="NavSetup" Classes="activity" Click="Nav_Click" Tag="Setup">
+            <Path Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="1.3" Width="22" Height="22" Stretch="Uniform"
+                  Data="M8,1 V15 M1,8 H15" />
+          </ToggleButton>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- The view, and Output below it. -->
+    <Grid x:Name="Body" RowDefinitions="*,Auto,0">
+      <ContentControl x:Name="ViewHost" Grid.Row="0" />
+      <GridSplitter x:Name="OutputSplitter" Grid.Row="1" Height="4" ResizeDirection="Rows" IsVisible="False"
+                    Background="{DynamicResource BorderBrush}" />
+      <Border x:Name="OutputPanel" Grid.Row="2" Background="{DynamicResource PanelBrush}" IsVisible="False">
+        <DockPanel>
+          <DockPanel DockPanel.Dock="Top" Margin="12,6,6,4">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4">
+              <Button Classes="icon" Content="Cancel" x:Name="CancelButton" Click="Cancel_Click" IsVisible="False"
+                      ToolTip.Tip="Cancel the operation that runs - what it did is put back" />
+              <Button Classes="icon" Content="Clear" Click="ClearOutput_Click" />
+              <Button Classes="icon" Content="✕" Click="ToggleOutput_Click" ToolTip.Tip="Hide Output" />
+            </StackPanel>
+            <TextBlock Classes="section" Text="OUTPUT" VerticalAlignment="Center" />
+          </DockPanel>
+          <ListBox x:Name="OutputList" Background="Transparent" FontFamily="{StaticResource CodeFont}" FontSize="12">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="v:OutputRow">
+                <SelectableTextBlock Text="{Binding Text}" Foreground="{Binding Foreground}" TextWrapping="Wrap" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </DockPanel>
+      </Border>
+    </Grid>
+  </DockPanel>
+</Window>

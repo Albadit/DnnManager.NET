@@ -62,11 +62,15 @@ public static class InfrastructureServiceCollectionExtensions
             var options = sp.GetRequiredService<IOptions<AppOptions>>().Value;
             return new FolderChangeSource(ChangeKind.Projects, "the projects folder", () => options.BaseDirectory);
         });
-        services.AddSingleton<IChangeSource>(_ => new FolderChangeSource(ChangeKind.Iis, "IIS's configuration",
-            Path.Combine(Environment.SystemDirectory, "inetsrv", "config"), "applicationHost.config"));
-        services.AddSingleton<IChangeSource>(_ => new ServiceStatusSource(ChangeKind.Iis, "the IIS service", "W3SVC"));
-        services.AddSingleton<IChangeSource>(_ => new EventLogSource(ChangeKind.Iis, "IIS's events", "System",
-            "*[System[Provider[@Name='Microsoft-Windows-WAS' or @Name='Microsoft-Windows-IIS-W3SVC']]]"));
+        // IIS - its configuration, service and events - only Windows has (Application.Platform).
+        if (OperatingSystem.IsWindows())
+        {
+            services.AddSingleton<IChangeSource>(_ => new FolderChangeSource(ChangeKind.Iis, "IIS's configuration",
+                Path.Combine(Environment.SystemDirectory, "inetsrv", "config"), "applicationHost.config"));
+            services.AddSingleton<IChangeSource>(_ => new ServiceStatusSource(ChangeKind.Iis, "the IIS service", "W3SVC"));
+            services.AddSingleton<IChangeSource>(_ => new EventLogSource(ChangeKind.Iis, "IIS's events", "System",
+                "*[System[Provider[@Name='Microsoft-Windows-WAS' or @Name='Microsoft-Windows-IIS-W3SVC']]]"));
+        }
         services.AddSingleton<ServerStateMonitor>();
         services.AddSingleton<IServerStateFeed>(sp => sp.GetRequiredService<ServerStateMonitor>());
         // Keeps the sites switched to "keep warm" warm while DNN Manager runs - it follows the monitor.

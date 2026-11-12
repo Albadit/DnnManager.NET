@@ -78,7 +78,7 @@ public sealed class AppOptions
         .Select(p => UserSettings.OptionNameOf(p.Key) is { } name ? $"{name} ({p.Key}) {p.Message}" : p.ToString())
         .ToList();
 
-    public string BaseDirectory { get; set; } = @"C:\DNN";
+    public string BaseDirectory { get; set; } = Platform.DefaultProjectsFolder;
     public int SitePort { get; set; } = 80;
     public string HostnameSuffix { get; set; } = "dnndev.me";
     /// <summary>"light", "dark" or "system" (follow the Windows app theme). Set in Settings - General.</summary>

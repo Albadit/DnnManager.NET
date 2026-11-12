@@ -1,0 +1,195 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="using:DnnManager.Desktop.Views"
+             x:Class="DnnManager.Desktop.Views.SourceControlView"
+             x:DataType="v:SourceControlView">
+  <!-- VS Code's Source Control for a project's servers: SERVERS (each project's servers - Ctrl+click for more than one),
+       the message with Push and Pull, CHANGES (staged, to push, to pull, conflicts), HISTORY; the diff in the editor. -->
+  <Grid ColumnDefinitions="340,4,*">
+    <!-- ─── The side bar ─── -->
+    <Border Grid.Column="0" Background="{DynamicResource SideBarBrush}">
+      <Grid x:Name="SideGrid" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto">
+        <DockPanel Grid.Row="0" Margin="12,8,6,4">
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+            <Button Classes="icon" Content="⟳" FontSize="15" x:Name="ScanButton" Click="Scan_Click"
+                    ToolTip.Tip="Compare the servers chosen with their projects (F5)" />
+            <Button Classes="icon" Content="+" FontSize="16" Click="Add_Click" ToolTip.Tip="Add a server to a project" />
+          </StackPanel>
+          <TextBlock Classes="section" Text="SOURCE CONTROL" VerticalAlignment="Center" />
+        </DockPanel>
+
+        <!-- SERVERS -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,6">
+          <TextBlock Classes="section" Text="SERVERS" Margin="12,4" />
+          <ListBox x:Name="ServersList" SelectionMode="Multiple" MaxHeight="190" Background="Transparent"
+                   SelectionChanged="Server_Changed">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="v:ServerRow">
+                <DockPanel ToolTip.Tip="{Binding Tip}" Background="Transparent">
+                  <DockPanel.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="Compare" Tag="{Binding}" Click="CompareOne_Click" />
+                      <MenuItem Header="Edit…" Tag="{Binding}" Click="Edit_Click" />
+                      <MenuItem Header="Test the connection" Tag="{Binding}" Click="Test_Click" />
+                      <MenuItem Header="Open the local folder" Tag="{Binding}" Click="OpenFolder_Click" />
+                      <Separator />
+                      <MenuItem Header="Remove…" Tag="{Binding}" Click="Remove_Click" />
+                    </ContextMenu>
+                  </DockPanel.ContextMenu>
+                  <Ellipse DockPanel.Dock="Left" Width="8" Height="8" Fill="{Binding Health}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                  <TextBlock DockPanel.Dock="Right" Text="{Binding Counts}" Classes="muted" VerticalAlignment="Center" Margin="6,0,0,0" />
+                  <StackPanel>
+                    <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Detail}" Classes="muted" FontSize="11" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                </DockPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <TextBlock x:Name="NoServers" Classes="muted" Margin="12,4" TextWrapping="Wrap" IsVisible="False"
+                     Text="No servers yet. Add one with + - a project's FTP or SFTP server, to compare the project with it and push and pull its files." />
+        </StackPanel>
+
+        <!-- The message, Push and Pull -->
+        <StackPanel Grid.Row="2" x:Name="CommitArea" Margin="12,0,12,8" Spacing="6">
+          <TextBox x:Name="CommitMessage" PlaceholderText="Message (Ctrl+Enter to push the staged files)" AcceptsReturn="True"
+                   TextWrapping="Wrap" MaxHeight="90" KeyDown="CommitMessage_KeyDown" />
+          <Grid ColumnDefinitions="*,6,*">
+            <Button x:Name="PushButton" Grid.Column="0" Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    Content="↑ Push" Click="Push_Click" />
+            <Button x:Name="PullButton" Grid.Column="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    Content="↓ Pull" Click="Pull_Click" />
+          </Grid>
+        </StackPanel>
+
+        <!-- CHANGES' header: the server shown, when more than one is chosen -->
+        <DockPanel Grid.Row="3" Margin="12,4,6,2">
+          <Button x:Name="ChangesServer" DockPanel.Dock="Right" Classes="icon" IsVisible="False" Click="ChangesServer_Click"
+                  ToolTip.Tip="Show another of the servers chosen">
+            <TextBlock x:Name="ChangesServerText" FontSize="11" TextTrimming="CharacterEllipsis" MaxWidth="180" />
+          </Button>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="section" Text="CHANGES" VerticalAlignment="Center" />
+            <TextBlock x:Name="ScanSummary" Classes="muted" FontSize="11" VerticalAlignment="Center" />
+          </StackPanel>
+        </DockPanel>
+        <TextBlock Grid.Row="4" x:Name="ChangesMessage" Classes="muted" Margin="12,4" TextWrapping="Wrap" IsVisible="False" />
+
+        <ListBox Grid.Row="5" x:Name="Changes" Background="Transparent" SelectionChanged="Change_Changed" KeyDown="Changes_KeyDown">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="v:ChangeRow">
+              <Panel ToolTip.Tip="{Binding Tip}">
+                <!-- A group's header -->
+                <DockPanel IsVisible="{Binding IsHeader}" Background="Transparent" Tapped="Header_Tapped">
+                  <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Classes="icon" Content="+" IsVisible="{Binding CanStageAll}" Tag="{Binding}" Click="StageGroup_Click"
+                            ToolTip.Tip="Stage all - files that look like secrets stay unstaged" />
+                    <Button Classes="icon" Content="−" IsVisible="{Binding CanUnstageAll}" Tag="{Binding}" Click="UnstageGroup_Click"
+                            ToolTip.Tip="Unstage all" />
+                  </StackPanel>
+                  <TextBlock Text="{Binding HeaderText}" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" />
+                </DockPanel>
+                <!-- A file -->
+                <DockPanel IsVisible="{Binding IsFile}" Margin="12,0,0,0">
+                  <TextBlock DockPanel.Dock="Right" Text="{Binding Letter}" Foreground="{Binding LetterBrush}" FontWeight="SemiBold"
+                             Width="14" TextAlignment="Center" VerticalAlignment="Center" />
+                  <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Classes="icon" Content="+" IsVisible="{Binding CanStage}" Tag="{Binding}" Click="Stage_Click" ToolTip.Tip="Stage" />
+                    <Button Classes="icon" Content="−" IsVisible="{Binding CanUnstage}" Tag="{Binding}" Click="Unstage_Click" ToolTip.Tip="Unstage" />
+                  </StackPanel>
+                  <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                    <Run Text="{Binding Arrow}" /><Run Text="{Binding Name}" /><Run Text="  " /><Run Text="{Binding Folder}" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
+                  </TextBlock>
+                </DockPanel>
+              </Panel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+
+        <!-- HISTORY -->
+        <DockPanel Grid.Row="6" Margin="12,6,6,2">
+          <Button x:Name="RollbackButton" DockPanel.Dock="Right" Classes="icon" Content="↺ Roll back" IsEnabled="False" Click="Rollback_Click"
+                  ToolTip.Tip="Put back what the chosen push or pull changed" />
+          <Button x:Name="HistoryToggle" Classes="icon" Padding="0" Click="HistoryToggle_Click" ToolTip.Tip="Show or hide the history">
+            <TextBlock Classes="section" Text="▾ HISTORY" x:Name="HistoryTitle" />
+          </Button>
+        </DockPanel>
+        <ListBox Grid.Row="7" x:Name="HistoryList" Height="170" Background="Transparent" SelectionChanged="Operation_Changed">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="v:OperationRow">
+              <DockPanel ToolTip.Tip="{Binding Tip}" Opacity="{Binding Opacity}">
+                <TextBlock DockPanel.Dock="Left" Text="{Binding Arrow}" Width="18" VerticalAlignment="Center" />
+                <TextBlock DockPanel.Dock="Right" Text="{Binding When}" Classes="muted" FontSize="11" VerticalAlignment="Center" Margin="6,0,0,0" />
+                <StackPanel>
+                  <TextBlock Text="{Binding Message}" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="{Binding Result}" Classes="muted" FontSize="11" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+              </DockPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Border>
+
+    <GridSplitter Grid.Column="1" ResizeDirection="Columns" Background="{DynamicResource BorderBrush}" />
+
+    <!-- ─── The editor: the chosen file's diff ─── -->
+    <DockPanel Grid.Column="2">
+      <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="12,6">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
+            <StackPanel x:Name="ConflictBar" Orientation="Horizontal" Spacing="6" IsVisible="False">
+              <Button Content="Keep the project's" Click="KeepLocal_Click" ToolTip.Tip="The server gets the project's version" />
+              <Button Content="Take the server's" Click="TakeRemote_Click" ToolTip.Tip="The project gets the server's version" />
+            </StackPanel>
+            <CheckBox x:Name="SideBySide" Content="Side by side" IsChecked="True" Click="DiffMode_Click"
+                      ToolTip.Tip="Side by side, or one column (unified)" />
+          </StackPanel>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock x:Name="DiffTitle" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+            <TextBlock x:Name="DiffSides" Classes="muted" FontSize="11" />
+          </StackPanel>
+        </DockPanel>
+      </Border>
+      <StackPanel DockPanel.Dock="Top" x:Name="ProgressArea" IsVisible="False" Margin="12,6" Spacing="4">
+        <ProgressBar x:Name="ProgressBar" IsIndeterminate="True" Height="4" MinHeight="4" />
+        <TextBlock x:Name="ProgressText" Classes="muted" FontSize="11" TextTrimming="CharacterEllipsis" />
+      </StackPanel>
+      <Panel>
+        <TextBlock x:Name="DiffMessage" Classes="muted" Margin="24" TextWrapping="Wrap"
+                   Text="Choose a file in CHANGES to see what differs." />
+        <!-- One column: - and + -->
+        <ListBox x:Name="UnifiedList" IsVisible="False" Background="Transparent" FontFamily="{StaticResource CodeFont}" FontSize="12.5"
+                 SelectionMode="Multiple">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="v:DiffRow">
+              <Grid ColumnDefinitions="44,44,18,*" Background="{Binding Background}">
+                <TextBlock Grid.Column="0" Text="{Binding OldNumber}" Classes="muted" TextAlignment="Right" Margin="0,0,6,0" />
+                <TextBlock Grid.Column="1" Text="{Binding NewNumber}" Classes="muted" TextAlignment="Right" Margin="0,0,6,0" />
+                <TextBlock Grid.Column="2" Text="{Binding Sign}" />
+                <SelectableTextBlock Grid.Column="3" Text="{Binding Text}" FontWeight="{Binding Weight}" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <!-- Side by side: the old left, the new right -->
+        <ListBox x:Name="SplitList" IsVisible="False" Background="Transparent" FontFamily="{StaticResource CodeFont}" FontSize="12.5">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="v:DiffRow">
+              <Grid ColumnDefinitions="44,*,44,*">
+                <TextBlock Grid.Column="0" Text="{Binding OldNumber}" Classes="muted" TextAlignment="Right" Margin="0,0,6,0" />
+                <Border Grid.Column="1" Background="{Binding LeftBackground}">
+                  <SelectableTextBlock Text="{Binding LeftText}" FontWeight="{Binding Weight}" TextTrimming="CharacterEllipsis" />
+                </Border>
+                <TextBlock Grid.Column="2" Text="{Binding NewNumber}" Classes="muted" TextAlignment="Right" Margin="0,0,6,0" />
+                <Border Grid.Column="3" Background="{Binding RightBackground}">
+                  <SelectableTextBlock Text="{Binding RightText}" FontWeight="{Binding Weight}" TextTrimming="CharacterEllipsis" />
+                </Border>
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Panel>
+    </DockPanel>
+  </Grid>
+</UserControl>

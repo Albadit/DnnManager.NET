@@ -13,15 +13,19 @@ public sealed class LayeringTests
     private static readonly string Source = Path.Combine(RepositoryRoot(), "src");
 
     [TestMethod]
-    [DataRow("DnnManager.Domain", "Application", "Infrastructure", "Presentation")]
-    [DataRow("DnnManager.Application", "Infrastructure", "Presentation")]
-    [DataRow("DnnManager.Infrastructure", "Presentation")]
+    [DataRow("DnnManager.Domain", "Application", "Infrastructure", "Presentation", "Desktop")]
+    [DataRow("DnnManager.Application", "Infrastructure", "Presentation", "Desktop")]
+    [DataRow("DnnManager.Infrastructure", "Presentation", "Desktop")]
+    // What both interfaces share uses neither of them (its namespace is Presentation.Services: the WPF app's own is "Pages", "Controls"…).
+    [DataRow("DnnManager.Ui", "Desktop", @"Presentation\.(?!Services\b)\w+")]
     public void A_layer_uses_none_above_it(string layer, params string[] above)
     {
         var uses = new Regex($@"\bDnnManager\.({string.Join('|', above)})\b");
         var found = new List<string>();
         foreach (var file in Directory.EnumerateFiles(Path.Combine(Source, layer), "*.cs", SearchOption.AllDirectories))
         {
+            // What a build generated there (obj, bin) isn't the layers' code.
+            if (IsBuildOutput(file)) continue;
             var lines = File.ReadAllLines(file);
             for (var i = 0; i < lines.Length; i++)
             {
@@ -49,12 +53,16 @@ public sealed class LayeringTests
 
     [TestMethod]
     [DataRow("DnnManager.Presentation")]
+    [DataRow("DnnManager.Ui")]
+    [DataRow("DnnManager.Desktop")]
     public void Presentation_uses_only_the_Infrastructure_it_uses_today(string layer)
     {
         var uses = new Regex(@"\bDnnManager\.Infrastructure(\.[A-Za-z]+)?\b");
         var found = new List<string>();
         foreach (var file in Directory.EnumerateFiles(Path.Combine(Source, layer), "*.cs", SearchOption.AllDirectories))
         {
+            // What a build generated there (obj, bin) isn't the layers' code.
+            if (IsBuildOutput(file)) continue;
             var lines = File.ReadAllLines(file);
             for (var i = 0; i < lines.Length; i++)
             {
@@ -90,6 +98,8 @@ public sealed class LayeringTests
         var found = new List<string>();
         foreach (var file in Directory.EnumerateFiles(Source, "*.cs", SearchOption.AllDirectories))
         {
+            // What a build generated there (obj, bin) isn't the layers' code.
+            if (IsBuildOutput(file)) continue;
             var relative = Path.GetRelativePath(Source, file);
             if (relative.Contains(@"\bin\", StringComparison.OrdinalIgnoreCase) || relative.Contains(@"\obj\", StringComparison.OrdinalIgnoreCase) ||
                 relative.StartsWith("DnnManager.Launcher", StringComparison.OrdinalIgnoreCase) ||
@@ -106,6 +116,9 @@ public sealed class LayeringTests
         Assert.AreEqual(0, found.Count, "Start it through ProcessRunner or ElevatedStart (as Administrator), or as the user:" +
                                         Environment.NewLine + string.Join(Environment.NewLine, found));
     }
+
+    private static bool IsBuildOutput(string file) =>
+        Path.GetRelativePath(Source, file).Split(Path.DirectorySeparatorChar).Any(part => part is "obj" or "bin");
 
     // Above the test's binaries (built in the repository) - or above this file, as the compiler saw it (built elsewhere).
     private static string RepositoryRoot([System.Runtime.CompilerServices.CallerFilePath] string thisFile = "")

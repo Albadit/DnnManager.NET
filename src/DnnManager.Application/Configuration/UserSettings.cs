@@ -292,7 +292,7 @@ public sealed class UserSettings
 public sealed class ProjectSettings
 {
     /// <summary>Where projects live - every project is a folder in here.</summary>
-    public string BaseDirectory { get; set; } = @"C:\DNN";
+    public string BaseDirectory { get; set; } = Platform.DefaultProjectsFolder;
     /// <summary>Sites answer at <c>http://{project}.{HostnameSuffix}[:SitePort]</c>.</summary>
     public string HostnameSuffix { get; set; } = "dnndev.me";
     public int SitePort { get; set; } = 80;

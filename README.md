@@ -78,6 +78,9 @@ The [user guide](.docs/user-guide.md) walks through every page, menu and setting
 ## Requirements
 
 - Windows 10 / 11 or Windows Server, with IIS (DNN Manager can enable it)
+- **macOS and Linux:** DNN Manager for macOS, Linux and Windows runs Source
+  Control there (compare, push and pull over FTP / SFTP) - making and running DNN
+  sites needs IIS, Windows only. See [.docs/cross-platform.md](.docs/cross-platform.md)
 - An account that can run programs as Administrator
 - For the default database: Docker Desktop with Linux containers - or any SQL
   Server, SQL Server Express or LocalDB instead
@@ -91,6 +94,8 @@ git clone https://github.com/Albadit/DnnManager.NET.git
 cd DnnManager.NET
 dotnet run                    # builds and starts the app (asks for admin rights)
 dotnet test tests/DnnManager.IntegrationTests --filter "TestCategory!=Integration"   # fast tests
+dotnet run --project src/DnnManager.Desktop   # the cross-platform app (macOS, Linux, Windows)
+dotnet test tests/DnnManager.Desktop.Tests    # its tests - on any system
 ```
 
 Debugging, the conventions and how to extend it are in
@@ -100,11 +105,16 @@ Debugging, the conventions and how to extend it are in
 
 ## How it's built
 
-A WPF app on .NET 10, laid out as Clean Architecture in a single project:
+A WPF app on .NET 10 for Windows, and an [Avalonia](https://avaloniaui.net) app
+for macOS, Linux and Windows (`src/DnnManager.Desktop`), on the same layers -
+`DnnManager.Core` (Domain, Application, Infrastructure) and `DnnManager.Ui`
+(what both interfaces share):
 
 | Layer | What it holds |
 |---|---|
-| `DnnManager.Presentation` | WPF windows, pages, themes and the app's start-up |
+| `DnnManager.Presentation` | WPF windows, pages, themes and the app's start-up (the Windows app) |
+| `DnnManager.Desktop` | The cross-platform app's windows (Avalonia) |
+| `DnnManager.Ui` | What both share and neither draws: the activity log, the operation runner, the live settings |
 | `DnnManager.Application` | Use cases (new project, import, clone, remove…) and the interfaces they need |
 | `DnnManager.Infrastructure` | IIS, Docker, SQL Server, GitHub releases, settings, keep warm, logs |
 | `DnnManager.Domain` | Plain records, no dependencies |
@@ -120,6 +130,7 @@ code are in [.docs/architecture.md](.docs/architecture.md).
 | For | Document | What's in it |
 |---|---|---|
 | Users | [User guide](.docs/user-guide.md) | The window, every page and menu, automatic DNN setup, import / host / clone, keep warm, backups, limitations |
+| | [macOS, Linux and Windows](.docs/cross-platform.md) | The cross-platform app: install, where your data is, why IIS stays on Windows, what isn't there yet |
 | | [Configuration](.docs/configuration.md) | `Documents\DnnManager` and its database, every settings key, environment variables |
 | | [Troubleshooting](.docs/troubleshooting.md) | Known problems, their causes and fixes |
 | Developers | [Development](.docs/development.md) | Prerequisites, build, run, debugging, conventions, extending |

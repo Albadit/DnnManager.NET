@@ -1,0 +1,46 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="DnnManager.Desktop.Views.SettingsView">
+  <!-- The settings this app uses so far - saved in the same database as the Windows app's. -->
+  <ScrollViewer>
+    <StackPanel Margin="32,24" MaxWidth="720" HorizontalAlignment="Left" Spacing="18">
+      <TextBlock Text="Settings" FontSize="22" FontWeight="SemiBold" />
+
+      <StackPanel Spacing="6">
+        <TextBlock Text="Theme" FontWeight="SemiBold" />
+        <ComboBox x:Name="ThemeBox" Width="220" SelectionChanged="Theme_Changed">
+          <ComboBoxItem Tag="system">Follow the system</ComboBoxItem>
+          <ComboBoxItem Tag="light">Light</ComboBoxItem>
+          <ComboBoxItem Tag="dark">Dark</ComboBoxItem>
+        </ComboBox>
+      </StackPanel>
+
+      <StackPanel Spacing="6">
+        <TextBlock Text="Projects folder" FontWeight="SemiBold" />
+        <TextBlock Classes="muted" TextWrapping="Wrap"
+                   Text="Each folder in it is a project Source Control lists. A server can also have a local folder of its own, anywhere." />
+        <Grid ColumnDefinitions="*,6,Auto">
+          <TextBox x:Name="ProjectsBox" />
+          <Button Grid.Column="2" Content="Browse…" Click="ChooseProjects_Click" />
+        </Grid>
+      </StackPanel>
+
+      <StackPanel Spacing="6">
+        <TextBlock Text="Source Control" FontWeight="SemiBold" />
+        <CheckBox x:Name="CompareBox" Content="Compare a server as soon as you choose it on Source Control" />
+      </StackPanel>
+
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <Button Content="Save" Classes="accent" Click="Save_Click" MinWidth="88" HorizontalContentAlignment="Center" />
+        <TextBlock x:Name="SaveResult" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="560" />
+      </StackPanel>
+
+      <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="0,14,0,0">
+        <StackPanel Spacing="4">
+          <TextBlock Text="About" FontWeight="SemiBold" />
+          <SelectableTextBlock x:Name="AboutText" Classes="muted" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

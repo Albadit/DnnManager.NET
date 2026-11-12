@@ -126,6 +126,9 @@ public sealed class UntrustedServerException(string presented, string? trusted, 
 public interface IDeployStore
 {
     IReadOnlyList<DeployConnection> Connections(string site);
+
+    /// <summary>The projects (sites) that have a server - on macOS and Linux, where there is no IIS to list them.</summary>
+    IReadOnlyList<string> Sites();
     DeployConnection? Connection(Guid id);
 
     /// <summary>Adds or replaces the connection (not its secrets - <see cref="SaveSecrets"/>).</summary>

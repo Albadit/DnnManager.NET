@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Text.RegularExpressions;
-using System.Windows.Threading;
 using DnnManager.Infrastructure.Files;
 
 namespace DnnManager.Presentation.Services;
@@ -19,10 +18,10 @@ namespace DnnManager.Presentation.Services;
 /// </remarks>
 public sealed partial class ActivityLog(DailyLogFile file) : INotifyPropertyChanged
 {
-    // The app's UI thread - a test gives its own.
-    private readonly Dispatcher _dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+    // The app's UI thread (UiThread.Post, set by the app as it starts) - a test gives its own.
+    private readonly Action<Action> _post = UiThread.Post;
 
-    internal ActivityLog(DailyLogFile file, Dispatcher dispatcher) : this(file) => _dispatcher = dispatcher;
+    internal ActivityLog(DailyLogFile file, Action<Action> post) : this(file) => _post = post;
     private readonly DailyLogFile _file = file;
 
     // The run going on now; null between runs.
@@ -397,6 +396,6 @@ public sealed partial class ActivityLog(DailyLogFile file) : INotifyPropertyChan
     {
         // The time it was written, not when the UI thread got to it.
         var now = Clock();
-        _dispatcher.InvokeAsync(() => action(now));
+        _post(() => action(now));
     }
 }

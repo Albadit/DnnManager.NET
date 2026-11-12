@@ -1,0 +1,95 @@
+# Desktop: DNN Manager for macOS, Linux and Windows (src/DnnManager.Desktop, Avalonia) - built and packaged. Free to
+# make: nothing is signed with a paid certificate - the macOS app is signed ad hoc (codesign -s -), which Apple Silicon
+# needs to start it, and isn't notarized: the first start is Right-click -> Open (see .docs/cross-platform.md).
+#
+#   DnnManager-<version>-macos-arm64.zip    DNN Manager.app, Apple Silicon
+#   DnnManager-<version>-macos-x64.zip      DNN Manager.app, Intel
+#   DnnManager-<version>-linux-x64.tar.gz   the program, with a .desktop file
+#   DnnManager-<version>-linux-arm64.tar.gz
+#   DnnManager-<version>-windows-x64.zip    the program - only by hand: a release's Windows files are its Setup and
+#                                           portable exe (the Windows app, with IIS)
+#
+# Two ways it runs:
+#   by hand   Actions -> Desktop -> Run workflow: all five, kept as the run's artifacts.
+#   release   called by the release workflow (.github/workflows/release.yml) with the tag's version: the macOS and
+#             Linux packages, as the artifacts desktop-<name> - its sign job checksums and attests them, and they go on
+#             the release with the Windows files.
+name: Desktop
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      version:
+        description: The version the packages carry - the release tag's, without the v (2.0.0-rc1).
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  package:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # macOS on a Mac: codesign signs the app there. Windows only by hand (see above).
+        include: ${{ fromJSON(inputs.version && '[{"os":"macos-15","rid":"osx-arm64","name":"macos-arm64"},{"os":"macos-15","rid":"osx-x64","name":"macos-x64"},{"os":"ubuntu-24.04","rid":"linux-x64","name":"linux-x64"},{"os":"ubuntu-24.04","rid":"linux-arm64","name":"linux-arm64"}]' || '[{"os":"macos-15","rid":"osx-arm64","name":"macos-arm64"},{"os":"macos-15","rid":"osx-x64","name":"macos-x64"},{"os":"ubuntu-24.04","rid":"linux-x64","name":"linux-x64"},{"os":"ubuntu-24.04","rid":"linux-arm64","name":"linux-arm64"},{"os":"windows-2025","rid":"win-x64","name":"windows-x64"}]') }}
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+
+      - name: Version
+        # The release's (2.0.0-rc1), or the newest tag's for a run by hand; 0.0.0 without one. The file version is its
+        # numbers only (2.0.0.0).
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          $version = if ($env:RELEASE_VERSION) { $env:RELEASE_VERSION }
+                     elseif ((git describe --tags --abbrev=0 --match 'v[0-9]*' 2>$null) -match '^v(.+)$') { $Matches[1] }
+                     else { '0.0.0' }
+          if ($version -notmatch '^(\d+\.\d+\.\d+)(-[0-9A-Za-z.-]+)?$') { throw "$version isn't a version like 2.0.0 or 2.0.0-rc1." }
+          "VERSION=$version" >> $env:GITHUB_ENV
+          "FILE_VERSION=$($Matches[1]).0" >> $env:GITHUB_ENV
+
+      - name: Restore
+        run: dotnet restore src/DnnManager.Desktop/DnnManager.Desktop.csproj --locked-mode
+
+      - name: Publish
+        # One self-contained file - no .NET to install.
+        run: >-
+          dotnet publish src/DnnManager.Desktop/DnnManager.Desktop.csproj -c Release -r ${{ matrix.rid }} --no-restore
+          "-p:Version=$env:VERSION" "-p:AssemblyVersion=$env:FILE_VERSION" "-p:FileVersion=$env:FILE_VERSION"
+          -p:ContinuousIntegrationBuild=true -o out/app
+
+      - name: Package
+        run: ./src/DnnManager.Desktop/Packaging/package.ps1 -Publish out/app -Rid ${{ matrix.rid }} -Version $env:VERSION -Out out/dist -Name ${{ matrix.name }}
+
+      - name: Keep the package
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-${{ matrix.name }}
+          path: out/dist/*
+          if-no-files-found: error
+          retention-days: 7
