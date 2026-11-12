@@ -6,9 +6,12 @@
 .DESCRIPTION
     1. Lists .docs\release-notes\vX.Y.Z.md - the file's name is the version, the tag and the release title.
     2. Lists the recent commits of the current branch; the newest is the default.
-    3. Checks the tag is free and GitHub has no published release of it, and that the commit has the release notes
+       Then the release label, as GitHub names it - Latest (what every DNN Manager's Update button offers),
+       Pre-release or None - and the platforms to build: Windows (Setup and the portable exe), macOS and Linux (the
+       cross-platform app's packages). Both go into the version tag's message, which the release workflow reads.
+    3. Checks the tag is free and GitHub has no published release of it, that the commit has the release notes
        and the release workflow (.github\workflows\release.yml) - the release is built from that commit, notes
-       included.
+       included - and that the label fits: a vX.Y.Z-suffix version or a release without Windows is never Latest.
     4. Checks out that commit into a temporary worktree (your working copy is not touched), restores the packages
        as GitHub does (locked mode: exactly packages.lock.json) and runs the fast tests - a problem shows here, before
        the tag exists.
@@ -20,18 +23,17 @@
 
     The only credential it uses is the one Git pushes the tag with. GitHub's public API is asked - without signing
     in - whether the release is published already. The VS Code task
-    "release (GitHub)" asks for the notes file and the commit in VS Code's pickers (filled by -List); run directly,
-    it asks in the terminal.
+    "Release" asks for the notes file, the commit, the label and the platforms in VS Code's pickers (filled
+    by -List); run directly, it asks in the terminal.
 
 .EXAMPLE
     .github\scripts\publish-release.ps1
 .EXAMPLE
     .github\scripts\publish-release.ps1 -NotesFile .docs\release-notes\v1.7.0.md -Commit 9030c5f -SkipTests
 .EXAMPLE
-    .github\scripts\publish-release.ps1 -List commits
+    .github\scripts\publish-release.ps1 -NotesFile .docs\release-notes\v2.0.0-rc1.md -Label prerelease -Platforms windows,macos,linux
 .EXAMPLE
-    .github\scripts\publish-release.ps1 -PreRelease
-    Only the pre-releases' notes (vX.Y.Z-suffix.md, such as v2.0.0-rc1.md) - the VS Code task "release: pre-release (GitHub)".
+    .github\scripts\publish-release.ps1 -List commits
 #>
 [CmdletBinding()]
 param(
@@ -39,13 +41,15 @@ param(
     [string]$NotesFile,
     # The commit to release (a hash); asked for when omitted.
     [string]$Commit,
+    # GitHub's release label: latest, prerelease or none; asked for when omitted.
+    [ValidateSet('', 'latest', 'prerelease', 'none')]
+    [string]$Label,
+    # What is built: windows, macos, linux - one or more ("windows,macos"); asked for when omitted.
+    [string[]]$Platforms,
     # Tags without running the fast tests here first (the release workflow runs none - CI tests the pushed commit).
     [switch]$SkipTests,
-    # Only pre-releases: the notes listed are the vX.Y.Z-suffix.md ones (v2.0.0-rc1.md), and another is refused.
-    # GitHub publishes them as a pre-release, which no DNN Manager's Update button offers.
-    [switch]$PreRelease,
     # Only prints the choices for VS Code's picker (Tasks Shell Input), one "value||label||description||detail" per line.
-    [ValidateSet('notes', 'commits')]
+    [ValidateSet('notes', 'commits', 'platforms')]
     [string]$List
 )
 
@@ -78,6 +82,15 @@ function Read-Choice([string]$title, [string[]]$items, [int]$default) {
     }
 }
 
+# The platforms for VS Code's picker (several can be ticked) - asks nothing of git or GitHub.
+if ($List -eq 'platforms') {
+    [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+    'windows||$(device-desktop) Windows||Setup and the portable exe||The Windows app, with IIS - what the Update button downloads'
+    'macos||$(device-desktop) macOS||Apple Silicon and Intel||DNN Manager.app in a zip, signed ad hoc (free), not notarized'
+    'linux||$(terminal-linux) Linux||x64 and arm64||The program in a tar.gz, with a .desktop file'
+    return
+}
+
 # --- The choices: release-notes files and the commits on GitHub ---
 
 $origin = (Invoke-Git @('remote', 'get-url', 'origin')) | Select-Object -First 1
@@ -87,8 +100,7 @@ Set-ReleaseContext -Repository $script:repo
 
 # The notes files - the not yet tagged ones first (the next release on top), then the released ones; newest first.
 function Get-NotesFiles([string[]]$tags) {
-    $pattern = if ($PreRelease) { '^v\d+\.\d+\.\d+-[0-9A-Za-z.-]+$' } else { '^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$' }
-    $all = @(Get-ChildItem $notesDir -Filter 'v*.md' | Where-Object { $_.BaseName -match $pattern } |
+    $all = @(Get-ChildItem $notesDir -Filter 'v*.md' | Where-Object { $_.BaseName -match '^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$' } |
             Sort-Object { [version](($_.BaseName.TrimStart('v')) -replace '-.*$', '') }, { $_.BaseName } -Descending)
     @($all | Where-Object { $tags -notcontains $_.BaseName }) + @($all | Where-Object { $tags -contains $_.BaseName })
 }
@@ -146,17 +158,11 @@ $tags = @(Invoke-Git @('tag', '--list', 'v*'))
 # --- 1. The release-notes file: its name is the version, the tag and the title ---
 
 $files = @(Get-NotesFiles $tags)
-if ($files.Count -eq 0) {
-    if ($PreRelease) { throw "No pre-release notes (vX.Y.Z-suffix.md, such as v2.0.0-rc1.md) in $notesDir - write them first." }
-    throw "No vX.Y.Z.md files in $notesDir - write the release notes first."
-}
+if ($files.Count -eq 0) { throw "No vX.Y.Z.md files in $notesDir - write the release notes first." }
 if ($NotesFile) {
     $path = if ([IO.Path]::IsPathRooted($NotesFile)) { $NotesFile } else { Join-Path $root $NotesFile }
     $notes = $files | Where-Object { $_.FullName -eq [IO.Path]::GetFullPath($path) } | Select-Object -First 1
-    if (-not $notes) {
-        if ($PreRelease) { throw "$NotesFile isn't a pre-release's notes (.docs\release-notes\vX.Y.Z-suffix.md, such as v2.0.0-rc1.md)." }
-        throw "$NotesFile isn't a release-notes file (.docs\release-notes\vX.Y.Z.md)."
-    }
+    if (-not $notes) { throw "$NotesFile isn't a release-notes file (.docs\release-notes\vX.Y.Z.md)." }
 }
 else {
     $labels = $files | ForEach-Object { if ($tags -contains $_.BaseName) { "$($_.Name)  (already tagged)" } else { $_.Name } }
@@ -183,14 +189,32 @@ else {
 }
 $branch = (Invoke-Git @('rev-parse', '--abbrev-ref', 'HEAD')) | Select-Object -First 1
 
+# --- The label and the platforms ---
+
+if (-not $Label) {
+    # A vX.Y.Z-suffix version is offered as a pre-release first; any other as the latest.
+    $Label = @('latest', 'prerelease', 'none')[(Read-Choice 'Release label:' @(
+                'Latest       - the latest release: every DNN Manager''s Update button offers it',
+                'Pre-release  - not ready for everyone: only those who download it get it',
+                'None         - published, but not the latest') $(if ($prerelease) { 1 } else { 0 }))]
+}
+if ($Platforms) { $Platforms = ConvertTo-ReleasePlatforms $Platforms }
+else {
+    Write-Host ''
+    Write-Host 'Platforms to build: windows (Setup, portable exe), macos, linux' -ForegroundColor Cyan
+    $answer = Read-Host 'Which, separated by commas (Enter = all three)'
+    $Platforms = if ([string]::IsNullOrWhiteSpace($answer)) { ConvertTo-ReleasePlatforms 'windows macos linux' } else { ConvertTo-ReleasePlatforms $answer }
+}
+
 # --- 3. Checks before tagging ---
 
 Write-Step 'Checks'
 $problems = @()
+if ($optionsProblem = Get-ReleaseOptionsProblem $tag $Label $Platforms) { $problems += $optionsProblem }
 $remoteTag = Invoke-Git @('ls-remote', '--tags', 'origin', "refs/tags/$tag")
 $localTag = if ($tags -contains $tag) { (Invoke-Git @('rev-parse', "refs/tags/$tag^{commit}")) | Select-Object -First 1 } else { $null }
 if ($localTag -and $localTag -ne $selected.Sha) { $problems += "Tag $tag already exists on another commit ($($localTag.Substring(0, 7)))." }
-if ($remoteTag) { $problems += "Tag $tag is on GitHub already, so its release workflow has run - redo a draft with the task ""release: redo (GitHub)""." }
+if ($remoteTag) { $problems += "Tag $tag is on GitHub already, so its release workflow has run - redo a draft with the task ""Release: redo""." }
 try {
     $published = Get-PublishedRelease $tag
     if ($published) { $problems += "GitHub has published $tag already ($($published.html_url)) - release the change as the next version." }
@@ -225,7 +249,7 @@ try {
         $newestSdk = [string]$sdkReleases.'latest-sdk'
         if ($newestSdk -match '^\d+\.\d+\.\d+$' -and [version]$newestSdk -gt [version]$sdk) {
             Write-Host "  $($selected.Short) builds with .NET SDK $sdk, but $newestSdk is out (runtime $($sdkReleases.'latest-runtime')," -ForegroundColor Yellow
-            Write-Host "  $($sdkReleases.'latest-release-date'), security fix: $($sdkReleases.releases[0].security)). Run the task ""update .NET SDK"", commit and push," -ForegroundColor Yellow
+            Write-Host "  $($sdkReleases.'latest-release-date'), security fix: $($sdkReleases.releases[0].security)). Run the task ""Update .NET SDK"", commit and push," -ForegroundColor Yellow
             Write-Host '  then release that commit - an SDK with a known vulnerability fails the restore below (NU1903).' -ForegroundColor Yellow
         }
         else { Write-Host "  .NET SDK $sdk is the newest of its channel." }
@@ -234,7 +258,10 @@ try {
 catch { Write-Host "  Whether a newer .NET SDK is out couldn't be checked ($($_.Exception.Message))." -ForegroundColor Yellow }
 
 Write-Host ''
-Write-Host "  Version  $version$(if ($prerelease) { ' (pre-release)' })"
+$platformNames = ($Platforms | ForEach-Object { @{ windows = 'Windows'; macos = 'macOS'; linux = 'Linux' }[$_] }) -join ', '
+Write-Host "  Version  $version"
+Write-Host "  Label    $(Get-ReleaseLabelName $Label)"
+Write-Host "  Builds   $platformNames"
 Write-Host "  Notes    .docs\release-notes\$($notes.Name)"
 Write-Host "  Commit   $($selected.Short) $($selected.Subject)"
 Write-Host "           $($selected.Author), $($selected.Date)"
@@ -257,7 +284,7 @@ else {
         try { $null = Invoke-Tool dotnet @('restore', (Join-Path $work 'src\DnnManager.Launcher\DnnManager.Launcher.csproj'), '--locked-mode') }
         catch {
             Write-Host '  An NU1903 above (a known vulnerability in Microsoft.DotNet.ILCompiler) means the SDK in global.json is out of' -ForegroundColor Yellow
-            Write-Host '  date: run the task "update .NET SDK", commit and push, then release that commit.' -ForegroundColor Yellow
+            Write-Host '  date: run the task "Update .NET SDK", commit and push, then release that commit.' -ForegroundColor Yellow
             throw
         }
         $null = Invoke-Tool dotnet @('test', $project, '-c', 'Release', '--no-restore', '--filter', 'TestCategory!=Integration', '--nologo')
@@ -273,16 +300,28 @@ else {
 # --- 5. The tag: GitHub builds and publishes the release from it ---
 
 Write-Step 'Ready to release'
-Write-Host "  Tag      $tag -> $($selected.Short), pushed to origin"
-Write-Host "  Then     GitHub's release workflow builds both exes and the macOS and Linux packages from it, attests them and publishes"
-Write-Host "           $tag$(if ($prerelease) { ' as a pre-release' } else { ' as the latest release' }) with .docs\release-notes\$($notes.Name)"
+$what = @()
+if ('windows' -in $Platforms) { $what += 'both Windows exes' }
+$desktopNames = @($Platforms | Where-Object { $_ -ne 'windows' } | ForEach-Object { @{ macos = 'macOS'; linux = 'Linux' }[$_] })
+if ($desktopNames) { $what += "the $($desktopNames -join ' and ') packages" }
+$as = switch ($Label) { 'latest' { 'as the latest release' } 'prerelease' { 'as a pre-release' } default { 'as a release that isn''t the latest (label None)' } }
+Write-Host "  Tag      $tag -> $($selected.Short), pushed to origin, with the label and the platforms in its message"
+Write-Host "  Then     GitHub's release workflow builds $($what -join ' and ') from it, attests them and publishes"
+Write-Host "           $tag $as with .docs\release-notes\$($notes.Name)"
 if (-not (Confirm-Step "Push the tag $tag now?")) {
     Write-Host 'Nothing was tagged.' -ForegroundColor Yellow
     return
 }
 
 Write-Step "Tag $tag"
-if (-not $localTag) { $null = Invoke-Git @('tag', $tag, $selected.Sha) }
+# An annotated tag: its message carries the label and the platforms the release workflow builds (release-plan.ps1).
+# A tag here on the same commit without them (made by hand) is made again with them - it isn't on GitHub (checked above).
+$message = Join-Path ([IO.Path]::GetTempPath()) "dnnmanager-tag-$([guid]::NewGuid().ToString('N')).txt"
+try {
+    [IO.File]::WriteAllText($message, (ConvertTo-ReleaseTagMessage $tag $Label $Platforms), [Text.UTF8Encoding]::new($false))
+    $null = Invoke-Git @('tag', '--force', '--annotate', '--file', $message, $tag, $selected.Sha)
+}
+finally { Remove-Item $message -ErrorAction SilentlyContinue }
 $null = Invoke-Tool git @('-C', $root, 'push', 'origin', "refs/tags/$tag")
 
 # Not followed from here: the run is on GitHub - and asking its API every few minutes would use up the hourly

@@ -19,7 +19,7 @@
 .EXAMPLE
     .github\scripts\sign.ps1 -Setup
 .EXAMPLE
-    .github\scripts\sign.ps1 -Path publish\DnnManager_Portable-1.9.0-x64.exe
+    .github\scripts\sign.ps1 -Path publish\DnnManager-1.9.0-x64.exe
 #>
 [CmdletBinding()]
 param(

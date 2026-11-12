@@ -18,6 +18,9 @@
        (publish-release.ps1: the fast tests here, then the tag). A draft release the failed run left is kept: the next
        release workflow run on the tag reuses it, replacing its files and notes.
 
+    The release label (Latest, Pre-release, None) and the platforms (Windows, macOS, Linux) are the old tag's - read
+    from its message - unless -Label and -Platforms choose others.
+
     The only credential it uses is the one Git pushes with. -DryRun shows the plan and changes nothing.
 
 .EXAMPLE
@@ -35,15 +38,28 @@ param(
     [string]$Version,
     # The commit to release from (a hash); picked here when omitted - Enter takes the newest.
     [string]$Commit,
+    # Passed on to publish-release.ps1: GitHub's release label (latest, prerelease, none) - the old tag's when omitted
+    # or "same".
+    [ValidateSet('', 'same', 'latest', 'prerelease', 'none')]
+    [string]$Label,
+    # Passed on to publish-release.ps1: what is built (windows, macos, linux) - the old tag's when omitted or "same".
+    [string[]]$Platforms,
     # Passed on to publish-release.ps1: tags without running the fast tests here first.
     [switch]$SkipTests,
     # Shows what would be done, and does nothing.
     [switch]$DryRun,
-    # Prints the commits to redo the release from, for VS Code's picker (value||label||description||detail), and
-    # does nothing else - GitHub isn't asked.
-    [ValidateSet('commits')]
+    # Prints the commits to redo the release from, or the platforms (As before first), for VS Code's picker
+    # (value||label||description||detail), and does nothing else - GitHub isn't asked.
+    [ValidateSet('commits', 'platforms')]
     [string]$List
 )
+
+if ($List -eq 'platforms') {
+    [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+    'same||$(history) As before||the old tag''s platforms||Tick only this (or nothing) to build what the first run built'
+    & (Join-Path $PSScriptRoot 'publish-release.ps1') -List platforms
+    return
+}
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -164,6 +180,19 @@ else {
     $chosenSha = $choices[$index].Substring(0, 40)
 }
 $chosenShort = $chosenSha.Substring(0, 7)
+
+# The label and the platforms: as chosen now, or else as the old tag's message has them (here, or on GitHub after a
+# fetch) - so a redo builds what the first run did.
+$oldMessage = ''
+if (Invoke-Git @('rev-parse', '--verify', '--quiet', "refs/tags/$tag")) {
+    $oldMessage = (Invoke-Git @('tag', '--list', '--format=%(contents)', $tag)) -join "`n"
+}
+$oldOptions = ConvertFrom-ReleaseTagMessage $tag $oldMessage
+if (-not $Label -or $Label -eq 'same') { $Label = $oldOptions.Label }
+# Ticked in VS Code's picker: "windows,macos" - "same" (As before), or nothing ticked, keeps the old tag's.
+$picked = @(@($Platforms) -split '[,\s]+' | Where-Object { $_ })
+$Platforms = if ($picked -and 'same' -notin $picked) { ConvertTo-ReleasePlatforms $picked } else { $oldOptions.Platforms }
+if ($optionsProblem = Get-ReleaseOptionsProblem $tag $Label $Platforms) { throw "$optionsProblem Nothing was changed." }
 $chosenSubject = (Invoke-Git @('log', '-1', '--format=%s', $chosenSha)) | Select-Object -First 1
 $onGitHub = @(Invoke-Git @('branch', '-r', '--contains', $chosenSha)).Count -gt 0
 
@@ -178,6 +207,8 @@ if ($remoteTagSha) { Write-Host "  Delete   the tag $tag on GitHub" }
 if ($localTagSha) { Write-Host "  Delete   the tag $tag here" }
 Write-Host "  Keep     a draft release $tag, if the failed run left one - the next run on the tag reuses it"
 Write-Host "  Then     tag $chosenShort (publish-release.ps1: the fast tests here, then the tag) - GitHub builds and publishes it"
+Write-Host "  Label    $(Get-ReleaseLabelName $Label)"
+Write-Host "  Builds   $($Platforms -join ', ')"
 
 if ($DryRun) {
     Write-Host ''
@@ -197,6 +228,6 @@ if ($remoteTagSha -or $localTagSha) {
 }
 
 Write-Step "Release $tag from $chosenShort"
-$publishArgs = @{ NotesFile = ".docs\release-notes\$tag.md"; Commit = $chosenSha }
+$publishArgs = @{ NotesFile = ".docs\release-notes\$tag.md"; Commit = $chosenSha; Label = $Label; Platforms = $Platforms }
 if ($SkipTests) { $publishArgs.SkipTests = $true }
 & (Join-Path $PSScriptRoot 'publish-release.ps1') @publishArgs

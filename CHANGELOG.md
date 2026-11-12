@@ -18,10 +18,27 @@ All notable changes to DnnManager.NET are documented here.
   (Apple Silicon, Intel) and Linux (x64, arm64) beside the Windows files - the
   macOS app signed ad hoc, free and not notarized: the first time, right-click →
   Open. See [.docs/cross-platform.md](.docs/cross-platform.md).
-- **Pre-releases from VS Code.** The task **release: pre-release (GitHub)**
-  releases a version such as 2.0.0-rc1 from its notes
-  (`.docs/release-notes/v2.0.0-rc1.md`) as a GitHub pre-release, which the
-  Update button never offers.
+- **Choose the release label and the platforms when you release.** The task
+  **Release** asks for the label as GitHub names it - **Latest**,
+  **Pre-release** (such as 2.0.0-rc1, which the Update button never offers) or
+  **None** - and the platforms to build: **Windows**, **macOS**, **Linux**, one
+  or more. GitHub builds only those and publishes the release with that label.
+  It refuses a version like 2.0.0-rc1 as Latest, and Latest without Windows.
+  **Release: redo** keeps the first run's choices, or takes new ones.
+- **One publish task for every platform.** The VS Code task **Publish** asks
+  **Portable** or **Setup**, then **Windows**, **macOS** and/or **Linux**, and
+  builds each into a folder of its own in `publish\`
+  (`DnnManager-<version>-windows-x64`, `-windows-x86`, `-macos-arm64`, …). A
+  portable Windows exe is now also made for 32-bit Windows (x86); Setup stays
+  64-bit. Each task in the list says what it does.
+- **The portable exe is `DnnManager-<version>-x64.exe`**, without `_Portable`
+  (1.7.7 to 1.8.x: `DnnManager_Portable-<version>-x64.exe`), on a release too.
+  Every DNN Manager's **Update** button finds that name, and a portable one you
+  have keeps its file name when it updates. A Mac's or Linux's package that only that system
+  can make is named, with where to make it. It replaces the tasks *publish
+  (DnnManager_Portable.exe)*, *installer (DnnManager_Setup.exe)* and *installer
+  (…, without the launcher)*: Setup leaves the launcher out by itself when the
+  C++ build tools aren't there.
 - **The window laid out as VS Code's.** The sidebar is now the **activity bar**:
   the pages as icons only, always (their names as tooltips). Beside it the
   **primary side bar** holds a page's own view - Source Control's servers,

@@ -23,10 +23,10 @@ until 1.7.2 is tagged ([`DnnManager.csproj`](../DnnManager.csproj), target
    `.github\scripts\release-notes.ps1 -Version X.Y.Z -OutFile .docs\release-notes\vX.Y.Z.md`.
    The notes are built into the exe (What's new after an update shows them), so
    they must be committed before the release is built.
-4. Commit and push, then run the task **release (GitHub)** (see
+4. Commit and push, then run the task **Release** (see
    [Release from VS Code](#release-from-vs-code)). It pushes the version tag, and
    GitHub's [release workflow](#the-release-workflow) builds the release from that
-   tag: `DnnManager_Portable-X.Y.Z-x64.exe`, `DnnManager_Setup-X.Y.Z-x64.exe`, the
+   tag: `DnnManager-X.Y.Z-x64.exe` (the portable exe), `DnnManager_Setup-X.Y.Z-x64.exe`, the
    [cross-platform app](cross-platform.md)'s packages for macOS and Linux
    (`DnnManager-X.Y.Z-macos-arm64.zip`, `-macos-x64.zip`, `-linux-x64.tar.gz`,
    `-linux-arm64.tar.gz`) and `SHA256SUMS.txt`. It signs the exes once signing is
@@ -39,7 +39,7 @@ until 1.7.2 is tagged ([`DnnManager.csproj`](../DnnManager.csproj), target
 
 ## Release from VS Code
 
-**Ctrl+Shift+B → release (GitHub)** (or **Terminal → Run Task…**) asks two
+**Ctrl+Shift+B → Release** (or **Terminal → Run Task…**) asks two
 questions in VS Code's picker, then runs
 [`.github/scripts/publish-release.ps1`](../.github/scripts/publish-release.ps1) in
 the terminal. The pickers are filled fresh each time - from `.docs/release-notes`
@@ -69,15 +69,33 @@ and from GitHub - by the extension
    follow the run there, and approve *Publish the release* once the draft is
    ready. Answer *N* at step 5 and nothing is tagged.
 
-**A pre-release** (a release candidate such as `2.0.0-rc1`): write its notes as
-`.docs/release-notes/v2.0.0-rc1.md`, commit and push, then run **Ctrl+Shift+B →
-release: pre-release (GitHub)**. It works as **release (GitHub)**, but the picker
-lists only the notes of pre-releases (`vX.Y.Z-suffix.md`), and the script
-(`publish-release.ps1 -PreRelease`) refuses any other. GitHub publishes it as a
-*pre-release*: the **Update** button never offers it, so only people who download
-it from the release page get it. The final version (`v2.0.0.md`) is released with
-**release (GitHub)** as usual, and is offered to everyone, including those on the
-pre-release.
+After the commit, the task asks two more questions:
+
+- **Release label**, as GitHub names it:
+  - **Latest**: the latest release. Every DNN Manager's **Update** button offers it.
+  - **Pre-release**: not ready for everyone. Only people who download it from the release page get it.
+  - **None**: published, but not the latest. Nobody is offered it.
+- **Platforms**, tick one or more:
+  - **Windows**: Setup and the portable exe.
+  - **macOS** and **Linux**: the [cross-platform app](cross-platform.md)'s packages.
+
+The script refuses two combinations, before anything is tagged:
+- A version with a suffix (`2.0.0-rc1`) as **Latest**. The **Update** button would offer it to everyone.
+- **Latest** without **Windows**. The **Update** button downloads the Windows files.
+
+Both choices go into the tag's message (`Release-Label:` and `Release-Platforms:`
+lines). The [release workflow](#the-release-workflow) reads them there, builds
+only what you ticked and publishes the release with that label. A tag made by
+hand, without those lines, builds every platform, and its version decides the
+label: `v2.0.0-rc1` becomes a pre-release, `v2.0.0` the latest.
+
+**A pre-release**, such as `2.0.0-rc1`: write its notes as
+`.docs/release-notes/v2.0.0-rc1.md`, then run **Release** and choose
+**Pre-release**. Release the final version (`v2.0.0.md`) the same way with
+**Latest**: everyone is offered it, including those on the pre-release.
+
+Outside VS Code, `-Label latest|prerelease|none -Platforms windows,macos,linux`
+answers these two questions; without them, the script asks in the terminal.
 
 The only credential it uses is the one Git pushes the tag with (see
 [Set up GitHub](#set-up-github)). It asks GitHub's public API, without signing in,
@@ -107,9 +125,9 @@ restores (`Microsoft.DotNet.ILCompiler`) and the trimmer
 (`Microsoft.NET.ILLink.Tasks`), which the lock files record. .NET gets a security
 patch about once a month; a few days later GitHub's advisory makes the older
 compiler a known vulnerability, and every restore - CI, the release workflow and
-**release (GitHub)** - fails with *NU1903*.
+**Release** - fails with *NU1903*.
 
-The VS Code task **update .NET SDK**
+The VS Code task **Update .NET SDK**
 ([`.github/scripts/update-sdk.ps1`](../.github/scripts/update-sdk.ps1)) does the
 whole move:
 
@@ -123,7 +141,7 @@ whole move:
 
 Then run the fast tests, commit and push, and release that commit. Run with
 nothing new, it changes nothing. CI and the release workflow install the SDK
-`global.json` names, so they follow the commit. **release (GitHub)** says when
+`global.json` names, so they follow the commit. **Release** says when
 the commit you pick builds with an SDK older than the newest released one, and
 what an *NU1903* from the launcher's restore means.
 
@@ -134,7 +152,7 @@ version there and run the task again.
 ## Redo a release
 
 When a release's workflow failed or the release needs more changes before it is
-published, commit and push them, then **Ctrl+Shift+B → release: redo (GitHub)**
+published, commit and push them, then **Ctrl+Shift+B → Release: redo**
 runs [`.github/scripts/redo-release.ps1`](../.github/scripts/redo-release.ps1):
 
 1. The version is the newest version tag (`-Version` for another).
@@ -152,13 +170,17 @@ runs [`.github/scripts/redo-release.ps1`](../.github/scripts/redo-release.ps1):
    aren't in it (the plan says so). A commit that isn't on GitHub yet is named
    too - push it first.
 4. It shows the plan and asks once, then deletes the tag here and on GitHub and
-   releases the version from that commit, as **release (GitHub)** does: the fast
+   releases the version from that commit, as **Release** does: the fast
    tests, then the tag, and GitHub builds and publishes it. A draft release that
    the failed run left stays on GitHub: the next run on the tag reuses it and
    replaces its files and notes.
 
+The task also asks for the release label and the platforms. **As before**, the
+default, keeps the old tag's choices, read from its message. Pick others to
+change them, such as adding Linux to a redone pre-release.
+
 `-DryRun` shows the plan and changes nothing; `-SkipTests` is passed on to
-**release (GitHub)**.
+**Release**.
 
 ## A bad release
 
@@ -187,8 +209,9 @@ never cancelled half way. Its jobs run in this order:
 
 ```mermaid
 flowchart LR
-    build["build<br/>publish"] --> sign["sign<br/>sign, Setup, SHA256SUMS, attest"]
-    build --> desktop["desktop<br/>macOS and Linux packages"]
+    plan["plan<br/>label and platforms from the tag"] --> build["build<br/>Windows: publish"]
+    plan --> desktop["desktop<br/>macOS and Linux packages"]
+    build --> sign["sign<br/>sign, Setup, SHA256SUMS, attest"]
     desktop --> sign
     sign --> smoke["smoke<br/>install, start, uninstall"]
     sign --> draft["draft<br/>upload, check digests"]
@@ -196,7 +219,14 @@ flowchart LR
     draft --> publish["publish<br/>approved by a reviewer"]
 ```
 
-- **Build** (on the `windows-2025` image) - checks the runner has Visual Studio's
+A platform you didn't tick is skipped: its job doesn't run, and the jobs after it
+go on without it. Without **Windows**, there is no smoke test either.
+
+- **Plan** - [`release-plan.ps1`](../.github/scripts/release-plan.ps1) reads the
+  tag's message from GitHub's API and sets what the run builds and how the release
+  is labelled. A label that can't be released, such as a `-rc` version as Latest,
+  fails here, before anything is built.
+- **Windows** (build, on the `windows-2025` image) - checks the runner has Visual Studio's
   C++ build tools (the launcher's Native AOT needs them), restores in locked mode
   (the app's tests and the launcher), stamps the tag's version into the manifest,
   publishes the portable exe, and publishes the app and the launcher for Setup
@@ -241,10 +271,10 @@ flowchart LR
   required reviewer approves it on the run's page. Then `upload-release.ps1
   -Stage Publish` checks again that the tag still points at the commit that was
   built (`GITHUB_SHA`), that each file on the draft has the digest in
-  `SHA256SUMS.txt` and that the draft has no other file, and publishes it - as the
-  latest release only when its version is newer than the latest one (a fix to an
-  older line doesn't become what every DNN Manager is offered), or as a
-  pre-release for `vX.Y.Z-rc.1`.
+  `SHA256SUMS.txt` and that the draft has no other file, and publishes it with the
+  label you chose. **Latest** is set only when the version is newer than the
+  latest one, so a fix to an older line doesn't become what every DNN Manager is
+  offered. **Pre-release** and **None** are never the latest.
 
 A failure anywhere leaves at most a draft, which nobody is offered; a pushed tag
 alone never publishes anything. Each job has only the permissions it needs. CI,
@@ -323,8 +353,8 @@ Do these once, before the first release with the workflow, in the repository's
   - a *tag* ruleset for `refs/tags/v*`: *Restrict creations*, *Restrict updates*,
     *Restrict deletions* and *Block force pushes*.
 
-  Add the *Repository admin* role to both bypass lists: **release (GitHub)** creates
-  the tag, and **release: redo (GitHub)** deletes it and makes it again. Nobody else can push or move a version tag, so nobody else can
+  Add the *Repository admin* role to both bypass lists: **Release** creates
+  the tag, and **Release: redo** deletes it and makes it again. Nobody else can push or move a version tag, so nobody else can
   start a release.
 - **Environments** (the first release run makes both; set them up before it):
   - `publish` - under *Required reviewers* add yourself, and under *Deployment
@@ -380,7 +410,7 @@ What makes a build the same each time:
   a newer image is a change in review.
 - **The packages** are in `packages.lock.json` (the app's and the tests') - a
   package change is a change to the lock file, in review. A restore that would
-  change them fails in CI, in the release workflow, and in **release (GitHub)**
+  change them fails in CI, in the release workflow, and in **Release**
   before it tags anything. After a package change, update the lock files with
   `dotnet restore tests/DnnManager.IntegrationTests --force-evaluate`. A build and
   a single-file publish restore the same packages: `DnnManager.csproj` turns on
@@ -403,8 +433,12 @@ draft or a pre-release - a `vX.Y.Z-rc.1` tag isn't offered) - see
 [Update](user-guide.md#update). A release must keep what it relies on:
 
 - **The file names**: `DnnManager_Setup-<version>-x64.exe` updates an installed DNN
-  Manager, `DnnManager_Portable-<version>-x64.exe` a portable one
+  Manager, `DnnManager-<version>-x64.exe` a portable one
   ([`AppRelease.AssetFor`](../src/DnnManager.Infrastructure/Updates/AppRelease.cs)).
+  Releases 1.7.7 to 1.8.x named the portable one `DnnManager_Portable-<version>-x64.exe`.
+  From 2.0.0 it is `DnnManager-<version>-x64.exe` again: every DNN Manager looks for
+  that name, 1.7.7 and newer after `DnnManager_Portable-`. The macOS and Linux
+  packages (`DnnManager-<version>-macos-arm64.zip`, …) never match, because they don't end in `.exe`.
   Releases up to 1.7.6 had `DnnManagerSetup-<version>-x64.exe` and
   `DnnManager-<version>-x64.exe` - the only names DNN Manager 1.7.6 and older
   (and their Setups) look for. 1.7.7 was released under both names, so those
@@ -486,11 +520,11 @@ update folder is cleaned up - and **Show log** opens that file. DNN Manager 1.8.
 The helper is the *old* version's code, so a release can change the helper only for
 the updates after it.
 
-**Try it** with the VS Code task **publish (update test, one version below the release)**
+**Try it** with the VS Code task **Publish: update test**
 ([`.github/scripts/build-update-test.ps1`](../.github/scripts/build-update-test.ps1)): it
 builds the working copy as a portable exe one version below GitHub's newest release
 (1.6.0 → 1.5.9, 1.7.0 → 1.6.9, 2.0.0 → 1.9.9) into
-`publish\update-test\DnnManager_Portable-<version>-x64.exe`. Start it and click **Update**: it
+`publish\update-test\DnnManager-<version>-x64.exe`. Start it and click **Update**: it
 installs the real release over itself. `-Version 1.5.9` picks the version by hand.
 
 ## Publish the portable exe
@@ -501,7 +535,7 @@ One file, no .NET runtime needed on the target machine:
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:PortableExe=true -o publish
 ```
 
-`-p:PortableExe=true` names the exe `publish\DnnManager_Portable-<version>-x64.exe`
+`-p:PortableExe=true` names the exe `publish\DnnManager-<version>-x64.exe`
 (without it, it's `DnnManager.exe`). The publish output holds only the program - no
 launcher: a portable DNN Manager relaunches itself elevated directly, and extracts
 its native DLLs to `%TEMP%\.net` when it starts (an accepted risk -
@@ -552,4 +586,33 @@ Never for a release.
 The installer's `AppId` in `DnnManager.iss` identifies the installation for
 upgrades and uninstall - never change it.
 
-VS Code tasks for build, publish and the installer are in `.vscode/tasks.json`.
+## Build on this PC: the publish task
+
+**Ctrl+Shift+B → Publish** asks two things: **Portable** or **Setup**, then the
+platforms, **Windows**, **macOS** and/or **Linux** (tick one or more). It runs
+[`.github/scripts/publish-local.ps1`](../.github/scripts/publish-local.ps1), and
+everything goes into a folder of its own in `publish\`, named
+`DnnManager-<version>-<system>-<processor>`, with the newest version tag's version:
+
+| | Portable | Setup |
+|---|---|---|
+| **Windows** | `DnnManager-<version>-windows-x64\DnnManager-<version>-x64.exe` ([above](#publish-the-portable-exe)) and `-windows-x86\…-x86.exe` (32-bit) | `DnnManager-<version>-windows-x64\DnnManager_Setup-<version>-x64.exe` ([above](#build-the-installer)) - 64-bit only. Without the C++ build tools it is built without the launcher (it says so; never for a release) |
+| **macOS** | `DnnManager-<version>-macos-arm64\DnnManager.Desktop` and `-macos-x64` - from any system | `DnnManager-<version>-macos-arm64.zip` and `-macos-x64.zip` - only on a Mac |
+| **Linux** | `DnnManager-<version>-linux-x64\DnnManager.Desktop` and `-linux-arm64` - from any system | `DnnManager-<version>-linux-x64.tar.gz` and `-linux-arm64.tar.gz` - only on Linux or a Mac |
+
+The macOS and Linux programs are the [cross-platform app](cross-platform.md). A
+portable one needs `chmod +x` on that system, and on a Mac also
+`codesign --force --sign -`. A package that only another system can make is
+named as not made, with where to make it: the **Desktop** workflow on GitHub
+(*Actions → Desktop → Run workflow*) makes them all. The rest is still made.
+A DNN Manager running from one of those folders locks its exe, so the task stops
+before building and tells you to close it.
+
+**32-bit Windows** gets only the portable exe. Setup installs 64-bit only
+(`ArchitecturesAllowed=x64compatible` in `DnnManager.iss`, and the launcher is built
+for x64), and releases carry x64 only. A 32-bit portable DNN Manager's
+**Update** button looks for `DnnManager-<version>-x86.exe`, so it finds
+no update on a release until releases carry one.
+
+The other VS Code tasks (build, clean, the update test, the release tasks) are in
+`.vscode/tasks.json`.

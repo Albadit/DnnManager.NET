@@ -12,9 +12,11 @@ public sealed record AppRelease(string Tag, Version Version, string PageUrl, IRe
 {
     /// <summary>
     /// The file that updates this kind of DNN Manager: Setup for an installed one, the portable exe for a portable one -
-    /// for this process's architecture, as the release workflow names them (<c>DnnManager_Setup-1.7.7-x64.exe</c>,
-    /// <c>DnnManager_Portable-1.7.7-x64.exe</c>) - or as releases up to 1.7.6 named them (<c>DnnManagerSetup-1.7.0-x64.exe</c>,
-    /// <c>DnnManager-1.7.0-x64.exe</c>). Null when the release has none.
+    /// for this process's architecture, as the release workflow names them (<c>DnnManager_Setup-2.0.0-x64.exe</c>,
+    /// <c>DnnManager-2.0.0-x64.exe</c>) - or as releases 1.7.7 to 1.8.x named the portable one
+    /// (<c>DnnManager_Portable-1.7.7-x64.exe</c>), and releases up to 1.7.6 Setup (<c>DnnManagerSetup-1.7.0-x64.exe</c>).
+    /// The macOS and Linux packages (<c>DnnManager-2.0.0-macos-arm64.zip</c>) never match: they don't end in .exe.
+    /// Null when the release has none.
     /// </summary>
     public AppReleaseAsset? AssetFor(UpdateKind kind)
     {

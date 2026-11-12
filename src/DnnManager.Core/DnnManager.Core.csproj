@@ -24,7 +24,13 @@
          Application.Platform decides, and the cross-platform app never starts them. Code that macOS and Linux run too
          (Source Control, the settings, the data folder) checks OperatingSystem.IsWindows() itself, as UserCipher does. -->
     <NoWarn>$(NoWarn);CS1591;CS1573;CA1416</NoWarn>
+    <!-- As the apps that use it: packages.lock.json, restored in locked mode by CI and the release, for every runtime
+         an app is published for - a publish (-r win-x64, -r osx-arm64) restores this project for its runtime too, and
+         a lock file without it is refused. The single-file analyzer always, as DnnManager.csproj: a single-file publish
+         turns it on, and with it the SDK adds Microsoft.NET.ILLink.Tasks - so a build and a publish agree. -->
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RuntimeIdentifiers>win-x64;win-x86;win-arm64;osx-x64;osx-arm64;linux-x64;linux-arm64</RuntimeIdentifiers>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
     <IsTrimmable>false</IsTrimmable>
   </PropertyGroup>
 

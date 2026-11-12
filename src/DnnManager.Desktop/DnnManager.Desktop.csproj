@@ -28,6 +28,9 @@
     <PublishSingleFile Condition="'$(RuntimeIdentifier)' != ''">true</PublishSingleFile>
     <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- The single-file analyzer always, as DnnManager.csproj: a publish for a runtime is single-file, which turns it on,
+         and with it the SDK adds Microsoft.NET.ILLink.Tasks - so a restore with and without a runtime agree on the lock file. -->
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
   </PropertyGroup>
 
   <ItemGroup>

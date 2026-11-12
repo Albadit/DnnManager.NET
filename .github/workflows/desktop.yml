@@ -11,9 +11,9 @@
 #
 # Two ways it runs:
 #   by hand   Actions -> Desktop -> Run workflow: all five, kept as the run's artifacts.
-#   release   called by the release workflow (.github/workflows/release.yml) with the tag's version: the macOS and
-#             Linux packages, as the artifacts desktop-<name> - its sign job checksums and attests them, and they go on
-#             the release with the Windows files.
+#   release   called by the release workflow (.github/workflows/release.yml) with the tag's version and the macOS and
+#             Linux runtimes chosen in VS Code: their packages, as the artifacts desktop-<name> - its sign job
+#             checksums and attests them, and they go on the release with the Windows files.
 name: Desktop
 
 on:
@@ -22,6 +22,10 @@ on:
     inputs:
       version:
         description: The version the packages carry - the release tag's, without the v (2.0.0-rc1).
+        type: string
+        required: true
+      targets:
+        description: The runtimes to package, as JSON - [{"os","rid","name"}], the macOS and Linux ones chosen (release-plan.ps1).
         type: string
         required: true
 
@@ -45,8 +49,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macOS on a Mac: codesign signs the app there. Windows only by hand (see above).
-        include: ${{ fromJSON(inputs.version && '[{"os":"macos-15","rid":"osx-arm64","name":"macos-arm64"},{"os":"macos-15","rid":"osx-x64","name":"macos-x64"},{"os":"ubuntu-24.04","rid":"linux-x64","name":"linux-x64"},{"os":"ubuntu-24.04","rid":"linux-arm64","name":"linux-arm64"}]' || '[{"os":"macos-15","rid":"osx-arm64","name":"macos-arm64"},{"os":"macos-15","rid":"osx-x64","name":"macos-x64"},{"os":"ubuntu-24.04","rid":"linux-x64","name":"linux-x64"},{"os":"ubuntu-24.04","rid":"linux-arm64","name":"linux-arm64"},{"os":"windows-2025","rid":"win-x64","name":"windows-x64"}]') }}
+        # macOS on a Mac: codesign signs the app there. A release passes the platforms chosen (release-plan.ps1); by
+        # hand, all five - Windows too (see above).
+        include: ${{ fromJSON(inputs.targets || '[{"os":"macos-15","rid":"osx-arm64","name":"macos-arm64"},{"os":"macos-15","rid":"osx-x64","name":"macos-x64"},{"os":"ubuntu-24.04","rid":"linux-x64","name":"linux-x64"},{"os":"ubuntu-24.04","rid":"linux-arm64","name":"linux-arm64"},{"os":"windows-2025","rid":"win-x64","name":"windows-x64"}]') }}
 
     steps:
       - name: Check out

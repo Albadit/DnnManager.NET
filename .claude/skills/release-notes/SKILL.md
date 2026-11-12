@@ -4,16 +4,16 @@ description: >-
   Writes the release notes for the next DNN Manager release as .docs/release-notes/vX.Y.Z.md, in the structure every
   release uses (bold summary, Highlights, Other changes, Upgrading, Tested, link to the changelog), from the
   CHANGELOG.md entry, the commits since the previous tag and real test results - every claim checked against the
-  code - and the release commit's message, ready to paste. The VS Code task "release (GitHub)" publishes that file as
+  code - and the release commit's message, ready to paste. The VS Code task "Release" publishes that file as
   the GitHub release's notes. Use when asked to write, draft,
   update or review release notes, prepare a release or "the next release", or turn the Unreleased changelog entry
   into notes - and to redo a release whose tag is already made (a failed release workflow, one more change before
-  anyone has it): the notes and changelog updated in place, then the task "release: redo (GitHub)".
+  anyone has it): the notes and changelog updated in place, then the task "Release: redo".
 ---
 
 # Release notes
 
-The notes for a release are **`.docs/release-notes/vX.Y.Z.md`**. The VS Code task **release (GitHub)**
+The notes for a release are **`.docs/release-notes/vX.Y.Z.md`**. The VS Code task **Release**
 (`.github/scripts/publish-release.ps1`) pushes the version tag, and the release workflow on GitHub
 (`.github/workflows/release.yml`) builds the exes from that tag - this file built into them - and publishes it
 unchanged as the GitHub release's notes (`.github/scripts/release-notes.ps1`). So it is written and committed before
@@ -49,15 +49,15 @@ Readers are **people who use DNN Manager**, deciding whether to update and what 
 7. **Write the commit message** for the release commit (see [Commit message](#commit-message)) and give it in the
    report, ready to paste.
 8. Report what the notes say, the commit message, and anything left unverified. Don't commit, tag or publish - the
-   owner does, with the VS Code task **release (GitHub)** (`.github/scripts/publish-release.ps1`, see
+   owner does, with the VS Code task **Release** (`.github/scripts/publish-release.ps1`, see
    `.docs/releasing.md`), which picks this file and a commit and pushes the tag; GitHub's release workflow builds
-   both exes and publishes the release - or, for a redo, **release: redo (GitHub)** (below).
+   both exes and publishes the release - or, for a redo, **Release: redo** (below).
 
 ## Redoing a release
 
 The version's tag is made already - its release workflow failed, or one more change is wanted - and the owner wants
 the same version again, not the next one. `.github/scripts/redo-release.ps1` (the VS Code task
-**release: redo (GitHub)**, see `.docs/releasing.md#redo-a-release`) releases that version again from the newest
+**Release: redo**, see `.docs/releasing.md#redo-a-release`) releases that version again from the newest
 commit of the branch (or one the owner picks): it deletes the tag and makes it again there - nothing is amended or
 pushed, so the changes have to be committed and pushed first (a draft the failed run left is reused). It refuses a
 release that is published.

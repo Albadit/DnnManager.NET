@@ -17,7 +17,7 @@
 #>
 [CmdletBinding()]
 param(
-    # The release's files: DnnManager_Setup-<version>-x64.exe and DnnManager_Portable-<version>-x64.exe.
+    # The release's files: DnnManager_Setup-<version>-x64.exe and DnnManager-<version>-x64.exe.
     [Parameter(Mandatory)] [string]$Directory,
     # The tag, vX.Y.Z or vX.Y.Z-suffix.
     [Parameter(Mandatory)] [string]$Tag,
@@ -32,7 +32,7 @@ Set-StrictMode -Version Latest
 if ($Tag -notmatch '^v(\d+\.\d+\.\d+)(-[0-9A-Za-z.-]+)?$') { throw "$Tag isn't a version tag like v1.9.0." }
 $version = $Tag.Substring(1)
 $setup = (Resolve-Path (Join-Path $Directory "DnnManager_Setup-$version-x64.exe")).Path
-$portable = (Resolve-Path (Join-Path $Directory "DnnManager_Portable-$version-x64.exe")).Path
+$portable = (Resolve-Path (Join-Path $Directory "DnnManager-$version-x64.exe")).Path
 $work = Join-Path ($(if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() })) "dnnmanager-smoke-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
 $installDir = Join-Path $work 'app'
 $setupLog = Join-Path $work 'setup.log'

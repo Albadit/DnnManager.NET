@@ -93,6 +93,9 @@ dotnet test tests/DnnManager.Desktop.Tests                        # its tests - 
 dotnet publish src/DnnManager.Desktop -c Release -r osx-arm64     # one self-contained program
 ```
 
+In VS Code, **Ctrl+Shift+B → Publish** → **Portable** or **Setup** → tick **macOS**
+and/or **Linux** builds them into `publish\` ([releasing.md](releasing.md#build-on-this-pc-the-publish-task)).
+
 The runtimes it is published for are `win-x64`, `win-arm64`, `osx-x64`, `osx-arm64`,
 `linux-x64` and `linux-arm64`. A macOS package is made on a Mac (it signs the app
 with `codesign`): [`Packaging/package.ps1`](../src/DnnManager.Desktop/Packaging/package.ps1).

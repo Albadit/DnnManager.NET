@@ -65,6 +65,26 @@ public sealed class AppUpdateTests
     }
 
     [TestMethod]
+    public void A_2_0_release_is_found_by_its_portable_exe_and_never_by_the_macOS_and_Linux_packages()
+    {
+        AppReleaseAsset Asset(string name) => new(name, 1, null, $"https://example.test/{name}");
+        var release = new AppRelease("v2.0.0", new Version(2, 0, 0), "https://example.test",
+        [
+            Asset("DnnManager-2.0.0-macos-arm64.zip"), Asset("DnnManager-2.0.0-macos-x64.zip"),
+            Asset("DnnManager-2.0.0-linux-x64.tar.gz"), Asset("DnnManager-2.0.0-linux-arm64.tar.gz"),
+            Asset("DnnManager-2.0.0-x64.exe"), Asset("DnnManager_Setup-2.0.0-x64.exe"), Asset("SHA256SUMS.txt")
+        ]);
+        // The portable exe without "_Portable", as releases from 2.0.0 name it - what every DNN Manager since 1.7.7 looks
+        // for after DnnManager_Portable-, and every one up to 1.7.6 looks for first.
+        Assert.AreEqual("DnnManager-2.0.0-x64.exe", release.AssetFor(UpdateKind.Portable)?.Name);
+        Assert.AreEqual("DnnManager_Setup-2.0.0-x64.exe", release.AssetFor(UpdateKind.Installer)?.Name);
+
+        var withoutWindows = release with { Assets = [.. release.Assets.Where(a => !a.Name.EndsWith(".exe", StringComparison.Ordinal))] };
+        Assert.IsNull(withoutWindows.AssetFor(UpdateKind.Portable));
+        Assert.IsNull(withoutWindows.AssetFor(UpdateKind.Installer));
+    }
+
+    [TestMethod]
     public async Task GitHub_not_answering_is_an_update_exception()
     {
         var feed = new AppReleaseFeed(new HttpClient(new Answer(HttpStatusCode.Forbidden, "rate limited")));
