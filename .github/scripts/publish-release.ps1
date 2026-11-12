@@ -150,11 +150,18 @@ if ($List) {
         $remoteTags = @(Get-RemoteTags)
         $published = @()
         # Windows PowerShell's Invoke-RestMethod hands a JSON list back as ONE object: foreach goes through its items.
-        try { $all = Invoke-GitHub '/releases?per_page=100'; $published = @(foreach ($r in $all) { if ($r -and -not $r.draft) { [string]$r.tag_name } }) } catch { }
+        $prereleases = @()
+        try {
+            $all = Invoke-GitHub '/releases?per_page=100'
+            $published = @(foreach ($r in $all) { if ($r -and -not $r.draft) { [string]$r.tag_name } })
+            $prereleases = @(foreach ($r in $all) { if ($r -and -not $r.draft -and $r.prerelease) { [string]$r.tag_name } })
+        }
+        catch { }
         $next = $true
         foreach ($f in Get-NotesFiles $remoteTags) {
             $name = $f.BaseName
-            if ($published -contains $name) { $icon = '$(lock)'; $state = "published - live; release the change as $(Get-NextVersion $name)" }
+            if ($prereleases -contains $name) { $icon = '$(sync)'; $state = 'published pre-release - replaced by the commit you pick' }
+            elseif ($published -contains $name) { $icon = '$(lock)'; $state = "published - live; release the change as $(Get-NextVersion $name)" }
             elseif ($remoteTags -contains $name) { $icon = '$(sync)'; $state = 'tagged, not published - released again from the commit you pick' }
             else { $icon = '$(rocket)'; $state = if ($next) { 'next release' } else { 'not released' }; $next = $false }
             ".docs/release-notes/$($f.Name)||$icon $name||$state||$(& $clean (Get-NotesSummary $f))"
@@ -250,8 +257,22 @@ catch {
 # when it is. A published version stays as it is: every DNN Manager updates only to a newer version, so whoever has it
 # would never be offered the new build - the change goes out as the next version.
 $redo = $false
-if ($published) {
-    $problems += "$tag is published (live): $($published.html_url). A published version is never released again - whoever installed it wouldn't be offered the new build. Write the notes as $(Get-NextVersion $tag).md and release that."
+$replace = $false
+if ($published -and -not $published.prerelease) {
+    # Latest (or None): every DNN Manager may have it, and updates only to a newer version.
+    $problems += "$tag is published (live): $($published.html_url). A published release that isn't a pre-release is never released again - whoever installed it wouldn't be offered the new build. Write the notes as $(Get-NextVersion $tag).md and release that."
+}
+elseif ($published) {
+    # A published pre-release, which no Update button offers: replaced - the release workflow deletes it on GitHub once
+    # CI has passed on the new commit, and drafts the new build in its place.
+    $redo = $true
+    $replace = $true
+    try {
+        foreach ($run in @(Get-UnfinishedReleaseRuns $tag)) {
+            $problems += "The release run on $tag hasn't ended ($($run.status -replace '_', ' '), $($run.html_url)) - wait for it, or cancel it, then release again."
+        }
+    }
+    catch { $problems += "Whether a release run on $tag is still going couldn't be checked ($($_.Exception.Message)) - nothing is changed. Try again." }
 }
 elseif ($remoteTag) {
     $redo = $true
@@ -274,7 +295,11 @@ foreach ($needed in ".docs/release-notes/$tag.md", '.github/workflows/release.ym
     if ($LASTEXITCODE -ne 0) { $problems += "$($selected.Short) has no $needed - commit it (and push), then release that commit." }
 }
 if ($problems) { $problems | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }; throw 'Nothing was tagged or published.' }
-if ($redo) {
+if ($replace) {
+    Write-Host "  $tag is a published pre-release ($($published.html_url)): it is REPLACED by $($selected.Short) - the tag moves now; once CI has passed," -ForegroundColor Yellow
+    Write-Host "  the release workflow deletes the published $tag on GitHub and drafts the new build in its place." -ForegroundColor Yellow
+}
+elseif ($redo) {
     $from = if ($remoteTagSha) { $remoteTagSha.Substring(0, 7) } else { '?' }
     Write-Host "  $tag is tagged on GitHub ($from) but not published: it is released again from $($selected.Short) - the tag moves, and the draft the earlier run left is reused." -ForegroundColor Yellow
 }
@@ -336,7 +361,7 @@ if ($redo) { $null = Invoke-Tool git @('-C', $root, 'push', 'origin', ":refs/tag
 # A tag only here (made by hand, or left from an old attempt) is replaced - it isn't on GitHub.
 $message = Join-Path ([IO.Path]::GetTempPath()) "dnnmanager-tag-$([guid]::NewGuid().ToString('N')).txt"
 try {
-    [IO.File]::WriteAllText($message, (ConvertTo-ReleaseTagMessage $tag $Label $Platforms), [Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText($message, (ConvertTo-ReleaseTagMessage $tag $Label $Platforms -Replace:$replace), [Text.UTF8Encoding]::new($false))
     $null = Invoke-Git @('tag', '--force', '--annotate', '--file', $message, $tag, $selected.Sha)
 }
 finally { Remove-Item $message -ErrorAction SilentlyContinue }

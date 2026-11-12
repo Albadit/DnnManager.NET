@@ -15,6 +15,7 @@
       desktop        true | false        build the cross-platform app's packages
       targets        JSON                the Desktop workflow's matrix: the macOS and Linux runtimes chosen
       assets         windows macos linux the platforms, for upload-release.ps1
+      replace        true | false        the version is a published pre-release this release replaces (upload-release.ps1 -Replace)
 
     A tag without the options (a lightweight one, or one made by hand): every platform, and the label its version
     gives - a vX.Y.Z-suffix tag a pre-release, any other the latest. Options that can't be released (a pre-release's
@@ -70,6 +71,7 @@ $outputs = [ordered]@{
     'desktop'      = ($targets.Count -gt 0).ToString().ToLowerInvariant()
     'targets'      = ConvertTo-Json -InputObject @($targets) -Compress
     'assets'       = $options.Platforms -join ' '
+    'replace'      = ([bool]$options.Replace).ToString().ToLowerInvariant()
 }
 $lines = $outputs.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }
 $lines | ForEach-Object { Write-Host $_ }

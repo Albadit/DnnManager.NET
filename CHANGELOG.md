@@ -25,8 +25,8 @@ All notable changes to DnnManager.NET are documented here.
   or more. GitHub builds only those and publishes the release with that label.
   It refuses a version like 2.0.0-rc1 as Latest, and Latest without Windows.
   Picking a version that is tagged but not published releases it again (the
-  task *Release: redo* is gone); a published one is refused, with the next
-  version to use.
+  task *Release: redo* is gone), and a published pre-release is replaced by the
+  new build; a published Latest release is refused, with the next version to use.
 - **A release is tested once, by CI, and the task doesn't wait.** **Release**
   tags the commit you pick on GitHub (the newest on top) and pushes the tag at
   once - no tests on your PC. On GitHub the release workflow waits for CI on that commit and builds only

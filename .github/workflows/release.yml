@@ -67,6 +67,7 @@ jobs:
       desktop: ${{ steps.plan.outputs.desktop }}
       targets: ${{ steps.plan.outputs.targets }}
       assets: ${{ steps.plan.outputs.assets }}
+      replace: ${{ steps.plan.outputs.replace }}
     steps:
       - name: Check out the scripts
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -396,7 +397,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           LABEL: ${{ needs.plan.outputs.label }}
           PLATFORMS: ${{ needs.plan.outputs.assets }}
-        run: ./.github/scripts/upload-release.ps1 -Stage Draft -Tag $env:TAG -Directory dist -Label $env:LABEL -Platforms $env:PLATFORMS
+          # A published pre-release of this version is deleted first, when the tag says it is replaced.
+          REPLACE: ${{ needs.plan.outputs.replace }}
+        run: ./.github/scripts/upload-release.ps1 -Stage Draft -Tag $env:TAG -Directory dist -Label $env:LABEL -Platforms $env:PLATFORMS -Replace:($env:REPLACE -eq 'true')
 
   publish:
     name: Publish the release

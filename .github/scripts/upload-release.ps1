@@ -33,6 +33,10 @@ param(
     [Parameter(Mandatory)] [ValidateSet('latest', 'prerelease', 'none')] [string]$Label,
     # What was built: windows, macos, linux - "windows macos linux" (release-plan.ps1).
     [Parameter(Mandatory)] [string]$Platforms,
+    # -Stage Draft: a published PRE-RELEASE of the tag is deleted first and replaced by this draft (the tag's message
+    # says so - publish-release.ps1, when a published pre-release is picked). A published release that isn't a
+    # pre-release is never deleted: every DNN Manager may have it.
+    [switch]$Replace,
     [string]$Repository = $env:GITHUB_REPOSITORY,
     # The commit the workflow built: the tag must still point at it.
     [string]$Commit = $env:GITHUB_SHA
@@ -144,8 +148,15 @@ if ($Stage -eq 'Draft') {
     $fields = @{ tag_name = $Tag; target_commitish = $Commit; name = $Tag; body = $body; draft = $true; prerelease = $prerelease }
 
     $release = Find-Release
+    if ($release -and -not $release.draft -and $Replace -and $release.prerelease) {
+        # The published pre-release this one replaces: deleted now - CI passed and everything was built - and the new
+        # build is drafted in its place. Its tag already points at the new commit.
+        $null = Invoke-GitHub DELETE "/releases/$($release.id)"
+        Write-Host "The published pre-release $Tag ($($release.html_url)) is deleted - this build replaces it."
+        $release = $null
+    }
     if ($release -and -not $release.draft) {
-        throw "The release $Tag is already published ($($release.html_url)) - it isn't changed. Release the change as the next version."
+        throw "The release $Tag is already published ($($release.html_url)) - it isn't changed$(if ($Replace) { ' (only a pre-release is replaced)' }). Release the change as the next version."
     }
     if ($release) {
         Write-Host "Reusing the draft $Tag (id $($release.id)): its files are replaced."

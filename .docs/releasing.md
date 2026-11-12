@@ -160,10 +160,17 @@ version. The version picker shows each version as GitHub has it:
   published. It is **released again** from the commit you pick: the old tag is
   deleted on GitHub and made again there, and the next run reuses the draft the
   earlier one left. The label and platforms are the ones you pick this time.
-- **published (live)**: refused. Every DNN Manager updates only to a *newer*
-  version, so whoever installed it would never be offered the new build. Write
-  the notes for the next version (the picker names it: `v2.0.0-rc1` → `v2.0.0-rc2`,
-  `v1.8.7` → `v1.8.8`) and release that - see [A bad release](#a-bad-release).
+- **published pre-release**: **replaced** by the commit you pick. No **Update**
+  button offers a pre-release, so only people who downloaded it by hand have it.
+  The tag moves at once (its message says `Release-Replace: true`), and once CI has
+  passed and everything is built, the release workflow deletes the published
+  pre-release on GitHub and drafts the new build in its place.
+- **published (Latest or None)**: refused. Every DNN Manager updates only to a
+  *newer* version, so whoever installed it would never be offered the new build.
+  Write the notes for the next version (the picker names it: `v1.8.7` → `v1.8.8`)
+  and release that - see [A bad release](#a-bad-release). With GitHub's immutable
+  releases switched on, a published pre-release's tag can't move either: then
+  release the next version (`v2.0.0-rc2`) instead.
 
 Released again, it is also refused while a release run on the tag hasn't ended
 (queued, running, or waiting for *Publish the release*): wait for it, or reject

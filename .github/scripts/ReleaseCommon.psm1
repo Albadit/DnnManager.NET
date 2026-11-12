@@ -115,9 +115,10 @@ function Get-ReleaseOptionsProblem([string]$Tag, [string]$Label, [string[]]$Plat
     return $null
 }
 
-# The version tag's message: a title, and the release's options as two lines the workflow reads.
-function ConvertTo-ReleaseTagMessage([string]$Tag, [string]$Label, [string[]]$Platforms) {
-    "DNN Manager $Tag`n`nRelease-Label: $Label`nRelease-Platforms: $($Platforms -join ' ')`n"
+# The version tag's message: a title, and the release's options as lines the workflow reads. -Replace: the version is a
+# published pre-release that this release replaces - the workflow deletes it before it drafts the new one.
+function ConvertTo-ReleaseTagMessage([string]$Tag, [string]$Label, [string[]]$Platforms, [switch]$Replace) {
+    "DNN Manager $Tag`n`nRelease-Label: $Label`nRelease-Platforms: $($Platforms -join ' ')`n" + $(if ($Replace) { "Release-Replace: true`n" } else { '' })
 }
 
 # The options in a version tag's message. A tag without them (a lightweight tag, one made by hand): the label follows
@@ -125,11 +126,13 @@ function ConvertTo-ReleaseTagMessage([string]$Tag, [string]$Label, [string[]]$Pl
 function ConvertFrom-ReleaseTagMessage([string]$Tag, [string]$Message) {
     $label = if ($Tag -match '-') { 'prerelease' } else { 'latest' }
     $platforms = $script:ReleasePlatforms
+    $replace = $false
     foreach ($line in "$Message" -split "`r?`n") {
         if ($line -match '^Release-Label:\s*(\S+)\s*$') { $label = $Matches[1].ToLowerInvariant() }
         elseif ($line -match '^Release-Platforms:\s*(.+?)\s*$') { $platforms = ConvertTo-ReleasePlatforms $Matches[1] }
+        elseif ($line -match '^Release-Replace:\s*true\s*$') { $replace = $true }
     }
-    [pscustomobject]@{ Label = $label; Platforms = @($platforms) }
+    [pscustomobject]@{ Label = $label; Platforms = @($platforms); Replace = $replace }
 }
 
 # The label as GitHub writes it.
