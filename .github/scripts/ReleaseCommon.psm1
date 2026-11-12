@@ -1,5 +1,5 @@
 <#
-    What publish-release.ps1, redo-release.ps1 and release-plan.ps1 share: a release's label and platforms (how they
+    What publish-release.ps1 and release-plan.ps1 share: a release's label and platforms (how they
     are written into the version tag and read back), running git and other tools, asking, and reading GitHub's
     public API without signing in (the repository is public) - no token is read or sent. Each script imports it and
     calls Set-ReleaseContext with the repository's folder, then with the GitHub repository (owner/name) once it is known.

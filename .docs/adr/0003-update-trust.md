@@ -63,7 +63,7 @@ what every DNN Manager installed - and nothing showed where a file had come from
   `GITHUB_TOKEN` is its only GitHub credential. The release scripts read no token:
   Git's credential pushes the tag, and the GitHub API is asked without signing in.
 - **A published version never changes:** the release workflow and
-  `redo-release.ps1` refuse to touch a published release. A change to one gets a
+  `publish-release.ps1` (which releases an unpublished version again) refuse to touch a published release. A change to one gets a
   new version number. With GitHub's immutable releases turned on, neither its files
   nor its tag can change any more.
 - **Signing, ready to switch on:** with Azure Artifact Signing's repository

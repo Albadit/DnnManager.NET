@@ -30,8 +30,10 @@ until 1.7.2 is tagged ([`DnnManager.csproj`](../DnnManager.csproj), target
    [cross-platform app](cross-platform.md)'s packages for macOS and Linux
    (`DnnManager-X.Y.Z-macos-arm64.zip`, `-macos-x64.zip`, `-linux-x64.tar.gz`,
    `-linux-arm64.tar.gz`) and `SHA256SUMS.txt`. It signs the exes once signing is
-   set up, tries them, and puts everything on a draft release. It runs no tests: [CI](#the-build-workflow) tests every
-   commit you push, and the task runs the fast tests on your PC before it tags.
+   set up, tries them, and puts everything on a draft release. Nothing is tested
+   twice: [CI](#the-build-workflow) tests every commit you push, and the release
+   workflow first waits for CI on the tagged commit and builds only once it has
+   passed.
 5. **Approve the job *Publish the release*** on the run's page on GitHub (the
    `publish` environment's required reviewer). It checks the tag and the files
    again and publishes the release. Every running DNN Manager then offers it
@@ -39,8 +41,8 @@ until 1.7.2 is tagged ([`DnnManager.csproj`](../DnnManager.csproj), target
 
 ## Release from VS Code
 
-**Ctrl+Shift+B → Release** (or **Terminal → Run Task…**) asks two
-questions in VS Code's picker, then runs
+**Ctrl+Shift+B → Release** (or **Terminal → Run Task…**) asks four
+questions in VS Code's picker (the notes, the commit, the label, the platforms), then runs
 [`.github/scripts/publish-release.ps1`](../.github/scripts/publish-release.ps1) in
 the terminal. The pickers are filled fresh each time - from `.docs/release-notes`
 and from GitHub - by the extension
@@ -53,23 +55,23 @@ and from GitHub - by the extension
    `v1.7.0.md` makes the tag and the release title `v1.7.0` (`v1.7.0-rc.1.md`
    makes a pre-release).
 2. **Pick the commit** from the 20 newest on GitHub (`origin/<current branch>`,
-   fetched first) - the newest is on top.
+   fetched first) - the newest is on top. Push before you release: a commit that
+   is only on this PC is refused, because CI never tested it.
 3. It stops when the tag is on GitHub already (or here, on another commit), when
    GitHub has published that version, or when the commit doesn't have its release
    notes or the release workflow (`.github/workflows/release.yml`). The release is
    built from that commit, and its notes are built into the exe.
-4. In a temporary worktree of that commit - your working copy isn't touched - it
-   restores the packages in locked mode and runs the fast tests, so a problem shows
-   up before the tag exists.
-5. **After you confirm**, it tags the commit and pushes the tag. Nothing built on
-   this PC is uploaded: the release workflow builds, tests, signs (once
-   [code signing](#code-signing) is set up), attests, tries and drafts it, and
-   publishes it once you approve.
-6. It stops once the tag is pushed and names the workflow's page on GitHub:
-   follow the run there, and approve *Publish the release* once the draft is
-   ready. Answer *N* at step 5 and nothing is tagged.
+4. **It tags the commit and pushes the tag at once**: no tests run on your PC and
+   nothing waits there. Your terminal is free again within seconds.
+5. **On GitHub, the release waits for CI.** The release workflow's first job
+   ([`wait-for-ci.ps1`](../.github/scripts/wait-for-ci.ps1)) waits for CI on that
+   commit, up to 90 minutes. It builds only once CI has passed. If CI fails or is
+   cancelled, the release stops there, naming the failed jobs, and nothing is built.
+   Nothing built on this PC is uploaded: the release workflow builds, signs (once
+   [code signing](#code-signing) is set up), attests, tries and drafts it.
+6. **Approve *Publish the release*** on the run's page once the draft is ready.
 
-After the commit, the task asks two more questions:
+The task also asks two more questions:
 
 - **Release label**, as GitHub names it:
   - **Latest**: the latest release. Every DNN Manager's **Update** button offers it.
@@ -102,11 +104,9 @@ The only credential it uses is the one Git pushes the tag with (see
 whether the version is published
 ([`ReleaseCommon.psm1`](../.github/scripts/ReleaseCommon.psm1), which it shares
 with the redo script). Outside VS Code,
-`.github\scripts\publish-release.ps1` asks the same two questions in the terminal;
-`-NotesFile .docs\release-notes\v1.7.0.md -Commit <hash>` answers them. `-SkipTests`
-skips the fast tests here (the release workflow runs none - only CI, on the pushed commit).
-You have to confirm before it releases a
-commit that isn't on GitHub yet.
+`.github\scripts\publish-release.ps1` asks the same questions in the terminal, and
+lists the recent commits to pick from; `-NotesFile .docs\release-notes\v1.7.0.md
+-Commit latest` (or a hash) answers them.
 
 The release's notes are `.docs/release-notes/vX.Y.Z.md` as
 [`.github/scripts/release-notes.ps1`](../.github/scripts/release-notes.ps1) gives
@@ -149,38 +149,27 @@ A vulnerability the task still lists is in one of the project's own packages (a
 `PackageReference` in a `.csproj`, such as `Microsoft.Data.Sqlite`): raise its
 version there and run the task again.
 
-## Redo a release
+## Release a version again
 
-When a release's workflow failed or the release needs more changes before it is
-published, commit and push them, then **Ctrl+Shift+B → Release: redo**
-runs [`.github/scripts/redo-release.ps1`](../.github/scripts/redo-release.ps1):
+When a release's workflow failed, or you didn't approve its draft and want more
+changes in it, commit and push them, then run **Release** again and pick the same
+version. The version picker shows each version as GitHub has it:
 
-1. The version is the newest version tag (`-Version` for another).
-2. **It refuses a version GitHub has published** - a pre-release too, and also when
-   GitHub can't be asked. A published version gets a new version number (see
-   [A bad release](#a-bad-release)). It also refuses while a release workflow run
-   on the tag hasn't ended - queued, running, or waiting for the publish job's
-   approval: wait for it, or cancel it (reject *Publish the release*), first.
-3. VS Code's picker lists the commits of the branch since the tag's, the newest
-   first, each marked *on GitHub*, *not on GitHub yet* or as the tag's commit now
-   (filled by `redo-release.ps1 -List commits`, which asks GitHub nothing). Run
-   outside VS Code, the script lists them in the terminal - Enter takes the newest -
-   and `-Commit <hash>` picks one without asking. That commit is released
-   **as it is**: nothing is amended or pushed, and changes you haven't committed
-   aren't in it (the plan says so). A commit that isn't on GitHub yet is named
-   too - push it first.
-4. It shows the plan and asks once, then deletes the tag here and on GitHub and
-   releases the version from that commit, as **Release** does: the fast
-   tests, then the tag, and GitHub builds and publishes it. A draft release that
-   the failed run left stays on GitHub: the next run on the tag reuses it and
-   replaces its files and notes.
+- **next release** / **not released**: no tag yet. It is released.
+- **tagged, not published**: the tag is on GitHub, but the release isn't
+  published. It is **released again** from the commit you pick: the old tag is
+  deleted on GitHub and made again there, and the next run reuses the draft the
+  earlier one left. The label and platforms are the ones you pick this time.
+- **published (live)**: refused. Every DNN Manager updates only to a *newer*
+  version, so whoever installed it would never be offered the new build. Write
+  the notes for the next version (the picker names it: `v2.0.0-rc1` → `v2.0.0-rc2`,
+  `v1.8.7` → `v1.8.8`) and release that - see [A bad release](#a-bad-release).
 
-The task also asks for the release label and the platforms. **As before**, the
-default, keeps the old tag's choices, read from its message. Pick others to
-change them, such as adding Linux to a redone pre-release.
-
-`-DryRun` shows the plan and changes nothing; `-SkipTests` is passed on to
-**Release**.
+Released again, it is also refused while a release run on the tag hasn't ended
+(queued, running, or waiting for *Publish the release*): wait for it, or reject
+the publish job, first. And when GitHub can't be asked whether the version is
+published, nothing is changed. A tag only on this PC (never pushed) is simply
+replaced.
 
 ## A bad release
 
@@ -209,7 +198,7 @@ never cancelled half way. Its jobs run in this order:
 
 ```mermaid
 flowchart LR
-    plan["plan<br/>label and platforms from the tag"] --> build["build<br/>Windows: publish"]
+    plan["plan<br/>wait for CI, then label and platforms from the tag"] --> build["build<br/>Windows: publish"]
     plan --> desktop["desktop<br/>macOS and Linux packages"]
     build --> sign["sign<br/>sign, Setup, SHA256SUMS, attest"]
     desktop --> sign
@@ -222,7 +211,12 @@ flowchart LR
 A platform you didn't tick is skipped: its job doesn't run, and the jobs after it
 go on without it. Without **Windows**, there is no smoke test either.
 
-- **Plan** - [`release-plan.ps1`](../.github/scripts/release-plan.ps1) reads the
+- **Plan** - first [`wait-for-ci.ps1`](../.github/scripts/wait-for-ci.ps1) waits
+  for [CI](#the-build-workflow) on the tagged commit, asking GitHub every 30
+  seconds, up to 90 minutes. It goes on only once CI has passed. If CI fails or is
+  cancelled, or no CI run starts within 10 minutes (a commit never pushed to a
+  branch), the release stops there and nothing is built. Then
+  [`release-plan.ps1`](../.github/scripts/release-plan.ps1) reads the
   tag's message from GitHub's API and sets what the run builds and how the release
   is labelled. A label that can't be released, such as a `-rc` version as Latest,
   fails here, before anything is built.
@@ -232,7 +226,8 @@ go on without it. Without **Windows**, there is no smoke test either.
   publishes the portable exe, and publishes the app and the launcher for Setup
   (`build.ps1 -PublishOnly`) - all unsigned. It runs the packages' code, so it gets
   no OpenID Connect token: it may only read the repository. No tests run in the
-  release workflow - [CI](#the-build-workflow) runs them on every commit pushed.
+  release workflow - [CI](#the-build-workflow) ran them on the commit, and the
+  plan job waited for its result.
 - **macOS and Linux** (desktop) - once the build has the version, calls the
   [Desktop workflow](../.github/workflows/desktop.yml) with it. That workflow
   publishes the [cross-platform app](cross-platform.md) on a `macos-15` runner for
@@ -354,7 +349,7 @@ Do these once, before the first release with the workflow, in the repository's
     *Restrict deletions* and *Block force pushes*.
 
   Add the *Repository admin* role to both bypass lists: **Release** creates
-  the tag, and **Release: redo** deletes it and makes it again. Nobody else can push or move a version tag, so nobody else can
+  the tag, and deletes it and makes it again to release an unpublished version again. Nobody else can push or move a version tag, so nobody else can
   start a release.
 - **Environments** (the first release run makes both; set them up before it):
   - `publish` - under *Required reviewers* add yourself, and under *Deployment

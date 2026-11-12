@@ -8,7 +8,7 @@ description: >-
   the GitHub release's notes. Use when asked to write, draft,
   update or review release notes, prepare a release or "the next release", or turn the Unreleased changelog entry
   into notes - and to redo a release whose tag is already made (a failed release workflow, one more change before
-  anyone has it): the notes and changelog updated in place, then the task "Release: redo".
+  anyone has it): the notes and changelog updated in place, then the task "Release" with the same version.
 ---
 
 # Release notes
@@ -51,16 +51,17 @@ Readers are **people who use DNN Manager**, deciding whether to update and what 
 8. Report what the notes say, the commit message, and anything left unverified. Don't commit, tag or publish - the
    owner does, with the VS Code task **Release** (`.github/scripts/publish-release.ps1`, see
    `.docs/releasing.md`), which picks this file and a commit and pushes the tag; GitHub's release workflow builds
-   both exes and publishes the release - or, for a redo, **Release: redo** (below).
+   both exes and publishes the release - for a redo too: picking a version that is tagged but not published releases
+   it again (below).
 
 ## Redoing a release
 
 The version's tag is made already - its release workflow failed, or one more change is wanted - and the owner wants
-the same version again, not the next one. `.github/scripts/redo-release.ps1` (the VS Code task
-**Release: redo**, see `.docs/releasing.md#redo-a-release`) releases that version again from the newest
-commit of the branch (or one the owner picks): it deletes the tag and makes it again there - nothing is amended or
-pushed, so the changes have to be committed and pushed first (a draft the failed run left is reused). It refuses a
-release that is published.
+the same version again, not the next one. The VS Code task **Release** does it when that version is picked
+(`.github/scripts/publish-release.ps1`, see `.docs/releasing.md#release-a-version-again`): its picker marks the
+version *tagged, not published*, and it releases it again from the commit the owner picks - the tag on GitHub is
+deleted and made again there; nothing is amended or pushed, so the changes have to be committed and pushed first (a
+draft the failed run left is reused). It refuses a release that is published, naming the next version.
 
 1. **Is a redo still possible?** Look the release up:
    `curl -s https://api.github.com/repos/<owner>/<repo>/releases/tags/vX.Y.Z` (the repository is `origin`'s) - a
@@ -75,9 +76,8 @@ release that is published.
    removed setting or changed behaviour. Run the fast tests again and update *Tested*.
 4. **The commit message**: give one for the commit with the updated notes, in the release format when the themes
    changed - the redo doesn't rewrite any commit.
-5. **Show the plan, don't run it**: `.github\scripts\redo-release.ps1 -Version X.Y.Z -DryRun` changes nothing and
-   prints which commit would be released and which tags deleted - fine to run and report. The redo itself deletes
-   the tag on GitHub: only the owner runs it.
+5. **Don't run it**: releasing again deletes the tag on GitHub - only the owner runs **Release**. Say which commit
+   to pick (the newest pushed one with the updated notes) and that the old tag moves there.
 
 ## Structure
 

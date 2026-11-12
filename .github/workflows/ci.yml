@@ -120,7 +120,10 @@ jobs:
       # LocalDB or Linux containers. More fails the run, and so does any skipped test outside TestCategory Integration -
       # a fast test that stops running mustn't pass as green. Set the repository variable CI_MAX_SKIPPED_TESTS to the
       # count the step summary shows once it is known, so a newly skipped integration test fails too.
-      MAX_SKIPPED: ${{ vars.CI_MAX_SKIPPED_TESTS || '14' }}
+      # 19, as the run of 2026-11-12 counted them: 10 (DNN upgrades, the SQL container) and the 9 of Source Control's
+      # server tests (DeploymentServerTests: FTP, FTPS and SFTP servers in Linux containers, which this Windows runner
+      # can't start).
+      MAX_SKIPPED: ${{ vars.CI_MAX_SKIPPED_TESTS || '19' }}
 
     steps:
       - name: Check out
