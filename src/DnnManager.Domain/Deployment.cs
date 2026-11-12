@@ -74,6 +74,15 @@ public sealed record DeployConnection
     public required string RemoteRoot { get; init; }
 
     /// <summary>
+    /// The folder on this PC it is compared with - FileZilla's Default local directory. Null: the project's own folder
+    /// (its IIS site's).
+    /// </summary>
+    public string? LocalRoot { get; init; }
+
+    /// <summary>The folder on this PC it is compared with: <see cref="LocalRoot"/>, or else <paramref name="projectFolder"/>.</summary>
+    public string LocalFolder(string projectFolder) => string.IsNullOrWhiteSpace(LocalRoot) ? projectFolder : LocalRoot;
+
+    /// <summary>
     /// The server's identity as the user trusted it: for SFTP its host key's SHA-256 fingerprint (<c>SHA256:…</c>), for
     /// FTPS its certificate's SHA-256 - null until trusted. A server that shows another one is refused.
     /// </summary>

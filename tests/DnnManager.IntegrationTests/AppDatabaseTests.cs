@@ -91,7 +91,7 @@ public sealed class AppDatabaseTests
         using (var connection = Raw(Database.Path))
         {
             AppDatabase.Execute(connection, "INSERT INTO settings (key, value) VALUES ('projects.sitePort', '8080')");
-            AsTheVersionBefore(connection, current);
+            AsTheVersionBeforeTheLocalFolder(connection, current);
         }
 
         using (Database.Open()) { }
@@ -196,13 +196,21 @@ public sealed class AppDatabaseTests
     }
 
     /// <summary>
-    /// Makes a current file the version before: the last step (FTP's encryption column) undone, so it runs again as it
-    /// does for a user's older file.
+    /// Makes a current file the version before: the last step (a server's own local folder) undone, so it runs again as
+    /// it does for a user's older file.
     /// </summary>
+    private static void AsTheVersionBeforeTheLocalFolder(SqliteConnection connection, long current)
+    {
+        AppDatabase.Execute(connection, "ALTER TABLE deploy_connections DROP COLUMN local_root");
+        AppDatabase.Execute(connection, $"PRAGMA user_version = {current - 1}");
+    }
+
+    /// <summary>Before FTP's encryption column too.</summary>
     private static void AsTheVersionBefore(SqliteConnection connection, long current)
     {
+        AsTheVersionBeforeTheLocalFolder(connection, current);
         AppDatabase.Execute(connection, "ALTER TABLE deploy_connections DROP COLUMN ftp_encryption");
-        AppDatabase.Execute(connection, $"PRAGMA user_version = {current - 1}");
+        AppDatabase.Execute(connection, $"PRAGMA user_version = {current - 2}");
     }
 
     /// <summary>Before the deployments: their tables gone too.</summary>
@@ -211,7 +219,7 @@ public sealed class AppDatabaseTests
         AsTheVersionBefore(connection, current);
         foreach (var table in new[] { "deploy_operation_files", "deploy_operations", "deploy_local_hashes", "deploy_baseline", "deploy_connections" })
             AppDatabase.Execute(connection, $"DROP TABLE {table}");
-        AppDatabase.Execute(connection, $"PRAGMA user_version = {current - 2}");
+        AppDatabase.Execute(connection, $"PRAGMA user_version = {current - 3}");
     }
 
     /// <summary>Before the SHA-256 columns of <c>dnn_releases</c> too.</summary>
@@ -220,7 +228,23 @@ public sealed class AppDatabaseTests
         AsTheVersionBeforeDeployments(connection, current);
         AppDatabase.Execute(connection, "ALTER TABLE dnn_releases DROP COLUMN sha256");
         AppDatabase.Execute(connection, "ALTER TABLE dnn_releases DROP COLUMN upgrade_sha256");
-        AppDatabase.Execute(connection, $"PRAGMA user_version = {current - 3}");
+        AppDatabase.Execute(connection, $"PRAGMA user_version = {current - 4}");
+    }
+
+    [TestMethod]
+    public void A_saved_server_gets_no_local_folder_of_its_own()
+    {
+        var current = CurrentVersion();
+        using (var connection = Raw(Database.Path))
+        {
+            AsTheVersionBeforeTheLocalFolder(connection, current);
+            Assert.AreEqual(0L, AppDatabase.Scalar<long>(connection, "SELECT COUNT(*) FROM pragma_table_info('deploy_connections') WHERE name = 'local_root'"));
+        }
+        using (Database.Open()) { }
+        using var after = Raw(Database.Path);
+        Assert.AreEqual(1L, AppDatabase.Scalar<long>(after, "SELECT COUNT(*) FROM pragma_table_info('deploy_connections') WHERE name = 'local_root'"),
+            "The column is added; a server saved before has none (null): the project's folder.");
+        Assert.AreEqual(current, AppDatabase.Scalar<long>(after, "PRAGMA user_version"));
     }
 
     [TestMethod]

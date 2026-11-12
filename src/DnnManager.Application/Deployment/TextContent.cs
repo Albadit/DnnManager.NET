@@ -35,7 +35,13 @@ public sealed class TextContent
     /// <paramref name="bytes"/> as text - null when they are binary (a NUL byte, or not text in any encoding tried) or
     /// longer than <see cref="MaxBytes"/>.
     /// </summary>
-    public static TextContent? From(byte[] bytes)
+    public static TextContent? From(byte[] bytes) => Decode(bytes) is { } decoded ? FromText(decoded.Text, decoded.Encoding, decoded.HasBom) : null;
+
+    /// <summary>
+    /// <paramref name="bytes"/> decoded as <see cref="From"/> does - the text exactly as written, every line ending kept -
+    /// or null when they are binary or longer than <see cref="MaxBytes"/>.
+    /// </summary>
+    public static (string Text, Encoding Encoding, bool HasBom)? Decode(byte[] bytes)
     {
         if (bytes.LongLength > MaxBytes) return null;
         string text;
@@ -75,7 +81,7 @@ public sealed class TextContent
             }
         }
         if (text.Contains('\0')) return null;
-        return FromText(text, encoding, bom);
+        return (text, encoding, bom);
     }
 
     /// <summary><paramref name="text"/> split into lines, written with <paramref name="encoding"/>.</summary>

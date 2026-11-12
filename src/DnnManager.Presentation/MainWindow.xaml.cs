@@ -41,7 +41,7 @@ public partial class MainWindow : Window
     {
         ["Projects"]      = typeof(ProjectsPage),
         ["Setup"]         = typeof(SetupPage),
-        ["Deploy"]        = typeof(DeployPage),
+        ["Deploy"]        = typeof(SourceControlPage),
         ["Settings"]      = typeof(SettingsPage),
         ["Troubleshoot"]  = typeof(TroubleshootPage),
     };

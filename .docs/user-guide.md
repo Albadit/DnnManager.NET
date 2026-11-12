@@ -534,7 +534,8 @@ DNN Manager works without a mouse, the way VS Code does.
   | **Ctrl+B** | Show or hide the primary side bar |
   | **Ctrl+Alt+B** | Show or hide the secondary side bar |
   | **Ctrl+F** | Search in the view: the panel's tab when it has the keyboard, else the Projects or Settings search |
-  | **Ctrl+Shift+F** | Search projects (the Projects table's search box) |
+  | **Ctrl+Shift+F** | Search projects (the Projects table's search box) - on Source Control, its **Search** in the project's files |
+  | **Ctrl+Shift+G** / **Ctrl+Shift+E** | Source Control's changes / its **Explorer** |
   | **F5** / **Shift+F5** / **Ctrl+Shift+R** | Start / stop / restart the selected project |
   | **Ctrl+1** / **Ctrl+2** / **Ctrl+3** | Projects / New project / Source Control |
   | **Ctrl+Tab** / **Ctrl+Shift+Tab** | Next / previous page |
@@ -655,7 +656,7 @@ operation](#window). Turned off, closing the window quits DNN Manager.
 | **Source Control** (**Ctrl+3**) | Your projects' servers, kept in step file by file - laid out as VS Code's Source Control: compare, review each change's diff, stage, push or pull, resolve conflicts, roll back. See [Deploy to a server](#deploy-to-a-server). |
 | **New project** | Enter a name (validated as you type), then **Start from**: *a new site* - pick the **Repository** (e.g. `dnnsoftware/Dnn.Platform`), then a **Version** from its GitHub releases (highest version first; pre-releases are listed too, marked *(pre-release)*, but the latest release - marked *(latest)* - is what's selected; *kept, no download* marks a version whose package is kept). The lists are asked of GitHub when the app starts and saved in DNN Manager's database; when GitHub can't be reached, it is asked again the next time New project is shown. **Without internet** the versions of the last lookup are offered; with **Settings → DNN releases → Keep downloaded DNN install packages** on, those marked *kept, no download* are set up as usual; a version that isn't kept needs internet to download - or *an existing site* - pick the site `.zip` and its database `.bacpac` (see [Import a site .zip](#import-a-site-zip)). A name whose folder already exists is refused, and so is the name of an IIS site that serves another folder (making the project's site would replace it). **IIS**, right under the name (a new site and an existing one alike) - the host name and port it answers on (`<name>.dnndev.me`, or a custom domain such as `shop.test` - it goes into the hosts file, see [Host names and working offline](#host-names-and-working-offline)). For a new site: **DNN installation** - *Automatic setup* (the default) or *Manual DNN setup*; **DNN account and website** (automatic setup) - host username and password (**Generate** makes one), e-mail, website name, language and site template, filled in from **Settings → Projects → DNN defaults**. **Database** - filled in from **Settings → Database server** (connection type, server, authentication, username and password) and named like the project; change any of it here for this project only (**Use the settings** fills it in again - the settings stay as they are). A LocalDB file is the site's own `App_Data\Database.mdf`. **Checked as you type**: the host name and port must not already be another IIS site's address (*http://shop.dnndev.me is already the address of the IIS site 'shop'*), and the database must be free - the server is asked a moment after you stop typing (*Checking whether database [shop] on localhost,1433 is free…*, then *is free* or *already exists*); a server that can't be asked (not running, the login refused) says why and is asked again every 10 seconds, so starting the SQL container is noticed by itself. With *Manual DNN setup* a database that exists is allowed - the setup asks whether to drop it or install into it. The full database test (sign-in, version, permissions) still runs before anything is created. Host name and website name follow the project's name until you type your own. **Create project** is ready once everything is valid and both checks have passed; until then *Still needed: …* beside it says what is missing. See [Automatic DNN setup](#automatic-dnn-setup). |
 | **Test and set up** (Settings → Docker container, Database server and IIS) | A card at the end of each of those categories, checked when you press its **Test** button (nothing runs on opening it; an action re-tests what it changed), with a green / red status and a button to fix it. **Docker**: **Docker Desktop** (**Install Docker Desktop** via winget), the **Docker engine** (**Start Docker Desktop**, then waits for the engine) and the **SQL Server container**. **Set up docker-compose** runs the docker-compose.yml made from the settings (`docker compose up -d`, handed to Docker directly - no file is written, and it has the real SA password): it creates the container, starts it, or updates it after the settings changed, then waits for the sa login. The compose project is `dnn-mssql`; a container made by an older DNN Manager under `dnn-shared` is removed and made again under the new name - the databases stay, they're in the volume. **Show docker-compose.yml** shows the same file with a **Copy** button, to run yourself - without the SA password: replace `<your-sa-password>` after copying. **Database server**: the server from **Settings → Database server**, whichever connection type it is - it answers, the sign-in works, its version, and whether the login may create the databases new projects get. **IIS**: the Windows features as a table with their status. **Set up IIS** checks them and, after a confirmation, enables the missing ones (a reboot may be needed). Restarting IIS is on the status bar. |
-| **Settings** (the gear's menu at the bottom of the activity bar, or **Ctrl+,** - a second time closes it) | Opens over the page and edits the settings, laid out like Docker Desktop's settings: the categories on the left, under a **search** box that leaves the ones with a matching setting, and the chosen category on the right. **General**: **Start DNN Manager when you sign in** (a scheduled task that starts it with its Administrator rights, so Windows doesn't ask for them at every sign-in - only for DNN Manager installed for all users, in Program Files), **Keep DNN Manager running when you close the window** (see [Running in the background](#running-in-the-background)), **Look for a newer DNN Manager when it starts** (on by default: GitHub is asked once, a moment after the start - see [Update](#update)), the **UI scale** (80-175 %, everything bigger or smaller like a browser's zoom) and **font size** (11-18 px, only the text), **Play animations** (off: the panel, the sidebar, toasts, menus and switches change at once, and nothing pulses - also while Windows' animation effects are off), and the **terminal** (the default shell, font family and size) - putting every setting back to its default is on **Troubleshoot**. **Projects**: the projects folder, hostname suffix and site port, the **DNN defaults** new projects start with (install mode, host username and password, e-mail, website name, language, site template - the password is kept in the Windows Credential Manager, not in the settings; with none saved, New project asks for one), **Keep warm** - the interval, keep-alive page and warm-up page of the sites kept warm (see [Keep warm](#keep-warm)) - and **Backups** - how long backups and deployment packages are kept (see [Backups](#backups)). **DNN releases**: the repositories, keeping downloaded packages, and [DNN's upgrade path](#edit-the-upgrade-path). **Database server**: the **connection type** new projects get their database on - the *Local SQL container (Docker)* (host, port, SA password), *SQL Server / SQL Server Express* (server, Windows or SQL Server authentication, login - its password kept in the Windows Credential Manager) or a *SQL Server Express LocalDB (file)* (the LocalDB instance); only the chosen type's settings are saved, the others keep what they had - and remembering the password in SSMS. **Docker container**: its name, volume, edition and collation. **IIS**: the Windows features DNN Manager needs (its buttons act at once - nothing there waits for **Save**) - **Edit…** on the IIS card adds or removes them, a row each (how it is shown and its Windows feature name, e.g. *ASP.NET 4.8* and `IIS-ASPNET45`), or puts the defaults back with **Use the defaults**; saved at once, no Save needed. **Source Control**: whether the [Source Control page](#deploy-to-a-server) compares by itself when it opens, how long the history keeps its file versions (90 days by default), and what a new server starts with - files at the same time, keeping what is replaced, checking uploads, and the ignored files (**Use the defaults** puts DNN's back); a server keeps its own once added. **Keyboard shortcuts**: every command's shortcut, to search, change and reset - saved at once, no Save needed (see [Keyboard](#keyboard)). **Help**: the getting started guide, the tour, What's new and the user guide on GitHub - see [Getting started guide and help](#getting-started-guide-and-help); nothing to save. **About**: which DNN Manager this is (version, commit, build date, program folder, release channel, the update status - see [Update](#update) -, license, repository and documentation as links), what it runs on (.NET, architecture, Windows, Administrator or not) and works with (IIS, .NET Framework, Docker, its IIS and SQL libraries), then the folders with your files (settings, backups, deployments, logs, DNN packages - all there from the first start), each with **Open**. Nothing is saved until **Save** (bottom right, ready once you change something in any category; **Discard changes** puts the saved values back), which saves the settings and applies them at once - no restart. **Close** (or the ✕, **Esc**, or a click on the dimmed page) goes back to the page under it. **Docker container**, **Database server** and **IIS** each end with their **Test and set up** card - **Test**, **Set up docker-compose**, **Set up IIS** and the rest - working with the saved settings (while there are unsaved changes they wait for **Save**). See [Configuration](configuration.md). |
+| **Settings** (the gear's menu at the bottom of the activity bar, or **Ctrl+,** - a second time closes it) | Opens over the page and edits the settings, laid out like Docker Desktop's settings: the categories on the left, under a **search** box that leaves the ones with a matching setting, and the chosen category on the right. **General**: **Start DNN Manager when you sign in** (a scheduled task that starts it with its Administrator rights, so Windows doesn't ask for them at every sign-in - only for DNN Manager installed for all users, in Program Files), **Keep DNN Manager running when you close the window** (see [Running in the background](#running-in-the-background)), **Look for a newer DNN Manager when it starts** (on by default: GitHub is asked once, a moment after the start - see [Update](#update)), the **UI scale** (80-175 %, everything bigger or smaller like a browser's zoom) and **font size** (11-18 px, only the text), **Play animations** (off: the panel, the sidebar, toasts, menus and switches change at once, and nothing pulses - also while Windows' animation effects are off), and the **terminal** (the default shell, font family and size) - putting every setting back to its default is on **Troubleshoot**. **Projects**: the projects folder, hostname suffix and site port, the **DNN defaults** new projects start with (install mode, host username and password, e-mail, website name, language, site template - the password is kept in the Windows Credential Manager, not in the settings; with none saved, New project asks for one), **Keep warm** - the interval, keep-alive page and warm-up page of the sites kept warm (see [Keep warm](#keep-warm)) - and **Backups** - how long backups and deployment packages are kept (see [Backups](#backups)). **DNN releases**: the repositories, keeping downloaded packages, and [DNN's upgrade path](#edit-the-upgrade-path). **Database server**: the **connection type** new projects get their database on - the *Local SQL container (Docker)* (host, port, SA password), *SQL Server / SQL Server Express* (server, Windows or SQL Server authentication, login - its password kept in the Windows Credential Manager) or a *SQL Server Express LocalDB (file)* (the LocalDB instance); only the chosen type's settings are saved, the others keep what they had - and remembering the password in SSMS. **Docker container**: its name, volume, edition and collation. **IIS**: the Windows features DNN Manager needs (its buttons act at once - nothing there waits for **Save**) - **Edit…** on the IIS card adds or removes them, a row each (how it is shown and its Windows feature name, e.g. *ASP.NET 4.8* and `IIS-ASPNET45`), or puts the defaults back with **Use the defaults**; saved at once, no Save needed. **Source Control**: whether the [Source Control page](#deploy-to-a-server) compares a server as soon as you choose it, how long the history keeps its file versions (90 days by default), and what a new server starts with - files at the same time, keeping what is replaced, checking uploads, and the ignored files (**Use the defaults** puts DNN's back); a server keeps its own once added. **Keyboard shortcuts**: every command's shortcut, to search, change and reset - saved at once, no Save needed (see [Keyboard](#keyboard)). **Help**: the getting started guide, the tour, What's new and the user guide on GitHub - see [Getting started guide and help](#getting-started-guide-and-help); nothing to save. **About**: which DNN Manager this is (version, commit, build date, program folder, release channel, the update status - see [Update](#update) -, license, repository and documentation as links), what it runs on (.NET, architecture, Windows, Administrator or not) and works with (IIS, .NET Framework, Docker, its IIS and SQL libraries), then the folders with your files (settings, backups, deployments, logs, DNN packages - all there from the first start), each with **Open**. Nothing is saved until **Save** (bottom right, ready once you change something in any category; **Discard changes** puts the saved values back), which saves the settings and applies them at once - no restart. **Close** (or the ✕, **Esc**, or a click on the dimmed page) goes back to the page under it. **Docker container**, **Database server** and **IIS** each end with their **Test and set up** card - **Test**, **Set up docker-compose**, **Set up IIS** and the rest - working with the saved settings (while there are unsaved changes they wait for **Save**). See [Configuration](configuration.md). |
 | **Troubleshoot** (the gear's menu, or the command palette) | Opens over the page, like Settings - **✕**, **Esc** or a click on the dimmed page goes back to the page under it - laid out like Docker Desktop's: **Restart** closes DNN Manager (asking first, as on any quit) and starts it again - projects, settings and data are kept. **Clean up data** deletes what is ticked from `Documents\DnnManager`, each with its size: the logs, the kept DNN packages and - never ticked for you - the project backups and the deployment packages (each holds a whole database, and a `web.config` with the live server's connection string when you gave one), and **Old settings files** (what DNN Manager 1.7.1 and earlier kept its settings in - `settings.json`, `settings.json.bak`, `appsettings.json`, `docker-compose.yml`, which may hold the SQL `sa` password in plain text, and the `.json` files in `state\` - and damaged settings databases put aside, `dnnmanager.damaged-*.db`). **Reset settings to defaults** puts every setting in every category back as DNN Manager is installed - the saved passwords and starting at sign-in too - and applies them at once, without a restart (the current settings aren't kept; the logs, kept packages and which sites are kept warm stay). **Reset to factory defaults** puts DNN Manager back as it was installed: the settings, the saved passwords, starting at sign-in, which sites are kept warm, the logs, the kept packages and the old settings files go, then it restarts. Your projects - their IIS sites, folders and databases - and their backups are never touched. Not while an operation runs. |
 
 ### Projects table
@@ -1099,13 +1100,21 @@ your work, **Compare → review → stage → pull** to take a change someone ma
 directly on the server. Nothing is sent or overwritten without you choosing the
 file and confirming it.
 
-It is laid out as **Source Control** in VS Code. On the left:
+It is laid out as **Source Control** in VS Code. Across the top of the side bar,
+three icons switch its view, as VS Code's activity bar does: **Source Control**
+(**Ctrl+Shift+G** - its badge counts the files that differ), the
+[Explorer](#explorer) (**Ctrl+Shift+E**) and [Search](#search) (**Ctrl+Shift+F**).
+Source Control's view:
 
 - **SERVERS** - every project's servers (VS Code's repositories), each with a
   dot - green: reached, red: it couldn't connect the last time (the tooltip
-  says why) - and what it has to push (↑), pull (↓) and resolve (!). Choose one;
-  right-click it to compare, edit, test or remove it. **+** at the top adds a
-  server to a project, **⟳** compares (**F5**), **⋯** has the rest.
+  says why) - and what it has to push (↑), pull (↓) and resolve (!). Nothing is
+  read from a server until you choose it: choosing one compares it (once - **F5**
+  again). **Ctrl+click** or **Shift+click** chooses more than one: each is
+  compared, one after the other, and CHANGES shows one of them at a time - its
+  name next to **CHANGES**, a click on it shows another chosen one's. Right-click
+  a server to compare, edit, test or remove it. **+** at the top adds a server
+  to a project, **⟳** compares the chosen servers (**F5**), **⋯** has the rest.
 - **CHANGES** - the **Message** box and **Push** (its **▾**: Pull, Pull into a
   review folder, Compare again), then the changes in groups: **Staged
   Changes**, **Changes - to push**, **Incoming - to pull** and **Conflicts -
@@ -1133,6 +1142,7 @@ the settings that work there work here:
 | **Logon Type** | **Normal** - a user and a saved password. **Ask for password** - the password isn't saved: DNN Manager asks for it the first time it reaches the server, and forgets it when it closes. **Anonymous** (FTP). **Key file** (SFTP) - an OpenSSH, PEM or PuTTY key with its passphrase; its content is saved, so the file isn't needed afterwards |
 | **User**, **Password** | On Azure, the deployment user is `<app>\$<app>` - its password from the app's publish profile |
 | **Remote folder** | The site's folder there, e.g. `/site/wwwroot` (Azure), `/var/www/shop` or `/httpdocs`. Nothing outside it is read, changed or deleted |
+| **Local folder** | FileZilla's *Default local directory*: the folder on this PC the server is compared with, pushed from and pulled into - **Browse…** to choose it. Empty: the project's own folder (its IIS site's) |
 | **Files at the same time** | 1 to 16 (4 by default) - each over a connection of its own |
 | **Keep what a push or pull replaces** | On by default - what a [rollback](#history-and-rollback) needs |
 | **Check each upload by its SHA-256** | On by default - see [Push](#push); off checks only the size |
@@ -1155,9 +1165,9 @@ comparison data and history (no file is deleted, here or there).
 
 ### Compare
 
-Opening the page compares the chosen server once, by itself (unless **Settings
-→ Source Control** says not to); **Compare** (or
-**F5**) does it again. DNN Manager compares three things: the project, the
+Choosing a server compares it once, by itself (unless **Settings → Source
+Control** says not to) - opening the page reads nothing from any server;
+**Compare** (or **F5**) compares the chosen servers again. DNN Manager compares three things: the project, the
 server, and how they were when they last agreed (the *baseline*). A file is
 
 | | Shown as | Because |
@@ -1196,11 +1206,18 @@ tab, as in VS Code: a click opens it in the *preview* tab (its name in
 italics), which the next file you click replaces; a **double-click** (on the
 file or its tab) keeps the tab open, so several can be open side by side. Click
 a tab to go back to its file; **×**, a middle-click or **Ctrl+W** closes it.
+Drag a tab to another place to reorder the tabs: the tabs stay where they are
+while you drag, a blue line shows where it will go, and it moves there when you
+let go (or move the chosen one with **Ctrl+Shift+PageUp** / **PageDown**).
 Under the tabs, the file's folder and what happened to it. Each tab follows
 **Compare**: a file no longer different closes its tab. The diff shows it
-**Unified** or **Side by side**, only the changes or the **Whole file**,
-coloured for C#, JavaScript, CSS, HTML / XML / ascx and SQL; the copy button
-copies it as `git diff` writes it. It fills the page from edge to edge, and a
+**Unified** or **Side by side**, only the changes or the **Whole file** - the
+three icon toggles at the top right - coloured for C#, JavaScript, CSS, HTML /
+XML / ascx and SQL. Its code is selected as in an editor: drag over it,
+**Shift**+click to extend, double-click a word, triple-click a line or
+**Ctrl+A** for all - side by side, on the side you clicked - and **Ctrl+C** (or
+**Copy** on the right-click menu) copies it, tabs and whole lines as they are
+in the file. It fills the page from edge to edge, and a
 line longer than the page scrolls sideways - **Side by side**, each side keeps
 half the width and one scroll bar under them (or **Shift** and the wheel) moves
 both. Of a very long line - a minified `.min.js` is one line of hundreds of KB -
@@ -1210,6 +1227,42 @@ says its sizes instead. The server's version is read over one connection that
 stays open while you look through the files (closed after a minute without
 use), each file once per comparison - and the next few files of the list are
 read ahead, so going down the list each one shows at once.
+
+### Explorer
+
+The **Explorer** (the second icon, **Ctrl+Shift+E**) shows:
+
+- **OPEN EDITORS** - the open tabs: click one to show it, its **×** (or a
+  middle-click) closes it.
+- **The project's folder**, under the project's name - its files as a push
+  sees them: what the chosen server's **Ignored files** leave out isn't listed,
+  nor `.git`. Folders first; click a folder (or **→** / **←**) to open or close
+  it. A file that differs from the server has its letter (**M**, **A**…).
+
+Click a file to open it as it is - not a diff: every line, numbered and
+coloured, in the preview tab; a double-click keeps the tab (as for a change).
+**Copy path** and **Open in File Explorer** are on the right-click menu; **⟳**
+lists the folder again, **^** closes every folder.
+
+### Search
+
+**Search** (the third icon, **Ctrl+Shift+F**) finds text in the project's files
+as VS Code's search does: type, and after a moment every match shows, by file -
+the line around it, the match marked. **Aa** matches case (**Alt+C**), **ab**
+whole words (**Alt+W**), **.\*** takes a regular expression (**Alt+R**) - one
+line at a time, so `^` is a line's start. Searched are the text files a push
+would send (the server's **Ignored files** left out; images, DLLs and other
+binary files, and files over 4 MB, aren't read); it stops at 20,000 matches.
+Click a match to open its file there, the match selected; click a file's row
+to fold it.
+
+The chevron left of the box shows **Replace**: each match is then struck
+through with what replaces it after it (with a regular expression, `$1` and
+the like are its groups). **Replace all** (**Ctrl+Alt+Enter**) asks first, then
+writes each file in the project - in its own encoding, byte order mark and
+line endings, through a file beside it so none is left half written. It changes
+the files on this PC only, and can't be undone from here; the server changes
+when you push them - **Compare** shows them as changes.
 
 ### Push
 

@@ -55,6 +55,8 @@ public sealed class DeployConnections(IDeployStore store, IRemoteFileSystemFacto
         if (connection.Auth == DeployAuth.Anonymous && connection.Protocol == TransferProtocol.Sftp) problems["Auth"] = "SFTP has no anonymous sign-in.";
         if (DeployPath.NormalizeRemoteRoot(connection.RemoteRoot) is null)
             problems["RemoteRoot"] = "The project's folder on the server, e.g. /var/www/shop - without '..'.";
+        if (!string.IsNullOrWhiteSpace(connection.LocalRoot) && (!Path.IsPathFullyQualified(connection.LocalRoot) || !Directory.Exists(connection.LocalRoot)))
+            problems["LocalRoot"] = $"'{connection.LocalRoot}' isn't a folder on this PC - choose one with Browse…, or leave it empty for the project's folder.";
         if (connection.Parallel is < 1 or > 16) problems["Parallel"] = "From 1 to 16 files at a time.";
         if (connection.Auth == DeployAuth.Password && string.IsNullOrEmpty(secrets.Password)) problems["Password"] = "The password.";
         if (connection.Auth == DeployAuth.PrivateKey)

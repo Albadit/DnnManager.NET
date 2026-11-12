@@ -78,7 +78,7 @@ public partial class MainWindow
         {
             ProjectsPage { DetailsOpen: true } => "Details",
             SetupPage => "Setup",
-            DeployPage => "Deploy",
+            SourceControlPage => "Deploy",
             _ => "Projects"
         }
     };

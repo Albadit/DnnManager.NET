@@ -144,6 +144,19 @@
                     <TextBox x:Name="RootBox" Grid.Column="1" AutomationProperties.Name="Remote folder"
                              ToolTip="The project's folder on the server, e.g. /site/wwwroot (Azure) or /var/www/shop - nothing outside it is read or changed" />
                 </Grid>
+                <!-- FileZilla's Default local directory: the folder on this PC the server is compared with. -->
+                <Grid Style="{StaticResource Row}" Margin="0,0,0,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition SharedSizeGroup="Label" Width="Auto" MinWidth="110" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource RowLabel}" Text="Local folder:" />
+                    <TextBox x:Name="LocalBox" Grid.Column="1" AutomationProperties.Name="Local folder" TextChanged="LocalBox_Changed"
+                             ToolTip="The folder on this PC it is compared with, pushed from and pulled into - FileZilla's Default local directory" />
+                    <Button Grid.Column="2" Content="Browse…" Margin="8,0,0,0" Click="ChooseLocal_Click" ToolTip="Choose the folder on this PC" />
+                </Grid>
+                <TextBlock x:Name="LocalHint" Style="{StaticResource Hint}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
                 <!-- The app's own chevron, not WPF's Expander - whose header keeps the system's black text in the dark theme. -->
                 <StackPanel Orientation="Horizontal" Margin="-4,8,0,0">

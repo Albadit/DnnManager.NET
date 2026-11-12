@@ -40,7 +40,7 @@ public class SideBarLayoutTests
 
             // Source Control: its servers, changes and history in the primary side bar, beside the activity bar.
             window.NavDeploy.IsChecked = true;
-            var deploy = (DnnManager.Presentation.Pages.DeployPage)window.PageHost.Content;
+            var deploy = (DnnManager.Presentation.Pages.SourceControlPage)window.PageHost.Content;
             Assert.AreSame(deploy.SideBar, window.PrimaryHost.Content);
             Assert.AreEqual(Visibility.Visible, window.PrimarySideBar.Visibility);
             Assert.AreEqual(2, Grid(window.PrimarySideBar));

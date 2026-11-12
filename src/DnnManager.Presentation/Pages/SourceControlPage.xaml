@@ -1,4 +1,4 @@
-<UserControl x:Class="DnnManager.Presentation.Pages.DeployPage"
+<UserControl x:Class="DnnManager.Presentation.Pages.SourceControlPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:p="clr-namespace:DnnManager.Presentation.Pages"
@@ -112,11 +112,134 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- The side bar's views, as VS Code's activity bar on top: an icon each, the one shown with a line under it. The
+             icons as tall as the medium text, so they grow with the font size chosen in Settings. -->
+        <Style x:Key="ViewTab" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+            <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid Background="Transparent">
+                            <ContentPresenter Margin="9,8" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Border x:Name="Line" Height="2" VerticalAlignment="Bottom" Margin="6,0" Background="Transparent" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource TextPrimary}" /></Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+                                <Setter TargetName="Line" Property="Background" Value="{DynamicResource Accent}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ViewIcon" TargetType="Viewbox">
+            <Setter Property="Height" Value="{DynamicResource TextMedium}" />
+            <Setter Property="Width" Value="{Binding Height, RelativeSource={RelativeSource Self}}" />
+        </Style>
+        <Style x:Key="ViewPath" TargetType="Path" BasedOn="{StaticResource IconStroke}">
+            <Setter Property="StrokeThickness" Value="1.2" />
+            <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+        </Style>
+        <!-- A tab's ×: there while the pointer is on its row, or it is chosen - hidden, not collapsed, so nothing moves. -->
+        <Style x:Key="HoverClose" TargetType="Button" BasedOn="{StaticResource SmallIcon}">
+            <Setter Property="Visibility" Value="Hidden" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <!-- A small toggle in the search box - Match Case, Match Whole Word, Use Regular Expression - as VS Code's. -->
+        <Style x:Key="FindToggle" TargetType="ToggleButton" BasedOn="{StaticResource IconToggleButton}">
+            <Setter Property="Width" Value="NaN" />
+            <Setter Property="Height" Value="NaN" />
+            <Setter Property="MinWidth" Value="22" />
+            <Setter Property="Padding" Value="3,1" />
+            <Setter Property="Margin" Value="1,0" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+            <Setter Property="FontSize" Value="{DynamicResource TextSmall}" />
+            <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}}" />
+        </Style>
+
+        <!-- A file or folder of the project in the Explorer: indented by its depth; a folder's chevron, a file's icon; a
+             changed file's letter. A click opens a file in the preview tab, a double-click keeps it; a click on a folder
+             opens or closes it. -->
+        <DataTemplate x:Key="ExplorerItem" DataType="{x:Type p:ExplorerRow}">
+            <DockPanel Background="Transparent" MinHeight="22" ToolTip="{Binding Path}">
+                <TextBlock DockPanel.Dock="Right" Style="{StaticResource Letter}" />
+                <StackPanel Orientation="Horizontal" Margin="{Binding Indent}">
+                    <TextBlock Style="{StaticResource Glyph}" FontSize="9" Width="16" Text="{Binding Chevron}" Foreground="{DynamicResource TextMuted}" />
+                    <TextBlock Style="{StaticResource Glyph}" Text="{Binding Icon}" Foreground="{Binding IconBrush}" Width="16" TextAlignment="Center" Margin="0,0,4,0" />
+                </StackPanel>
+                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+        </DataTemplate>
+
+        <!-- A search result's file: chevron, icon, name, folder, how many matches. A click opens or closes it. -->
+        <DataTemplate x:Key="SearchFileRow" DataType="{x:Type p:SearchRow}">
+            <DockPanel Background="Transparent" MinHeight="22" ToolTip="{Binding Tip}">
+                <Border DockPanel.Dock="Right" Background="{DynamicResource HoverBg}" CornerRadius="8" Padding="6,0" Margin="4,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Count}" FontSize="{DynamicResource TextSmall}" />
+                </Border>
+                <TextBlock DockPanel.Dock="Left" Style="{StaticResource Glyph}" FontSize="9" Width="16" Text="{Binding Chevron}" Foreground="{DynamicResource TextMuted}" />
+                <TextBlock DockPanel.Dock="Left" Style="{StaticResource Glyph}" Text="{Binding Icon}" Foreground="{Binding IconBrush}" Width="16" TextAlignment="Center" Margin="0,0,4,0" />
+                <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                    <Run Text="{Binding Name, Mode=OneWay}" />
+                    <Run Text="{Binding Folder, Mode=OneWay}" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextSmall}" />
+                </TextBlock>
+            </DockPanel>
+        </DataTemplate>
+        <!-- A match: a little of the line before it, the match marked - struck through, the replacement after it, while
+             Replace has text - and the rest of the line. A click opens the file there. -->
+        <DataTemplate x:Key="SearchMatchRow" DataType="{x:Type p:SearchRow}">
+            <TextBlock Margin="32,0,0,0" MinHeight="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding Tip}" Background="Transparent">
+                <Run Text="{Binding Before, Mode=OneWay}" /><Run Text="{Binding Text, Mode=OneWay}" Background="{DynamicResource SearchMatchBg}"
+                     TextDecorations="{Binding Strike, Mode=OneWay}" /><Run Text="{Binding Replacement, Mode=OneWay}" Background="{DynamicResource DiffAddedBg}" /><Run
+                     Text="{Binding After, Mode=OneWay}" />
+            </TextBlock>
+        </DataTemplate>
+        <p:SearchRowTemplates x:Key="SearchTemplates" File="{StaticResource SearchFileRow}" Match="{StaticResource SearchMatchRow}" />
     </UserControl.Resources>
 
     <Grid x:Name="Root">
-        <!-- ─── The side bar's view - the window's primary side bar shows it ─── -->
-            <Grid x:Name="SideGrid" PreviewKeyDown="SideGrid_PreviewKeyDown">
+        <!-- ─── The side bar's views - the window's primary side bar shows them ─── -->
+        <!-- Source Control, Explorer and Search, as VS Code's: an icon each across the top (Ctrl+Shift+G, Ctrl+Shift+E,
+             Ctrl+Shift+F), the chosen view under them. -->
+        <DockPanel x:Name="SideGrid" PreviewKeyDown="SideGrid_PreviewKeyDown">
+            <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1" Padding="7,0">
+                <StackPanel Orientation="Horizontal" KeyboardNavigation.TabNavigation="Once" KeyboardNavigation.DirectionalNavigation="Cycle">
+                    <RadioButton x:Name="ScmTab" Style="{StaticResource ViewTab}" GroupName="SideView" IsChecked="True" Checked="View_Checked"
+                                 AutomationProperties.Name="Source Control" ToolTip="Source Control (Ctrl+Shift+G)">
+                        <Grid>
+                            <Viewbox Style="{StaticResource ViewIcon}"><Grid Width="16" Height="16"><Path Style="{StaticResource ViewPath}" Data="{StaticResource SourceControlGeometry}" /></Grid></Viewbox>
+                            <!-- How many files differ - VS Code's badge. -->
+                            <Border x:Name="ChangeBadge" Background="{DynamicResource Accent}" CornerRadius="7" MinWidth="14" Height="14" Padding="3,0"
+                                    HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-9,-5" Visibility="Collapsed">
+                                <TextBlock x:Name="ChangeBadgeText" Foreground="{DynamicResource OnAccent}" FontSize="9" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </Grid>
+                    </RadioButton>
+                    <RadioButton x:Name="ExplorerTab" Style="{StaticResource ViewTab}" GroupName="SideView" Checked="View_Checked"
+                                 AutomationProperties.Name="Explorer" ToolTip="Explorer - the project's files and the open editors (Ctrl+Shift+E)">
+                        <Viewbox Style="{StaticResource ViewIcon}"><Grid Width="16" Height="16"><Path Style="{StaticResource ViewPath}" Data="{StaticResource ExplorerGeometry}" /></Grid></Viewbox>
+                    </RadioButton>
+                    <RadioButton x:Name="SearchTab" Style="{StaticResource ViewTab}" GroupName="SideView" Checked="View_Checked"
+                                 AutomationProperties.Name="Search" ToolTip="Search - find and replace in the project's files (Ctrl+Shift+F)">
+                        <Viewbox Style="{StaticResource ViewIcon}"><Grid Width="16" Height="16"><Path Style="{StaticResource ViewPath}" Data="{StaticResource SearchGeometry}" /></Grid></Viewbox>
+                    </RadioButton>
+                </StackPanel>
+            </Border>
+            <Grid>
+            <Grid x:Name="ScmView">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -149,8 +272,9 @@
                                       Foreground="{DynamicResource TextMuted}" AutomationProperties.Name="Servers" />
                         <TextBlock Style="{StaticResource SectionTitle}" Text="SERVERS" Margin="2,0,0,0" />
                     </DockPanel>
+                    <!-- Ctrl+click or Shift+click chooses more than one: each is compared, one is shown (CHANGES' header). -->
                     <ListBox x:Name="ServersList" MaxHeight="190" Margin="8,0,8,4" BorderThickness="0" Background="Transparent"
-                             SelectionChanged="Server_Changed" AutomationProperties.Name="Servers" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             SelectionMode="Extended" SelectionChanged="Server_Changed" AutomationProperties.Name="Servers" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              Visibility="{Binding IsChecked, ElementName=ServersToggle, Converter={StaticResource Visible}}">
                         <ListBox.ItemTemplate>
                             <DataTemplate DataType="{x:Type p:ServerRow}">
@@ -186,6 +310,15 @@
                         <ToggleButton DockPanel.Dock="Left" Style="{StaticResource ExpandToggle}" IsChecked="True" IsEnabled="False"
                                       Foreground="{DynamicResource TextMuted}" />
                         <TextBlock Style="{StaticResource SectionTitle}" Text="CHANGES" Margin="2,0,0,0" />
+                        <!-- Several servers chosen: which one's changes these are - a click shows another's. -->
+                        <Button x:Name="ChangesServer" Style="{StaticResource LinkButton}" Margin="8,0,8,0" Padding="0" VerticalAlignment="Center" HorizontalAlignment="Left"
+                                Visibility="Collapsed" Click="ChangesServer_Click" ToolTip="Several servers are chosen - show another one's changes"
+                                AutomationProperties.Name="Show another chosen server's changes">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="ChangesServerText" FontSize="{DynamicResource TextSmall}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Style="{StaticResource Glyph}" Text="{StaticResource GlyphChevronDown}" FontSize="9" Margin="4,0,0,0" />
+                            </StackPanel>
+                        </Button>
                     </DockPanel>
                 </Border>
                 <StackPanel x:Name="CommitArea" Grid.Row="4" Margin="16,6,12,6">
@@ -286,6 +419,155 @@
                 </DockPanel>
             </Grid>
 
+            <!-- EXPLORER - the open editors, and the project's files as a push sees them (the server's ignore rules). -->
+            <DockPanel x:Name="ExplorerView" Visibility="Collapsed">
+                <DockPanel DockPanel.Dock="Top" Margin="16,10,8,4">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button Style="{StaticResource SmallIcon}" Content="{StaticResource GlyphRefresh}" Click="ExplorerRefresh_Click"
+                                ToolTip="Refresh Explorer" AutomationProperties.Name="Refresh Explorer" />
+                        <Button Style="{StaticResource SmallIcon}" Content="{StaticResource GlyphChevronUp}" Click="ExplorerCollapse_Click"
+                                ToolTip="Collapse folders in Explorer" AutomationProperties.Name="Collapse folders in Explorer" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="EXPLORER" />
+                </DockPanel>
+                <!-- OPEN EDITORS - the tabs: a click shows one, its × closes it. -->
+                <DockPanel DockPanel.Dock="Top" Margin="4,2,8,0">
+                    <ToggleButton x:Name="OpenEditorsToggle" DockPanel.Dock="Left" Style="{StaticResource ExpandToggle}" IsChecked="True" Focusable="True"
+                                  Foreground="{DynamicResource TextMuted}" AutomationProperties.Name="Open editors" />
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="OPEN EDITORS" Margin="2,0,0,0" />
+                </DockPanel>
+                <Grid DockPanel.Dock="Top" Visibility="{Binding IsChecked, ElementName=OpenEditorsToggle, Converter={StaticResource Visible}}">
+                    <ListBox x:Name="OpenEditors" MaxHeight="200" Margin="0,0,0,4" BorderThickness="0" Background="Transparent"
+                             SelectionChanged="OpenEditors_Changed" AutomationProperties.Name="Open editors" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                <Setter Property="Padding" Value="4,1" />
+                                <Setter Property="Margin" Value="4,0" />
+                                <Setter Property="AutomationProperties.Name" Value="{Binding Spoken}" />
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type p:EditorTab}">
+                                <DockPanel Background="Transparent" MinHeight="22" ToolTip="{Binding Tip}" MouseDown="Tab_MouseDown">
+                                    <TextBlock DockPanel.Dock="Right" Style="{StaticResource Letter}" />
+                                    <!-- Its × in front, as VS Code's: there while the pointer is on the row, or it is chosen - its
+                                         place kept the rest of the time, so the names don't move. -->
+                                    <Grid DockPanel.Dock="Left" Width="20">
+                                        <Button Style="{StaticResource HoverClose}" Width="18" Height="18" FontSize="10" Content="{StaticResource GlyphClose}"
+                                                Click="CloseTab_Click" Tag="{Binding}" ToolTip="Close" AutomationProperties.Name="Close" />
+                                    </Grid>
+                                    <TextBlock DockPanel.Dock="Left" Style="{StaticResource Glyph}" Text="{Binding Icon}" Foreground="{Binding IconBrush}" Width="16"
+                                               TextAlignment="Center" Margin="0,0,6,0" />
+                                    <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                                        <Run Text="{Binding Name, Mode=OneWay}" FontStyle="{Binding NameStyle, Mode=OneWay}" />
+                                        <Run Text="{Binding Folder, Mode=OneWay}" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextSmall}" />
+                                    </TextBlock>
+                                </DockPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <TextBlock x:Name="OpenEditorsMessage" Style="{StaticResource Hint}" Margin="24,2,8,6" Text="No file is open." />
+                </Grid>
+                <!-- The project's folder, by its name: its files, folders first. -->
+                <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Padding="4,4,8,2">
+                    <DockPanel>
+                        <ToggleButton x:Name="ProjectFilesToggle" DockPanel.Dock="Left" Style="{StaticResource ExpandToggle}" IsChecked="True" Focusable="True"
+                                      Foreground="{DynamicResource TextMuted}" AutomationProperties.Name="Project files" />
+                        <TextBlock x:Name="ProjectFilesTitle" Style="{StaticResource SectionTitle}" Text="PROJECT" Margin="2,0,0,0" TextTrimming="CharacterEllipsis" />
+                    </DockPanel>
+                </Border>
+                <Grid Visibility="{Binding IsChecked, ElementName=ProjectFilesToggle, Converter={StaticResource Visible}}">
+                    <ListBox x:Name="ExplorerTree" BorderThickness="0" Background="Transparent" Margin="0,0,0,4" KeyDown="ExplorerTree_KeyDown"
+                             ItemTemplate="{StaticResource ExplorerItem}" AutomationProperties.Name="Project files" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                <Setter Property="Padding" Value="4,0" />
+                                <Setter Property="Margin" Value="4,0" />
+                                <Setter Property="AutomationProperties.Name" Value="{Binding Spoken}" />
+                                <EventSetter Event="MouseLeftButtonUp" Handler="ExplorerItem_Click" />
+                                <EventSetter Event="MouseDoubleClick" Handler="ExplorerItem_DoubleClick" />
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Copy path" Click="ExplorerCopyPath_Click" />
+                                <MenuItem Header="Open in File Explorer" Click="ExplorerReveal_Click" />
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
+                    </ListBox>
+                    <TextBlock x:Name="ExplorerMessage" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="16,8" VerticalAlignment="Top" Visibility="Collapsed" />
+                </Grid>
+            </DockPanel>
+
+            <!-- SEARCH - find in the project's files, and replace: VS Code's search view. -->
+            <DockPanel x:Name="SearchView" Visibility="Collapsed">
+                <DockPanel DockPanel.Dock="Top" Margin="16,10,8,4">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button Style="{StaticResource SmallIcon}" Content="{StaticResource GlyphRefresh}" Click="SearchRefresh_Click"
+                                ToolTip="Search again" AutomationProperties.Name="Search again" />
+                        <Button Style="{StaticResource SmallIcon}" Content="{StaticResource GlyphCancel}" Click="SearchClear_Click"
+                                ToolTip="Clear search results" AutomationProperties.Name="Clear search results" />
+                        <Button x:Name="SearchCollapseButton" Style="{StaticResource SmallIcon}" Content="{StaticResource GlyphChevronUp}" Click="SearchCollapse_Click"
+                                ToolTip="Collapse all" AutomationProperties.Name="Collapse all" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="SEARCH" />
+                </DockPanel>
+                <Grid DockPanel.Dock="Top" Margin="4,0,12,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <!-- Replace shown or hidden, as VS Code's chevron beside the boxes. -->
+                    <ToggleButton x:Name="ReplaceToggle" Grid.RowSpan="2" Style="{StaticResource ExpandToggle}" IsChecked="False" Focusable="True" VerticalAlignment="Top"
+                                  Margin="0,5,0,0" Foreground="{DynamicResource TextMuted}" Click="ReplaceToggle_Click" AutomationProperties.Name="Toggle Replace"
+                                  ToolTip="Toggle Replace" />
+                    <Grid Grid.Column="1">
+                        <TextBox x:Name="SearchText" Style="{StaticResource SearchBox}" Tag="Search" AutomationProperties.Name="Search" Padding="6,3,78,3"
+                                 TextChanged="SearchText_Changed" PreviewKeyDown="SearchText_KeyDown" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,3,0">
+                            <ToggleButton x:Name="MatchCase" Style="{StaticResource FindToggle}" Click="FindOption_Click" ToolTip="Match Case (Alt+C)"
+                                          AutomationProperties.Name="Match Case" Content="Aa" />
+                            <ToggleButton x:Name="WholeWord" Style="{StaticResource FindToggle}" Click="FindOption_Click" ToolTip="Match Whole Word (Alt+W)"
+                                          AutomationProperties.Name="Match Whole Word">
+                                <TextBlock Text="ab" TextDecorations="Underline" />
+                            </ToggleButton>
+                            <ToggleButton x:Name="UseRegex" Style="{StaticResource FindToggle}" Click="FindOption_Click" ToolTip="Use Regular Expression (Alt+R)"
+                                          AutomationProperties.Name="Use Regular Expression" Content=".*" />
+                        </StackPanel>
+                    </Grid>
+                    <!-- Replace, and Replace All beside it (Ctrl+Alt+Enter). -->
+                    <DockPanel x:Name="ReplaceRow" Grid.Row="1" Grid.Column="1" Margin="0,4,0,0" Visibility="Collapsed">
+                        <Button x:Name="ReplaceAllButton" DockPanel.Dock="Right" Margin="4,0,0,0" Padding="8,0" MinHeight="{StaticResource SearchHeight}" Content="Replace all"
+                                Click="ReplaceAll_Click" IsEnabled="False" ToolTip="Replace every match shown, in the project's files (Ctrl+Alt+Enter)" />
+                        <TextBox x:Name="ReplaceText" Style="{StaticResource SearchBox}" Tag="Replace" AutomationProperties.Name="Replace"
+                                 TextChanged="ReplaceText_Changed" PreviewKeyDown="SearchText_KeyDown" />
+                    </DockPanel>
+                    <TextBlock x:Name="SearchSummary" Grid.Row="2" Grid.Column="1" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,6,0,4" />
+                </Grid>
+                <ListBox x:Name="SearchResults" BorderThickness="0" Background="Transparent" Margin="0,0,0,4" KeyDown="SearchResults_KeyDown"
+                         ItemTemplateSelector="{StaticResource SearchTemplates}" AutomationProperties.Name="Search results"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                            <Setter Property="Padding" Value="4,0" />
+                            <Setter Property="Margin" Value="4,0" />
+                            <Setter Property="AutomationProperties.Name" Value="{Binding Spoken}" />
+                            <EventSetter Event="MouseLeftButtonUp" Handler="SearchItem_Click" />
+                            <EventSetter Event="MouseDoubleClick" Handler="SearchItem_DoubleClick" />
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+            </DockPanel>
+            </Grid>
+        </DockPanel>
+
         <!-- ─── The editor: a file's diff, or an operation of the history ── -->
         <Grid x:Name="EditorGrid">
             <!-- No server yet. -->
@@ -304,7 +586,12 @@
                      name in italics; × closes one (a middle-click too), a double-click keeps a preview open. -->
                 <Border x:Name="TabStrip" DockPanel.Dock="Top" Background="{DynamicResource SidebarBg}" BorderBrush="{DynamicResource CardBorder}"
                         BorderThickness="0,0,0,1" Visibility="Collapsed">
+                    <!-- A tab dragged to another place moves there, as in VS Code (Ctrl+Shift+PageUp / PageDown from the keyboard). -->
+                    <Grid>
                     <ListBox x:Name="Tabs" Background="Transparent" BorderThickness="0" SelectionChanged="Tab_Changed" AutomationProperties.Name="Open files"
+                             PreviewMouseLeftButtonDown="Tabs_PreviewMouseLeftButtonDown" PreviewMouseMove="Tabs_PreviewMouseMove"
+                             PreviewMouseLeftButtonUp="Tabs_PreviewMouseLeftButtonUp" AllowDrop="True" DragOver="Tabs_DragOver" DragLeave="Tabs_DragLeave" Drop="Tabs_Drop"
+                             PreviewKeyDown="Tabs_PreviewKeyDown"
                              ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled">
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
@@ -359,6 +646,12 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
+                    <!-- Dragging a tab: a line where it will go when it is dropped - the tabs stay where they are till then. -->
+                    <Canvas IsHitTestVisible="False">
+                        <Border x:Name="TabDropLine" Width="2" Background="{DynamicResource Accent}" Visibility="Collapsed"
+                                Height="{Binding ActualHeight, ElementName=Tabs}" />
+                    </Canvas>
+                    </Grid>
                 </Border>
                 <!-- Where the file is, and what happened to it - VS Code's breadcrumbs. -->
                 <TextBlock x:Name="Breadcrumb" DockPanel.Dock="Top" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource TextSmall}"

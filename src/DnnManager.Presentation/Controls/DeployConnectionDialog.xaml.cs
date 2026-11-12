@@ -18,6 +18,8 @@ public partial class DeployConnectionDialog : Window
 {
     private readonly DeployConnections _connections;
     private readonly string _site;
+    // The project's own folder - the local folder when none is chosen.
+    private readonly string? _projectFolder;
     private readonly DeployConnection? _existing;
     private readonly DeploySecrets _saved;
     private string? _trusted;
@@ -33,10 +35,11 @@ public partial class DeployConnectionDialog : Window
     private static readonly (DeployAuth Auth, string Text)[] Logons =
         [(DeployAuth.Anonymous, "Anonymous"), (DeployAuth.Password, "Normal"), (DeployAuth.AskForPassword, "Ask for password"), (DeployAuth.PrivateKey, "Key file")];
 
-    internal DeployConnectionDialog(DeployConnections connections, string site, DeployConnection? existing)
+    internal DeployConnectionDialog(DeployConnections connections, string site, DeployConnection? existing, string? projectFolder = null)
     {
         _connections = connections;
         _site = site;
+        _projectFolder = projectFolder;
         _existing = existing;
         _saved = existing is null ? DeploySecrets.None : connections.Secrets(existing.Id);
         _trusted = existing?.TrustedHostKey;
@@ -58,6 +61,8 @@ public partial class DeployConnectionDialog : Window
         FillLogons(c.Auth);
         UserBox.Text = c.UserName;
         RootBox.Text = c.RemoteRoot;
+        LocalBox.Text = c.LocalRoot ?? "";
+        ShowLocalHint();
         ParallelBox.Text = c.Parallel.ToString();
         BackupsBox.IsChecked = c.KeepBackups;
         VerifyBox.IsChecked = c.Verify == VerifyMode.Checksum;
@@ -69,9 +74,9 @@ public partial class DeployConnectionDialog : Window
     }
 
     /// <summary>The connection as saved, or null when cancelled.</summary>
-    public static DeployConnection? Show(DeployConnections connections, string site, DeployConnection? existing)
+    public static DeployConnection? Show(DeployConnections connections, string site, DeployConnection? existing, string? projectFolder = null)
     {
-        var dialog = new DeployConnectionDialog(connections, site, existing)
+        var dialog = new DeployConnectionDialog(connections, site, existing, projectFolder)
         {
             Owner = System.Windows.Application.Current.MainWindow is { IsVisible: true } w ? w : null
         };
@@ -164,6 +169,28 @@ public partial class DeployConnectionDialog : Window
         }
     }
 
+    private void LocalBox_Changed(object sender, TextChangedEventArgs e) => ShowLocalHint();
+
+    // Empty: which folder that is.
+    private void ShowLocalHint()
+    {
+        if (LocalHint is null) return;
+        LocalHint.Text = LocalBox.Text.Trim().Length == 0
+            ? _projectFolder is { } folder ? $"Empty: the project's folder, {folder}." : "Empty: the project's folder."
+            : "Compared with, pushed from and pulled into - instead of the project's folder.";
+    }
+
+    private void ChooseLocal_Click(object sender, RoutedEventArgs e)
+    {
+        var current = LocalBox.Text.Trim();
+        var dialog = new OpenFolderDialog
+        {
+            Title = "Choose the folder on this PC to compare with the server",
+            InitialDirectory = Directory.Exists(current) ? current : _projectFolder is { } folder && Directory.Exists(folder) ? folder : ""
+        };
+        if (dialog.ShowDialog(this) == true) LocalBox.Text = dialog.FolderName;
+    }
+
     private DeployConnection Read() =>
         (_existing ?? new DeployConnection { Site = _site, Name = "", Host = "", UserName = "", RemoteRoot = "" }) with
         {
@@ -178,6 +205,9 @@ public partial class DeployConnectionDialog : Window
             UserName = Logon == DeployAuth.Anonymous ? "" : UserBox.Text.Trim(),
             Auth = Logon,
             RemoteRoot = RootBox.Text.Trim(),
+            // The project's own folder chosen: none of its own, so it follows the project.
+            LocalRoot = LocalBox.Text.Trim() is { Length: > 0 } local && !local.TrimEnd('\\').Equals(_projectFolder?.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)
+                ? local : null,
             Parallel = int.TryParse(ParallelBox.Text.Trim(), out var parallel) ? parallel : 0,
             KeepBackups = BackupsBox.IsChecked == true,
             Verify = VerifyBox.IsChecked == true ? VerifyMode.Checksum : VerifyMode.Size,

@@ -20,7 +20,7 @@ namespace DnnManager.Presentation.Pages;
 /// conflict's choices above it, or the chosen operation. Everything that touches a server or a project's files runs as
 /// an operation (<see cref="OperationRunner"/>): in the Output tab, cancellable, undone when it fails.
 /// </summary>
-public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
+public partial class SourceControlPage : UserControl, IRefreshable, ISideBarPage
 {
     private readonly IServiceProvider _services;
     private readonly ServerStore _store;
@@ -35,7 +35,7 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
     private TransferUpdate? _lastUpdate;
     private bool _updatePending;
 
-    public DeployPage(IServiceProvider services, ServerStore store)
+    public SourceControlPage(IServiceProvider services, ServerStore store)
     {
         _services = services;
         _store = store;
@@ -43,6 +43,9 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
         _files = services.GetRequiredService<DeployFiles>();
         InitializeComponent();
         Tabs.ItemsSource = _tabs;
+        OpenEditors.ItemsSource = _tabs;
+        _tabs.CollectionChanged += (_, _) => FollowOpenEditors();
+        InitializeViews();
         // The servers, changes and history go to the window's primary side bar; the page keeps the editor.
         Root.Children.Remove(SideGrid);
         LoadServers(null);
@@ -59,7 +62,17 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
         };
     }
 
-    private ServerRow? Selected => ServersList.SelectedItem as ServerRow;
+    // The server whose changes, history and files are shown - of the servers chosen, the one chosen last (or picked
+    // from CHANGES' header). Several can be chosen at once: each is compared; one is shown at a time.
+    private ServerRow? _active;
+
+    private ServerRow? Selected => _active;
+
+    /// <summary>The servers chosen in SERVERS - Ctrl+click or Shift+click for more than one.</summary>
+    internal IReadOnlyList<ServerRow> ChosenServers => [.. ServersList.SelectedItems.Cast<ServerRow>()];
+
+    // The list's selection set again (a new list of servers): not a choice of the user's.
+    private bool _restoringServers;
 
     private OperationRunner Runner => _services.GetRequiredService<OperationRunner>();
 
@@ -79,7 +92,7 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
 
     private void HistorySash_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
     {
-        _dragFrom = Mouse.GetPosition(SideGrid).Y;
+        _dragFrom = Mouse.GetPosition(ScmView).Y;
         _dragSize = HistoryRow.ActualHeight;
         // Dragged open from its title.
         if (HistoryToggle.IsChecked != true)
@@ -92,8 +105,8 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
     private void HistorySash_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
     {
         // Up: the history taller; never so tall the changes have no room.
-        var height = _dragSize - (Mouse.GetPosition(SideGrid).Y - _dragFrom);
-        var room = SideGrid.ActualHeight - SideGrid.RowDefinitions.Take(5).Sum(r => r.ActualHeight) - 80;
+        var height = _dragSize - (Mouse.GetPosition(ScmView).Y - _dragFrom);
+        var room = ScmView.ActualHeight - ScmView.RowDefinitions.Take(5).Sum(r => r.ActualHeight) - 80;
         HistoryRow.Height = new GridLength(Math.Clamp(height, HistoryRow.MinHeight, Math.Max(HistoryRow.MinHeight, room)));
         _historyHeight = HistoryRow.Height.Value;
     }
@@ -110,15 +123,24 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
     }
 
     /// <summary>
-    /// Shown: the chosen server is compared once, by itself - so what was changed on it directly shows without asking -
-    /// unless another operation is running.
+    /// Shown: nothing is read from a server until one is chosen. The servers chosen and not compared yet are compared,
+    /// once, by themselves - so what was changed on them directly shows without asking.
     /// </summary>
     public void Activated()
     {
         if (_serversStale) Refresh();
-        if (_connections.CompareOnOpen && Selected is { } server && !_scans.ContainsKey(server.Connection.Id) && _autoScanned.Add(server.Connection.Id) &&
-            !Runner.IsBusy)
-            _ = ScanAsync();
+        CompareChosen(ChosenServers);
+    }
+
+    /// <summary>
+    /// Compares <paramref name="servers"/> - those not compared yet this session - when Settings says to compare a server
+    /// as it is chosen. One after the other: one operation runs at a time.
+    /// </summary>
+    private void CompareChosen(IEnumerable<ServerRow> servers)
+    {
+        if (!_connections.CompareOnOpen) return;
+        var due = servers.Where(s => !_scans.ContainsKey(s.Connection.Id) && _autoScanned.Add(s.Connection.Id)).ToList();
+        if (due.Count > 0) _ = ScanAsync(due);
     }
 
     /// <summary>Opens the page on <paramref name="site"/>'s first server - or, without one, offers to add it.</summary>
@@ -157,19 +179,85 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
         foreach (var project in _store.Projects.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase))
             foreach (var connection in _connections.For(project.Name))
                 rows.Add(new ServerRow(connection, project.Path, _scans.GetValueOrDefault(connection.Id)));
-        var keep = select ?? Selected?.Connection.Id;
-        ServersList.ItemsSource = rows;
-        ServersList.SelectedItem = rows.FirstOrDefault(r => r.Connection.Id == keep) ?? rows.FirstOrDefault();
+        // The servers chosen stay chosen - or the one asked for alone. None at first: nothing is read from a server
+        // until you choose one.
+        var keep = select is { } id ? [id] : ChosenServers.Select(s => s.Connection.Id).ToHashSet();
+        var activeId = select ?? _active?.Connection.Id;
+        _restoringServers = true;
+        try
+        {
+            ServersList.ItemsSource = rows;
+            foreach (var row in rows.Where(r => keep.Contains(r.Connection.Id))) ServersList.SelectedItems.Add(row);
+        }
+        finally { _restoringServers = false; }
+        var chosen = ChosenServers;
+        var active = chosen.FirstOrDefault(r => r.Connection.Id == activeId) ?? chosen.FirstOrDefault();
+        var changed = active?.Connection.Id != _active?.Connection.Id;
+        _active = active;
+        if (changed) ActiveChanged();
+        FollowChosen();
+        if (select is not null) CompareChosen(chosen);
         var any = rows.Count > 0;
         EmptyState.Visibility = any ? Visibility.Collapsed : Visibility.Visible;
         FileView.Visibility = any && OperationView.Visibility != Visibility.Visible ? Visibility.Visible : Visibility.Collapsed;
         CommitArea.IsEnabled = ScanButton.IsEnabled = any;
-        if (!any) ShowScan();
+        // No server shown: CHANGES says to choose one (or that there is none).
+        if (!any || _active is null) ShowScan();
     }
 
     private void Server_Changed(object sender, SelectionChangedEventArgs e)
     {
-        if (!IsInitialized || e.AddedItems.Count == 0 && Selected is not null) return;
+        if (!IsInitialized || _restoringServers) return;
+        var chosen = ChosenServers;
+        // The one just chosen is shown; the one shown taken out of the choice, another chosen one is.
+        var active = e.AddedItems.OfType<ServerRow>().LastOrDefault()
+                     ?? (chosen.FirstOrDefault(s => s.Connection.Id == _active?.Connection.Id) ?? chosen.FirstOrDefault());
+        if (active?.Connection.Id != _active?.Connection.Id)
+        {
+            _active = active;
+            ActiveChanged();
+        }
+        else _active = active;
+        FollowChosen();
+        CompareChosen(e.AddedItems.OfType<ServerRow>());
+    }
+
+    // Several servers chosen: CHANGES' header names the one shown, a click on it shows another.
+    private void FollowChosen()
+    {
+        var chosen = ChosenServers;
+        ChangesServer.Visibility = chosen.Count > 1 && _active is not null ? Visibility.Visible : Visibility.Collapsed;
+        ChangesServerText.Text = _active is { } a ? $"{a.Site} · {a.Name}" : "";
+    }
+
+    private void ChangesServer_Click(object sender, RoutedEventArgs e)
+    {
+        var menu = new ContextMenu { PlacementTarget = ChangesServer, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+        foreach (var server in ChosenServers)
+        {
+            var item = new MenuItem
+            {
+                Header = $"{server.Site} · {server.Name}", InputGestureText = server.Counts, IsCheckable = true,
+                IsChecked = server.Connection.Id == _active?.Connection.Id
+            };
+            item.Click += (_, _) => ShowServer(server);
+            menu.Items.Add(item);
+        }
+        menu.IsOpen = true;
+    }
+
+    /// <summary>Shows <paramref name="server"/>'s changes, history and files - one of the servers chosen; the others stay chosen.</summary>
+    internal void ShowServer(ServerRow server)
+    {
+        if (server.Connection.Id == _active?.Connection.Id) return;
+        _active = ChosenServers.FirstOrDefault(s => s.Connection.Id == server.Connection.Id) ?? server;
+        ActiveChanged();
+        FollowChosen();
+    }
+
+    /// <summary>Another server shown: its comparison, history and files - the tabs of the one before closed.</summary>
+    private void ActiveChanged()
+    {
         _staged.Clear();
         _scan = Selected is { } s ? _scans.GetValueOrDefault(s.Connection.Id) : null;
         // Another server's files: its tabs closed.
@@ -177,7 +265,7 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
         ShowFile(null);
         ShowScan();
         LoadHistory();
-        if (IsVisible) Activated();
+        ServerChangedForViews();
     }
 
     private void Add_Click(object sender, RoutedEventArgs e)
@@ -197,12 +285,13 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
 
     private void AddServer(ProjectRow project)
     {
-        if (DeployConnectionDialog.Show(_connections, project.Name, null) is { } added) LoadServers(added.Id);
+        if (DeployConnectionDialog.Show(_connections, project.Name, null, project.Path) is { } added) LoadServers(added.Id);
     }
 
     private void Edit_Click(object sender, RoutedEventArgs e)
     {
-        if (Selected is not { } s || DeployConnectionDialog.Show(_connections, s.Site, _connections.Find(s.Connection.Id) ?? s.Connection) is not { } edited) return;
+        if (Selected is not { } s || DeployConnectionDialog.Show(_connections, s.Site, _connections.Find(s.Connection.Id) ?? s.Connection, s.ProjectFolder) is not { } edited)
+            return;
         // Other rules or another folder: what was compared isn't what would be pushed.
         _scans.Remove(edited.Id);
         _scan = null;
@@ -262,6 +351,38 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
 
     private void Scan_Click(object sender, RoutedEventArgs e) => _ = ScanAsync();
 
+    /// <summary>Compares every server chosen (F5, ⟳) - the one shown when none is.</summary>
+    private Task ScanAsync() => ScanAsync(ChosenServers.Count > 0 ? ChosenServers : Selected is { } s ? [s] : []);
+
+    // The servers waiting to be compared, and whether a comparison runs - it takes them next.
+    private readonly List<ServerRow> _compareQueue = [];
+    private bool _comparing;
+
+    /// <summary>
+    /// Compares <paramref name="servers"/>, one after the other - each an operation of its own in Output. Asked while a
+    /// comparison runs, they are compared after it.
+    /// </summary>
+    private async Task ScanAsync(IReadOnlyList<ServerRow> servers)
+    {
+        foreach (var server in servers)
+            if (!_compareQueue.Any(q => q.Connection.Id == server.Connection.Id)) _compareQueue.Add(server);
+        if (_comparing) return;
+        _comparing = true;
+        try
+        {
+            while (_compareQueue.Count > 0)
+            {
+                var next = _compareQueue[0];
+                _compareQueue.RemoveAt(0);
+                // Refused - another operation (a push…) runs, and said so: the rest wait for F5.
+                if (await CompareAsync(next)) continue;
+                _compareQueue.Clear();
+                break;
+            }
+        }
+        finally { _comparing = false; }
+    }
+
     /// <summary>"Ask for password": typed once, the first time the server is reached this session - false when it wasn't given.</summary>
     private bool EnsurePassword(DeployConnection stale)
     {
@@ -274,16 +395,18 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
         return true;
     }
 
-    private async Task ScanAsync()
+    // One server compared - false when it couldn't start (another operation runs, no password given).
+    private async Task<bool> CompareAsync(ServerRow server)
     {
-        if (Selected is not { } server || _connections.Find(server.Connection.Id) is not { } connection) return;
-        if (!EnsurePassword(connection)) return;
+        if (_connections.Find(server.Connection.Id) is not { } connection) return true;
+        if (!EnsurePassword(connection)) return true;
         SyncScan? result = null;
         ProgressBar.Visibility = Visibility.Visible;
         ProgressBar.IsIndeterminate = true;
+        var started = false;
         try
         {
-            await Runner.RunAsync($"Compare '{connection.Site}' with {connection.Name} ({connection.Environment})", async (sp, reporter, ct) =>
+            started = await Runner.RunAsync($"Compare '{connection.Site}' with {connection.Name} ({connection.Environment})", async (sp, reporter, ct) =>
             {
                 try
                 {
@@ -304,12 +427,13 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
             ProgressBar.Visibility = Visibility.Hidden;
         }
         if (result is not null) _scans[connection.Id] = result;
-        LoadServers(connection.Id);
-        if (Selected?.Connection.Id != connection.Id || result is null) return;
+        LoadServers(null);
+        if (Selected?.Connection.Id != connection.Id || result is null) return started || result is not null;
         _scan = result;
         // What is staged stays staged while it still has the same way to go.
         _staged.RemoveWhere(p => result.Find(p) is not { Direction: SyncDirection.Push or SyncDirection.Pull });
         ShowScan();
+        return true;
     }
 
     private static string Explain(Exception ex) => ex switch
@@ -325,11 +449,16 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
         {
             ScanSummary.Text = "";
             Changes.ItemsSource = null;
-            ChangesMessage.Text = Selected is null ? "" : "Not compared yet - Compare (F5) to see what differs.";
-            ChangesMessage.Visibility = Selected is null ? Visibility.Collapsed : Visibility.Visible;
+            // Nothing is read from a server until one is chosen.
+            ChangesMessage.Text = Selected is not null ? "Not compared yet - Compare (F5) to see what differs."
+                : ServersList.Items.Count > 0 ? "Choose a server above to compare it with its project - Ctrl+click to choose more than one." : "";
+            ChangesMessage.Visibility = ChangesMessage.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
             UpdateButtons();
+            UpdateBadge();
+            ExplorerFollowScan();
             return;
         }
+        UpdateBadge();
         ScanSummary.Text = $"compared {_scan.ScannedUtc.ToLocalTime():t}" + (_scan.Warnings.Count > 0 ? $" · {_scan.Warnings.Count} left out" : "");
         ScanSummary.ToolTip = _scan.Warnings.Count > 0 ? string.Join(Environment.NewLine, _scan.Warnings.Take(30)) : null;
         Fill();
@@ -371,6 +500,7 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
         ChangesMessage.Text = changes.Count == 0 ? "The project and the server are the same - nothing to push or pull." : "";
         ChangesMessage.Visibility = changes.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         UpdateButtons();
+        ExplorerFollowScan();
     }
 
     // ─── Staging ───────────────────────────────────────────────────────────
@@ -594,7 +724,7 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
     /// </summary>
     private void OpenTab(SyncItem item, bool keep)
     {
-        var tab = _tabs.FirstOrDefault(t => DeployPath.Comparer.Equals(t.Path, item.Path));
+        var tab = _tabs.FirstOrDefault(t => !t.IsFile && DeployPath.Comparer.Equals(t.Path, item.Path));
         if (tab is null)
         {
             if (!keep && _tabs.FirstOrDefault(t => t.IsPreview) is { } preview)
@@ -614,10 +744,36 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
         Activate(tab);
     }
 
+    /// <summary>
+    /// Opens a project's file as it is - from the Explorer or a search result (<paramref name="at"/>: the line and match
+    /// shown) - in the preview tab, or one that stays (<paramref name="keep"/>), as <see cref="OpenTab"/> does a change.
+    /// </summary>
+    internal void OpenFile(string path, bool keep, (int Line, int Start, int Length)? at = null)
+    {
+        var tab = _tabs.FirstOrDefault(t => t.File is { } file && DeployPath.Comparer.Equals(file, path));
+        if (tab is null)
+        {
+            if (!keep && _tabs.FirstOrDefault(t => t.IsPreview) is { } preview)
+            {
+                preview.File = path;
+                tab = preview;
+            }
+            else
+            {
+                tab = new EditorTab(path, preview: !keep);
+                var index = ActiveTab is { } active ? _tabs.IndexOf(active) + 1 : _tabs.Count;
+                _tabs.Insert(index, tab);
+            }
+        }
+        else if (keep) tab.IsPreview = false;
+        tab.RevealAt = at;
+        Activate(tab);
+    }
+
     /// <summary>Shows <paramref name="tab"/>'s file - also when it was the chosen tab already (the preview given another file).</summary>
     private void Activate(EditorTab tab)
     {
-        if (ReferenceEquals(Tabs.SelectedItem, tab)) _ = ShowFileAsync(tab.Item);
+        if (ReferenceEquals(Tabs.SelectedItem, tab)) _ = ShowTabAsync(tab);
         else Tabs.SelectedItem = tab;
         Tabs.ScrollIntoView(tab);
     }
@@ -626,10 +782,11 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
     {
         if (ActiveTab is { } tab)
         {
-            _ = ShowFileAsync(tab.Item);
+            _ = ShowTabAsync(tab);
             Reveal(tab.Item);
         }
         else if (_tabs.Count == 0) ShowFile(null);
+        FollowOpenEditors();
     }
 
     /// <summary>The tab's row chosen in the list, as VS Code follows the editor - without opening it again.</summary>
@@ -659,8 +816,154 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
         else if (e.ChangedButton == MouseButton.Left && e.ClickCount == 2) tab.IsPreview = false;
         // The history's operation shown: the click on the chosen tab brings its file back.
         else if (e.ChangedButton == MouseButton.Left && ReferenceEquals(ActiveTab, tab) && FileView.Visibility != Visibility.Visible)
-            _ = ShowFileAsync(tab.Item);
+            _ = ShowTabAsync(tab);
     }
+
+    // ─── Moving a tab: dragged to another place, as in VS Code ─────────────
+    // The tabs stay where they are while one is dragged; a line shows where it will go, and it moves there when it is
+    // dropped - nothing jumps under the pointer.
+
+    private EditorTab? _draggedTab;
+    private Point _tabDragFrom;
+
+    private void Tabs_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        // Not from its × - that closes it.
+        _draggedTab = e.OriginalSource is DependencyObject source && !IsInside<System.Windows.Controls.Primitives.ButtonBase>(source, Tabs)
+            ? TabItemOf(source)?.DataContext as EditorTab : null;
+        _tabDragFrom = e.GetPosition(Tabs);
+    }
+
+    // Moved far enough with the button held: the drag starts (Windows' drag distance, so a click isn't one). The dragged
+    // tab is faded until it is dropped.
+    private void Tabs_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_draggedTab is not { } tab || e.LeftButton != MouseButtonState.Pressed || _tabs.Count < 2) return;
+        var moved = e.GetPosition(Tabs) - _tabDragFrom;
+        if (Math.Abs(moved.X) < SystemParameters.MinimumHorizontalDragDistance && Math.Abs(moved.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+        _draggedTab = null;
+        var item = Tabs.ItemContainerGenerator.ContainerFromItem(tab) as UIElement;
+        if (item is not null) item.Opacity = 0.5;
+        try
+        {
+            DragDrop.DoDragDrop(Tabs, new DataObject(typeof(EditorTab), tab), DragDropEffects.Move);
+        }
+        finally
+        {
+            if (item is not null) item.Opacity = 1;
+            TabDropLine.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void Tabs_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e) => _draggedTab = null;
+
+    private void Tabs_DragOver(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        if (Dragged(e) is not { } dragged)
+        {
+            e.Effects = DragDropEffects.None;
+            TabDropLine.Visibility = Visibility.Collapsed;
+            return;
+        }
+        e.Effects = DragDropEffects.Move;
+        var bounds = TabBounds();
+        var gap = DropGap(e.GetPosition(Tabs).X, bounds);
+        var from = _tabs.IndexOf(dragged);
+        // Where it is already: no line - dropped there, it stays.
+        if (gap == from || gap == from + 1 || bounds.Count != _tabs.Count)
+        {
+            TabDropLine.Visibility = Visibility.Collapsed;
+            return;
+        }
+        var x = gap < bounds.Count ? bounds[gap].Left : bounds[^1].Left + bounds[^1].Width;
+        Canvas.SetLeft(TabDropLine, Math.Clamp(x - 1, 0, Math.Max(0, Tabs.ActualWidth - 2)));
+        TabDropLine.Visibility = Visibility.Visible;
+    }
+
+    // Left for another control - not for a tab inside the strip (DragLeave comes for each element passed).
+    private void Tabs_DragLeave(object sender, DragEventArgs e)
+    {
+        var at = e.GetPosition(Tabs);
+        if (at.X < 0 || at.Y < 0 || at.X >= Tabs.ActualWidth || at.Y >= Tabs.ActualHeight) TabDropLine.Visibility = Visibility.Collapsed;
+    }
+
+    private void Tabs_Drop(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        TabDropLine.Visibility = Visibility.Collapsed;
+        if (Dragged(e) is not { } dragged) return;
+        var bounds = TabBounds();
+        if (bounds.Count != _tabs.Count) return;
+        MoveTab(dragged, TargetIndex(_tabs.IndexOf(dragged), DropGap(e.GetPosition(Tabs).X, bounds)));
+    }
+
+    private EditorTab? Dragged(DragEventArgs e) =>
+        e.Data.GetData(typeof(EditorTab)) is EditorTab dragged && _tabs.Contains(dragged) ? dragged : null;
+
+    // Each tab's left edge and width in the strip, in order - as it is scrolled.
+    private List<(double Left, double Width)> TabBounds()
+    {
+        var bounds = new List<(double, double)>();
+        for (var i = 0; i < _tabs.Count; i++)
+        {
+            if (Tabs.ItemContainerGenerator.ContainerFromIndex(i) is not FrameworkElement item) break;
+            bounds.Add((item.TranslatePoint(new Point(0, 0), Tabs).X, item.ActualWidth));
+        }
+        return bounds;
+    }
+
+    /// <summary>
+    /// The gap a tab dropped at <paramref name="x"/> goes into: 0 before the first tab, n after the last - before the first
+    /// tab whose middle is right of the pointer, as VS Code drops one.
+    /// </summary>
+    internal static int DropGap(double x, IReadOnlyList<(double Left, double Width)> tabs)
+    {
+        for (var i = 0; i < tabs.Count; i++)
+            if (x < tabs[i].Left + tabs[i].Width / 2) return i;
+        return tabs.Count;
+    }
+
+    /// <summary>The index a tab at <paramref name="from"/> takes, dropped into <paramref name="gap"/> - the gaps after it are one fewer once it is out.</summary>
+    internal static int TargetIndex(int from, int gap) => gap > from ? gap - 1 : gap;
+
+    // Ctrl+Shift+PageUp / PageDown: the chosen tab one place left or right - VS Code's keys for it.
+    private void Tabs_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers != (ModifierKeys.Control | ModifierKeys.Shift) || ActiveTab is not { } tab) return;
+        var step = e.Key switch { Key.PageUp => -1, Key.PageDown => 1, _ => 0 };
+        if (step == 0) return;
+        MoveTab(tab, Math.Clamp(_tabs.IndexOf(tab) + step, 0, _tabs.Count - 1));
+        if (Tabs.ItemContainerGenerator.ContainerFromItem(tab) is ListBoxItem item) item.Focus();
+        e.Handled = true;
+    }
+
+    /// <summary>Moves <paramref name="tab"/> to <paramref name="to"/> - still the chosen one if it was, its file still shown.</summary>
+    internal void MoveTab(EditorTab tab, int to)
+    {
+        var from = _tabs.IndexOf(tab);
+        if (from < 0 || to < 0 || to >= _tabs.Count || from == to) return;
+        _tabs.Move(from, to);
+        Tabs.ScrollIntoView(tab);
+    }
+
+    private ListBoxItem? TabItemOf(DependencyObject element)
+    {
+        for (var current = element; current is not null && current != Tabs; current = ParentOf(current))
+            if (current is ListBoxItem item) return item;
+        return null;
+    }
+
+    private static bool IsInside<T>(DependencyObject element, DependencyObject stop) where T : DependencyObject
+    {
+        for (var current = element; current is not null && current != stop; current = ParentOf(current))
+            if (current is T) return true;
+        return false;
+    }
+
+    // A run of text has no visual parent - its logical one, then.
+    private static DependencyObject? ParentOf(DependencyObject node) =>
+        node is System.Windows.Media.Visual ? System.Windows.Media.VisualTreeHelper.GetParent(node) : LogicalTreeHelper.GetParent(node);
 
     private void CloseTab_Click(object sender, RoutedEventArgs e)
     {
@@ -690,7 +993,7 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
     private void FollowTabs()
     {
         if (_scan is null) return;
-        foreach (var tab in _tabs.ToList())
+        foreach (var tab in _tabs.Where(t => !t.IsFile).ToList())
         {
             var now = _scan.Changes.FirstOrDefault(i => DeployPath.Comparer.Equals(i.Path, tab.Path));
             if (now is null) CloseTab(tab);
@@ -748,6 +1051,51 @@ public partial class DeployPage : UserControl, IRefreshable, ISideBarPage
         _prefetch?.Cancel();
         var prefetch = _prefetch = new CancellationTokenSource();
         _ = Task.Run(() => _files.PrefetchAsync(scan, next, prefetch.Token));
+    }
+
+    private Task ShowTabAsync(EditorTab tab) => tab.Item is { } item ? ShowFileAsync(item) : ShowProjectFileAsync(tab);
+
+    /// <summary>A project's file as it is, read from the project's folder - at the line a search result opened it at.</summary>
+    private async Task ShowProjectFileAsync(EditorTab tab)
+    {
+        _diffLoad?.Cancel();
+        _prefetch?.Cancel();
+        if (Selected is not { } server || tab.File is not { } path) return;
+        OperationView.Visibility = Visibility.Collapsed;
+        FileView.Visibility = Visibility.Visible;
+        HistoryList.SelectedItem = null;
+        TabStrip.Visibility = Visibility.Visible;
+        ConflictBar.Visibility = Visibility.Collapsed;
+        Breadcrumb.Visibility = Visibility.Visible;
+        var folder = DeployPath.Folder(path);
+        Breadcrumb.Text = (folder.Length > 0 ? folder.Replace("/", " › ") + " › " : "") + DeployPath.Name(path) + " · in the project";
+        var load = _diffLoad = new CancellationTokenSource();
+        Diff.ShowMessage($"Reading {path}…");
+        try
+        {
+            var bytes = await Task.Run(() =>
+            {
+                var full = ProjectFiles.Full(server.Root, path);
+                return new FileInfo(full).Length > TextContent.MaxBytes ? null : File.ReadAllBytes(full);
+            }, load.Token);
+            if (load.IsCancellationRequested) return;
+            if (bytes is null)
+            {
+                Diff.ShowMessage($"{path} is larger than {TextContent.MaxBytes / (1024 * 1024)} MB - too big to show.");
+                return;
+            }
+            await Diff.ShowFileAsync(path, bytes, "In the project");
+            if (load.IsCancellationRequested || tab.RevealAt is not { } at) return;
+            tab.RevealAt = null;
+            Diff.Reveal(at.Line, at.Start, at.Length);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            if (!load.IsCancellationRequested) Diff.ShowMessage($"Couldn't read {path}: {ex.Message}");
+        }
     }
 
     private async Task ShowFileAsync(SyncItem item)

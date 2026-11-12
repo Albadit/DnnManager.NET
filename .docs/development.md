@@ -12,6 +12,7 @@ conventions to follow. New here? Start with the [README](../README.md), then
 | [release-notes/](release-notes/) | The notes of every GitHub release, one file per version |
 | [configuration.md](configuration.md) | `Documents\DnnManager`, `dnnmanager.db`, every settings key, environment variables |
 | [troubleshooting.md](troubleshooting.md) | Known problems and how to fix them |
+| [dnn-gitignore-audit.md](dnn-gitignore-audit.md) | The `.gitignore` DNN Manager writes into a site: how it was built from real sites and DNN 10.4.1, what it keeps and ignores, security findings |
 | [security.md](security.md) | Administrator rights, secrets, what DNN Manager deletes, network exposure, open risks |
 | [adr/](adr/) | Decisions that are costly to reverse: undo on failure, the layering rule, update trust, the elevation boundary, deployments' baseline |
 

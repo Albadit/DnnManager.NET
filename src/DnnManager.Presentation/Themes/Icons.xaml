@@ -71,6 +71,10 @@
     <!-- Source Control, as VS Code's: three commits, a branch leaving the line - drawn, the icon font has none. 16 × 16,
          stroked in the text's colour where it stands (the activity bar's entry, a Settings category, a button). -->
     <Geometry x:Key="SourceControlGeometry">M2.25,2.75 A1.75,1.75 0 1 1 5.75,2.75 A1.75,1.75 0 1 1 2.25,2.75 Z M2.25,13.25 A1.75,1.75 0 1 1 5.75,13.25 A1.75,1.75 0 1 1 2.25,13.25 Z M10.25,4.75 A1.75,1.75 0 1 1 13.75,4.75 A1.75,1.75 0 1 1 10.25,4.75 Z M4,4.5 V11.5 M12,6.5 C12,9.75 4,8.5 4,11.5</Geometry>
+    <!-- Source Control's Explorer, as VS Code's: a page with its corner folded, the edge of another behind it. 16 x 16. -->
+    <Geometry x:Key="ExplorerGeometry">M3,12 V2 A1.5,1.5 0 0 1 4.5,0.5 H10 M7,3.5 H11.5 L14.5,6.5 V14 A1.5,1.5 0 0 1 13,15.5 H7 A1.5,1.5 0 0 1 5.5,14 V5 A1.5,1.5 0 0 1 7,3.5 Z M11.5,3.5 V6.5 H14.5</Geometry>
+    <!-- Source Control's Search, as VS Code's: a magnifying glass, its handle down to the left. 16 x 16. -->
+    <Geometry x:Key="SearchGeometry">M5,6.5 A4.75,4.75 0 1 1 14.5,6.5 A4.75,4.75 0 1 1 5,6.5 Z M6.4,9.9 L1.25,15</Geometry>
     <Style x:Key="SourceControlIcon" TargetType="Path">
         <Setter Property="Data" Value="{StaticResource SourceControlGeometry}" />
         <Setter Property="Width" Value="16" />
@@ -144,6 +148,12 @@
     <!-- The projects table's Columns button, 16 × 14, stroked 1.5 px (IconStroke's round ends and corners): three columns,
          like a table header, in a frame rounded by 1.5. -->
     <Geometry x:Key="Columns">M2.25,0.75 H13.75 A1.5,1.5 0 0 1 15.25,2.25 V11.75 A1.5,1.5 0 0 1 13.75,13.25 H2.25 A1.5,1.5 0 0 1 0.75,11.75 V2.25 A1.5,1.5 0 0 1 2.25,0.75 Z M5.5,0.75 V13.25 M10.5,0.75 V13.25</Geometry>
+
+    <!-- The diff's view toggles, 16 × 14 like Columns: Unified - one column of lines; Side by side - two, split down the
+         middle; Whole file - unfolded, as VS Code's "show unchanged regions". -->
+    <Geometry x:Key="DiffUnified">M2.25,0.75 H13.75 A1.5,1.5 0 0 1 15.25,2.25 V11.75 A1.5,1.5 0 0 1 13.75,13.25 H2.25 A1.5,1.5 0 0 1 0.75,11.75 V2.25 A1.5,1.5 0 0 1 2.25,0.75 Z M3.75,4.5 H12.25 M3.75,7 H12.25 M3.75,9.5 H9</Geometry>
+    <Geometry x:Key="DiffSplit">M2.25,0.75 H13.75 A1.5,1.5 0 0 1 15.25,2.25 V11.75 A1.5,1.5 0 0 1 13.75,13.25 H2.25 A1.5,1.5 0 0 1 0.75,11.75 V2.25 A1.5,1.5 0 0 1 2.25,0.75 Z M8,0.75 V13.25 M3.25,4.5 H5.75 M3.25,7.5 H5.75 M10.25,4.5 H12.75 M10.25,7.5 H12.75</Geometry>
+    <Geometry x:Key="DiffWholeFile">M4.5,3.75 L8,0.75 L11.5,3.75 M4.5,10.25 L8,13.25 L11.5,10.25 M1.75,7 H14.25</Geometry>
 
     <!-- The Output tab's stages and run status, 14 × 14, stroked 2 px. -->
     <Geometry x:Key="StepCheck">M3,7.5 L6,10.5 L11.5,4</Geometry>

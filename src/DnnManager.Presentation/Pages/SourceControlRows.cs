@@ -69,25 +69,59 @@ public sealed class ChangeRow : INotifyPropertyChanged
 
 /// <summary>
 /// A file open in the editor, as a tab - VS Code's: a click in the list opens it in the preview tab (its name in italics),
-/// which the next click replaces; a double-click keeps it open. Its file follows each new comparison.
+/// which the next click replaces; a double-click keeps it open. A change's tab shows its diff and follows each new
+/// comparison; a project file's (opened from the Explorer or a search result) shows the file as it is.
 /// </summary>
-public sealed class EditorTab(SyncItem item, bool preview) : INotifyPropertyChanged
+public sealed class EditorTab : INotifyPropertyChanged
 {
-    private SyncItem _item = item;
-    private bool _preview = preview;
+    private SyncItem? _item;
+    private string? _file;
+    private bool _preview;
+
+    /// <summary>A change's diff.</summary>
+    public EditorTab(SyncItem item, bool preview)
+    {
+        _item = item;
+        _preview = preview;
+    }
+
+    /// <summary>A project's file, as it is - <paramref name="path"/> relative to the project.</summary>
+    public EditorTab(string path, bool preview)
+    {
+        _file = path;
+        _preview = preview;
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public SyncItem Item
+    /// <summary>The change it shows the diff of - null for a project's file.</summary>
+    public SyncItem? Item
     {
         get => _item;
         set
         {
             _item = value;
-            foreach (var property in new[] { nameof(Item), nameof(Path), nameof(Name), nameof(Letter), nameof(Icon), nameof(IconBrush), nameof(Tip) })
-                Raise(property);
+            if (value is not null) _file = null;
+            RaiseAll();
         }
     }
+
+    /// <summary>A project's file shown as it is: its path - null for a change's diff.</summary>
+    public string? File
+    {
+        get => _file;
+        set
+        {
+            _file = value;
+            if (value is not null) _item = null;
+            RaiseAll();
+        }
+    }
+
+    public bool IsFile => _file is not null;
+
+    /// <summary>Where the file opened from a search result is shown: its line and match, once.</summary>
+    public (int Line, int Start, int Length)? RevealAt { get; set; }
 
     /// <summary>Replaced by the next file opened with a click - until a double-click (on it, or its row) keeps it.</summary>
     public bool IsPreview
@@ -101,15 +135,106 @@ public sealed class EditorTab(SyncItem item, bool preview) : INotifyPropertyChan
         }
     }
 
-    public string Path => Item.Path;
-    public string Name => DeployPath.Name(Item.Path);
-    public string Letter => ChangeRow.LetterOf(Item);
-    public string Icon => FileIcons.Glyph(Item.Path);
-    public Brush IconBrush => FileIcons.Brush(Item.Path);
+    public string Path => _item?.Path ?? _file ?? "";
+    public string Name => DeployPath.Name(Path);
+    public string Folder => DeployPath.Folder(Path);
+    public string Letter => ChangeRow.LetterOf(_item);
+    public string Icon => FileIcons.Glyph(Path);
+    public Brush IconBrush => FileIcons.Brush(Path);
     public FontStyle NameStyle => IsPreview ? FontStyles.Italic : FontStyles.Normal;
-    public string Tip => $"{Item.Path} - {Item.Describe()}" + (IsPreview ? " (preview: double-click to keep it open)" : "");
+
+    public string Tip => (_item is { } item ? $"{item.Path} - {item.Describe()}" : $"{Path} - in the project") +
+        (IsPreview ? " (preview: double-click to keep it open)" : "");
+
+    /// <summary>What a screen reader says of it in Open Editors.</summary>
+    public string Spoken => _item is { } item ? $"{Name}, {item.Describe()}" : $"{Name}, in the project";
+
+    private void RaiseAll()
+    {
+        foreach (var property in new[] { nameof(Item), nameof(File), nameof(IsFile), nameof(Path), nameof(Name), nameof(Folder), nameof(Letter), nameof(Icon),
+                     nameof(IconBrush), nameof(Tip), nameof(Spoken) })
+            Raise(property);
+    }
 
     private void Raise(string property) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
+}
+
+/// <summary>
+/// A row of Source Control's Explorer: a file or folder of the project, indented by how deep it is - one flat list, so
+/// a site of thousands of files scrolls as one and makes only the rows on screen. A changed file has its letter.
+/// </summary>
+public sealed class ExplorerRow(ProjectEntry entry, int depth, string letter) : INotifyPropertyChanged
+{
+    private bool _expanded;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public ProjectEntry Entry { get; } = entry;
+    public int Depth { get; } = depth;
+    public string Path => Entry.Path;
+    public string Name => Entry.Name;
+    public bool IsFolder => Entry.IsFolder;
+    public string Letter { get; } = letter;
+
+    /// <summary>A folder open, its rows below it.</summary>
+    public bool Expanded
+    {
+        get => _expanded;
+        set
+        {
+            _expanded = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Expanded)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Chevron)));
+        }
+    }
+
+    /// <summary>12 px a level, as VS Code indents its tree.</summary>
+    public Thickness Indent => new(Depth * 12, 0, 0, 0);
+
+    public string Chevron => !IsFolder ? "" : Expanded ? "" : "";
+    public string Icon => IsFolder ? "" : FileIcons.Glyph(Path);
+    public Brush IconBrush => FileIcons.Brush(Path);
+    public string Spoken => IsFolder ? $"{Name}, folder, {(Expanded ? "expanded" : "collapsed")}" : string.IsNullOrEmpty(Letter) ? Name : $"{Name}, changed";
+}
+
+/// <summary>
+/// A row of Source Control's Search results: a file (its name, folder and how many matches), or a match on one of its
+/// lines - a little before it, the match marked, the rest.
+/// </summary>
+public sealed class SearchRow
+{
+    public required FoundFile File { get; init; }
+
+    /// <summary>The match - null for the file's row.</summary>
+    public FindMatch? Match { get; init; }
+
+    public bool Collapsed { get; init; }
+    public bool IsFile => Match is null;
+    public string Path => File.Path;
+    public string Name => DeployPath.Name(File.Path);
+    public string Folder => DeployPath.Folder(File.Path);
+    public int Count => File.Matches.Count;
+    public string Chevron => Collapsed ? "" : "";
+    public string Icon => FileIcons.Glyph(File.Path);
+    public Brush IconBrush => FileIcons.Brush(File.Path);
+    /// <summary>Replace is open: the match is struck through, <see cref="Replacement"/> after it - what Replace All will write.</summary>
+    public bool Replacing { get; init; }
+    public string Replacement { get; init; } = "";
+    public TextDecorationCollection? Strike => Replacing ? TextDecorations.Strikethrough : null;
+    public string Before => Match?.Before ?? "";
+    public string Text => Match?.Text ?? "";
+    public string After => Match?.After ?? "";
+    public string Tip => Match is { } m ? $"{File.Path}, line {m.Line}" : $"{File.Path} - {Count} match{(Count == 1 ? "" : "es")}";
+    public string Spoken => Match is { } m ? $"Line {m.Line}: {m.Before}{m.Text}{m.After}" : $"{File.Path}, {Count} match{(Count == 1 ? "" : "es")}{(Collapsed ? ", collapsed" : "")}";
+}
+
+/// <summary>A search result's file template or a match's.</summary>
+public sealed class SearchRowTemplates : DataTemplateSelector
+{
+    public DataTemplate? File { get; set; }
+    public DataTemplate? Match { get; set; }
+
+    public override DataTemplate? SelectTemplate(object item, DependencyObject container) => item is SearchRow { IsFile: true } ? File : Match;
 }
 
 /// <summary>A file's icon and its colour, by its extension - mid tones that read on the light and the dark theme alike.</summary>
@@ -155,12 +280,15 @@ public sealed class ChangeRowTemplates : DataTemplateSelector
 }
 
 /// <summary>A server in the Deploy page's list: its project, name, environment and host, how it was last reached, and what it has to push and pull.</summary>
-public sealed class ServerRow(DeployConnection connection, string root, SyncScan? scan)
+public sealed class ServerRow(DeployConnection connection, string projectFolder, SyncScan? scan)
 {
     public DeployConnection Connection { get; } = connection;
 
-    /// <summary>The project's folder.</summary>
-    public string Root { get; } = root;
+    /// <summary>The project's folder (its IIS site's).</summary>
+    public string ProjectFolder { get; } = projectFolder;
+
+    /// <summary>The folder on this PC it is compared with: the server's own local folder, or else the project's.</summary>
+    public string Root { get; } = connection.LocalFolder(projectFolder);
 
     public string Site => Connection.Site;
     public string Name => Connection.Name;
@@ -174,7 +302,7 @@ public sealed class ServerRow(DeployConnection connection, string root, SyncScan
     public Brush Health => (Brush)System.Windows.Application.Current.FindResource(
         Connection.LastError is not null ? "ErrorText" : Connection.LastCheckedUtc is not null ? "SuccessText" : "TextMuted");
 
-    public string Tip => $"{Connection.Describe()}" +
+    public string Tip => $"{Connection.Describe()}{Environment.NewLine}Local folder: {Root}" +
         (Connection.LastError is { } error ? $"{Environment.NewLine}Couldn't connect: {error}" : "") +
         (Connection.LastSyncUtc is { } sync ? $"{Environment.NewLine}Last push or pull: {sync.ToLocalTime():g}" : "");
 }

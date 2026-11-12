@@ -10,6 +10,8 @@
     <UserControl.Resources>
         <FontFamily x:Key="Mono">Cascadia Mono, Consolas, Courier New</FontFamily>
         <GridLength x:Key="NumberWidth">40</GridLength>
+        <!-- The old line's number - none for a file shown as it is (ShowFileAsync): one column of numbers, as an editor's. -->
+        <GridLength x:Key="OldNumberWidth">40</GridLength>
         <s:Double x:Key="CodeWidth">0</s:Double>
         <!-- How wide a whole line shown with Show more wraps (set by Render: the code's width, or a side's). -->
         <s:Double x:Key="WrapWidth">0</s:Double>
@@ -28,6 +30,8 @@
         </Style>
         <!-- A side of a row: its colour by what it is. -->
         <Style x:Key="SideCell" TargetType="Border">
+            <!-- The code is text to select (DiffView's selection): the I-beam, as in an editor. -->
+            <Setter Property="Cursor" Value="IBeam" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding Kind}" Value="Added"><Setter Property="Background" Value="{DynamicResource DiffAddedBg}" /></DataTrigger>
                 <DataTrigger Binding="{Binding Kind}" Value="Removed"><Setter Property="Background" Value="{DynamicResource DiffRemovedBg}" /></DataTrigger>
@@ -48,7 +52,7 @@
         <DataTemplate x:Key="UnifiedRow" DataType="{x:Type c:DiffRow}">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="{DynamicResource NumberWidth}" />
+                    <ColumnDefinition Width="{DynamicResource OldNumberWidth}" />
                     <ColumnDefinition Width="{DynamicResource NumberWidth}" />
                     <ColumnDefinition Width="*" MinWidth="{DynamicResource CodeWidth}" />
                 </Grid.ColumnDefinitions>
@@ -114,16 +118,42 @@
 
     <DockPanel>
         <!-- What is compared with what, and how it is shown. -->
-        <DockPanel DockPanel.Dock="Top" Margin="12,6,8,6">
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                <RadioButton x:Name="UnifiedMode" Content="Unified" GroupName="DiffMode" IsChecked="True" Margin="0,0,12,0" Checked="Mode_Changed"
-                             ToolTip="Unified - one column: removed lines (-) above the lines that replace them (+)" />
-                <RadioButton x:Name="SplitMode" Content="Side by side" GroupName="DiffMode" Margin="0,0,12,0" Checked="Mode_Changed"
-                             ToolTip="Side by side - the old version on the left, the new one on the right" />
-                <CheckBox x:Name="WholeFile" Content="Whole file" Margin="0,0,12,0" Click="Mode_Changed"
-                          ToolTip="Whole file - every line, not only the changes and the lines around them" />
-                <Button x:Name="CopyButton" Style="{StaticResource IconButton}" Content="{StaticResource GlyphCopy}" Click="Copy_Click"
-                        ToolTip="Copy the diff - as git diff writes it" />
+        <!-- Icon toggles, as VS Code's editor actions: Unified or Side by side (one of the two), and Whole file. The icons
+             as tall as the body text, so they grow with the font size chosen in Settings. Still a radio button and a check
+             box underneath - a screen reader says which is on, the arrow keys move between the two modes. -->
+        <DockPanel DockPanel.Dock="Top" Margin="12,3,8,3">
+            <StackPanel x:Name="Modes" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel.Resources>
+                    <Style x:Key="ModeToggle" TargetType="ToggleButton" BasedOn="{StaticResource IconToggleButton}">
+                        <Setter Property="Width" Value="NaN" />
+                        <Setter Property="Height" Value="NaN" />
+                        <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}}" />
+                        <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+                    </Style>
+                    <Style x:Key="ModeIcon" TargetType="Viewbox">
+                        <Setter Property="Height" Value="{DynamicResource TextBody}" />
+                        <Setter Property="Margin" Value="7" />
+                    </Style>
+                    <Style x:Key="ModePath" TargetType="Path" BasedOn="{StaticResource IconStroke}">
+                        <Setter Property="StrokeThickness" Value="1.5" />
+                        <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" />
+                    </Style>
+                </StackPanel.Resources>
+                <RadioButton x:Name="UnifiedMode" Style="{StaticResource ModeToggle}" GroupName="DiffMode" IsChecked="True" Margin="0,0,2,0" Checked="Mode_Changed"
+                             AutomationProperties.Name="Unified"
+                             ToolTip="Unified - one column: removed lines (-) above the lines that replace them (+)">
+                    <Viewbox Style="{StaticResource ModeIcon}"><Grid Width="16" Height="14"><Path Style="{StaticResource ModePath}" Data="{StaticResource DiffUnified}" /></Grid></Viewbox>
+                </RadioButton>
+                <RadioButton x:Name="SplitMode" Style="{StaticResource ModeToggle}" GroupName="DiffMode" Margin="0,0,8,0" Checked="Mode_Changed"
+                             AutomationProperties.Name="Side by side"
+                             ToolTip="Side by side - the old version on the left, the new one on the right">
+                    <Viewbox Style="{StaticResource ModeIcon}"><Grid Width="16" Height="14"><Path Style="{StaticResource ModePath}" Data="{StaticResource DiffSplit}" /></Grid></Viewbox>
+                </RadioButton>
+                <CheckBox x:Name="WholeFile" Style="{StaticResource ModeToggle}" Click="Mode_Changed"
+                          AutomationProperties.Name="Whole file"
+                          ToolTip="Whole file - every line, not only the changes and the lines around them">
+                    <Viewbox Style="{StaticResource ModeIcon}"><Grid Width="16" Height="14"><Path Style="{StaticResource ModePath}" Data="{StaticResource DiffWholeFile}" /></Grid></Viewbox>
+                </CheckBox>
             </StackPanel>
             <TextBlock x:Name="Titles" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
         </DockPanel>
@@ -136,11 +166,22 @@
                 <!-- Side by side: both sides' code sideways at once. -->
                 <ScrollBar x:Name="SplitScroll" Grid.Row="1" Orientation="Horizontal" Visibility="Collapsed" ValueChanged="SplitScroll_Changed"
                            AutomationProperties.Name="Scroll both sides sideways" />
+                <!-- The code is selected as in an editor: drag, Shift+click, double-click a word, triple-click a line,
+                     Ctrl+A - on one side at a time; Ctrl+C or the menu copies it. -->
                 <ListBox x:Name="Rows" BorderThickness="0" Background="{DynamicResource CardBg}" ItemTemplate="{StaticResource UnifiedRow}"
                          SizeChanged="Rows_SizeChanged" PreviewMouseWheel="Rows_PreviewMouseWheel"
+                         PreviewMouseLeftButtonDown="Rows_PreviewMouseLeftButtonDown" PreviewMouseMove="Rows_PreviewMouseMove"
+                         PreviewMouseLeftButtonUp="Rows_PreviewMouseLeftButtonUp" LostMouseCapture="Rows_LostMouseCapture"
+                         PreviewKeyDown="Rows_PreviewKeyDown" ContextMenuOpening="Rows_ContextMenuOpening"
                          ScrollViewer.HorizontalScrollBarVisibility="Auto" VirtualizingPanel.IsVirtualizing="True"
                          VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel"
                          AutomationProperties.Name="Differences">
+                    <ListBox.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem x:Name="CopyItem" Header="Copy" InputGestureText="Ctrl+C" Click="Copy_Click" />
+                            <MenuItem Header="Select all" InputGestureText="Ctrl+A" Click="SelectAll_Click" />
+                        </ContextMenu>
+                    </ListBox.ContextMenu>
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
                             <Setter Property="Padding" Value="0" />
@@ -150,7 +191,10 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="ListBoxItem">
-                                        <ContentPresenter />
+                                        <!-- Transparent, not empty: a click past the end of an unchanged line still lands on its row. -->
+                                        <Border Background="Transparent">
+                                            <ContentPresenter />
+                                        </Border>
                                     </ControlTemplate>
                                 </Setter.Value>
                             </Setter>

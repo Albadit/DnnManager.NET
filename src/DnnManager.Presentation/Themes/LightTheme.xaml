@@ -127,6 +127,7 @@
     <SolidColorBrush x:Key="DiffRemovedMark"    Color="#A40E26" />
     <SolidColorBrush x:Key="DiffEmptyBg"        Color="#F3F3F3" />
     <SolidColorBrush x:Key="DiffHunkBg"         Color="#DDF4FF" />
+    <SolidColorBrush x:Key="DiffSelectionBg"    Color="#B0ADD6FF" />  <!-- editor.selectionBackground, see-through on + and - -->
     <SolidColorBrush x:Key="SyntaxKeyword"      Color="#0000FF" />
     <SolidColorBrush x:Key="SyntaxString"       Color="#A31515" />
     <SolidColorBrush x:Key="SyntaxComment"      Color="#008000" />

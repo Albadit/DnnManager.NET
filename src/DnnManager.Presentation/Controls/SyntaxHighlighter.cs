@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Media;
 
 namespace DnnManager.Presentation.Controls;
 
@@ -192,10 +193,98 @@ public sealed class HighlightedText : TextBlock
         return text.Length + tabs * (TabSize - 1);
     }
 
-    private static string Shown(string text) => text.Contains('\t') ? text.Replace("\t", new string(' ', TabSize)) : text;
+    /// <summary>A line as it is drawn: each tab <see cref="TabSize"/> spaces.</summary>
+    internal static string Shown(string text) => text.Contains('\t') ? text.Replace("\t", new string(' ', TabSize)) : text;
+
+    // The width of a character of the code's monospace font, at the font and size it has now.
+    private (FontFamily? Family, double Size, double Width) _char;
+
+    private double CharWidth()
+    {
+        if (_char.Family != FontFamily || _char.Size != FontSize)
+        {
+            var text = new FormattedText("0000000000", System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+                new Typeface(FontFamily, FontStyle, FontWeight, FontStretch), FontSize, Brushes.Black, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+            _char = (FontFamily, FontSize, text.WidthIncludingTrailingWhitespace / 10);
+        }
+        return _char.Width;
+    }
+
+    /// <summary>
+    /// The column nearest to <paramref name="x"/> (in this element) - between 0 and the line's end. A whole line wrapped
+    /// by Show more: its start or its end.
+    /// </summary>
+    internal int ColumnAt(double x)
+    {
+        if (Line is not { } line) return 0;
+        var length = Columns(line.Visible);
+        if (line is { Expanded: true, Full: not null }) return x < ActualWidth / 2 ? 0 : length;
+        return (int)Math.Clamp(Math.Round((x - Padding.Left) / CharWidth()), 0, length);
+    }
+
+    // The diff view this line is in - asked what of it is selected.
+    private DiffView? _owner;
+
+    public HighlightedText()
+    {
+        Loaded += (_, _) => UpdateSelection();
+        // The font set or changed after the selection was drawn - the code's font applied after the line was given, the
+        // size chosen in Settings - resizes the line: drawn again at the new character width (it sat columns off the text).
+        SizeChanged += (_, e) =>
+        {
+            if (Background is not null && e.WidthChanged) UpdateSelection();
+        };
+    }
+
+    protected override void OnVisualParentChanged(DependencyObject oldParent)
+    {
+        base.OnVisualParentChanged(oldParent);
+        _owner = null;
+    }
+
+    /// <summary>
+    /// Marks the selected part of the line under its text, as an editor does - the background, as a TextBlock draws
+    /// itself (its OnRender is sealed): the selection's colour between two hard stops, nothing around them.
+    /// </summary>
+    internal void UpdateSelection()
+    {
+        _owner ??= FindOwner();
+        if (Line is not { } line || _owner?.SelectedColumns(line) is not var (from, to)
+            || TryFindResource("DiffSelectionBg") is not SolidColorBrush selection)
+        {
+            ClearValue(BackgroundProperty);
+            return;
+        }
+        // A wrapped whole line: all of it - its columns aren't where the monospace sum puts them.
+        if (line is { Expanded: true, Full: not null })
+        {
+            Background = selection;
+            return;
+        }
+        var start = Padding.Left + from * CharWidth();
+        var end = Padding.Left + to * CharWidth();
+        var length = end + 1;
+        var color = selection.Color;
+        var clear = Color.FromArgb(0, color.R, color.G, color.B);
+        var brush = new LinearGradientBrush
+        {
+            MappingMode = BrushMappingMode.Absolute, StartPoint = new Point(0, 0), EndPoint = new Point(length, 0),
+            GradientStops = { new(clear, start / length), new(color, start / length), new(color, end / length), new(clear, end / length) }
+        };
+        brush.Freeze();
+        Background = brush;
+    }
+
+    private DiffView? FindOwner()
+    {
+        DependencyObject? node = this;
+        while (node is not null and not DiffView) node = VisualTreeHelper.GetParent(node);
+        return node as DiffView;
+    }
 
     private void Build()
     {
+        UpdateSelection();
         Inlines.Clear();
         TextWrapping = TextWrapping.NoWrap;
         ClearValue(MaxWidthProperty);

@@ -19,6 +19,28 @@ All notable changes to DnnManager.NET are documented here.
   ahead, and works out the diff off the UI thread. The diff fills the page and
   scrolls sideways for long lines; a group's title in the list folds it with
   one click and stays at the top while you scroll through the group.
+- **Select and copy a diff's code.** Drag over the code, Shift+click,
+  double-click a word or triple-click a line, Ctrl+A for all; Ctrl+C or the
+  right-click menu copies it - on one side at a time when side by side. Unified,
+  Side by side and Whole file are icon toggles now, sized with the font size
+  chosen in Settings; the copy-the-whole-diff button is gone.
+- **Reorder the open files' tabs.** Drag a tab to another place - the tabs
+  stay still while you drag and a line shows where it will go - or move the
+  chosen one with Ctrl+Shift+PageUp / PageDown, as in VS Code.
+- **Choose the servers to compare, and a server's own local folder.** Source
+  Control reads nothing from a server when it opens: choosing a server compares
+  it, and Ctrl+click or Shift+click chooses several - each compared, one after
+  the other; CHANGES shows one at a time, its name beside the title to switch.
+  A server can have its own **Local folder** (FileZilla's Default local
+  directory, with Browse…) instead of the project's.
+- **Explorer and Search in Source Control.** Icons across the top of its side
+  bar switch between Source Control (its badge counts the changes,
+  Ctrl+Shift+G), an **Explorer** (Ctrl+Shift+E) - the open editors and the
+  project's files as a push sees them, a changed file with its letter, a click
+  opening it as it is - and **Search** (Ctrl+Shift+F there): match case, whole
+  word or a regular expression, results by file, a click opening the file at
+  the match. **Replace all** shows what it will write, asks, and writes each
+  file in its own encoding and line endings.
 - **Deploy to a server, like git.** A new **Source Control** page (activity bar, Ctrl+3),
   laid out as VS Code's Source Control, connects your projects to their
   development, staging and production servers over **SFTP** (password or
@@ -52,6 +74,18 @@ All notable changes to DnnManager.NET are documented here.
 - **New dependencies:** SSH.NET 2026.0.0 (SFTP - the version before it has
   two advisories) and FluentFTP 55.1.0 (FTP / FTPS), both MIT, locked by hash
   in `packages.lock.json`.
+
+### Fixed
+
+- **A diff's selection is drawn where its text is.** Selected before the code's
+  font was applied, it was drawn at the wrong character width - two columns
+  early by the 18th.
+- **The `.gitignore` written into a new site no longer drops files the site
+  needs.** It ignored DNN's `js/Debug`, `bin/x64`, every `*.resources` file
+  (DNN's install packages and templates), 2sxc apps and portal themes; it
+  missed the site's `web.config` and its copies, database backups and `.env`
+  files. Rebuilt from a scan of real sites and DNN 10.4.1 and checked with git
+  ([audit](.docs/dnn-gitignore-audit.md)). Existing sites keep theirs.
 
 ## v1.8.7
 

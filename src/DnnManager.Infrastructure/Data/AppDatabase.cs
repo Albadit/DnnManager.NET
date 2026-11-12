@@ -170,6 +170,10 @@ public sealed class AppDatabase
         ALTER TABLE deploy_connections ADD COLUMN ftp_encryption TEXT;
         UPDATE deploy_connections SET ftp_encryption = 'RequireExplicit', protocol = 'Ftp' WHERE protocol = 'Ftps';
         UPDATE deploy_connections SET ftp_encryption = 'PlainOnly' WHERE protocol = 'Ftp' AND ftp_encryption IS NULL;
+        """,
+        // A server's own folder on this PC (FileZilla's Default local directory) - null: the project's folder.
+        """
+        ALTER TABLE deploy_connections ADD COLUMN local_root TEXT;
         """
     ];
 

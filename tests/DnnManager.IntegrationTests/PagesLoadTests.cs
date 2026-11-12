@@ -40,7 +40,7 @@ public sealed class PagesLoadTests
         var services = Services();
         Kept.Add(services);
         var failed = new List<string>();
-        foreach (var type in new[] { typeof(MainWindow), typeof(SetupPage), typeof(SettingsPage), typeof(ProjectsPage), typeof(TroubleshootPage), typeof(DeployPage) })
+        foreach (var type in new[] { typeof(MainWindow), typeof(SetupPage), typeof(SettingsPage), typeof(ProjectsPage), typeof(TroubleshootPage), typeof(SourceControlPage) })
         {
             try
             {

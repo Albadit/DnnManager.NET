@@ -27,7 +27,7 @@ public sealed class DeployStore(AppDatabase database) : IDeployStore
 
     private const string ConnectionColumns =
         "id, site, name, environment, protocol, host, port, user_name, auth, remote_root, trusted_host_key, ignore_rules, parallel, " +
-        "keep_backups, verify, created_utc, last_checked_utc, last_error, last_sync_utc, ftp_encryption";
+        "keep_backups, verify, created_utc, last_checked_utc, last_error, last_sync_utc, ftp_encryption, local_root";
 
     public IReadOnlyList<DeployConnection> Connections(string site)
     {
@@ -70,7 +70,8 @@ public sealed class DeployStore(AppDatabase database) : IDeployStore
                 LastCheckedUtc = reader.IsDBNull(16) ? null : Time(reader.GetString(16)),
                 LastError = reader.IsDBNull(17) ? null : reader.GetString(17),
                 LastSyncUtc = reader.IsDBNull(18) ? null : Time(reader.GetString(18)),
-                Encryption = !reader.IsDBNull(19) && Enum.TryParse<FtpEncryption>(reader.GetString(19), out var encryption) ? encryption : FtpEncryption.RequireExplicit
+                Encryption = !reader.IsDBNull(19) && Enum.TryParse<FtpEncryption>(reader.GetString(19), out var encryption) ? encryption : FtpEncryption.RequireExplicit,
+                LocalRoot = reader.IsDBNull(20) ? null : reader.GetString(20)
             });
         return list;
     }
@@ -83,18 +84,19 @@ public sealed class DeployStore(AppDatabase database) : IDeployStore
             AppDatabase.Execute(connection,
                 """
                 INSERT INTO deploy_connections (id, site, name, environment, protocol, host, port, user_name, auth, remote_root, trusted_host_key,
-                    ignore_rules, parallel, keep_backups, verify, created_utc, last_checked_utc, last_error, last_sync_utc, ftp_encryption)
+                    ignore_rules, parallel, keep_backups, verify, created_utc, last_checked_utc, last_error, last_sync_utc, ftp_encryption, local_root)
                 VALUES ($id, $site, $name, $env, $protocol, $host, $port, $user, $auth, $root, $key, $rules, $parallel, $backups, $verify, $created,
-                    $checked, $error, $sync, $encryption)
+                    $checked, $error, $sync, $encryption, $local)
                 ON CONFLICT (id) DO UPDATE SET site = $site, name = $name, environment = $env, protocol = $protocol, host = $host, port = $port,
                     user_name = $user, auth = $auth, remote_root = $root, trusted_host_key = $key, ignore_rules = $rules, parallel = $parallel,
-                    keep_backups = $backups, verify = $verify, ftp_encryption = $encryption
+                    keep_backups = $backups, verify = $verify, ftp_encryption = $encryption, local_root = $local
                 """,
                 ("$id", c.Id.ToString()), ("$site", c.Site), ("$name", c.Name), ("$env", c.Environment.ToString()), ("$protocol", c.Protocol.ToString()),
                 ("$host", c.Host), ("$port", c.Port), ("$user", c.UserName), ("$auth", c.Auth.ToString()), ("$root", c.RemoteRoot),
                 ("$key", c.TrustedHostKey), ("$rules", c.IgnoreRules), ("$parallel", c.Parallel), ("$backups", c.KeepBackups ? 1 : 0),
                 ("$verify", c.Verify.ToString()), ("$created", Text(c.CreatedUtc)), ("$checked", Text(c.LastCheckedUtc)), ("$error", c.LastError),
-                ("$sync", Text(c.LastSyncUtc)), ("$encryption", c.Encryption.ToString()));
+                ("$sync", Text(c.LastSyncUtc)), ("$encryption", c.Encryption.ToString()),
+                ("$local", string.IsNullOrWhiteSpace(c.LocalRoot) ? null : c.LocalRoot));
         }
     }
 

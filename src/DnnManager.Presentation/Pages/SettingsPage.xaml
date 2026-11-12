@@ -480,7 +480,7 @@
                             <TextBlock Style="{StaticResource Hint}" Margin="0"
                                        Text="Comparing projects with their servers, pushing and pulling files - the Source Control page." />
 
-                            <CheckBox x:Name="DeployCompareOnOpen" Content="Compare the chosen server when the Deploy page opens" Margin="0,16,0,0" />
+                            <CheckBox x:Name="DeployCompareOnOpen" Content="Compare a server as soon as you choose it on Source Control" Margin="0,16,0,0" />
                             <TextBlock Style="{StaticResource Hint}" Margin="22,2,0,0"
                                        Text="Off: nothing is asked of the server until you press Compare (F5) - for a slow server, or one you pay per connection." />
 

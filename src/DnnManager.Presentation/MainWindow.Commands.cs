@@ -77,7 +77,7 @@ public partial class MainWindow
         AddForProject("project.deploy", "Source Control for project", null, _ => true, r =>
         {
             Go(NavDeploy);
-            if (PageHost.Content is DeployPage deploy) deploy.ShowProject(r.Name);
+            if (PageHost.Content is SourceControlPage deploy) deploy.ShowProject(r.Name);
         }, "ftp sftp push pull server live");
         AddForProject("project.logs", "Show project logs", null, _ => true, r =>
         {
@@ -119,6 +119,12 @@ public partial class MainWindow
         Add("pages.projects", "Go to Projects", "Pages", "Ctrl+1", () => Go(NavProjects), keywords: "table sites");
         Add("pages.newProject", "New project", "Pages", "Ctrl+2", () => Go(NavSetup), keywords: "create setup install");
         Add("pages.deploy", "Go to Source Control", "Pages", "Ctrl+3", () => Go(NavDeploy), keywords: "deploy ftp sftp push pull server live");
+        Add("scm.showSourceControl", "Show Source Control", "Source Control", "Ctrl+Shift+G", () => ShowDeployView(SideView.SourceControl),
+            keywords: "changes push pull git view");
+        Add("scm.showExplorer", "Show Explorer", "Source Control", "Ctrl+Shift+E", () => ShowDeployView(SideView.Explorer),
+            keywords: "files tree folder open editors project");
+        Add("scm.showSearch", "Search the project's files", "Source Control", null, () => ShowDeployView(SideView.Search),
+            keywords: "find replace grep text in files");
         Add("settings.open", "Open Settings", "Pages", "Ctrl+,", () => { if (ModalKey == "Settings") CloseModal(); else ShowModal("Settings"); }, keywords: "preferences options", inTerminal: true);
         Add("troubleshoot.open", "Run troubleshooting", "Pages", null, () => ShowModal("Troubleshoot"), keywords: "restart reset clean up data");
 
@@ -374,6 +380,16 @@ public partial class MainWindow
         if (_modal is SettingsPage settings) settings.ShowCategory(category);
     }
 
+    /// <summary>Source Control, its side bar shown (Ctrl+B may have hidden it) with <paramref name="view"/> in it.</summary>
+    private void ShowDeployView(SideView view)
+    {
+        if (!CloseModal(focusPage: false)) return;
+        NavDeploy.IsChecked = true;
+        if (PageHost.Content is not SourceControlPage page) return;
+        if (!_primaryVisible) TogglePrimarySideBar();
+        page.ShowView(view);
+    }
+
     /// <summary>Goes to the Projects page and does <paramref name="action"/> on it.</summary>
     private void OnProjectsPage(Action<ProjectsPage> action)
     {
@@ -385,6 +401,12 @@ public partial class MainWindow
     private void SearchProjects()
     {
         if (!CloseModal(focusPage: false)) return;
+        // On Source Control, VS Code's Ctrl+Shift+F: its Search, in the project's files.
+        if (PageHost.Content is SourceControlPage)
+        {
+            ShowDeployView(SideView.Search);
+            return;
+        }
         NavProjects.IsChecked = true;
         (PageHost.Content as ProjectsPage)?.FocusSearch();
     }
@@ -430,7 +452,7 @@ public partial class MainWindow
         else if (PageHost.Content is ProjectsPage { Details: { } details }) details.StepTab(by);
     }
 
-    private bool CanCloseView => _modal is not null || PageHost.Content is ProjectsPage { DetailsOpen: true } or DeployPage { HasOpenTab: true };
+    private bool CanCloseView => _modal is not null || PageHost.Content is ProjectsPage { DetailsOpen: true } or SourceControlPage { HasOpenTab: true };
 
     /// <summary>
     /// Ctrl+W: Settings and Troubleshoot closed, back to the page under them; the Details back to the table; Source
@@ -439,7 +461,7 @@ public partial class MainWindow
     private void CloseView()
     {
         if (_modal is not null) CloseModal();
-        else if (PageHost.Content is DeployPage deploy) deploy.CloseActiveTab();
+        else if (PageHost.Content is SourceControlPage deploy) deploy.CloseActiveTab();
         else if (PageHost.Content is ProjectsPage projects)
         {
             projects.CloseDetails();
