@@ -2,6 +2,19 @@
 
 All notable changes to DnnManager.NET are documented here.
 
+## Unreleased
+
+### Fixed
+
+- **The .gitignore for new sites keeps what DNN needs.** The `.gitignore` that
+  Setup, Clone and Import write into a site no longer leaves out core files:
+  `Portals/_default/Skins/_default`, the install template and bundled packages
+  in `Install/` (`*.resources`), native libraries in `bin/x64` and `bin/x86`,
+  and `build/` folders of modules. Themes in a portal's own folder
+  (`Portals/0/Skins`, `Containers`, `portal.css`) are tracked now, uploads
+  still aren't, and database files (`*.bacpac`, `*.mdf`, `*.bak`) stay out
+  wherever they are. A site that already has a `.gitignore` keeps its own.
+
 ## v1.8.7
 
 ### Fixed

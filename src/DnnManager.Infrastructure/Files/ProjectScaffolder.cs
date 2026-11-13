@@ -31,62 +31,50 @@ public sealed class ProjectScaffolder(ILogger<ProjectScaffolder> log) : IProject
     }
 
     // DNN-tuned .gitignore written into every managed DNN *site* directory (not this tool's repo).
-    // Keeps Visual Studio/build output, NuGet/node packages, DNN runtime data (App_Data, caches,
-    // search index, logs) and portal uploads out of source control.
+    // Leaves out build output, NuGet/node packages, DNN runtime data (caches, search index, logs),
+    // database files and portal uploads. Everything DNN needs to run stays tracked: bin/ (with
+    // bin/x64 and bin/x86), Portals/_default, Install/*.resources and portal-level themes.
     private const string GitignoreTemplate =
 """
 # ---------------------------------------------------------------------
-# .gitignore for DotNetNuke (DNN) site
+# .gitignore for a DNN (DotNetNuke) site, written by DNN Manager.
+# Tracks the site's code, themes and configuration; leaves out build
+# output, runtime data (caches, search index, logs), database files and
+# portal uploads. A site keeps its own .gitignore once it has one.
 # ---------------------------------------------------------------------
 
-# ===== Visual Studio / Build =====
+# ===== IDEs =====
+.vs/
+.vscode/
+.idea/
 *.suo
 *.user
 *.userosscache
-*.sln.docstates
 *.userprefs
-*.pidb
-*.svclog
-*.scc
-*.cache
-*.tmp
-*.tmp_proj
-*.log
-*.vspscc
-*.vssscc
-*.psess
-*.vsp
-*.vspx
-*.sap
-
-.vs/
-.vscode/
-obj/
-bin/obj/
-[Dd]ebug/
-[Rr]elease/
-x64/
-x86/
-build/
-bld/
-[Ll]og/
-[Ll]ogs/
-
-# ===== ReSharper / Rider =====
+*.sln.docstates
+*.DotSettings.user
 _ReSharper*/
 *.[Rr]e[Ss]harper
-*.DotSettings.user
-.idea/
 
-# ===== NuGet / Packages =====
+# ===== Build output of module/theme source projects =====
+# The site's own bin/ stays tracked: it holds the assemblies DNN runs on,
+# native libraries in bin/x64 and bin/x86 included.
+obj/
+**/[Bb]in/[Dd]ebug/
+**/[Bb]in/[Rr]elease/
+/build/
+/bld/
+/artifacts/
 packages/
 *.nupkg
 *.snupkg
 project.lock.json
 project.fragment.lock.json
-artifacts/
+*.tmp
+*.tmp_proj
+*.cache
 
-# ===== Node / Front-end build =====
+# ===== Node / front-end tooling =====
 node_modules/
 npm-debug.log*
 yarn-debug.log*
@@ -103,23 +91,14 @@ $RECYCLE.BIN/
 # DNN specific
 # ---------------------------------------------------------------------
 
-# ----- Secrets / environment config -----
-web.config.bak
-web_*.config
-*.config.bak
-DotNetNuke.config.bak
-
-# ----- DNN runtime logs -----
-Portals/_default/Logs/
-**/Logs/*.log
-**/Logs/*.resources
+# ----- Logs (log4net writes Portals/_default/Logs/*.log.resources) -----
+*.log
 *.log.resources
+*.svclog
+[Ll]og/
+[Ll]ogs/
 
-# ----- DNN App_Data (runtime data, caches, search index, uploads) -----
-App_Data/Database.mdf
-App_Data/Database_log.ldf
-App_Data/*.mdf
-App_Data/*.ldf
+# ----- Runtime data in App_Data -----
 App_Data/Search/
 App_Data/_imagecache/
 App_Data/_ipcount/
@@ -129,49 +108,43 @@ App_Data/ExtensionPackages/
 App_Data/FipsCompilanceAssemblies/
 App_Data/Upgrade/
 App_Data/Backup_*/
-App_Data/Tabs.xml.resources
-App_Data/PageIndex*
 
-# ----- Cache / generated -----
-**/_imagecache/
-**/ClientDependency/
-**/cache/
-**/Cache/
-
-# ----- Install logs / leftovers -----
-Install/*.log.resources
-Install/InstallWizard.log
-Install/Temp/
-
-# ----- Config backups created by DNN upgrades -----
-Config/Backup_*/
-**/*.config.resources
-
-# ----- Portals user uploads (usually excluded from source control) -----
-Portals/[0-9]*/
-Portals/_default/Users/
+# ----- File-based cache -----
 Portals/_default/Cache/
-Portals/_default/Skins/_default/
-# (Keep custom skins/containers tracked manually if needed)
 
-# ----- DNN compiled providers / temp -----
-App_Data/Modules/
-App_Code/Generated/
-
-# ----- Misc DNN -----
-*.dnn.resources
-*.resources
+# ----- Database files and backups (they hold the site's data) -----
+*.mdf
+*.ldf
 *.bak
+*.bacpac
 *.orig
 
-# ----- Visual Studio Web publishing -----
+# ----- Install leftovers -----
+# Install/*.resources and Install/<type>/*.resources are DNN's install
+# template and bundled packages: they stay tracked.
+Install/Temp/
+
+# ----- Config backups made by upgrades -----
+Config/Backup_*/
+web.config.bak
+web_*.config
+*.config.bak
+
+# ----- Portal folders: uploads stay out, portal themes stay in -----
+# Portals/_default holds core themes and templates and stays tracked.
+Portals/[0-9]*/*
+!Portals/[0-9]*/Skins/
+!Portals/[0-9]*/Containers/
+!Portals/[0-9]*/portal.css
+
+# ----- Visual Studio web publishing -----
 PublishProfiles/
 *.pubxml
 *.pubxml.user
 *.publishproj
 *.azurePubxml
 
-# ----- Local override -----
+# ----- Local overrides -----
 *.local
 *.local.config
 """;
