@@ -1,75 +1,235 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:v="using:DnnManager.Desktop.Views"
+        xmlns:w="using:DnnManager.Desktop.Views.Workbench"
         x:Class="DnnManager.Desktop.Views.MainWindow"
         x:DataType="v:MainWindow"
         Title="DNN Manager" Icon="/Assets/dnn.ico"
-        Width="1280" Height="800" MinWidth="760" MinHeight="480"
-        Background="{DynamicResource EditorBrush}">
-  <!-- VS Code's layout: the activity bar (left), the view it shows, Output below (Ctrl+`), the status bar. -->
-  <DockPanel>
-    <!-- Status bar: what runs, and the system. -->
-    <Border DockPanel.Dock="Bottom" Background="{DynamicResource StatusBarBrush}" Height="24">
-      <DockPanel Margin="8,0">
-        <Button DockPanel.Dock="Right" Classes="icon" Foreground="White" Content="Output" Click="ToggleOutput_Click"
-                ToolTip.Tip="Show or hide Output (Ctrl+`)" Padding="6,0" />
-        <TextBlock x:Name="PlatformText" DockPanel.Dock="Right" Foreground="White" VerticalAlignment="Center" Margin="12,0" />
-        <TextBlock x:Name="StatusText" Foreground="White" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-      </DockPanel>
-    </Border>
+        Width="1180" Height="800" MinWidth="400" MinHeight="270"
+        WindowStartupLocation="CenterScreen"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="{StaticResource TitleBarHeight}"
+        Background="{DynamicResource SidebarBg}">
+  <!-- The Windows app's frame (src/DnnManager.Presentation/MainWindow.xaml), VS Code's: the title bar along the top - the
+       app's name, the command centre in the middle, Update, Help and the layout buttons beside the system's window buttons;
+       the activity bar, the primary side bar, the page, the secondary side bar and the bottom panel as cards on the frame;
+       the status bar. Settings and Troubleshoot open over the page; toasts, the tour and the command palette over it all. -->
+  <Grid x:Name="Root" RowDefinitions="Auto,*,Auto">
 
-    <!-- Activity bar. -->
-    <Border DockPanel.Dock="Left" Background="{DynamicResource ActivityBarBrush}" Width="48">
-      <DockPanel>
-        <StackPanel DockPanel.Dock="Bottom">
-          <ToggleButton x:Name="NavSettings" Classes="activity" ToolTip.Tip="Settings" Click="Nav_Click" Tag="Settings">
-            <Path Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="1.3" Width="22" Height="22" Stretch="Uniform"
-                  Data="M8,5.5 A2.5,2.5 0 1 1 7.99,5.5 Z M8,1 V3 M8,13 V15 M1,8 H3 M13,8 H15 M3,3 L4.5,4.5 M11.5,11.5 L13,13 M13,3 L11.5,4.5 M4.5,11.5 L3,13" />
-          </ToggleButton>
-        </StackPanel>
-        <StackPanel>
-          <ToggleButton x:Name="NavSourceControl" Classes="activity" ToolTip.Tip="Source Control (Ctrl+Shift+G) - compare projects with their servers, push and pull files"
-                        Click="Nav_Click" Tag="SourceControl" IsChecked="True">
-            <Path Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="1.3" Width="22" Height="22" Stretch="Uniform"
-                  Data="M2.25,2.75 A1.75,1.75 0 1 1 5.75,2.75 A1.75,1.75 0 1 1 2.25,2.75 Z M2.25,13.25 A1.75,1.75 0 1 1 5.75,13.25 A1.75,1.75 0 1 1 2.25,13.25 Z M10.25,4.75 A1.75,1.75 0 1 1 13.75,4.75 A1.75,1.75 0 1 1 10.25,4.75 Z M4,4.5 V11.5 M12,6.5 C12,9.75 4,8.5 4,11.5" />
-          </ToggleButton>
-          <ToggleButton x:Name="NavProjects" Classes="activity" Click="Nav_Click" Tag="Projects">
-            <Path Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="1.3" Width="22" Height="22" Stretch="Uniform"
-                  Data="M1,3 H15 M1,8 H15 M1,13 H15" />
-          </ToggleButton>
-          <ToggleButton x:Name="NavSetup" Classes="activity" Click="Nav_Click" Tag="Setup">
-            <Path Stroke="{Binding $parent[ToggleButton].Foreground}" StrokeThickness="1.3" Width="22" Height="22" Stretch="Uniform"
-                  Data="M8,1 V15 M1,8 H15" />
-          </ToggleButton>
-        </StackPanel>
-      </DockPanel>
-    </Border>
-
-    <!-- The view, and Output below it. -->
-    <Grid x:Name="Body" RowDefinitions="*,Auto,0">
-      <ContentControl x:Name="ViewHost" Grid.Row="0" />
-      <GridSplitter x:Name="OutputSplitter" Grid.Row="1" Height="4" ResizeDirection="Rows" IsVisible="False"
-                    Background="{DynamicResource BorderBrush}" />
-      <Border x:Name="OutputPanel" Grid.Row="2" Background="{DynamicResource PanelBrush}" IsVisible="False">
-        <DockPanel>
-          <DockPanel DockPanel.Dock="Top" Margin="12,6,6,4">
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4">
-              <Button Classes="icon" Content="Cancel" x:Name="CancelButton" Click="Cancel_Click" IsVisible="False"
-                      ToolTip.Tip="Cancel the operation that runs - what it did is put back" />
-              <Button Classes="icon" Content="Clear" Click="ClearOutput_Click" />
-              <Button Classes="icon" Content="✕" Click="ToggleOutput_Click" ToolTip.Tip="Hide Output" />
-            </StackPanel>
-            <TextBlock Classes="section" Text="OUTPUT" VerticalAlignment="Center" />
+    <!-- Title bar: drag it to move the window, double-click to maximize (TitleBar_PointerPressed). The system's own window
+         buttons are drawn over its right end (Windows, Linux) or its left (macOS) - CaptionSpace and TitleLeft leave room. -->
+    <Border x:Name="TitleBarFrame" Grid.Row="0" Height="{StaticResource TitleBarHeight}" Background="{DynamicResource SidebarBg}"
+            BorderBrush="{DynamicResource SidebarBorder}" BorderThickness="0" PointerPressed="TitleBar_PointerPressed">
+      <Grid x:Name="TitleBar">
+        <!-- In the middle of the window, as wide as there is room for (SizeCommandCenter): it opens the command palette. -->
+        <Button x:Name="CommandCenter" Classes="commandcenter" Click="CommandCenter_Click"
+                ToolTip.Tip="Search projects and commands (Ctrl+P)" AutomationProperties.Name="Search projects and commands">
+          <DockPanel>
+            <Panel DockPanel.Dock="Left" Margin="0,0,6,0" VerticalAlignment="Center">
+              <TextBlock Classes="glyph" Text="{StaticResource GlyphSearch}" FontSize="12" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+              <Path Data="{StaticResource SearchGeometry}" Stroke="{DynamicResource CommandCenterFg}" StrokeThickness="1.2" Width="12" Height="12"
+                    Stretch="Uniform" IsVisible="{x:Static v:MainWindow.NoIconFont}" />
+            </Panel>
+            <TextBlock Text="Search projects and commands" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,0,1.5" />
           </DockPanel>
-          <ListBox x:Name="OutputList" Background="Transparent" FontFamily="{StaticResource CodeFont}" FontSize="12">
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="v:OutputRow">
-                <SelectableTextBlock Text="{Binding Text}" Foreground="{Binding Foreground}" TextWrapping="Wrap" />
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
+        </Button>
+        <DockPanel>
+          <StackPanel x:Name="TitleRight" DockPanel.Dock="Right" Orientation="Horizontal">
+            <!-- Only while a newer release can be installed (AppUpdater): it downloads, installs and restarts on it. While it
+                 downloads, a bar just under it fills up. -->
+            <Panel VerticalAlignment="Center">
+              <Button x:Name="UpdateButton" Classes="primary titleupdate" Content="Update" IsVisible="False" Click="Update_Click" />
+              <ProgressBar x:Name="UpdateProgress" Height="2" MinHeight="2" Margin="0,0,6,-4" VerticalAlignment="Bottom" Maximum="1"
+                           Foreground="{DynamicResource Accent}" Background="{DynamicResource CardBorder}" IsHitTestVisible="False"
+                           IsVisible="False" AutomationProperties.Name="Downloading the update" />
+            </Panel>
+            <!-- Help: this page's help, the getting started guide, the tour. -->
+            <Button x:Name="HelpButton" Classes="layout" AutomationProperties.Name="Help" Click="Help_Click"
+                    ToolTip.Tip="Help - what this page is for, the getting started guide and the tour">
+              <Panel>
+                <TextBlock Classes="glyph" Text="{StaticResource GlyphQuestion}" FontSize="14" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+                <TextBlock Text="?" FontSize="14" FontWeight="SemiBold" IsVisible="{x:Static v:MainWindow.NoIconFont}" />
+              </Panel>
+            </Button>
+            <!-- The layout, as VS Code's: Customize Layout, the side bar, the panel and the secondary side bar - each drawn
+                 filled in while it is shown (UpdateLayoutButtons). -->
+            <Button x:Name="CustomizeLayoutButton" Classes="layout" AutomationProperties.Name="Customize Layout" ToolTip.Tip="Customize Layout…"
+                    Click="CustomizeLayout_Click">
+              <Path Classes="layouticon" Data="{StaticResource LayoutDefault}" Stroke="{Binding $parent[Button].Foreground}" />
+            </Button>
+            <Button x:Name="SidebarToggle" Classes="layout" AutomationProperties.Name="Show or hide the primary side bar" Click="TogglePrimary_Click">
+              <Panel x:Name="SidebarIcon" Width="16" Height="16" RenderTransformOrigin="0.5,0.5">
+                <Path x:Name="SidebarIconFill" Data="{StaticResource LayoutSidebarLeftFill}" Fill="{Binding $parent[Button].Foreground}" />
+                <Path Classes="layouticon" Data="{StaticResource LayoutSidebarLeft}" Stroke="{Binding $parent[Button].Foreground}" />
+              </Panel>
+            </Button>
+            <Button x:Name="PanelToggle" Classes="layout" AutomationProperties.Name="Show or hide the panel" Click="TogglePanel_Click">
+              <Panel Width="16" Height="16">
+                <Path x:Name="PanelIconFill" Data="{StaticResource LayoutPanelFill}" Fill="{Binding $parent[Button].Foreground}" />
+                <Path Classes="layouticon" Data="{StaticResource LayoutPanel}" Stroke="{Binding $parent[Button].Foreground}" />
+              </Panel>
+            </Button>
+            <Button x:Name="SecondaryToggle" Classes="layout" AutomationProperties.Name="Show or hide the secondary side bar" Click="ToggleSecondary_Click">
+              <Panel x:Name="SecondaryIcon" Width="16" Height="16" RenderTransformOrigin="0.5,0.5">
+                <Path x:Name="SecondaryIconFill" Data="{StaticResource LayoutSidebarRightFill}" Fill="{Binding $parent[Button].Foreground}" />
+                <Path Classes="layouticon" Data="{StaticResource LayoutSidebarRight}" Stroke="{Binding $parent[Button].Foreground}" />
+              </Panel>
+            </Button>
+            <Border x:Name="CaptionDivider" Width="1" Height="16" Margin="6,0" Background="{DynamicResource SidebarDivider}" />
+            <!-- Minimize, maximize and close as the Windows app draws them (Windows); elsewhere the system's own, drawn in
+                 CaptionSpace's room (Linux) or on the left (macOS). -->
+            <StackPanel x:Name="CaptionButtons" Orientation="Horizontal" IsVisible="False">
+              <Button x:Name="MinimizeButton" Classes="caption" Content="{StaticResource GlyphMinimize}" ToolTip.Tip="Minimize"
+                      AutomationProperties.Name="Minimize" Click="Minimize_Click" />
+              <Button x:Name="MaximizeButton" Classes="caption" Content="{StaticResource GlyphMaximize}" ToolTip.Tip="Maximize"
+                      AutomationProperties.Name="Maximize" Click="Maximize_Click" />
+              <Button x:Name="CloseButton" Classes="caption close" Content="{StaticResource GlyphClose}" ToolTip.Tip="Close"
+                      AutomationProperties.Name="Close" Click="Close_Click" />
+            </StackPanel>
+            <Border x:Name="CaptionSpace" Width="0" />
+          </StackPanel>
+          <!-- The app's icon and its name - the menu bar, hidden from Customize Layout. -->
+          <StackPanel x:Name="TitleLeft" Orientation="Horizontal" Margin="12,0,0,0" HorizontalAlignment="Left" IsHitTestVisible="False">
+            <Image Source="/Assets/dnn.ico" Width="16" Height="16" VerticalAlignment="Center" />
+            <TextBlock x:Name="MenuBar" Text="DNN Manager" Foreground="{DynamicResource TextPrimary}" FontSize="{StaticResource TextCaption}"
+                       Margin="10,0,0,1.5" VerticalAlignment="Center" />
+          </StackPanel>
+        </DockPanel>
+      </Grid>
+    </Border>
+
+    <!-- The body, as VS Code's: the activity bar full height on its side; the primary side bar beside it, the page, the
+         secondary side bar across from it; the bottom panel under the page - and under a side bar where Customize Layout's
+         Panel Alignment reaches it there. In the Default density rounded cards with a gap around them on the frame's colour;
+         in the Compact density flush, divided by lines (ApplyCards). -->
+    <Grid x:Name="Body" Grid.Row="1" ClipToBounds="True" Background="{DynamicResource SidebarBg}"
+          RowDefinitions="*,5,0" ColumnDefinitions="48,0,0,0,*,0,0,0,0">
+
+      <!-- The activity bar: the pages as icons (their names as tooltips); at the bottom the gear's menu. -->
+      <Border x:Name="Sidebar" Grid.Column="0" Grid.RowSpan="3" Background="{DynamicResource SidebarBg}"
+              BorderBrush="{DynamicResource SidebarBorder}" BorderThickness="0,0,1,0">
+        <DockPanel>
+          <StackPanel x:Name="SidebarBottom" DockPanel.Dock="Bottom">
+            <Button x:Name="ManageButton" Classes="nav" ToolTip.Tip="Settings, themes, Troubleshoot and updates" ToolTip.Placement="Right"
+                    AutomationProperties.Name="Manage - settings, keyboard shortcuts, themes, layout" Click="Manage_Click">
+              <Panel>
+                <TextBlock Classes="glyph" Text="{StaticResource GlyphSettings}" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+                <Path Stroke="{Binding $parent[Button].Foreground}" IsVisible="{x:Static v:MainWindow.NoIconFont}"
+                      Data="M8,5.5 A2.5,2.5 0 1 1 7.99,5.5 Z M8,1 V3 M8,13 V15 M1,8 H3 M13,8 H15 M3,3 L4.5,4.5 M11.5,11.5 L13,13 M13,3 L11.5,4.5 M4.5,11.5 L3,13" />
+              </Panel>
+            </Button>
+          </StackPanel>
+          <StackPanel x:Name="SidebarTop">
+            <ToggleButton x:Name="NavProjects" Classes="nav" ToolTip.Placement="Right" Click="Nav_Click" Tag="Projects"
+                          ToolTip.Tip="Projects - every website on this computer (Ctrl+1)">
+              <Panel>
+                <TextBlock Classes="glyph" Text="{StaticResource GlyphList}" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+                <Path Stroke="{Binding $parent[ToggleButton].Foreground}" IsVisible="{x:Static v:MainWindow.NoIconFont}" Data="M1,3 H15 M1,8 H15 M1,13 H15" />
+              </Panel>
+            </ToggleButton>
+            <ToggleButton x:Name="NavSetup" Classes="nav" ToolTip.Placement="Right" Click="Nav_Click" Tag="Setup"
+                          ToolTip.Tip="New project - create a website, or one from a backup (Ctrl+2)">
+              <Panel>
+                <TextBlock Classes="glyph" Text="{StaticResource GlyphAdd}" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+                <Path Stroke="{Binding $parent[ToggleButton].Foreground}" IsVisible="{x:Static v:MainWindow.NoIconFont}" Data="M8,1 V15 M1,8 H15" />
+              </Panel>
+            </ToggleButton>
+            <ToggleButton x:Name="NavSourceControl" Classes="nav" ToolTip.Placement="Right" Click="Nav_Click" Tag="SourceControl"
+                          ToolTip.Tip="Source Control - compare projects with their servers, push and pull files (Ctrl+3)">
+              <Path Stroke="{Binding $parent[ToggleButton].Foreground}" Data="{StaticResource SourceControlGeometry}" />
+            </ToggleButton>
+          </StackPanel>
         </DockPanel>
       </Border>
+
+      <!-- The primary side bar (the page's own view - ISideBarPage, Ctrl+B) and the secondary one across the page (Ctrl+Alt+B). -->
+      <Border x:Name="PrimarySideBar" Grid.Column="2" Grid.RowSpan="3" Background="{DynamicResource WindowBg}"
+              BorderBrush="{DynamicResource CardBorder}" IsVisible="False" ClipToBounds="True">
+        <ContentControl x:Name="PrimaryHost" />
+      </Border>
+
+      <!-- The page of the activity bar's entry chosen. -->
+      <Border x:Name="PageCard" Grid.Column="4" Background="{DynamicResource WindowBg}" BorderBrush="{DynamicResource CardBorder}" ClipToBounds="True">
+        <ContentControl x:Name="ViewHost" />
+      </Border>
+
+      <Border x:Name="SecondarySideBar" Grid.Column="6" Grid.RowSpan="3" Background="{DynamicResource WindowBg}"
+              BorderBrush="{DynamicResource CardBorder}" IsVisible="False" ClipToBounds="True">
+        <ContentControl x:Name="SecondaryHost">
+          <StackPanel Margin="16,15,12,0">
+            <TextBlock Text="SECONDARY SIDE BAR" FontSize="{StaticResource TextSmall}" FontWeight="SemiBold" Foreground="{DynamicResource TextMuted}" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,16,0,0" Text="Nothing to show here yet." />
+          </StackPanel>
+        </ContentControl>
+      </Border>
+
+      <!-- Between a side bar and the page: dragged, the side bar's width. -->
+      <GridSplitter x:Name="PrimarySash" Classes="sash" Grid.Column="3" Grid.RowSpan="3" ResizeDirection="Columns" IsVisible="False"
+                    ResizeBehavior="PreviousAndNext" DragCompleted="SideBarSash_DragCompleted" />
+      <GridSplitter x:Name="SecondarySash" Classes="sash" Grid.Column="5" Grid.RowSpan="3" ResizeDirection="Columns" IsVisible="False"
+                    ResizeBehavior="PreviousAndNext" DragCompleted="SideBarSash_DragCompleted" />
+
+      <!-- Between the page and the panel: dragged, the panel's height. -->
+      <GridSplitter x:Name="PanelSash" Classes="sash" Grid.Row="1" Grid.Column="4" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext"
+                    IsVisible="False" DragCompleted="PanelSash_DragCompleted" />
+
+      <!-- Output and Logs; opened and closed with the title bar's panel button, Ctrl+J, Ctrl+` or its own ✕. Maximized (its
+           button, Ctrl+Shift+M) it takes the page's room. -->
+      <Border x:Name="PanelCard" Grid.Row="2" Grid.Column="4" Background="{DynamicResource LogBg}" BorderBrush="{DynamicResource CardBorder}"
+              IsVisible="False" ClipToBounds="True">
+        <w:OutputPanel x:Name="OutputPanel" />
+      </Border>
     </Grid>
-  </DockPanel>
+
+    <!-- Settings and Troubleshoot open over the page, as VS Code's modal editors: the page dimmed behind them, a click there
+         closes them (ShowModal / CloseModal). Between the title bar and the status bar, which still work. -->
+    <Panel x:Name="ModalHost" Grid.Row="1" ZIndex="50" IsVisible="False" Background="{DynamicResource ModalBackdrop}"
+           PointerPressed="ModalBackdrop_PointerPressed">
+      <Border x:Name="ModalBox" MaxWidth="1280" Margin="40,20,40,28" Background="{DynamicResource WindowBg}"
+              BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="8" ClipToBounds="True"
+              BoxShadow="0 6 28 0 #66000000" PointerPressed="ModalBox_PointerPressed">
+        <ContentControl x:Name="ModalContent" />
+      </Border>
+    </Panel>
+
+    <!-- Toasts float over the page's bottom-right (PlaceToasts) - never over Settings or Troubleshoot. The running operation,
+         and under it a message. -->
+    <StackPanel x:Name="Toasts" Grid.Row="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,16" ZIndex="40">
+      <w:OperationToast x:Name="OperationToast" />
+      <w:ToastView x:Name="ToastHost" HorizontalAlignment="Right" />
+    </StackPanel>
+
+    <!-- Along the bottom: IIS under the activity bar (StatusLeft - the Projects page's IisStatus), this PC's memory, CPU and
+         disk, and the version on the right. Hidden from Customize Layout. -->
+    <DockPanel x:Name="StatusRow" Grid.Row="2">
+      <ContentControl x:Name="StatusLeft" DockPanel.Dock="Left" />
+      <Border x:Name="StatusBar" Background="{DynamicResource StatusBarBg}" BorderBrush="{DynamicResource CardBorder}"
+              BorderThickness="0" Height="{StaticResource StatusBarHeight}">
+        <DockPanel Margin="14,0,0,0">
+          <TextBlock x:Name="VersionText" DockPanel.Dock="Right" Classes="figure" Foreground="{DynamicResource TextMuted}" Margin="12,0,14,1.5" />
+          <!-- Each figure keeps the width of its widest value, so nothing moves as one goes from 9.99 to 10.00. -->
+          <StackPanel Orientation="Horizontal" ClipToBounds="True">
+            <Panel>
+              <TextBlock x:Name="RamWidest" Classes="figure" Opacity="0" />
+              <TextBlock x:Name="RamText" Classes="figure" Text="RAM 0.00 GB" />
+            </Panel>
+            <Panel x:Name="CpuPart">
+              <TextBlock Classes="figure" Text="CPU 100.00%" Opacity="0" />
+              <TextBlock x:Name="CpuText" Classes="figure" Text="CPU 0.00%" />
+            </Panel>
+            <Panel>
+              <TextBlock x:Name="DiskWidest" Classes="figure" Opacity="0" />
+              <TextBlock x:Name="DiskText" Classes="figure" Text="Disk: --.-- GB used (limit --.-- GB)" />
+            </Panel>
+          </StackPanel>
+        </DockPanel>
+      </Border>
+    </DockPanel>
+
+    <!-- The tour (Help → Take the Tour): over the whole window, one part at a time. -->
+    <w:GuidedTour x:Name="Tour" Grid.RowSpan="3" ZIndex="95" />
+
+    <!-- The command palette (Ctrl+P, Ctrl+Shift+P) over everything, title bar included. -->
+    <w:CommandPalette x:Name="Palette" Grid.RowSpan="3" ZIndex="100" />
+  </Grid>
 </Window>

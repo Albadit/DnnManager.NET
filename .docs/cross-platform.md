@@ -1,46 +1,52 @@
 # DNN Manager on macOS, Linux and Windows
 
-DNN Manager comes as two apps built on the same code:
+**From 2.0, DNN Manager is one app on all three systems:** [`src/DnnManager.Desktop`](../src/DnnManager.Desktop/DnnManager.Desktop.csproj)
+([Avalonia](https://avaloniaui.net), MIT licensed), with every page and the look of the WPF app it replaces
+(`DnnManager.csproj`, no longer released; its theme is the source of the Avalonia one - `.github/scripts/port-theme.py`).
+On Windows, Setup and the portable exe install it under the old names (`DnnManager.exe`, `DnnManager-<version>-x64.exe`).
 
-| | The Windows app | DNN Manager for macOS, Linux and Windows |
+| | Windows | macOS and Linux |
 |---|---|---|
-| Project | [`DnnManager.csproj`](../DnnManager.csproj) (WPF) | [`src/DnnManager.Desktop`](../src/DnnManager.Desktop/DnnManager.Desktop.csproj) ([Avalonia](https://avaloniaui.net), MIT licensed) |
-| Runs on | Windows 10 / 11, Windows Server | macOS 12+ (Apple Silicon and Intel), Linux (x64, arm64), Windows |
-| Makes and runs DNN sites (IIS, LocalDB, the hosts file) | Yes | No - see [Why not IIS](#why-not-iis-on-macos-and-linux) |
-| Source Control (compare, push, pull, history, rollback over FTP / SFTP) | Yes | Yes |
-| Administrator rights | Asks for them (IIS needs them) | Never needs them |
-
-The cross-platform app is new and has **Source Control** and **Settings** so far; the
-other pages say what they need. Its pages are being moved over from the Windows
-app one at a time - until they all are, the Windows app stays the one for making
-and running sites.
+| Makes and runs DNN sites (Projects, New project: IIS, LocalDB, the hosts file) | Yes | No - see [Why not IIS](#why-not-iis-on-macos-and-linux) |
+| Source Control, Settings, Troubleshoot, the command palette, the bottom panel | Yes | Yes |
+| Administrator rights | Asks for them at start (IIS needs them); `DNNMANAGER_NO_ELEVATION=1` skips it | Never needs them |
+| Updates itself (the **Update** button) | Yes | Says a newer version is out, with the download |
 
 ## Install
 
-Download the package for your system from the [GitHub release](https://github.com/Albadit/DnnManager.NET/releases),
-next to the Windows app's Setup and portable exe. They are on releases from
-2.0.0-rc1 on, a pre-release. The release workflow makes them with the **Desktop** workflow
-([`.github/workflows/desktop.yml`](../.github/workflows/desktop.yml)). That workflow also runs by hand
-(*Actions → Desktop → Run workflow*), with the packages as the run's artifacts.
+Download the file for your system from the [GitHub release](https://github.com/Albadit/DnnManager.NET/releases),
+next to Windows' Setup and portable exe. On macOS and Linux it is **the program itself**, one file, no zip - nothing
+to unpack, no .NET to install. The release workflow makes them with the **Desktop** workflow
+([`.github/workflows/desktop.yml`](../.github/workflows/desktop.yml)), which also runs by hand
+(*Actions → Desktop → Run workflow*), with the files as the run's artifacts.
 
-Nothing is paid for, so nothing is signed with a bought certificate:
+| System | File |
+|---|---|
+| macOS, Apple Silicon (M1-M4) | `DnnManager-<version>-macos-arm64` |
+| macOS, Intel | `DnnManager-<version>-macos-x64` |
+| Linux, x64 | `DnnManager-<version>-linux-x64` |
+| Linux, arm64 | `DnnManager-<version>-linux-arm64` |
 
-- **macOS** - `DnnManager-<version>-macos-arm64.zip` (Apple Silicon) or `-macos-x64.zip`
-  (Intel). Unzip it and move **DNN Manager.app** to Applications. The app is signed
-  *ad hoc* (which Apple Silicon needs to start it, and which costs nothing) but not
-  notarized, so the first time macOS says it can't check the developer: **right-click
-  the app → Open → Open**. From then on it starts as any app. (Or, in a terminal:
-  `xattr -dr com.apple.quarantine "/Applications/DNN Manager.app"`.)
-- **Linux** - `DnnManager-<version>-linux-x64.tar.gz` (or `-linux-arm64`). Unpack it
-  anywhere and run `./DnnManager.Desktop`. To have it in the menu, copy
-  `dnn-manager.desktop` to `~/.local/share/applications/` and set its `Exec=` to
-  the program's full path.
-- **Windows** - the release's Setup or portable exe: the Windows app, with IIS. The
-  cross-platform app for Windows, `DnnManager-<version>-windows-x64.zip`, comes only
-  from a run of the Desktop workflow by hand: unzip it and run
-  `DnnManager.Desktop.exe`. Windows SmartScreen may ask first (*More info → Run anyway*).
+**The first time**, in Terminal, in the folder you downloaded it to. A download loses the file's "can run"
+permission, and macOS marks it as downloaded from the internet:
 
-Each package is one self-contained program: no .NET to install.
+```sh
+chmod +x DnnManager-2.0.0-macos-arm64                          # macOS and Linux: allow it to run
+xattr -d com.apple.quarantine DnnManager-2.0.0-macos-arm64     # macOS only
+./DnnManager-2.0.0-macos-arm64
+```
+
+Nothing is paid for, so nothing is signed with a bought certificate. The macOS file is signed *ad hoc* (which
+Apple Silicon needs to start it, and which costs nothing) but not notarized: without the `xattr` line, macOS says it
+can't check the developer - then **System Settings → Privacy & Security → Open Anyway**.
+
+For a Mac app in Applications (`DNN Manager.app`) or a Linux menu entry, build the bundles on that system with the
+VS Code task **Publish → Setup** (`package.ps1 -Kind bundle`).
+On **Windows**, the release's Setup (`DnnManager_Setup-<version>-x64.exe`) or portable exe
+(`DnnManager-<version>-x64.exe`, `-x86.exe` for 32-bit) is this same app. Windows SmartScreen may ask first
+(*More info → Run anyway*).
+
+Each is one self-contained program: no .NET to install.
 
 ## Where your data is
 
@@ -105,13 +111,11 @@ and why: [ADR 0006](adr/0006-cross-platform-avalonia.md).
 
 ## What isn't there yet
 
-- **Pages:** Projects, New project, Troubleshoot and most of Settings are only in the
-  Windows app (Projects and New project need IIS anyway). In Source Control: the
-  Explorer and Search views, the editor's tabs, the three-way merge of a conflict
-  (*Keep the project's* and *Take the server's* are there), restoring one file from
-  the history, and the command palette.
-- **Updates:** the cross-platform app doesn't update itself yet - download the new
-  package.
+- **From the WPF app:** the bottom panel's Terminal tab (Ctrl+` shows the panel), the site, IIS and Windows logs in
+  its Logs tab (DNN Manager's own log is there), Settings' **Edit upgrade path…**, and keeping unsaved form drafts
+  across a restart. Logs of a project open in a window of their own.
+- **Icons on macOS and Linux:** the Windows app's icons are a Windows font (Segoe Fluent Icons) that can't be
+  shipped - drawn icons or text stand in there.
 - **Tried on a real Mac and Linux PC:** CI builds and tests it on macOS and Linux,
   and its windows are tested drawn headless; it has been run by hand on Windows
   only so far.

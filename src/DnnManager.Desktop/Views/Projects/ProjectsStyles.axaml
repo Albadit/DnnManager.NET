@@ -1,0 +1,252 @@
+<!-- The Projects page's styles, as the Windows app's (Themes/Controls/LayoutStyles, ButtonStyles, SelectionStyles and
+     ProjectsPage.xaml's resources): the page title, cards, hints, field labels and error lines; the table's status dots,
+     row actions, chevron and bulk group; the overview's tabs; the pulses. Include it in App.axaml's Application.Styles. -->
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:p="using:DnnManager.Desktop.Views.Projects">
+
+  <!-- ═══ Text (LayoutStyles.xaml) ═══ -->
+  <Style Selector="TextBlock.pageTitle">
+    <Setter Property="FontSize" Value="{StaticResource TextDisplay}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+  </Style>
+  <Style Selector="TextBlock.pageSubtitle">
+    <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="TextBlock.cardTitle">
+    <Setter Property="FontSize" Value="{StaticResource TextHeading}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+    <Setter Property="Margin" Value="0,0,0,10" />
+  </Style>
+  <Style Selector="TextBlock.fieldLabel">
+    <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+    <Setter Property="Margin" Value="0,8,0,4" />
+  </Style>
+  <Style Selector="TextBlock.hint">
+    <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+    <Setter Property="FontSize" Value="{StaticResource TextCaption}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="Margin" Value="0,4,0,0" />
+  </Style>
+  <Style Selector="TextBlock.errorLine">
+    <Setter Property="Foreground" Value="{DynamicResource ErrorText}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="Margin" Value="0,4,0,0" />
+  </Style>
+
+  <!-- ═══ A card ═══ -->
+  <Style Selector="Border.card">
+    <Setter Property="Background" Value="{DynamicResource CardBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{StaticResource CardRadius}" />
+    <Setter Property="Padding" Value="18,14" />
+    <Setter Property="Margin" Value="0,0,0,14" />
+  </Style>
+
+  <!-- ═══ The table ═══ -->
+  <!-- The column headers: muted, small, as WPF's DataGridColumnHeader. A sortable one is a flat button. -->
+  <Style Selector="Border.tableHeader">
+    <Setter Property="Background" Value="{DynamicResource HeaderBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+  <Style Selector="Button.header">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Button.header:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.header:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+  </Style>
+  <Style Selector="TextBlock.header">
+    <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- A row: the hover and, checked, the selection's colour (ProjectRowStyle). -->
+  <Style Selector="ListBox.projects ListBoxItem">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="BorderBrush" Value="{DynamicResource GridLine}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+  <Style Selector="ListBox.projects ListBoxItem.checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource SelectionBg}" />
+  </Style>
+  <Style Selector="ListBox.projects ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource HoverBg}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+  </Style>
+  <Style Selector="ListBox.projects ListBoxItem.checked:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource SelectionBg}" />
+  </Style>
+  <Style Selector="ListBox.projects ListBoxItem:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderBrush" Value="{DynamicResource FocusBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <!-- The status dot: running green, stopped a hollow ring, changing amber and pulsing (StatusDot). -->
+  <Style Selector="Ellipse.statusDot">
+    <Setter Property="Width" Value="9" />
+    <Setter Property="Height" Value="9" />
+    <Setter Property="StrokeThickness" Value="1.5" />
+    <Setter Property="Stroke" Value="{DynamicResource TextMuted}" />
+    <Setter Property="Fill" Value="Transparent" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Ellipse.statusDot.running">
+    <Setter Property="Stroke" Value="{DynamicResource SuccessText}" />
+    <Setter Property="Fill" Value="{DynamicResource SuccessText}" />
+  </Style>
+  <Style Selector="Ellipse.statusDot.transitioning">
+    <Setter Property="Stroke" Value="{DynamicResource LogWarn}" />
+    <Setter Property="Fill" Value="{DynamicResource LogWarn}" />
+  </Style>
+  <Style Selector="Ellipse.statusDot.transitioning.pulse, p|KeepWarmFlame.pulse">
+    <Style.Animations>
+      <Animation Duration="0:0:0.6" IterationCount="INFINITE" PlaybackDirection="Alternate">
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="1" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="0.25" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <!-- Status text: muted, green running, amber changing (StateText); SQL: green Live, red Offline. -->
+  <Style Selector="TextBlock.state">
+    <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+  </Style>
+  <Style Selector="TextBlock.state.running">
+    <Setter Property="Foreground" Value="{DynamicResource SuccessText}" />
+  </Style>
+  <Style Selector="TextBlock.state.transitioning">
+    <Setter Property="Foreground" Value="{DynamicResource LogWarn}" />
+  </Style>
+  <Style Selector="TextBlock.live">
+    <Setter Property="Foreground" Value="{DynamicResource SuccessText}" />
+  </Style>
+  <Style Selector="TextBlock.offline">
+    <Setter Property="Foreground" Value="{DynamicResource ErrorText}" />
+  </Style>
+  <Style Selector="TextBlock.warn">
+    <Setter Property="Foreground" Value="{DynamicResource LogWarn}" />
+  </Style>
+
+  <!-- A row's buttons (RowAction): icons in the link blue; not tab stops - the row has keys of its own. -->
+  <Style Selector="Button.rowAction">
+    <Setter Property="Foreground" Value="{DynamicResource LinkFg}" />
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+  <Style Selector="Button.rowAction:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource LinkFg}" />
+  </Style>
+  <Style Selector="Button.remove">
+    <Setter Property="Foreground" Value="{DynamicResource ErrorText}" />
+  </Style>
+  <Style Selector="Button.remove:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource ErrorText}" />
+  </Style>
+
+  <!-- The chevron that shows a row's facts (ExpandToggle): turned down while they show. -->
+  <Style Selector="ToggleButton.expand">
+    <Setter Property="Foreground" Value="{DynamicResource LinkFg}" />
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="Bd" Background="Transparent" Width="24" Height="24" CornerRadius="{StaticResource ControlRadius}">
+          <TextBlock Name="Glyph" Text="{StaticResource GlyphChevronRight}" FontFamily="{StaticResource IconFont}" FontSize="10"
+                     Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ToggleButton.expand:pointerover /template/ Border#Bd">
+    <Setter Property="Background" Value="{DynamicResource HoverBg}" />
+  </Style>
+  <Style Selector="ToggleButton.expand:checked /template/ TextBlock#Glyph">
+    <Setter Property="RenderTransform" Value="rotate(90deg)" />
+  </Style>
+
+  <!-- One of the bulk actions: an icon in the group's frame (GroupButton). -->
+  <Style Selector="Button.group">
+    <Setter Property="Width" Value="34" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+    <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+  <Style Selector="Button.group:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource HoverBg}" />
+  </Style>
+  <Style Selector="Button.group:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource SelectionBg}" />
+  </Style>
+  <Style Selector="Button.group:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Opacity" Value="0.35" />
+  </Style>
+  <Style Selector="Button.group.remove:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource ErrorText}" />
+  </Style>
+
+  <!-- ═══ The overview's tabs (SectionTab): the name, underlined in the accent while shown. ═══ -->
+  <Style Selector="RadioButton.sectionTab">
+    <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="Bd" Background="Transparent" Padding="2,6,2,8" Margin="0,0,22,0" BorderThickness="0,0,0,2" BorderBrush="Transparent">
+          <ContentPresenter Content="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="RadioButton.sectionTab:pointerover, RadioButton.sectionTab:checked">
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+  </Style>
+  <Style Selector="RadioButton.sectionTab:checked /template/ Border#Bd">
+    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+  </Style>
+  <Style Selector="RadioButton.sectionTab:focus-visible /template/ Border#Bd">
+    <Setter Property="Background" Value="{DynamicResource HoverBg}" />
+  </Style>
+
+  <!-- A value that can be selected and copied: no box around it (FactTemplate's read-only TextBox). -->
+  <Style Selector="SelectableTextBlock.value">
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource SelectionBg}" />
+  </Style>
+
+  <!-- The notice in the page's corner (the Windows app's toast). -->
+  <Style Selector="Border.notice">
+    <Setter Property="Background" Value="{DynamicResource CardBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="14,10" />
+    <Setter Property="BoxShadow" Value="0 2 12 0 #40000000" />
+  </Style>
+</Styles>

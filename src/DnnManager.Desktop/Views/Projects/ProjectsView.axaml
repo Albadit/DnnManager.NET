@@ -1,0 +1,341 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:p="using:DnnManager.Desktop.Views.Projects"
+             x:Class="DnnManager.Desktop.Views.Projects.ProjectsView"
+             x:DataType="p:ProjectsView" Background="Transparent" Focusable="True">
+  <!-- Projects (the Windows app's Pages/ProjectsPage): every DNN website in IIS as a table - its state, bindings, DNN install
+       and database, worker process figures - with start / stop / restart / keep warm / remove per row or for the checked
+       rows, a search box and a choice of columns. A site's overview (ProjectView) takes the page while it is open. -->
+  <UserControl.Styles>
+    <StyleInclude Source="/Views/Projects/ProjectsStyles.axaml" />
+    <!-- A row: the selection's colour while checked. -->
+    <Style Selector="Border.rowRoot">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.rowRoot.checked">
+      <Setter Property="Background" Value="{DynamicResource SelectionBg}" />
+    </Style>
+    <!-- Actions stays at the right edge while the other columns scroll under it: opaque, in the row's colour. -->
+    <Style Selector="Border.rowRoot.checked Border.actionsCell">
+      <Setter Property="Background" Value="{DynamicResource SelectionBg}" />
+    </Style>
+    <Style Selector="TextBlock.cell">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="8,0,12,0" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style Selector="TextBlock.numeric">
+      <Setter Property="HorizontalAlignment" Value="Right" />
+    </Style>
+    <Style Selector="Button.cellLink">
+      <Setter Property="Margin" Value="8,0,12,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="Button.header, TextBlock.header">
+      <Setter Property="Margin" Value="8,6,12,6" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid x:Name="Root">
+    <!-- The table; while a site is open, its overview (ProjectView) takes the page instead - the table keeps its state. -->
+    <DockPanel x:Name="TableView" Margin="28,24,28,12">
+      <!-- Title. Top right only shows when the table can't keep itself up to date: "Reconnecting…", why in its tooltip. -->
+      <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+        <StackPanel x:Name="LiveIndicator" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,10,2,0"
+                    Background="Transparent" IsVisible="False">
+          <Ellipse Width="8" Height="8" StrokeThickness="1.5" Stroke="{DynamicResource LogWarn}" VerticalAlignment="Center" />
+          <TextBlock Text="Reconnecting…" Classes="muted" FontSize="{StaticResource TextCaption}" Margin="8,0,0,0" VerticalAlignment="Center" />
+        </StackPanel>
+        <StackPanel>
+          <TextBlock Classes="pageTitle" Text="Projects" />
+          <TextBlock Classes="pageSubtitle" Margin="0,4,0,0" Text="Every DNN website in IIS - its state, bindings, DNN install and database." />
+        </StackPanel>
+      </DockPanel>
+
+      <!-- Search, columns and "only running" on the left; the bulk actions on the right, only while rows are checked. -->
+      <DockPanel x:Name="Toolbar" DockPanel.Dock="Top" Margin="0,0,0,10">
+        <Border x:Name="BulkActions" DockPanel.Dock="Right" IsVisible="False" VerticalAlignment="Center" Padding="2" CornerRadius="5"
+                Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1">
+          <StackPanel Orientation="Horizontal">
+            <Button x:Name="BulkStartButton" Classes="group" Content="{StaticResource GlyphPlay}" Click="BulkStart_Click"
+                    AutomationProperties.Name="Start the selected websites" ToolTip.Tip="Start the selected websites" ToolTip.ShowOnDisabled="True" />
+            <Button x:Name="BulkStopButton" Classes="group" Content="{StaticResource GlyphStop}" Click="BulkStop_Click"
+                    AutomationProperties.Name="Stop the selected websites" ToolTip.Tip="Stop the selected websites - nothing is deleted" ToolTip.ShowOnDisabled="True" />
+            <Button x:Name="BulkRestartButton" Classes="group" Content="{StaticResource GlyphRefresh}" Click="BulkRestart_Click"
+                    AutomationProperties.Name="Restart the selected websites" ToolTip.Tip="Restart the selected websites - each is unavailable for a few seconds"
+                    ToolTip.ShowOnDisabled="True" />
+            <!-- The flame, as in the rows: outlined - keep them warm; filled - they all are, stop it (UpdateSelection). -->
+            <Button x:Name="BulkKeepWarmButton" Classes="group" Click="BulkKeepWarm_Click" ToolTip.ShowOnDisabled="True"
+                    AutomationProperties.Name="Keep the selected websites warm">
+              <Path x:Name="BulkKeepWarmIcon" Data="{StaticResource FlameOutline}" Fill="{DynamicResource TextPrimary}" Stretch="Uniform" Width="14" Height="14" />
+            </Button>
+            <Border Width="1" Margin="2,4" Background="{DynamicResource CardBorder}" />
+            <Button x:Name="BulkRemoveButton" Classes="group remove" Content="{StaticResource GlyphDelete}" Foreground="{DynamicResource ErrorText}"
+                    Click="BulkRemove_Click" AutomationProperties.Name="Remove the selected websites" ToolTip.ShowOnDisabled="True"
+                    ToolTip.Tip="Remove the selected websites - their folders and databases are deleted; asks first" />
+          </StackPanel>
+        </Border>
+        <StackPanel Orientation="Horizontal">
+          <TextBox x:Name="SearchBox" Width="280" VerticalAlignment="Center" PlaceholderText="Search projects" AutomationProperties.Name="Search projects"
+                   ToolTip.Tip="Search projects (Ctrl+F)" TextChanged="Search_TextChanged" KeyDown="Search_KeyDown" />
+          <Button x:Name="ColumnsButton" Classes="icon" Margin="8,0,0,0" VerticalAlignment="Center" AutomationProperties.Name="Choose which columns the list shows"
+                  ToolTip.Tip="Choose which columns the list shows">
+            <Path Data="{StaticResource Columns}" Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform" />
+            <Button.Flyout>
+              <Flyout Placement="BottomEdgeAlignedLeft">
+                <StackPanel MinWidth="220">
+                  <ItemsControl x:Name="ColumnList">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="p:ProjectColumnOption">
+                        <ToggleSwitch OnContent="{Binding Header}" OffContent="{Binding Header}" Margin="0,2" AutomationProperties.Name="{Binding Header}" IsChecked="{Binding IsVisible, Mode=TwoWay}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <DockPanel Margin="0,10,0,0">
+                    <Button DockPanel.Dock="Right" Classes="link" Content="Show all" Click="ShowAllColumns_Click" ToolTip.Tip="Show all" />
+                    <Button DockPanel.Dock="Left" Classes="link" Content="Hide all" Click="HideAllColumns_Click" ToolTip.Tip="Hide all" />
+                    <Button Classes="link" Content="Default" HorizontalAlignment="Center" Click="DefaultColumns_Click" ToolTip.Tip="Default columns" />
+                  </DockPanel>
+                </StackPanel>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+          <!-- Only the projects whose site runs - a row comes and goes as its site starts and stops. -->
+          <ToggleSwitch x:Name="OnlyRunning" OnContent="Only show running" OffContent="Only show running" AutomationProperties.Name="Only show running" Margin="14,0,0,0" VerticalAlignment="Center"
+                        ToolTip.Tip="Hide the websites that are stopped" IsCheckedChanged="OnlyRunning_Changed" />
+        </StackPanel>
+      </DockPanel>
+
+      <!-- How many rows there are, are shown and are checked. -->
+      <DockPanel DockPanel.Dock="Bottom" Margin="2,8,2,0">
+        <TextBlock x:Name="SelectedText" DockPanel.Dock="Right" />
+        <TextBlock x:Name="CountText" Classes="muted" />
+      </DockPanel>
+
+      <Panel>
+        <!-- Rounded, like the cards. The table scrolls sideways when its columns don't fit. -->
+        <Border CornerRadius="{StaticResource CardRadius}" BorderThickness="1" BorderBrush="{DynamicResource CardBorder}"
+                Background="{DynamicResource CardBg}" ClipToBounds="True">
+          <ScrollViewer x:Name="HScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+            <DockPanel x:Name="TableContent" Grid.IsSharedSizeScope="True">
+              <!-- The column headers: the select-all check box, then a header per column - a click sorts by it. -->
+              <Border DockPanel.Dock="Top" Classes="tableHeader">
+                <Grid x:Name="HeaderGrid">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="40" />
+                    <ColumnDefinition Width="32" />
+                    <ColumnDefinition Width="24" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="name" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="url" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="dnn" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="database" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="sql" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="cpu" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="memory" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="pid" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="lastStarted" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="status" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="ports" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="id" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="size" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="memoryPercent" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="disk" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="network" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="path" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="actions" />
+                  </Grid.ColumnDefinitions>
+                  <CheckBox x:Name="SelectAll" Grid.Column="0" HorizontalAlignment="Center" MinWidth="0" Padding="0" Focusable="False"
+                            ToolTip.Tip="Select every website in the list" AutomationProperties.Name="Select every website in the list" Click="SelectAll_Click" />
+                  <Button Grid.Column="2" Classes="header" Margin="0" Tag="State" Click="Header_Click" ToolTip.Tip="Sort by state" Content=" " />
+                  <Button Grid.Column="3" Classes="header" Tag="Name" Click="Header_Click" Content="Name" MinWidth="150" />
+                  <Button Grid.Column="4" Classes="header col-url" Tag="Url" Click="Header_Click" Content="Site" MinWidth="180" />
+                  <Button Grid.Column="5" Classes="header col-dnn" Tag="Dnn" Click="Header_Click" Content="DNN" MinWidth="70" />
+                  <Button Grid.Column="6" Classes="header col-database" Tag="Database" Click="Header_Click" Content="Database" MinWidth="120" />
+                  <Button Grid.Column="7" Classes="header col-sql" Tag="Sql" Click="Header_Click" Content="SQL" MinWidth="64" />
+                  <Button Grid.Column="8" Classes="header col-cpu" Tag="CpuSort" Click="Header_Click" Content="CPU (%)" MinWidth="70" />
+                  <Button Grid.Column="9" Classes="header col-memory" Tag="MemorySort" Click="Header_Click" Content="Memory" MinWidth="84" />
+                  <Button Grid.Column="10" Classes="header col-pid" Tag="PidText" Click="Header_Click" Content="PID" MinWidth="60" />
+                  <Button Grid.Column="11" Classes="header col-lastStarted" Tag="LastStartedSort" Click="Header_Click" Content="Last started" MinWidth="100" />
+                  <Button Grid.Column="12" Classes="header col-status" Tag="State" Click="Header_Click" Content="Status" MinWidth="90" />
+                  <Button Grid.Column="13" Classes="header col-ports" Tag="PortsText" Click="Header_Click" Content="Port(s)" MinWidth="70" />
+                  <Button Grid.Column="14" Classes="header col-id" Tag="IdSort" Click="Header_Click" Content="Site ID" MinWidth="64" />
+                  <Button Grid.Column="15" Classes="header col-size" Tag="SizeBytes" Click="Header_Click" Content="Size" MinWidth="80" />
+                  <Button Grid.Column="16" Classes="header col-memoryPercent" Tag="MemoryPercent" Click="Header_Click" Content="Memory (%)" MinWidth="84" />
+                  <Button Grid.Column="17" Classes="header col-disk" Tag="DiskSort" Click="Header_Click" Content="Disk read/write" MinWidth="130" />
+                  <Button Grid.Column="18" Classes="header col-network" Tag="NetworkSort" Click="Header_Click" Content="Network I/O" MinWidth="130" />
+                  <Button Grid.Column="19" Classes="header col-path" Tag="Path" Click="Header_Click" Content="Path" MinWidth="200" />
+                  <Border Grid.Column="21" Classes="actionsCell" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1,0,0,0" MinWidth="120"
+                          Background="{DynamicResource HeaderBg}" RenderTransform="{Binding ActionsShift}">
+                    <TextBlock Classes="header" Text="Actions" Margin="11,6,8,6" />
+                  </Border>
+                </Grid>
+              </Border>
+
+              <ListBox x:Name="Rows" Classes="projects" SelectionMode="Single" AutomationProperties.Name="Projects"
+                       ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="p:ProjectRow">
+                    <Border Classes="rowRoot" Classes.checked="{Binding IsChecked}">
+                      <StackPanel>
+                        <Grid Height="38">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="40" />
+                            <ColumnDefinition Width="32" />
+                            <ColumnDefinition Width="24" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="name" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="url" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="dnn" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="database" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="sql" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="cpu" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="memory" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="pid" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="lastStarted" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="status" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="ports" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="id" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="size" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="memoryPercent" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="disk" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="network" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="path" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="actions" />
+                          </Grid.ColumnDefinitions>
+                          <CheckBox Grid.Column="0" HorizontalAlignment="Center" MinWidth="0" Padding="0" Focusable="False"
+                                    IsChecked="{Binding IsChecked, Mode=TwoWay}" AutomationProperties.Name="{Binding Name}" />
+                          <ToggleButton Grid.Column="1" Classes="expand" HorizontalAlignment="Center" IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                                        AutomationProperties.Name="Show a few facts under the row" ToolTip.Tip="Show a few facts under the row" />
+                          <Panel Grid.Column="2" Background="Transparent" ToolTip.Tip="{Binding StateText}">
+                            <Ellipse Classes="statusDot pulse" HorizontalAlignment="Center"
+                                     Classes.running="{Binding State, Converter={x:Static p:ProjectConverters.IsRunning}}"
+                                     Classes.transitioning="{Binding IsTransitioning}" />
+                          </Panel>
+                          <!-- The site's name opens its overview (so does a double-click on the row, or Enter). -->
+                          <Button Grid.Column="3" Classes="link cellLink" Content="{Binding Name}" FontWeight="SemiBold" MinWidth="130" HorizontalContentAlignment="Left"
+                                  Click="RowOpen_Click" AutomationProperties.Name="Show everything about this website" ToolTip.Tip="Show everything about this website" />
+                          <Panel Grid.Column="4" Classes="col-url" MinWidth="180">
+                            <Button Classes="link cellLink" Content="{Binding Url}" IsVisible="{Binding HasUrl}" Click="OpenSite_Click"
+                                    AutomationProperties.Name="Open the website in your browser" ToolTip.Tip="Open the website in your browser" />
+                            <TextBlock Classes="cell muted" Text="{Binding Url}" IsVisible="{Binding !HasUrl}" />
+                          </Panel>
+                          <TextBlock Grid.Column="5" Classes="cell col-dnn" MinWidth="50" Text="{Binding Dnn}" />
+                          <TextBlock Grid.Column="6" Classes="cell col-database" MinWidth="100" Text="{Binding Database}" ToolTip.Tip="{Binding DatabaseTip}"
+                                     Classes.warn="{Binding HasDatabaseProblem}" />
+                          <TextBlock Grid.Column="7" Classes="cell col-sql" MinWidth="44" Text="{Binding Sql}" ToolTip.Tip="{Binding SqlTip}"
+                                     Classes.live="{Binding Sql, Converter={x:Static p:ProjectConverters.IsLive}}"
+                                     Classes.offline="{Binding Sql, Converter={x:Static p:ProjectConverters.IsOffline}}" />
+                          <TextBlock Grid.Column="8" Classes="cell numeric col-cpu" MinWidth="50" Text="{Binding CpuText}" />
+                          <TextBlock Grid.Column="9" Classes="cell numeric col-memory" MinWidth="64" Text="{Binding MemoryText}" />
+                          <TextBlock Grid.Column="10" Classes="cell col-pid" MinWidth="40" Text="{Binding PidText}" />
+                          <TextBlock Grid.Column="11" Classes="cell col-lastStarted" MinWidth="80" Text="{Binding LastStartedText}" ToolTip.Tip="{Binding LastStartedTip}" />
+                          <TextBlock Grid.Column="12" Classes="cell state col-status" MinWidth="70" Text="{Binding StateText}"
+                                     Classes.running="{Binding State, Converter={x:Static p:ProjectConverters.IsRunning}}"
+                                     Classes.transitioning="{Binding IsTransitioning}" />
+                          <TextBlock Grid.Column="13" Classes="cell col-ports" MinWidth="50" Text="{Binding PortsText}" />
+                          <TextBlock Grid.Column="14" Classes="cell muted col-id" MinWidth="44" Text="{Binding IdText}" />
+                          <TextBlock Grid.Column="15" Classes="cell numeric col-size" MinWidth="60" Text="{Binding Size}" />
+                          <TextBlock Grid.Column="16" Classes="cell numeric col-memoryPercent" MinWidth="64" Text="{Binding MemoryPercentText}" />
+                          <TextBlock Grid.Column="17" Classes="cell numeric col-disk" MinWidth="110" Text="{Binding DiskText}" />
+                          <TextBlock Grid.Column="18" Classes="cell numeric col-network" MinWidth="110" Text="{Binding NetworkText}" />
+                          <!-- The folder opens in Explorer. -->
+                          <Button Grid.Column="19" Classes="link cellLink col-path" MinWidth="180" HorizontalContentAlignment="Left" Content="{Binding Path}" Click="OpenFolder_Click"
+                                  AutomationProperties.Name="Open the website's files in File Explorer" ToolTip.Tip="Open the website's files in File Explorer" />
+
+                          <!-- Running: Stop and Restart. Stopped: Start. Changing: a progress bar. Always: keep warm (the flame) and Remove. -->
+                          <Border Grid.Column="21" Classes="actionsCell" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1,0,0,0" Padding="10,0,8,0" MinWidth="120"
+                                  Background="{DynamicResource CardBg}" RenderTransform="{Binding $parent[p:ProjectsView].ActionsShift}">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                              <Panel Width="56">
+                                <StackPanel Orientation="Horizontal">
+                                  <Button Classes="icon rowAction" Content="{StaticResource GlyphPlay}" Click="RowStart_Click" IsEnabled="{Binding CanStart}"
+                                          IsVisible="{Binding ShowStart}" AutomationProperties.Name="Start" ToolTip.Tip="Start - turn the website on so it can be opened (F5)" />
+                                  <Button Classes="icon rowAction" Content="{StaticResource GlyphStop}" Click="RowStop_Click" IsEnabled="{Binding CanStop}"
+                                          IsVisible="{Binding ShowStop}" AutomationProperties.Name="Stop"
+                                          ToolTip.Tip="Stop - turn the website off until you start it again; nothing is deleted (Shift+F5)" />
+                                  <Button Classes="icon rowAction" Content="{StaticResource GlyphRefresh}" Click="RowRestart_Click" IsEnabled="{Binding CanRestart}"
+                                          IsVisible="{Binding ShowStop}" AutomationProperties.Name="Restart the website's background process"
+                                          ToolTip.Tip="Restart the website's background process - can fix problems; it is unavailable for a few seconds (Ctrl+Shift+R)" />
+                                </StackPanel>
+                                <ProgressBar Height="3" MinHeight="3" Margin="4,0" VerticalAlignment="Center" IsIndeterminate="{Binding ShowProgress}"
+                                             Foreground="{DynamicResource Accent}" Background="{DynamicResource GridLine}"
+                                             IsVisible="{Binding ShowProgress}" ToolTip.Tip="{Binding StateText}" />
+                              </Panel>
+                              <!-- Keep warm: the flame switches it; its look says how it is going, its name what pressing it does. -->
+                              <Button Classes="icon rowAction" Click="RowKeepWarm_Click" IsEnabled="{Binding CanToggleKeepWarm}"
+                                      AutomationProperties.Name="{Binding KeepWarmAction}" ToolTip.Tip="{Binding KeepWarmTip}" ToolTip.ShowOnDisabled="True">
+                                <p:KeepWarmFlame />
+                              </Button>
+                              <Border Width="1" Height="18" Margin="8,0" Background="{DynamicResource CardBorder}" />
+                              <Button Classes="icon rowAction remove" Content="{StaticResource GlyphDelete}" Click="RowRemove_Click" IsEnabled="{Binding CanRemove}"
+                                      AutomationProperties.Name="Remove"
+                                      ToolTip.Tip="Remove - delete the website, its folder and its database from this computer; asks first (Del)" />
+                            </StackPanel>
+                          </Border>
+                        </Grid>
+
+                        <!-- The row's facts, under it while it is expanded - as wide as the visible table, so they wrap. -->
+                        <Border IsVisible="{Binding IsExpanded}" Padding="20,4,16,12" BorderBrush="{DynamicResource GridLine}" BorderThickness="0,1,0,0"
+                                HorizontalAlignment="Left" Width="{DynamicResource ProjectsDetailsWidth}">
+                          <ItemsControl ItemsSource="{Binding Details}">
+                            <ItemsControl.ItemsPanel>
+                              <ItemsPanelTemplate>
+                                <WrapPanel />
+                              </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:CompileBindings="False">
+                                <StackPanel Width="250" Margin="0,8,16,0">
+                                  <TextBlock Text="{ReflectionBinding Key}" Classes="muted" FontSize="{StaticResource TextHint}" />
+                                  <TextBlock Text="{ReflectionBinding Value}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{ReflectionBinding Value}" Margin="0,2,0,0" />
+                                </StackPanel>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                        </Border>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </DockPanel>
+          </ScrollViewer>
+        </Border>
+        <!-- Only shown while the table is empty (the first snapshot, no projects, or no match) - never over rows. -->
+        <Border x:Name="Overlay" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="16,10" CornerRadius="6"
+                Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" IsVisible="False">
+          <TextBlock x:Name="OverlayText" FontSize="{StaticResource TextMedium}" TextWrapping="Wrap" MaxWidth="520" />
+        </Border>
+      </Panel>
+    </DockPanel>
+
+    <ContentControl x:Name="ProjectHost" IsVisible="False" />
+
+    <!-- What only Windows has: on macOS and Linux the page says so instead of its body. -->
+    <Border x:Name="NotHere" Padding="40" IsVisible="False">
+      <StackPanel MaxWidth="560" Spacing="12" VerticalAlignment="Center">
+        <TextBlock Text="Projects" FontSize="22" FontWeight="SemiBold" />
+        <TextBlock x:Name="NotHereTitle" FontSize="15" />
+        <TextBlock x:Name="NotHereText" TextWrapping="Wrap" Classes="muted" />
+      </StackPanel>
+    </Border>
+
+    <!-- A notice (the Windows app's toast): bottom right, gone after a few seconds. -->
+    <Border x:Name="NoticeBox" Classes="notice" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,20" MaxWidth="460" IsVisible="False">
+      <DockPanel>
+        <Button x:Name="NoticeClose" DockPanel.Dock="Right" Classes="icon" VerticalAlignment="Top" Margin="8,-2,-6,0" Click="NoticeClose_Click"
+                AutomationProperties.Name="Close" ToolTip.Tip="Close">
+          <Panel>
+            <TextBlock Classes="glyph" FontSize="10" Text="{StaticResource GlyphClose}" IsVisible="{x:Static p:ProjectView.HasIconFont}" />
+            <TextBlock Text="✕" IsVisible="{x:Static p:ProjectView.NoIconFont}" />
+          </Panel>
+        </Button>
+        <Button x:Name="NoticeAction" DockPanel.Dock="Right" Classes="link" VerticalAlignment="Center" Margin="12,0,0,0" Click="NoticeAction_Click" />
+        <TextBlock x:Name="NoticeText" TextWrapping="Wrap" VerticalAlignment="Center" />
+      </DockPanel>
+    </Border>
+  </Grid>
+</UserControl>

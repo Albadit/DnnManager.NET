@@ -1,0 +1,55 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:DnnManager.Desktop.Views"
+        x:Class="DnnManager.Desktop.Views.DeployPreviewDialog"
+        x:DataType="v:DeployPreviewDialog"
+        Title="Review" Width="640" Height="560" MinWidth="480" MinHeight="360"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+  <!-- Every operation of a push or pull before it runs (a dry run): nothing changes until it is confirmed here. -->
+  <DockPanel Margin="20">
+    <TextBlock x:Name="Heading" DockPanel.Dock="Top" FontSize="{DynamicResource TextHeading}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,10" />
+    <TextBlock x:Name="Summary" DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,10" />
+    <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+      <StackPanel x:Name="PullTarget" IsVisible="False" Margin="0,0,0,8" Spacing="4">
+        <RadioButton x:Name="IntoProject" Content="Into the project" GroupName="Target" IsChecked="True" />
+        <RadioButton x:Name="IntoReview" Content="Into a review folder of its own - the project doesn't change" GroupName="Target"
+                     ToolTip.Tip="Into a review folder - to look at the server's files before you take them; nothing in the project or the baseline changes" />
+      </StackPanel>
+      <CheckBox x:Name="SensitiveBox" IsVisible="False" Margin="0,0,0,6" IsCheckedChanged="Box_Changed">
+        <TextBlock x:Name="SensitiveText" TextWrapping="Wrap" />
+      </CheckBox>
+      <CheckBox x:Name="ProductionBox" IsVisible="False" Margin="0,0,0,6" IsCheckedChanged="Box_Changed">
+        <TextBlock x:Name="ProductionText" TextWrapping="Wrap" />
+      </CheckBox>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0" Spacing="8">
+        <Button x:Name="OkButton" Classes="primary" MinWidth="100" Click="Ok_Click" />
+        <!-- Cancel is the default: Enter changes nothing. -->
+        <Button x:Name="CancelButton" Content="Cancel" MinWidth="80" IsCancel="True" IsDefault="True" Click="Cancel_Click"
+                ToolTip.Tip="Cancel (Esc) - nothing changes" />
+      </StackPanel>
+    </StackPanel>
+    <!-- What will be done: What, File, Size - as WPF's grid. -->
+    <Border BorderBrush="{DynamicResource CardBorder}" BorderThickness="1">
+      <DockPanel>
+        <Border DockPanel.Dock="Top" Background="{DynamicResource HeaderBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1">
+          <Grid ColumnDefinitions="160,*,80" Margin="8,4">
+            <TextBlock Text="What" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="1" Text="File" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="2" Text="Size" FontWeight="SemiBold" TextAlignment="Right" />
+          </Grid>
+        </Border>
+        <ListBox x:Name="Plan" AutomationProperties.Name="What will be done">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="v:PlanRow">
+              <Grid ColumnDefinitions="160,*,80">
+                <TextBlock Text="{Binding What}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="1" Text="{Binding Path}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Path}" />
+                <TextBlock Grid.Column="2" Text="{Binding Size}" TextAlignment="Right" Foreground="{DynamicResource TextMuted}" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+  </DockPanel>
+</Window>

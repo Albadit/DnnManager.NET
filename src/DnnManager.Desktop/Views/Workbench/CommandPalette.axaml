@@ -1,0 +1,71 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="using:DnnManager.Desktop.Views"
+             xmlns:w="using:DnnManager.Desktop.Views.Workbench"
+             x:Class="DnnManager.Desktop.Views.Workbench.CommandPalette"
+             IsVisible="False">
+  <!-- VS Code's command palette (src/DnnManager.Presentation/Controls/CommandPalette.xaml): over the whole window, a click
+       outside the box closes it. The box at the very top - its search over the title bar's - or in the middle (Customize
+       Layout's Quick Input Position). -->
+  <Panel x:Name="Overlay" Background="Transparent" PointerPressed="Outside_PointerPressed">
+    <Border x:Name="Box" MaxWidth="600" VerticalAlignment="Top" Margin="16,1,16,0" Padding="6,5,6,6"
+            Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="8"
+            BoxShadow="0 4 24 0 #59000000" PointerPressed="Box_PointerPressed">
+      <DockPanel>
+        <!-- A list with a name of its own (Customize Layout): the name, Reset and close. -->
+        <DockPanel x:Name="TitleRow" DockPanel.Dock="Top" Margin="0,0,0,5" IsVisible="False">
+          <Button DockPanel.Dock="Right" Classes="icon" Width="22" Height="22" MinWidth="0" MinHeight="0" Padding="0"
+                  ToolTip.Tip="Close (Esc)" AutomationProperties.Name="Close" Click="TitleClose_Click">
+            <Panel>
+              <TextBlock Classes="glyph" Text="{StaticResource GlyphClose}" FontSize="10" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+              <TextBlock Text="✕" FontSize="10" IsVisible="{x:Static v:MainWindow.NoIconFont}" />
+            </Panel>
+          </Button>
+          <Button x:Name="ResetButton" DockPanel.Dock="Right" Classes="icon" Width="22" Height="22" MinWidth="0" MinHeight="0" Padding="0"
+                  AutomationProperties.Name="Reset" Click="Reset_Click">
+            <Panel>
+              <TextBlock Classes="glyph" Text="{StaticResource GlyphReset}" FontSize="12" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+              <TextBlock Text="↺" FontSize="12" IsVisible="{x:Static v:MainWindow.NoIconFont}" />
+            </Panel>
+          </Button>
+          <Border DockPanel.Dock="Left" Width="44" />
+          <TextBlock x:Name="TitleText" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimary}" />
+        </DockPanel>
+        <TextBox x:Name="Query" DockPanel.Dock="Top" Classes="search" KeyDown="Query_KeyDown" />
+        <!-- Not focusable: the keyboard stays in the box, the arrows move the selection. -->
+        <ListBox x:Name="Results" Classes="palette" Margin="0,5,0,0" MaxHeight="440" Focusable="False"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Results">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="w:PaletteItem">
+              <DockPanel Background="Transparent" PointerReleased="Item_PointerReleased">
+                <!-- A line above the first of a group, after the one before it. -->
+                <Border DockPanel.Dock="Top" Height="1" Margin="-8,3" Background="{DynamicResource PickerGroupBorder}"
+                        IsVisible="{Binding ShowsSeparator}" />
+                <DockPanel MinHeight="22">
+                  <Border DockPanel.Dock="Right" Padding="5,0" CornerRadius="3" VerticalAlignment="Center" Margin="12,0,0,0"
+                          BorderBrush="{DynamicResource InputBorder}" BorderThickness="1" IsVisible="{Binding HasShortcut}">
+                    <TextBlock Text="{Binding Shortcut}" Foreground="{DynamicResource TextMuted}" FontSize="{StaticResource TextSmall}" />
+                  </Border>
+                  <TextBlock DockPanel.Dock="Right" Text="{Binding Side}" Foreground="{DynamicResource TextMuted}"
+                             FontSize="{StaticResource TextCaption}" VerticalAlignment="Center" Margin="12,0,0,0"
+                             TextTrimming="CharacterEllipsis" MaxWidth="260" />
+                  <!-- Its icon, when it has one: a drawing of what it changes (Customize Layout). -->
+                  <Panel DockPanel.Dock="Left" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" IsVisible="{Binding HasIcon}">
+                    <Path Data="{Binding IconFill}" Fill="{DynamicResource TextMuted}" Stretch="None" />
+                    <Path Data="{Binding Icon}" Stroke="{DynamicResource TextPrimary}" StrokeThickness="1" Stretch="None" />
+                  </Panel>
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="✓" FontSize="11" Margin="6,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimary}"
+                               IsVisible="{Binding IsChecked}" />
+                  </StackPanel>
+                </DockPanel>
+              </DockPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+  </Panel>
+</UserControl>

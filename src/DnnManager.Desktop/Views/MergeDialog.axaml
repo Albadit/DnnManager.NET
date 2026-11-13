@@ -1,0 +1,30 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:DnnManager.Desktop.Views"
+        x:Class="DnnManager.Desktop.Views.MergeDialog"
+        x:DataType="v:MergeDialog"
+        Title="Merge" Width="900" Height="680" MinWidth="600" MinHeight="400"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+  <!-- A file changed in both places, merged: what only one side changed is in already; each conflict is marked as git
+       marks it, for the user to edit. Saved into the project once no marker is left - then it is a change to push. -->
+  <DockPanel Margin="20">
+    <TextBlock x:Name="Heading" DockPanel.Dock="Top" FontSize="{DynamicResource TextHeading}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,10" />
+    <TextBlock x:Name="Explanation" DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,10" />
+    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+      <Button Content="Take the project's side in every conflict" Margin="0,0,8,0" Click="TakeLocal_Click" />
+      <Button Content="Take the server's side in every conflict" Margin="0,0,8,0" Click="TakeRemote_Click" />
+      <Button Content="Start again" Click="Reset_Click" ToolTip.Tip="Start again - the merge as it was first made" />
+    </WrapPanel>
+    <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+      <TextBlock x:Name="Status" TextWrapping="Wrap" />
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0" Spacing="8">
+        <Button x:Name="OkButton" Content="Save the merge in the project" Classes="primary" Click="Ok_Click"
+                ToolTip.Tip="Save the merge in the project - the project's version is kept first; push it to send it to the server" />
+        <Button Content="Cancel" MinWidth="80" IsCancel="True" Click="Cancel_Click" ToolTip.Tip="Cancel (Esc) - nothing changes" />
+      </StackPanel>
+    </StackPanel>
+    <TextBox x:Name="Editor" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap" FontFamily="{DynamicResource CodeFont}"
+             VerticalContentAlignment="Top" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto"
+             AutomationProperties.Name="The merged file" TextChanged="Editor_TextChanged" />
+  </DockPanel>
+</Window>

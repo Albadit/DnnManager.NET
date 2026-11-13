@@ -4,6 +4,21 @@ All notable changes to DnnManager.NET are documented here.
 
 ## Unreleased
 
+### Upgrading
+
+- **DNN Manager on Windows is the new app** - the same one as on macOS and Linux
+  (Avalonia), so it looks the same everywhere. Setup and the portable exe keep
+  their names and install over 1.8.x as usual; your settings, servers and history
+  are kept. On macOS and Linux the release carries the program itself, one file,
+  no zip (the first time: `chmod +x`, and `xattr -d com.apple.quarantine` on a
+  Mac). Everything of the Windows app is in it, in the Windows app's look:
+  **Projects**, **New project**, **Source Control** (Explorer, Search, tabs,
+  merge), all of **Settings**, **Troubleshoot**, the command palette, the bottom
+  panel, toasts, the getting started guide and the tour, and the **Update**
+  button. On Windows it asks for administrator rights at start, as before
+  (`DNNMANAGER_NO_ELEVATION=1` skips it). A 32-bit (x86) portable exe is built
+  too. Not there yet: the terminal tab, and Settings' **Edit upgrade path…**.
+
 ### Added
 
 - **DNN Manager for macOS, Linux and Windows.** A new app, built with Avalonia

@@ -9,7 +9,7 @@
 #            unsigned. It runs the packages' code, so it gets no OpenID Connect token. No tests run here: the plan job waited for CI, which tests every
 #            commit pushed to a branch (.github/workflows/ci.yml) - a release doesn't wait for them.
 #   desktop  macOS and Linux: the cross-platform app (src/DnnManager.Desktop), packaged on their own runners by
-#            .github/workflows/desktop.yml - the .app signed ad hoc (free, not notarized), the tar.gz files.
+#            .github/workflows/desktop.yml - the program itself, one file each, no zip (macOS: signed ad hoc, free).
 #   sign     signs the Windows files when signing is set up, compiles Setup with the pinned Inno Setup (which signs
 #            Setup and its uninstaller), writes SHA256SUMS.txt and attests every file in it. Only this job can get the
 #            token Azure signs with and the attestation's certificate - and it restores no package and runs no test.
@@ -66,6 +66,10 @@ jobs:
       windows: ${{ steps.plan.outputs.windows }}
       desktop: ${{ steps.plan.outputs.desktop }}
       targets: ${{ steps.plan.outputs.targets }}
+      macos: ${{ steps.plan.outputs.macos }}
+      macos-targets: ${{ steps.plan.outputs.macos-targets }}
+      linux: ${{ steps.plan.outputs.linux }}
+      linux-targets: ${{ steps.plan.outputs.linux-targets }}
       assets: ${{ steps.plan.outputs.assets }}
       replace: ${{ steps.plan.outputs.replace }}
     steps:
@@ -133,6 +137,8 @@ jobs:
         run: |
           dotnet restore tests/DnnManager.IntegrationTests/DnnManager.IntegrationTests.csproj --locked-mode
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet restore src/DnnManager.Desktop/DnnManager.Desktop.csproj --locked-mode
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet restore src/DnnManager.Launcher/DnnManager.Launcher.csproj --locked-mode
 
       - name: Stamp the version
@@ -150,8 +156,10 @@ jobs:
         env:
           VERSION: ${{ needs.plan.outputs.version }}
           FILE_VERSION: ${{ needs.plan.outputs.file-version }}
+        # DNN Manager in Avalonia (src/DnnManager.Desktop, from 2.0) - the same app as on macOS and Linux; its publish
+        # names the exe DnnManager-<version>-x64.exe, as the Update button looks for it.
         run: |
-          dotnet publish DnnManager.csproj -c Release -r win-x64 --self-contained true `
+          dotnet publish src/DnnManager.Desktop/DnnManager.Desktop.csproj -c Release -r win-x64 --self-contained true `
             -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true `
             -p:PortableExe=true "-p:Version=$env:VERSION" "-p:AssemblyVersion=$env:FILE_VERSION" "-p:FileVersion=$env:FILE_VERSION" `
             -o publish
@@ -178,26 +186,39 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  desktop:
-    name: macOS and Linux
-    # The same version as the Windows files; no OpenID Connect token, like the build job.
+  # macOS and Linux each in a job of their own, beside Windows - the same version; no OpenID Connect token, like the
+  # build job. Each builds on its own runners (desktop.yml): the program itself, one file per processor - no zip.
+  macos:
+    name: macOS
     needs: plan
-    if: needs.plan.outputs.desktop == 'true'
+    if: needs.plan.outputs.macos == 'true'
     permissions:
       contents: read
     uses: ./.github/workflows/desktop.yml
     with:
       version: ${{ needs.plan.outputs.version }}
-      targets: ${{ needs.plan.outputs.targets }}
+      targets: ${{ needs.plan.outputs.macos-targets }}
+
+  linux:
+    name: Linux
+    needs: plan
+    if: needs.plan.outputs.linux == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/desktop.yml
+    with:
+      version: ${{ needs.plan.outputs.version }}
+      targets: ${{ needs.plan.outputs.linux-targets }}
 
   sign:
     name: Sign, package and attest
-    needs: [plan, build, desktop]
+    needs: [plan, build, macos, linux]
     # Once what was chosen is built - a platform not chosen is skipped, not failed.
     if: >-
       !cancelled() && needs.plan.result == 'success' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped') &&
-      (needs.desktop.result == 'success' || needs.desktop.result == 'skipped')
+      (needs.macos.result == 'success' || needs.macos.result == 'skipped') &&
+      (needs.linux.result == 'success' || needs.linux.result == 'skipped')
     runs-on: windows-2025
     timeout-minutes: 45
     # The environment "release" gives Azure's sign-in a fixed subject (repo:<owner>/<repo>:environment:release) - see

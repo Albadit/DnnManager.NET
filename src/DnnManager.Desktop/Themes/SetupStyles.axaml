@@ -1,0 +1,133 @@
+<!-- The page styles New project and its cards use - the Windows app's LayoutStyles.xaml (Card, PageTitle, PageSubtitle,
+     CardTitle, FieldLabel, Hint, ErrorLine, InfoBanner) and SelectionStyles.xaml's radio button, as classes:
+     Border.card, Border.banner, TextBlock.pageTitle, .pageSubtitle, .cardTitle, .fieldLabel, .hint, .errorLine.
+     Included by the views that use them (Views/Setup), so they apply only there. -->
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- ═══ Layout (LayoutStyles.xaml) ═══ -->
+  <Style Selector="TextBlock.pageTitle">
+    <Setter Property="FontSize" Value="{StaticResource TextDisplay}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+  </Style>
+  <Style Selector="TextBlock.pageSubtitle">
+    <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="Margin" Value="0,4,0,16" />
+  </Style>
+  <Style Selector="TextBlock.cardTitle">
+    <Setter Property="FontSize" Value="{StaticResource TextHeading}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+    <Setter Property="Margin" Value="0,0,0,10" />
+  </Style>
+  <Style Selector="TextBlock.fieldLabel">
+    <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+    <Setter Property="Margin" Value="0,8,0,4" />
+  </Style>
+  <Style Selector="TextBlock.hint">
+    <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+    <Setter Property="FontSize" Value="{StaticResource TextCaption}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="Margin" Value="0,4,0,0" />
+  </Style>
+  <!-- A hint that says what is wrong (the IIS card's line with a bad host name or port). -->
+  <Style Selector="TextBlock.hint.bad">
+    <Setter Property="Foreground" Value="{DynamicResource ErrorText}" />
+  </Style>
+  <!-- A field's problem under it (ErrorLine). -->
+  <Style Selector="TextBlock.errorLine">
+    <Setter Property="Foreground" Value="{DynamicResource ErrorText}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="Margin" Value="0,4,0,0" />
+  </Style>
+  <Style Selector="Border.card">
+    <Setter Property="Background" Value="{DynamicResource CardBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{StaticResource CardRadius}" />
+    <Setter Property="Padding" Value="18,14" />
+    <Setter Property="Margin" Value="0,0,0,14" />
+  </Style>
+  <!-- InfoBanner: a card in the info colours - what was just done, with what to do next. -->
+  <Style Selector="Border.banner">
+    <Setter Property="Background" Value="{DynamicResource InfoBannerBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource InfoBannerBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{StaticResource CardRadius}" />
+    <Setter Property="Padding" Value="14,10" />
+    <Setter Property="Margin" Value="0,0,0,14" />
+  </Style>
+  <Style Selector="ComboBox">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+  </Style>
+
+  <!-- ═══ The status words of the environment cards (StatusTone): coloured by a class. ═══ -->
+  <Style Selector="TextBlock.good">
+    <Setter Property="Foreground" Value="{DynamicResource SuccessText}" />
+  </Style>
+  <Style Selector="TextBlock.badTone">
+    <Setter Property="Foreground" Value="{DynamicResource ErrorText}" />
+  </Style>
+  <Style Selector="TextBlock.warnTone">
+    <Setter Property="Foreground" Value="{DynamicResource LogWarn}" />
+  </Style>
+
+  <!-- ═══ Radio buttons (SelectionStyles.xaml): a 16 px ring, the dot in the accent, the label 6 px to its right. ═══ -->
+  <Style Selector="RadioButton">
+    <Setter Property="Margin" Value="0,4" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid ColumnDefinitions="Auto,*" Background="Transparent">
+          <Border Name="Ring" Width="16" Height="16" CornerRadius="8" BorderThickness="1.5" VerticalAlignment="Center"
+                  BorderBrush="{DynamicResource InputBorder}" Background="{DynamicResource InputBg}">
+            <Ellipse Name="Dot" Width="7" Height="7" Fill="{DynamicResource Accent}" IsVisible="False"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <ContentPresenter Name="PART_ContentPresenter" Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center"
+                            Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Foreground="{TemplateBinding Foreground}" />
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="RadioButton:pointerover /template/ Border#Ring, RadioButton:focus-visible /template/ Border#Ring, RadioButton:checked /template/ Border#Ring">
+    <Setter Property="BorderBrush" Value="{DynamicResource FocusBorder}" />
+  </Style>
+  <Style Selector="RadioButton:checked /template/ Ellipse#Dot">
+    <Setter Property="IsVisible" Value="True" />
+  </Style>
+  <Style Selector="RadioButton:disabled">
+    <Setter Property="Opacity" Value="0.45" />
+  </Style>
+
+  <!-- ═══ The eye of a password field (PasswordInput): transparent, the glyph muted, the hover shown. ═══ -->
+  <Style Selector="ToggleButton.eye">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+    <Setter Property="Width" Value="30" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="0,1,1,1" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="ToggleButton.eye:pointerover /template/ ContentPresenter#PART_ContentPresenter,
+                   ToggleButton.eye:checked /template/ ContentPresenter#PART_ContentPresenter,
+                   ToggleButton.eye:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource HoverBg}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+  </Style>
+  <Style Selector="ToggleButton.eye:checked:not(:pointerover) /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+</Styles>

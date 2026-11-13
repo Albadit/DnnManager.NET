@@ -70,8 +70,9 @@ public sealed class AppUpdateTests
         AppReleaseAsset Asset(string name) => new(name, 1, null, $"https://example.test/{name}");
         var release = new AppRelease("v2.0.0", new Version(2, 0, 0), "https://example.test",
         [
-            Asset("DnnManager-2.0.0-macos-arm64.zip"), Asset("DnnManager-2.0.0-macos-x64.zip"),
-            Asset("DnnManager-2.0.0-linux-x64.tar.gz"), Asset("DnnManager-2.0.0-linux-arm64.tar.gz"),
+            // macOS and Linux: the program itself, without an extension - "-x64" at the end, but no ".exe".
+            Asset("DnnManager-2.0.0-macos-arm64"), Asset("DnnManager-2.0.0-macos-x64"),
+            Asset("DnnManager-2.0.0-linux-x64"), Asset("DnnManager-2.0.0-linux-arm64"),
             Asset("DnnManager-2.0.0-x64.exe"), Asset("DnnManager_Setup-2.0.0-x64.exe"), Asset("SHA256SUMS.txt")
         ]);
         // The portable exe without "_Portable", as releases from 2.0.0 name it - what every DNN Manager since 1.7.7 looks

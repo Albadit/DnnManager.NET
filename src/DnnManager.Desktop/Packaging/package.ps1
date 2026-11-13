@@ -1,23 +1,29 @@
 <#
-  Packages a published DNN Manager (src/DnnManager.Desktop) for its system - free to make, nothing paid for:
+  Packages a published DNN Manager (src/DnnManager.Desktop) for its system - free to make, nothing paid for.
 
-    macOS   DNN Manager.app in a zip, signed ad hoc (codesign -s -): Apple Silicon starts only signed code, and an ad-hoc
-            signature needs no Apple account. Not notarized - the first start is Right-click -> Open.
+  -Kind executable (what a release carries - the Desktop workflow): the program itself, one file -
+    DnnManager-<version>-<name> (DnnManager-2.0.0-macos-arm64, DnnManager-2.0.0-linux-x64), run-able. On macOS it is
+    signed ad hoc (codesign -s -): Apple Silicon starts only signed code, and an ad-hoc signature needs no Apple account.
+    A download loses the run permission and macOS marks it as downloaded: the first time, in Terminal,
+    chmod +x <file> (and on a Mac: xattr -d com.apple.quarantine <file>) - see .docs/cross-platform.md.
+
+  -Kind bundle (the VS Code task "Publish" -> Setup):
+    macOS   DNN Manager.app in a zip, signed ad hoc. Not notarized - the first start is Right-click -> Open.
     Linux   a tar.gz: the program, run-able, with a .desktop file to add it to the menu.
     Windows a zip of the program.
 
-  Runs where the system's tools are: macOS packages on a Mac (codesign, ditto), Linux on Linux (tar). The Desktop
-  workflow (.github/workflows/desktop.yml) runs it; by hand:
+  Runs where the system's tools are: macOS on a Mac (codesign, ditto), Linux on Linux or a Mac (chmod, tar). By hand:
 
     dotnet publish src/DnnManager.Desktop -c Release -r osx-arm64 -o out/app
-    ./src/DnnManager.Desktop/Packaging/package.ps1 -Publish out/app -Rid osx-arm64 -Version 1.8.0 -Out out/dist -Name macos-arm64
+    ./src/DnnManager.Desktop/Packaging/package.ps1 -Publish out/app -Rid osx-arm64 -Version 2.0.0 -Out out/dist -Name macos-arm64
 #>
 param(
     [Parameter(Mandatory)] [string] $Publish,
     [Parameter(Mandatory)] [string] $Rid,
     [Parameter(Mandatory)] [string] $Version,
     [Parameter(Mandatory)] [string] $Out,
-    [Parameter(Mandatory)] [string] $Name
+    [Parameter(Mandatory)] [string] $Name,
+    [ValidateSet('executable', 'bundle')] [string] $Kind = 'executable'
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -44,7 +50,18 @@ function Invoke-Tool([string] $tool, [string[]] $arguments) {
 }
 
 try {
-    if ($Rid -like 'osx-*') {
+    if ($Kind -eq 'executable') {
+        # One self-contained file (the publish bundles the native libraries into it): copied under the release's name.
+        if ($Rid -like 'win-*') { throw 'A Windows release has Setup and the portable exe (release.yml) - -Kind executable is for macOS and Linux.' }
+        $file = Join-Path $Out $base
+        Copy-Item (Join-Path $Publish $exe) $file -Force
+        Invoke-Tool chmod @('+x', $file)
+        if ($Rid -like 'osx-*') {
+            Invoke-Tool codesign @('--force', '--sign', '-', $file)
+            Invoke-Tool codesign @('--verify', '--strict', $file)
+        }
+    }
+    elseif ($Rid -like 'osx-*') {
         $app = Join-Path $stage 'DNN Manager.app'
         $macos = Join-Path $app 'Contents/MacOS'
         $resources = Join-Path $app 'Contents/Resources'

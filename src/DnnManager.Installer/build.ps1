@@ -64,6 +64,9 @@ $icon = Join-Path $root 'src\DnnManager.Presentation\Assets\dnn.ico'
 $binDir = Join-Path $PSScriptRoot 'bin'
 $publishDir = Join-Path $binDir 'app'
 $launcherProject = Join-Path $root 'src\DnnManager.Launcher\DnnManager.Launcher.csproj'
+# What Setup installs: DNN Manager in Avalonia, the same app as on macOS and Linux (its version is still read from
+# $project, which takes it from the newest git tag).
+$desktopProject = Join-Path $root 'src\DnnManager.Desktop\DnnManager.Desktop.csproj'
 $launcherDir = Join-Path $binDir 'launcher'
 $imagesDir = Join-Path $binDir 'images'
 $outputDir = Join-Path $root 'publish'
@@ -82,7 +85,8 @@ function Invoke-Publish {
     if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
     # Single file, uncompressed (the installer compresses it) and with the native DLLs beside the exe,
     # so nothing is extracted to %TEMP% when the app starts.
-    & dotnet publish $project -nologo -c $Configuration -r win-x64 --self-contained true `
+    # The app is DNN Manager in Avalonia (src\DnnManager.Desktop, from 2.0) - its publish names the exe DnnManager.exe.
+    & dotnet publish $desktopProject -nologo -c $Configuration -r win-x64 --self-contained true `
         -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=false -p:EnableCompressionInSingleFile=false `
         "-p:Version=$version" "-p:AssemblyVersion=$fileVersion" "-p:FileVersion=$fileVersion" `
         -o $publishDir

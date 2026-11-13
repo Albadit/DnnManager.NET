@@ -1,0 +1,45 @@
+<!-- GENERATED from the Windows app's theme (src/DnnManager.Presentation/Themes/Tokens.xaml) - the same keys and values,
+     so both apps look alike. Change the WPF file, then run .github/scripts/port-theme.py; don't edit this one. -->
+<ResourceDictionary xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Sizes and shapes shared by every control style in Themes\Controls - change one here and every button, input,
+       select and menu follows. The colours are in LightTheme / DarkTheme. -->
+  <!-- Buttons, text boxes, password boxes, selects, menu items. -->
+  <CornerRadius x:Key="ControlRadius">4</CornerRadius>
+  <!-- Check boxes - a 16 px box looks round with more. -->
+  <CornerRadius x:Key="SmallRadius">3</CornerRadius>
+  <!-- Cards and banners. -->
+  <CornerRadius x:Key="CardRadius">6</CornerRadius>
+  <!-- Buttons, text boxes and selects share one height, so they line up side by side. -->
+  <x:Double x:Key="ControlHeight">30</x:Double>
+  <Thickness x:Key="InputPadding">6,4</Thickness>
+  <!-- The window's frame: the sidebar's entries - with their names, and only their icons (a narrow window) -, the title
+       bar and its buttons, the status bar. Customize Layout's Compact density makes the entries and buttons smaller; the
+       title bar and the status bar are as low in both (MainWindow.ApplyLayout sets these). -->
+  <Thickness x:Key="NavPadding">6,9,8,9</Thickness>
+  <Thickness x:Key="NavMargin">8,1</Thickness>
+  <Thickness x:Key="NavIconPadding">3,9</Thickness>
+  <Thickness x:Key="NavIconMargin">6,1</Thickness>
+  <x:Double x:Key="TitleBarHeight">30</x:Double>
+  <x:Double x:Key="CaptionButtonWidth">46</x:Double>
+  <x:Double x:Key="LayoutButtonWidth">28</x:Double>
+  <x:Double x:Key="LayoutButtonHeight">24</x:Double>
+  <x:Double x:Key="StatusBarHeight">24</x:Double>
+  <!-- The status bar's line along its top: none in the Default density (the page and the panel are cards on the
+       frame), 0,1,0,0 in the Compact one. -->
+  <Thickness x:Key="StatusBarBorder">0</Thickness>
+  <!-- Every search field - the SearchBox style, the panel's search, the command palette - VS Code's 26 px. -->
+  <x:Double x:Key="SearchHeight">26</x:Double>
+  <Thickness x:Key="SearchPadding">6,2</Thickness>
+  <!-- Text sizes, by role - the values for the default font size (13); ThemeManager.ApplyLayout sets them for the one
+       chosen in Settings → General, keeping these proportions. Icon glyphs keep their sizes: UI scale grows those. -->
+  <x:Double x:Key="TextSmall">11</x:Double>
+  <x:Double x:Key="TextHint">11.5</x:Double>
+  <x:Double x:Key="TextCaption">12</x:Double>
+  <x:Double x:Key="TextBody">13</x:Double>
+  <x:Double x:Key="TextMedium">14</x:Double>
+  <x:Double x:Key="TextHeading">15</x:Double>
+  <x:Double x:Key="TextLarge">16</x:Double>
+  <x:Double x:Key="TextTitle">20</x:Double>
+  <x:Double x:Key="TextDisplay">22</x:Double>
+  <!-- UI scale: every window's content and every pop-up (menus, tooltips, drop-downs) is laid out through it. -->
+</ResourceDictionary>

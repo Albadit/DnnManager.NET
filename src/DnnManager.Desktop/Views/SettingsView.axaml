@@ -1,46 +1,544 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="DnnManager.Desktop.Views.SettingsView">
-  <!-- The settings this app uses so far - saved in the same database as the Windows app's. -->
-  <ScrollViewer>
-    <StackPanel Margin="32,24" MaxWidth="720" HorizontalAlignment="Left" Spacing="18">
-      <TextBlock Text="Settings" FontSize="22" FontWeight="SemiBold" />
+             xmlns:v="using:DnnManager.Desktop.Views"
+             xmlns:s="using:DnnManager.Desktop.Views.Setup"
+             x:Class="DnnManager.Desktop.Views.SettingsView"
+             Focusable="True">
+  <!-- The Windows app's Settings (src/DnnManager.Presentation/Pages/SettingsPage.xaml): opened over the page, the
+       categories (with a search box) on the left, the chosen one on the right, Close and Save at the bottom. -->
+  <UserControl.Styles>
+    <StyleInclude Source="/Themes/SettingsStyles.axaml" />
+  </UserControl.Styles>
 
-      <StackPanel Spacing="6">
-        <TextBlock Text="Theme" FontWeight="SemiBold" />
-        <ComboBox x:Name="ThemeBox" Width="220" SelectionChanged="Theme_Changed">
-          <ComboBoxItem Tag="system">Follow the system</ComboBoxItem>
-          <ComboBoxItem Tag="light">Light</ComboBoxItem>
-          <ComboBoxItem Tag="dark">Dark</ComboBoxItem>
-        </ComboBox>
-      </StackPanel>
+  <DockPanel>
+    <!-- "Settings" and the way back to the page under it. -->
+    <Border DockPanel.Dock="Top" Classes="pageHeader">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Classes="icon" Foreground="{DynamicResource LinkFg}" ToolTip.Tip="Close (Esc)"
+                AutomationProperties.Name="Close" Click="Close_Click">
+          <Panel>
+            <TextBlock Classes="glyph" Text="{StaticResource GlyphClose}" FontSize="12" Foreground="{DynamicResource LinkFg}"
+                       IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+            <TextBlock Text="✕" Foreground="{DynamicResource LinkFg}" IsVisible="{x:Static v:MainWindow.NoIconFont}" />
+          </Panel>
+        </Button>
+        <TextBlock Classes="pageTitle" Text="Settings" />
+      </DockPanel>
+    </Border>
 
-      <StackPanel Spacing="6">
-        <TextBlock Text="Projects folder" FontWeight="SemiBold" />
-        <TextBlock Classes="muted" TextWrapping="Wrap"
-                   Text="Each folder in it is a project Source Control lists. A server can also have a local folder of its own, anywhere." />
-        <Grid ColumnDefinitions="*,6,Auto">
-          <TextBox x:Name="ProjectsBox" />
-          <Button Grid.Column="2" Content="Browse…" Click="ChooseProjects_Click" />
-        </Grid>
-      </StackPanel>
-
-      <StackPanel Spacing="6">
-        <TextBlock Text="Source Control" FontWeight="SemiBold" />
-        <CheckBox x:Name="CompareBox" Content="Compare a server as soon as you choose it on Source Control" />
-      </StackPanel>
-
-      <StackPanel Orientation="Horizontal" Spacing="12">
-        <Button Content="Save" Classes="accent" Click="Save_Click" MinWidth="88" HorizontalContentAlignment="Center" />
-        <TextBlock x:Name="SaveResult" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="560" />
-      </StackPanel>
-
-      <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="0,14,0,0">
-        <StackPanel Spacing="4">
-          <TextBlock Text="About" FontWeight="SemiBold" />
-          <SelectableTextBlock x:Name="AboutText" Classes="muted" TextWrapping="Wrap" />
+    <!-- Close, and Save once something changed. -->
+    <Border DockPanel.Dock="Bottom" Classes="pageFooter">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+          <Button x:Name="DiscardButton" Content="Discard changes" IsVisible="False" Click="Discard_Click" ToolTip.Tip="Discard changes" />
+          <Button Content="Close" MinWidth="84" Margin="8,0,0,0" Click="Close_Click" ToolTip.Tip="Close (Esc)" />
+          <Button x:Name="SaveButton" Classes="primary" Content="Save" MinWidth="84" Margin="8,0,0,0" IsEnabled="False"
+                  Click="Save_Click" ToolTip.Tip="Save" />
         </StackPanel>
-      </Border>
-    </StackPanel>
-  </ScrollViewer>
+        <TextBlock x:Name="StatusText" Classes="hint" Margin="0" VerticalAlignment="Center" Foreground="{DynamicResource LogWarn}" />
+      </DockPanel>
+    </Border>
+
+    <Grid Margin="28,24,0,0" ColumnDefinitions="250,48,*">
+      <!-- Search and the categories. -->
+      <DockPanel>
+        <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Classes="search" PlaceholderText="Search settings"
+                 AutomationProperties.Name="Search settings" Margin="0,0,0,20" TextChanged="Search_TextChanged" />
+        <TextBlock x:Name="NoMatch" DockPanel.Dock="Top" Classes="hint" Text="No setting matches." IsVisible="False" />
+        <ListBox x:Name="Categories" Classes="categories" SelectionMode="Single" SelectionChanged="Categories_SelectionChanged"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+          <ListBoxItem Tag="General">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Classes="glyph" Text="{StaticResource GlyphSettings}" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+              <TextBlock Classes="label" Text="General" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem Tag="Projects">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Classes="glyph" Text="{StaticResource GlyphFolder}" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+              <TextBlock Classes="label" Text="Projects" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem Tag="Releases">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Classes="glyph" Text="{StaticResource GlyphDownload}" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+              <TextBlock Classes="label" Text="DNN releases" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem Tag="Sql">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Classes="glyph" Text="{StaticResource GlyphDatabase}" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+              <TextBlock Classes="label" Text="Database server" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem Tag="Docker">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Classes="glyph" Text="{StaticResource GlyphContainer}" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+              <TextBlock Classes="label" Text="Docker container" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem x:Name="IisItem" Tag="Iis">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Classes="glyph" Text="{StaticResource GlyphGlobe}" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+              <TextBlock Classes="label" Text="IIS" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem Tag="Deploy">
+            <StackPanel Orientation="Horizontal">
+              <Panel Width="30">
+                <Path Data="{StaticResource SourceControlGeometry}" Stroke="{DynamicResource TextMuted}" StrokeThickness="1.2"
+                      Width="16" Height="16" Stretch="Uniform" StrokeLineCap="Round" StrokeJoin="Round" />
+              </Panel>
+              <TextBlock Classes="label" Text="Source Control" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem Tag="Keyboard">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Classes="glyph" Text="{StaticResource GlyphKeyboard}" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+              <TextBlock Classes="label" Text="Keyboard shortcuts" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem Tag="Help">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Classes="glyph" Text="{StaticResource GlyphQuestion}" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+              <TextBlock Classes="label" Text="Help" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem Tag="About">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Classes="glyph" Text="{StaticResource GlyphInfo}" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+              <TextBlock Classes="label" Text="About" />
+            </StackPanel>
+          </ListBoxItem>
+        </ListBox>
+      </DockPanel>
+
+      <!-- The chosen category: as wide as there is room, up to 860. -->
+      <ScrollViewer Grid.Column="2" x:Name="FormScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="0,0,28,24" MaxWidth="860" HorizontalAlignment="Stretch">
+
+          <Border x:Name="EnvWarning" Classes="warnBanner" IsVisible="False">
+            <TextBlock x:Name="EnvWarningText" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimary}" />
+          </Border>
+          <TextBlock x:Name="ErrorText" Classes="errorLine" IsVisible="False" Margin="0,0,0,14" />
+
+          <StackPanel x:Name="Form">
+
+            <!-- ═══ General ═══ -->
+            <StackPanel x:Name="GeneralPanel">
+              <TextBlock Classes="categoryTitle" Text="General" />
+
+              <StackPanel x:Name="StartAtSignInGroup">
+                <CheckBox x:Name="StartAtSignIn" Content="Start DNN Manager when you sign in to your computer" Margin="0,18,0,0"
+                          IsEnabled="False" />
+                <TextBlock x:Name="StartAtSignInHint" Classes="hint" Margin="22,2,0,0"
+                           Text="As Administrator, without a prompt at every sign-in (a scheduled task)." />
+              </StackPanel>
+              <CheckBox x:Name="KeepRunningWhenClosed" Content="Keep DNN Manager running when you close the window" Margin="0,12,0,0" />
+              <CheckBox x:Name="CheckForUpdatesAtStart" Content="Look for a newer DNN Manager when it starts" Margin="0,12,0,0" />
+              <TextBlock Classes="hint" Margin="22,2,0,0"
+                         Text="Asks GitHub once at start. Off: only when you check for updates yourself." />
+              <TextBlock Classes="hint" Margin="22,2,0,0"
+                         Text="Closing hides it by the clock; operations and keep warm go on. Right-click its icon to quit." />
+
+              <TextBlock Classes="groupLabel" Text="Theme" />
+              <ComboBox x:Name="ThemeBox" Width="240" AutomationProperties.Name="Theme">
+                <ComboBoxItem Tag="system">Follow the system</ComboBoxItem>
+                <ComboBoxItem Tag="light">Light</ComboBoxItem>
+                <ComboBoxItem Tag="dark">Dark</ComboBoxItem>
+              </ComboBox>
+              <TextBlock Classes="hint" Text="Light Modern or Dark Modern, as VS Code's - or as your system is. Tried at once; Save keeps it." />
+
+              <TextBlock Classes="groupLabel" Text="Scale and font size" />
+              <StackPanel Orientation="Horizontal">
+                <StackPanel>
+                  <TextBlock Classes="fieldLabel" Text="UI scale" Margin="0,0,0,4" />
+                  <ComboBox x:Name="UiScale" Width="160" AutomationProperties.Name="UI scale" />
+                </StackPanel>
+                <StackPanel Margin="12,0,0,0">
+                  <TextBlock Classes="fieldLabel" Text="Font size" Margin="0,0,0,4" />
+                  <ComboBox x:Name="AppFontSize" Width="160" AutomationProperties.Name="Font size" />
+                </StackPanel>
+              </StackPanel>
+              <TextBlock Classes="hint" Text="UI scale zooms everything; font size changes only the text. Applies when you save." />
+
+              <TextBlock Classes="groupLabel" Text="Animations" />
+              <CheckBox x:Name="Animations" Content="Play animations" />
+              <TextBlock Classes="hint" Margin="22,2,0,0" Text="Slides and fades. Also off while Windows' animation effects are off." />
+
+              <TextBlock Classes="groupLabel" Text="Terminal" />
+              <TextBlock Classes="hint" Margin="0,0,0,4" Text="Terminals run as you. The arrow beside + opens an Administrator one." />
+              <StackPanel x:Name="TerminalOptions">
+                <TextBlock Classes="fieldLabel" Text="Default shell" />
+                <ComboBox x:Name="DefaultShell" Width="240" HorizontalAlignment="Left" AutomationProperties.Name="Default shell" />
+                <TextBlock Classes="hint" Text="What + opens." />
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                  <StackPanel>
+                    <TextBlock Classes="fieldLabel" Text="Font family" />
+                    <ComboBox x:Name="TerminalFont" Width="240" AutomationProperties.Name="Font family" />
+                  </StackPanel>
+                  <StackPanel Margin="12,0,0,0">
+                    <TextBlock Classes="fieldLabel" Text="Font size" />
+                    <ComboBox x:Name="TerminalFontSize" Width="90" AutomationProperties.Name="Terminal font size" />
+                  </StackPanel>
+                </StackPanel>
+                <TextBlock Classes="hint" Text="Also the font of the Output and Logs tabs." />
+              </StackPanel>
+            </StackPanel>
+
+            <!-- ═══ Projects ═══ -->
+            <StackPanel x:Name="ProjectsPanel" IsVisible="False">
+              <TextBlock Classes="categoryTitle" Text="Projects" />
+              <TextBlock Classes="groupLabel" Text="Projects folder" />
+              <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="BrowseBaseDir_Click" ToolTip.Tip="Browse" />
+                <TextBox x:Name="BaseDirectory" AutomationProperties.Name="Projects folder" />
+              </DockPanel>
+              <TextBlock Classes="hint" Text="Every project is a folder in here." />
+
+              <TextBlock Classes="groupLabel" Text="Site address" />
+              <Grid ColumnDefinitions="*,12,140">
+                <StackPanel>
+                  <TextBlock Classes="fieldLabel" Text="Hostname suffix" Margin="0,0,0,4" />
+                  <TextBox x:Name="HostnameSuffix" AutomationProperties.Name="Hostname suffix" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Classes="fieldLabel" Text="Site port" Margin="0,0,0,4" />
+                  <TextBox x:Name="SitePort" AutomationProperties.Name="Site port" />
+                </StackPanel>
+              </Grid>
+              <TextBlock x:Name="UrlPreview" Classes="hint" />
+
+              <TextBlock Classes="groupLabel" Text="DNN defaults" />
+              <TextBlock Classes="hint" Margin="0,0,0,4"
+                         Text="What a new project starts with - New project lets you change each of them for that project." />
+              <RadioButton x:Name="InstallAutomatic" GroupName="InstallMode"
+                           Content="Automatic setup (recommended) - DNN Manager installs DNN, the first visit shows the new site" />
+              <RadioButton x:Name="InstallManual" GroupName="InstallMode"
+                           Content="Manual DNN setup - DNN's installation wizard on the first visit" />
+              <Grid Margin="0,6,0,0" ColumnDefinitions="*,12,*" RowDefinitions="Auto,Auto,Auto">
+                <StackPanel>
+                  <TextBlock Classes="fieldLabel" Text="Host username" />
+                  <TextBox x:Name="HostUsername" AutomationProperties.Name="Host username" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Classes="fieldLabel" Text="Host password" />
+                  <TextBox x:Name="HostPassword" PasswordChar="•" Classes="revealPasswordButton" AutomationProperties.Name="Host password" />
+                </StackPanel>
+                <StackPanel Grid.Row="1">
+                  <TextBlock Classes="fieldLabel" Text="Host e-mail" />
+                  <TextBox x:Name="HostEmail" AutomationProperties.Name="Host e-mail" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="2">
+                  <TextBlock Classes="fieldLabel" Text="Website name" />
+                  <TextBox x:Name="WebsiteName" AutomationProperties.Name="Website name" />
+                </StackPanel>
+                <StackPanel Grid.Row="2">
+                  <TextBlock Classes="fieldLabel" Text="Language" />
+                  <ComboBox x:Name="DnnLanguage" HorizontalAlignment="Stretch" AutomationProperties.Name="Language" />
+                </StackPanel>
+                <StackPanel Grid.Row="2" Grid.Column="2">
+                  <TextBlock Classes="fieldLabel" Text="Site template" />
+                  <ComboBox x:Name="DnnTemplate" HorizontalAlignment="Stretch" AutomationProperties.Name="Site template" />
+                </StackPanel>
+              </Grid>
+              <TextBlock x:Name="DnnDefaultsHint" Classes="hint" />
+
+              <StackPanel x:Name="KeepWarmGroup">
+                <TextBlock Classes="groupLabel" Text="Keep warm" />
+                <TextBlock Classes="hint" Margin="0,0,0,4"
+                           Text="Sites with the flame on are requested before IIS idles them, so their next page opens at once." />
+                <Grid ColumnDefinitions="180,12,*,12,*">
+                  <StackPanel>
+                    <TextBlock Classes="fieldLabel" Text="Interval" />
+                    <ComboBox x:Name="KeepWarmInterval" HorizontalAlignment="Stretch" AutomationProperties.Name="Interval" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="2">
+                    <TextBlock Classes="fieldLabel" Text="Keep-alive page" />
+                    <TextBox x:Name="KeepWarmPingPath" AutomationProperties.Name="Keep-alive page" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="4">
+                    <TextBlock Classes="fieldLabel" Text="Warm-up page" />
+                    <TextBox x:Name="KeepWarmWarmUpPath" AutomationProperties.Name="Warm-up page" />
+                  </StackPanel>
+                </Grid>
+                <TextBlock Classes="hint" Text="Keep-alive is requested every interval; warm-up after a recycle or an IIS start." />
+              </StackPanel>
+
+              <TextBlock Classes="groupLabel" Text="Backups" />
+              <TextBlock Classes="fieldLabel" Text="Keep backups and deployment packages" />
+              <ComboBox x:Name="BackupKeepDays" Width="280" HorizontalAlignment="Left"
+                        AutomationProperties.Name="Keep backups and deployment packages" />
+              <TextBlock x:Name="BackupsHint" Classes="hint" />
+            </StackPanel>
+
+            <!-- ═══ DNN releases ═══ -->
+            <StackPanel x:Name="ReleasesPanel" IsVisible="False">
+              <TextBlock Classes="categoryTitle" Text="DNN releases" />
+              <TextBlock Classes="groupLabel" Text="Repositories" />
+              <TextBox x:Name="ReleaseApis" Classes="multiline" MinHeight="90" AutomationProperties.Name="Repositories" />
+              <TextBlock Classes="hint" Text="GitHub releases API URLs, one per line - the repositories New project offers, with their versions." />
+
+              <TextBlock Classes="groupLabel" Text="Install packages" />
+              <CheckBox x:Name="KeepDnnPackages" Content="Keep downloaded DNN install packages for next time" />
+              <TextBlock x:Name="KeepDnnPackagesHint" Classes="hint" Margin="22,2,0,0" />
+
+              <TextBlock Classes="groupLabel" Text="Upgrade path" />
+              <TextBlock x:Name="UpgradePathHint" Classes="hint" Margin="0" />
+              <Button x:Name="EditUpgradePathButton" Content="Edit upgrade path…" HorizontalAlignment="Left" Margin="0,8,0,0"
+                      Click="EditUpgradePath_Click" />
+            </StackPanel>
+
+            <!-- ═══ Database server ═══ -->
+            <StackPanel x:Name="SqlPanel" IsVisible="False">
+              <TextBlock Classes="categoryTitle" Text="Database server" />
+              <TextBlock Classes="hint" Margin="0" Text="Where new projects get their database. Existing projects keep theirs." />
+
+              <TextBlock Classes="groupLabel" Text="Connection type" />
+              <RadioButton x:Name="ServerContainer" GroupName="ServerType" Tag="container">
+                <StackPanel>
+                  <TextBlock Text="Local SQL container (Docker)" FontWeight="SemiBold" />
+                  <TextBlock Classes="hint" Margin="0,2,0,0"
+                             Text="SQL Server in the Docker container from Settings → Docker container, signed in to with the username below (sa by default)." />
+                </StackPanel>
+              </RadioButton>
+              <RadioButton x:Name="ServerSqlServer" GroupName="ServerType" Tag="sqlServer" Margin="0,8,0,0">
+                <StackPanel>
+                  <TextBlock Text="SQL Server / SQL Server Express" FontWeight="SemiBold" />
+                  <TextBlock Classes="hint" Margin="0,2,0,0"
+                             Text="A SQL Server you already run on this PC (or your network), with Windows or SQL Server authentication." />
+                </StackPanel>
+              </RadioButton>
+              <RadioButton x:Name="ServerLocalDb" GroupName="ServerType" Tag="localDbFile" Margin="0,8,0,0">
+                <StackPanel>
+                  <TextBlock Text="SQL Server Express LocalDB (file)" FontWeight="SemiBold" />
+                  <TextBlock x:Name="LocalDbHint" Classes="hint" Margin="0,2,0,0"
+                             Text="Each site's own App_Data\Database.mdf - fine for trying things out; DNN Manager can't open it while the site runs." />
+                </StackPanel>
+              </RadioButton>
+
+              <StackPanel x:Name="ContainerFields">
+                <TextBlock Classes="groupLabel" Text="Local SQL container" />
+                <Grid ColumnDefinitions="*,12,*" RowDefinitions="Auto,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="fieldLabel" Text="Server host" Margin="0,0,0,4" />
+                    <TextBox x:Name="ContainerIp" AutomationProperties.Name="Server host" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="2">
+                    <TextBlock Classes="fieldLabel" Text="Port" Margin="0,0,0,4" />
+                    <TextBox x:Name="DefaultPort" AutomationProperties.Name="Port" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="1">
+                    <TextBlock Classes="fieldLabel" Text="Username" Margin="0,0,0,4" />
+                    <TextBox x:Name="ContainerUser" AutomationProperties.Name="Username" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="1" Grid.Column="2">
+                    <TextBlock Classes="fieldLabel" Text="Password" />
+                    <TextBox x:Name="SaPassword" PasswordChar="•" Classes="revealPasswordButton" AutomationProperties.Name="Password" />
+                  </StackPanel>
+                </Grid>
+                <TextBlock Classes="hint" Text="Set up docker-compose makes the container with this port and sa password." />
+              </StackPanel>
+
+              <StackPanel x:Name="ServerFields">
+                <TextBlock x:Name="ServerGroupLabel" Classes="groupLabel" Text="SQL Server" />
+                <TextBlock x:Name="ServerLabel" Classes="fieldLabel" Text="Server" Margin="0,0,0,4" />
+                <TextBox x:Name="ServerName" AutomationProperties.Name="Server" />
+                <TextBlock x:Name="ServerHint" Classes="hint" />
+                <StackPanel x:Name="AuthFields">
+                  <TextBlock Classes="fieldLabel" Text="Authentication" />
+                  <StackPanel Orientation="Horizontal">
+                    <RadioButton x:Name="WindowsAuth" GroupName="ServerAuth" Content="Windows authentication" />
+                    <RadioButton x:Name="SqlAuth" GroupName="ServerAuth" Content="SQL Server authentication" Margin="20,0,0,0" />
+                  </StackPanel>
+                  <Grid x:Name="LoginFields" IsVisible="False" ColumnDefinitions="*,12,*">
+                    <StackPanel>
+                      <TextBlock Classes="fieldLabel" Text="Username" />
+                      <TextBox x:Name="ServerUserName" AutomationProperties.Name="Username" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                      <TextBlock Classes="fieldLabel" Text="Password" />
+                      <TextBox x:Name="ServerPassword" PasswordChar="•" Classes="revealPasswordButton" AutomationProperties.Name="Password" />
+                    </StackPanel>
+                  </Grid>
+                  <TextBlock x:Name="AuthHint" Classes="hint" />
+                </StackPanel>
+              </StackPanel>
+
+              <TextBlock Classes="groupLabel" Text="SQL Server Management Studio" />
+              <CheckBox x:Name="SsmsRememberPassword" Content="Remember the password in SQL Server Management Studio" />
+              <TextBlock Classes="hint" Margin="22,2,0,0"
+                         Text="When a project's right-click menu signs SSMS in, tick its 'Remember Password' - SSMS then keeps the password and connects straight away next time." />
+
+              <TextBlock Classes="groupLabel" Text="Test and set up" />
+              <TextBlock x:Name="SqlSaveFirst" Classes="hint" Margin="0,0,0,8" IsVisible="False"
+                         Text="These use the saved settings - save your changes first." />
+              <s:DatabaseServerCard x:Name="SqlCard" />
+            </StackPanel>
+
+            <!-- ═══ Docker container ═══ -->
+            <StackPanel x:Name="DockerPanel" IsVisible="False">
+              <TextBlock Classes="categoryTitle" Text="Docker container" />
+              <TextBlock Classes="hint" Margin="0"
+                         Text="The SQL Server container. After a change, save it and apply it with Set up docker-compose below." />
+              <TextBlock Classes="groupLabel" Text="Container" />
+              <Grid ColumnDefinitions="*,12,*" RowDefinitions="Auto,Auto">
+                <StackPanel>
+                  <TextBlock Classes="fieldLabel" Text="Container name" Margin="0,0,0,4" />
+                  <TextBox x:Name="ContainerName" AutomationProperties.Name="Container name" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Classes="fieldLabel" Text="Volume name" Margin="0,0,0,4" />
+                  <TextBox x:Name="VolumeName" AutomationProperties.Name="Volume name" />
+                </StackPanel>
+                <StackPanel Grid.Row="1">
+                  <TextBlock Classes="fieldLabel" Text="Edition (MSSQL_PID)" />
+                  <TextBox x:Name="MssqlPid" AutomationProperties.Name="Edition (MSSQL_PID)" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="2">
+                  <TextBlock Classes="fieldLabel" Text="Collation" />
+                  <TextBox x:Name="Collation" AutomationProperties.Name="Collation" />
+                </StackPanel>
+              </Grid>
+
+              <TextBlock Classes="groupLabel" Text="Test and set up" />
+              <TextBlock x:Name="DockerSaveFirst" Classes="hint" Margin="0,0,0,8" IsVisible="False"
+                         Text="These use the saved settings - save your changes first." />
+              <s:DockerCard x:Name="DockerCard" />
+            </StackPanel>
+
+            <!-- ═══ Source Control ═══ -->
+            <StackPanel x:Name="DeployPanel" IsVisible="False">
+              <TextBlock Classes="categoryTitle" Text="Source Control" />
+              <TextBlock Classes="hint" Margin="0"
+                         Text="Comparing projects with their servers, pushing and pulling files - the Source Control page." />
+
+              <CheckBox x:Name="DeployCompareOnOpen" Content="Compare a server as soon as you choose it on Source Control" Margin="0,16,0,0" />
+              <TextBlock Classes="hint" Margin="22,2,0,0"
+                         Text="Off: nothing is asked of the server until you press Compare (F5) - for a slow server, or one you pay per connection." />
+
+              <TextBlock Classes="fieldLabel" Text="Keep the file versions of the history" />
+              <ComboBox x:Name="DeployKeepVersions" Width="280" HorizontalAlignment="Left"
+                        AutomationProperties.Name="Keep the file versions of the history" />
+              <TextBlock Classes="hint"
+                         Text="What pushes and pulls replaced and wrote - what a rollback and the history's diffs need. Older ones are forgotten after the next push or pull; one a baseline still needs is always kept." />
+
+              <TextBlock Classes="groupLabel" Text="A new server starts with" />
+              <TextBlock Classes="hint" Margin="0,0,0,4"
+                         Text="Each server keeps its own once it is added - right-click it on the Source Control page → Edit connection… to change them." />
+              <TextBlock Classes="fieldLabel" Text="Files at the same time (1 - 16)" />
+              <TextBox x:Name="DeployParallel" Width="80" HorizontalAlignment="Left" AutomationProperties.Name="Files at the same time" />
+              <CheckBox x:Name="DeployKeepBackups" Content="Keep what a push or pull replaces, to roll back to" Margin="0,12,0,0" />
+              <CheckBox x:Name="DeployVerifyUploads" Content="Check each upload by its SHA-256" Margin="0,8,0,0"
+                        ToolTip.Tip="Check each upload by its SHA-256 - asked of the server, or read back; off: only its size is checked" />
+              <DockPanel Margin="0,12,0,4">
+                <Button DockPanel.Dock="Right" Classes="link" Content="Use the defaults" Click="DeployRulesDefaults_Click" VerticalAlignment="Bottom"
+                        ToolTip.Tip="Use the defaults - DNN's: the site's own web.config, App_Data, logs and caches, and the files of tools" />
+                <TextBlock Classes="fieldLabel" Margin="0" Text="Ignored files (like .gitignore - one pattern a line)" />
+              </DockPanel>
+              <TextBox x:Name="DeployIgnoreRules" Classes="multiline" Height="200" FontFamily="{StaticResource CodeFont}"
+                       ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                       AutomationProperties.Name="Ignored files" />
+              <TextBlock x:Name="DeployRulesProblem" Classes="errorLine" IsVisible="False" />
+            </StackPanel>
+
+            <!-- ═══ IIS ═══ -->
+            <StackPanel x:Name="IisPanel" IsVisible="False">
+              <TextBlock Classes="categoryTitle" Text="IIS" />
+              <TextBlock x:Name="IisIntro" Classes="hint" Margin="0"
+                         Text="The Windows features DNN Manager needs. These buttons act at once, without Save." />
+              <s:IisCard x:Name="IisCard" Margin="0,16,0,0" />
+            </StackPanel>
+
+            <!-- ═══ Keyboard shortcuts ═══ -->
+            <StackPanel x:Name="KeyboardPanel" IsVisible="False">
+              <TextBlock Classes="categoryTitle" Text="Keyboard shortcuts" />
+              <TextBlock x:Name="KeyboardIntro" Classes="hint" Margin="0,0,0,14"
+                         Text="Click a shortcut and press the new keys - Esc cancels, Backspace removes it. Saved at once." />
+              <DockPanel Margin="0,0,0,12">
+                <Button x:Name="ResetAllShortcutsButton" DockPanel.Dock="Right" Content="Reset all to defaults" Margin="12,0,0,0"
+                        Click="ResetAllShortcuts_Click" ToolTip.Tip="Reset all to defaults" />
+                <TextBox x:Name="ShortcutSearch" Classes="search" PlaceholderText="Search by action, area or key"
+                         AutomationProperties.Name="Search keyboard shortcuts" TextChanged="ShortcutSearch_TextChanged" />
+              </DockPanel>
+              <TextBlock x:Name="ShortcutStatus" Classes="hint" Margin="0,0,0,10" IsVisible="False" Foreground="{DynamicResource LogWarn}" />
+              <Grid ColumnDefinitions="*,200,36" Margin="0,0,0,4">
+                <TextBlock Classes="fieldLabel" Text="Action" Margin="0" />
+                <TextBlock Grid.Column="1" Classes="fieldLabel" Text="Shortcut" Margin="0" />
+              </Grid>
+              <TextBlock x:Name="NoShortcut" Classes="hint" Text="No command matches." IsVisible="False" />
+              <StackPanel x:Name="ShortcutList" />
+            </StackPanel>
+
+            <!-- ═══ Help ═══ -->
+            <StackPanel x:Name="HelpPanel" IsVisible="False">
+              <TextBlock Classes="categoryTitle" Text="Help" />
+              <TextBlock Classes="hint" Margin="0,0,0,8"
+                         Text="New to DNN Manager, or looking for something? Open these whenever you like - they don't change any setting." />
+              <Border x:Name="GuideRow" Classes="helpRow" BorderThickness="0,1,0,1">
+                <DockPanel>
+                  <Button Classes="action" Content="Show getting started guide" Click="HelpGuide_Click"
+                          ToolTip.Tip="What DNN Manager does, what to set up first and what every button does - step by step" />
+                  <StackPanel VerticalAlignment="Center">
+                    <TextBlock Classes="rowTitle" Text="Getting started guide" />
+                    <TextBlock Classes="hint" Margin="0,2,0,0"
+                               Text="What DNN Manager does, what it needs before you start, and what every button does - in plain words, step by step." />
+                  </StackPanel>
+                </DockPanel>
+              </Border>
+              <Border x:Name="TourRow" Classes="helpRow">
+                <DockPanel>
+                  <Button Classes="action" Content="Take the tour" Click="HelpTour_Click"
+                          ToolTip.Tip="Close Settings and point at each part of the window" />
+                  <StackPanel VerticalAlignment="Center">
+                    <TextBlock Classes="rowTitle" Text="Tour of the window" />
+                    <TextBlock Classes="hint" Margin="0,2,0,0"
+                               Text="Points at each part of the window, one at a time, and says what it is for. Settings closes first." />
+                  </StackPanel>
+                </DockPanel>
+              </Border>
+              <Border x:Name="PageHelpRow" Classes="helpRow">
+                <StackPanel>
+                  <TextBlock Classes="rowTitle" Text="Help for the page you are on" />
+                  <TextBlock Classes="hint" Margin="0,2,0,0" Text="F1, or the ? at the top right, explains the page you are on." />
+                </StackPanel>
+              </Border>
+              <Border x:Name="WhatsNewRow" Classes="helpRow">
+                <DockPanel>
+                  <Button Classes="action" Content="What's new" Click="HelpWhatsNew_Click"
+                          ToolTip.Tip="What changed in this version of DNN Manager" />
+                  <StackPanel VerticalAlignment="Center">
+                    <TextBlock Classes="rowTitle" Text="What's new in this version" />
+                    <TextBlock Classes="hint" Margin="0,2,0,0" Text="What changed in the version you have." />
+                  </StackPanel>
+                </DockPanel>
+              </Border>
+              <Border x:Name="UserGuideRow" Classes="helpRow">
+                <DockPanel>
+                  <Button Classes="action" Content="Open user guide" Click="HelpUserGuide_Click"
+                          ToolTip.Tip="The full user guide on GitHub, in your browser" />
+                  <StackPanel VerticalAlignment="Center">
+                    <TextBlock Classes="rowTitle" Text="User guide" />
+                    <TextBlock Classes="hint" Margin="0,2,0,0"
+                               Text="Every page, button and setting in detail, on GitHub - opens in your browser." />
+                  </StackPanel>
+                </DockPanel>
+              </Border>
+            </StackPanel>
+
+            <!-- ═══ About ═══ -->
+            <StackPanel x:Name="AboutPanel" IsVisible="False">
+              <TextBlock Classes="categoryTitle" Text="About" />
+              <!-- Which DNN Manager, what it runs on and works with (AboutInfo) - read when About is opened. -->
+              <StackPanel x:Name="AboutInfoPanel" />
+              <TextBlock Classes="groupLabel" Text="Your files" />
+              <StackPanel x:Name="Folders" />
+              <TextBlock Classes="hint" Margin="0,10,0,0"
+                         Text="Kept apart from the program: updating or uninstalling DNN Manager leaves these folders alone." />
+            </StackPanel>
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </DockPanel>
 </UserControl>

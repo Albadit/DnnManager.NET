@@ -1,0 +1,186 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="using:DnnManager.Desktop.Views"
+             x:Class="DnnManager.Desktop.Views.DiffView"
+             x:DataType="v:DiffView">
+  <!-- A file's two versions, line by line: unified (one column, - and +) or side by side (old left, new right), each line
+       coloured by its language. Only the changes and the lines around them - or the whole file. Flush with the editor's
+       edges, as VS Code's; the line numbers as wide as the file's longest needs (each row's NumberWidth), the code as wide
+       as its longest line - scrolled sideways (unified), or both sides moved by the one scroll bar under them. The code
+       is drawn by HighlightedText, which also draws the selection - selected as in an editor, copied with Ctrl+C. -->
+  <UserControl.Styles>
+    <Style Selector="TextBlock.num">
+      <Setter Property="FontFamily" Value="{DynamicResource CodeFont}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+      <Setter Property="TextAlignment" Value="Right" />
+      <Setter Property="Padding" Value="0,0,6,0" />
+    </Style>
+    <Style Selector="TextBlock.mark">
+      <Setter Property="FontFamily" Value="{DynamicResource CodeFont}" />
+      <Setter Property="Width" Value="14" />
+    </Style>
+    <Style Selector="Border.side">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Cursor" Value="Ibeam" />
+    </Style>
+    <Style Selector="Border.side.added">
+      <Setter Property="Background" Value="{DynamicResource DiffAddedBg}" />
+    </Style>
+    <Style Selector="Border.side.removed">
+      <Setter Property="Background" Value="{DynamicResource DiffRemovedBg}" />
+    </Style>
+    <Style Selector="Border.side.empty">
+      <Setter Property="Background" Value="{DynamicResource DiffEmptyBg}" />
+    </Style>
+    <Style Selector="Border.side.added TextBlock.mark">
+      <Setter Property="Foreground" Value="{DynamicResource DiffAddedMark}" />
+    </Style>
+    <Style Selector="Border.side.removed TextBlock.mark">
+      <Setter Property="Foreground" Value="{DynamicResource DiffRemovedMark}" />
+    </Style>
+    <!-- The rows: no hover, no selection of their own - the code's selection is DiffView's. -->
+    <Style Selector="ListBox#Rows ListBoxItem">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="ListBox#Rows ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter, ListBox#Rows ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <!-- Show more after a long line's start: a flat blue label, as VS Code draws it. -->
+    <Style Selector="Button.more">
+      <Setter Property="Background" Value="{DynamicResource Accent}" />
+      <Setter Property="Foreground" Value="{DynamicResource OnAccent}" />
+      <Setter Property="Padding" Value="5,0" />
+      <Setter Property="Margin" Value="6,0,0,0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="2" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ToggleButton.mode:checked">
+      <Setter Property="Foreground" Value="{DynamicResource LinkFg}" />
+    </Style>
+    <Style Selector="ToggleButton.mode">
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <Style Selector="ToggleButton.mode Viewbox">
+      <Setter Property="Height" Value="13" />
+      <Setter Property="Margin" Value="7" />
+    </Style>
+    <Style Selector="ToggleButton.mode Path">
+      <Setter Property="StrokeThickness" Value="1.5" />
+      <Setter Property="StrokeLineCap" Value="Round" />
+      <Setter Property="StrokeJoin" Value="Round" />
+    </Style>
+  </UserControl.Styles>
+
+  <UserControl.Resources>
+    <!-- Unified: the numbers of both, the mark, the line. -->
+    <DataTemplate x:Key="UnifiedRow" x:DataType="v:DiffRow">
+      <Panel>
+        <Border IsVisible="{Binding IsHunk}" Background="{DynamicResource DiffHunkBg}">
+          <TextBlock Text="{Binding Hunk}" FontFamily="{DynamicResource CodeFont}" Foreground="{DynamicResource TextMuted}" Padding="8,2" />
+        </Border>
+        <DockPanel IsVisible="{Binding IsLine}">
+          <TextBlock DockPanel.Dock="Left" Classes="num" Width="{Binding OldNumberWidth}" Text="{Binding Left.Number}" IsVisible="{Binding HasOldNumbers}" />
+          <TextBlock DockPanel.Dock="Left" Classes="num" Width="{Binding NumberWidth}" Text="{Binding Right.Number}" />
+          <Border x:DataType="v:DiffSide" DataContext="{Binding Unified}" Classes="side"
+                  Classes.added="{Binding IsAdded}" Classes.removed="{Binding IsRemoved}" Classes.empty="{Binding IsEmpty}">
+            <DockPanel>
+              <TextBlock DockPanel.Dock="Left" Classes="mark" Text="{Binding Mark}" />
+              <StackPanel Orientation="Horizontal">
+                <v:HighlightedText Line="{Binding}" />
+                <Button Classes="more" Content="{Binding MoreText}" IsVisible="{Binding CanShowMore}" Click="ShowMore_Click"
+                        ToolTip.Tip="Show the whole line, wrapped" />
+              </StackPanel>
+            </DockPanel>
+          </Border>
+        </DockPanel>
+      </Panel>
+    </DataTemplate>
+
+    <!-- Side by side: the old line on the left, the new one on the right - each half the width, the code cut off at its
+         edge and moved sideways by the one scroll bar under them (SplitScroll). -->
+    <DataTemplate x:Key="SplitRow" x:DataType="v:DiffRow">
+      <Panel>
+        <Border IsVisible="{Binding IsHunk}" Background="{DynamicResource DiffHunkBg}">
+          <TextBlock Text="{Binding Hunk}" FontFamily="{DynamicResource CodeFont}" Foreground="{DynamicResource TextMuted}" Padding="8,2" />
+        </Border>
+        <Grid IsVisible="{Binding IsLine}" ColumnDefinitions="Auto,*,Auto,*">
+          <TextBlock Grid.Column="0" Classes="num" Width="{Binding NumberWidth}" Text="{Binding Left.Number}" />
+          <Border Grid.Column="1" x:DataType="v:DiffSide" DataContext="{Binding Left}" Classes="side" ClipToBounds="True"
+                  Classes.added="{Binding IsAdded}" Classes.removed="{Binding IsRemoved}" Classes.empty="{Binding IsEmpty}">
+            <DockPanel>
+              <TextBlock DockPanel.Dock="Left" Classes="mark" Text="{Binding Mark}" />
+              <Button DockPanel.Dock="Right" Classes="more" Content="{Binding MoreText}" IsVisible="{Binding CanShowMore}" Click="ShowMore_Click"
+                      ToolTip.Tip="Show the whole line, wrapped" />
+              <v:HighlightedText Line="{Binding}" Shifted="True" />
+            </DockPanel>
+          </Border>
+          <TextBlock Grid.Column="2" Classes="num" Width="{Binding NumberWidth}" Text="{Binding Right.Number}" />
+          <Border Grid.Column="3" x:DataType="v:DiffSide" DataContext="{Binding Right}" Classes="side" ClipToBounds="True"
+                  Classes.added="{Binding IsAdded}" Classes.removed="{Binding IsRemoved}" Classes.empty="{Binding IsEmpty}">
+            <DockPanel>
+              <TextBlock DockPanel.Dock="Left" Classes="mark" Text="{Binding Mark}" />
+              <Button DockPanel.Dock="Right" Classes="more" Content="{Binding MoreText}" IsVisible="{Binding CanShowMore}" Click="ShowMore_Click"
+                      ToolTip.Tip="Show the whole line, wrapped" />
+              <v:HighlightedText Line="{Binding}" Shifted="True" />
+            </DockPanel>
+          </Border>
+        </Grid>
+      </Panel>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <DockPanel>
+    <!-- What is compared with what, and how it is shown: icon toggles, as VS Code's editor actions - Unified or Side by
+         side (one of the two), and Whole file. -->
+    <DockPanel DockPanel.Dock="Top" Margin="12,3,8,3">
+      <StackPanel x:Name="Modes" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+        <ToggleButton x:Name="UnifiedMode" Classes="icon mode" IsChecked="True" Margin="0,0,2,0" Click="Mode_Click"
+                      AutomationProperties.Name="Unified"
+                      ToolTip.Tip="Unified - one column: removed lines (-) above the lines that replace them (+)">
+          <Viewbox><Grid Width="16" Height="14"><Path Data="{StaticResource DiffUnified}" Stroke="{Binding $parent[ToggleButton].Foreground}" /></Grid></Viewbox>
+        </ToggleButton>
+        <ToggleButton x:Name="SplitMode" Classes="icon mode" Margin="0,0,8,0" Click="Mode_Click"
+                      AutomationProperties.Name="Side by side"
+                      ToolTip.Tip="Side by side - the old version on the left, the new one on the right">
+          <Viewbox><Grid Width="16" Height="14"><Path Data="{StaticResource DiffSplit}" Stroke="{Binding $parent[ToggleButton].Foreground}" /></Grid></Viewbox>
+        </ToggleButton>
+        <ToggleButton x:Name="WholeFile" Classes="icon mode" Click="Mode_Click"
+                      AutomationProperties.Name="Whole file"
+                      ToolTip.Tip="Whole file - every line, not only the changes and the lines around them">
+          <Viewbox><Grid Width="16" Height="14"><Path Data="{StaticResource DiffWholeFile}" Stroke="{Binding $parent[ToggleButton].Foreground}" /></Grid></Viewbox>
+        </ToggleButton>
+      </StackPanel>
+      <TextBlock x:Name="Titles" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
+    </DockPanel>
+    <Border BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0">
+      <Grid RowDefinitions="*,Auto">
+        <!-- Side by side: both sides' code sideways at once. -->
+        <ScrollBar x:Name="SplitScroll" Grid.Row="1" Orientation="Horizontal" IsVisible="False" AllowAutoHide="False"
+                   AutomationProperties.Name="Scroll both sides sideways" />
+        <ListBox x:Name="Rows" Background="{DynamicResource CardBg}" ItemTemplate="{StaticResource UnifiedRow}"
+                 FontFamily="{DynamicResource CodeFont}" SelectionMode="Single" Focusable="True"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto" AutomationProperties.Name="Differences">
+          <ListBox.ContextMenu>
+            <ContextMenu x:Name="RowsMenu">
+              <MenuItem x:Name="CopyItem" Header="Copy" InputGesture="Ctrl+C" Click="Copy_Click" />
+              <MenuItem Header="Select all" InputGesture="Ctrl+A" Click="SelectAll_Click" />
+            </ContextMenu>
+          </ListBox.ContextMenu>
+        </ListBox>
+        <TextBlock x:Name="Message" Grid.RowSpan="2" TextWrapping="Wrap" Foreground="{DynamicResource TextMuted}" Margin="16"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" Text="Choose a file to see what changed." />
+      </Grid>
+    </Border>
+  </DockPanel>
+</UserControl>

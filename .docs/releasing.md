@@ -28,8 +28,8 @@ until 1.7.2 is tagged ([`DnnManager.csproj`](../DnnManager.csproj), target
    GitHub's [release workflow](#the-release-workflow) builds the release from that
    tag: `DnnManager-X.Y.Z-x64.exe` (the portable exe), `DnnManager_Setup-X.Y.Z-x64.exe`, the
    [cross-platform app](cross-platform.md)'s packages for macOS and Linux
-   (`DnnManager-X.Y.Z-macos-arm64.zip`, `-macos-x64.zip`, `-linux-x64.tar.gz`,
-   `-linux-arm64.tar.gz`) and `SHA256SUMS.txt`. It signs the exes once signing is
+   (`DnnManager-X.Y.Z-macos-arm64`, `-macos-x64`, `-linux-x64`, `-linux-arm64`: the
+   program itself, one file each, no zip) and `SHA256SUMS.txt`. It signs the exes once signing is
    set up, tries them, and puts everything on a draft release. Nothing is tested
    twice: [CI](#the-build-workflow) tests every commit you push, and the release
    workflow first waits for CI on the tagged commit and builds only once it has
@@ -206,9 +206,11 @@ never cancelled half way. Its jobs run in this order:
 ```mermaid
 flowchart LR
     plan["plan<br/>wait for CI, then label and platforms from the tag"] --> build["build<br/>Windows: publish"]
-    plan --> desktop["desktop<br/>macOS and Linux packages"]
+    plan --> macos["macOS<br/>executables"]
+    plan --> linux["Linux<br/>tar.gz files"]
     build --> sign["sign<br/>sign, Setup, SHA256SUMS, attest"]
-    desktop --> sign
+    macos --> sign
+    linux --> sign
     sign --> smoke["smoke<br/>install, start, uninstall"]
     sign --> draft["draft<br/>upload, check digests"]
     smoke --> draft
@@ -235,7 +237,7 @@ go on without it. Without **Windows**, there is no smoke test either.
   no OpenID Connect token: it may only read the repository. No tests run in the
   release workflow - [CI](#the-build-workflow) ran them on the commit, and the
   plan job waited for its result.
-- **macOS and Linux** (desktop) - once the build has the version, calls the
+- **macOS** and **Linux** - two jobs of their own, beside Windows; each calls the
   [Desktop workflow](../.github/workflows/desktop.yml) with it. That workflow
   publishes the [cross-platform app](cross-platform.md) on a `macos-15` runner for
   each Mac (signed ad hoc with `codesign -s -`, which is free; not notarized) and on
@@ -440,7 +442,7 @@ draft or a pre-release - a `vX.Y.Z-rc.1` tag isn't offered) - see
   Releases 1.7.7 to 1.8.x named the portable one `DnnManager_Portable-<version>-x64.exe`.
   From 2.0.0 it is `DnnManager-<version>-x64.exe` again: every DNN Manager looks for
   that name, 1.7.7 and newer after `DnnManager_Portable-`. The macOS and Linux
-  packages (`DnnManager-<version>-macos-arm64.zip`, …) never match, because they don't end in `.exe`.
+  files (`DnnManager-<version>-macos-arm64`, …) never match, because they don't end in `.exe`.
   Releases up to 1.7.6 had `DnnManagerSetup-<version>-x64.exe` and
   `DnnManager-<version>-x64.exe` - the only names DNN Manager 1.7.6 and older
   (and their Setups) look for. 1.7.7 was released under both names, so those

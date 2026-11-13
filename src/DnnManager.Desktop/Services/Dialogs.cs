@@ -25,14 +25,41 @@ public static class Dialogs
         (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
 
     public static Task<bool> ConfirmAsync(string question, string yes, string no, bool danger = false) =>
-        ShowAsync<bool>("DNN Manager", Text(question), close =>
+        ShowAsync<bool>("DNN Manager", WithGlyph(Text(question), "GlyphQuestion", danger ? "ErrorText" : "Accent", "?"), close =>
         [
             Button(no, () => close(false), isCancel: true),
             Button(yes, () => close(true), isDefault: !danger, danger: danger)
         ], false);
 
     public static Task MessageAsync(string message, string title = "DNN Manager") =>
-        ShowAsync<bool>(title, Text(message), close => [Button("OK", () => close(true), isDefault: true, isCancel: true)], true);
+        ShowAsync<bool>(title, WithGlyph(Selectable(message), "GlyphWarning", "LogWarn", "!"),
+            close => [Button("OK", () => close(true), isDefault: true, isCancel: true)], true);
+
+    /// <summary>
+    /// The Windows app's MessageDialog: its icon (a question in the accent, a danger in red, a warning in amber) on the left
+    /// of the message.
+    /// </summary>
+    private static Control WithGlyph(Control body, string glyph, string brush, string fallback)
+    {
+        var icon = new TextBlock { FontSize = 26, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 0, 14, 0) };
+        if (Views.MainWindow.HasIconFont && Avalonia.Application.Current?.TryFindResource(glyph, out var text) == true && text is string g)
+        {
+            icon.Text = g;
+            icon.Classes.Add("glyph");
+        }
+        else
+        {
+            icon.Text = fallback;
+            icon.FontWeight = FontWeight.Bold;
+            icon.FontSize = 22;
+        }
+        icon.Bind(TextBlock.ForegroundProperty, icon.GetResourceObservable(brush));
+        DockPanel.SetDock(icon, Dock.Left);
+        return new DockPanel { Children = { icon, body } };
+    }
+
+    // A message that can be selected and copied (a path, an error).
+    private static SelectableTextBlock Selectable(string text) => new() { Text = text, TextWrapping = TextWrapping.Wrap, MaxWidth = 620 };
 
     /// <summary>A password, asked for - null when cancelled.</summary>
     public static Task<string?> PasswordAsync(string prompt, string ok)
@@ -124,9 +151,8 @@ public static class Dialogs
     private static Button Button(string text, Action click, bool isDefault = false, bool isCancel = false, bool danger = false)
     {
         var button = new Button { Content = text, IsDefault = isDefault, IsCancel = isCancel, MinWidth = 88, HorizontalContentAlignment = HorizontalAlignment.Center };
-        if (isDefault && !danger) button.Classes.Add("accent");
-        if (danger) button.Background = new SolidColorBrush(Color.Parse("#C42B1C"));
-        if (danger) button.Foreground = Brushes.White;
+        if (isDefault && !danger) button.Classes.Add("primary");
+        if (danger) button.Classes.Add("danger");
         button.Click += (_, _) => click();
         return button;
     }
@@ -149,7 +175,12 @@ public static class Dialogs
         };
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
         foreach (var button in buttons(value => { answer = value; window.Close(); })) row.Children.Add(button);
-        window.Content = new StackPanel { Margin = new Thickness(20), Spacing = 16, Children = { body, row } };
+        // The Windows app's dialogs: the message on the window's colour, the buttons in a bar along the bottom on the card's.
+        var footer = new Border { Padding = new Thickness(20, 12), BorderThickness = new Thickness(0, 1, 0, 0), Child = row };
+        footer.Bind(Border.BackgroundProperty, footer.GetResourceObservable("CardBg"));
+        footer.Bind(Border.BorderBrushProperty, footer.GetResourceObservable("CardBorder"));
+        DockPanel.SetDock(footer, Dock.Bottom);
+        window.Content = new DockPanel { Children = { footer, new Border { Padding = new Thickness(20, 20, 20, 18), Child = body } } };
         window.KeyDown += (_, e) =>
         {
             if (e.Key == Key.Escape) window.Close();

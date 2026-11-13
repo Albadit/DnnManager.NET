@@ -1,0 +1,21 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:s="using:DnnManager.Desktop.Views.Setup"
+             x:Class="DnnManager.Desktop.Views.Setup.DatabaseServerCard">
+  <UserControl.Styles>
+    <StyleInclude Source="/Themes/SetupStyles.axaml" />
+  </UserControl.Styles>
+  <Border Classes="card">
+    <StackPanel>
+      <DockPanel>
+        <Button DockPanel.Dock="Right" x:Name="TestButton" Content="Test" MinWidth="80" Margin="8,0,0,0"
+                ToolTip.Tip="Test" VerticalAlignment="Center" Click="Test_Click" />
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Classes="cardTitle" Text="Database server" Margin="0" />
+          <TextBlock x:Name="Summary" Classes="hint" Margin="0,2,0,0" />
+        </StackPanel>
+      </DockPanel>
+      <s:DatabaseCheckList x:Name="CheckList" Margin="0,8,0,0" />
+    </StackPanel>
+  </Border>
+</UserControl>

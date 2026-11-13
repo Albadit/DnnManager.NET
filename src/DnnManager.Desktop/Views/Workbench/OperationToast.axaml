@@ -1,0 +1,20 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="DnnManager.Desktop.Views.Workbench.OperationToast"
+             IsVisible="False" Width="340" Margin="0,0,0,8" HorizontalAlignment="Right">
+  <!-- The running operation, as VS Code shows a task in progress (src/DnnManager.Presentation/Controls/OperationToast.xaml):
+       its name (a click opens Output), Cancel, and a bar moving along its bottom edge. -->
+  <Border Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1"
+          CornerRadius="6" ClipToBounds="True" BoxShadow="0 3 18 0 #4D000000">
+    <DockPanel>
+      <ProgressBar x:Name="OperationProgress" DockPanel.Dock="Bottom" Height="2" MinHeight="2" Margin="6,0,6,0"
+                   Foreground="{DynamicResource Accent}" Background="Transparent" BorderThickness="0" />
+      <DockPanel Margin="14,10,10,8">
+        <Button x:Name="CancelButton" DockPanel.Dock="Right" Content="Cancel" Classes="danger" ToolTip.Tip="Cancel"
+                MinHeight="24" Padding="10,0" Margin="12,0,0,0" VerticalAlignment="Center" Click="Cancel_Click" />
+        <TextBlock x:Name="OperationText" Foreground="{DynamicResource TextPrimary}" TextTrimming="CharacterEllipsis"
+                   VerticalAlignment="Center" Cursor="Hand" ToolTip.Tip="Show output" PointerReleased="Operation_PointerReleased" />
+      </DockPanel>
+    </DockPanel>
+  </Border>
+</UserControl>

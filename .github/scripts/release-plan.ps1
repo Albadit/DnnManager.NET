@@ -70,6 +70,11 @@ $outputs = [ordered]@{
     'windows'      = ('windows' -in $options.Platforms).ToString().ToLowerInvariant()
     'desktop'      = ($targets.Count -gt 0).ToString().ToLowerInvariant()
     'targets'      = ConvertTo-Json -InputObject @($targets) -Compress
+    # macOS and Linux each in a job of their own (release.yml): whether each is built, and its runners.
+    'macos'         = ('macos' -in $options.Platforms).ToString().ToLowerInvariant()
+    'macos-targets' = ConvertTo-Json -InputObject @($runtimes.macos) -Compress
+    'linux'         = ('linux' -in $options.Platforms).ToString().ToLowerInvariant()
+    'linux-targets' = ConvertTo-Json -InputObject @($runtimes.linux) -Compress
     'assets'       = $options.Platforms -join ' '
     'replace'      = ([bool]$options.Replace).ToString().ToLowerInvariant()
 }

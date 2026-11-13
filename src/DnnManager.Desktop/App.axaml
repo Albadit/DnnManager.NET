@@ -3,82 +3,29 @@
              x:Class="DnnManager.Desktop.App"
              Name="DNN Manager"
              RequestedThemeVariant="Default">
-  <!-- DNN Manager's look, as the Windows app's: VS Code's - an activity bar, a side bar, the editor, Output below.
-       Light and dark follow the setting appearance.theme (system, light, dark). -->
+  <!-- DNN Manager's look - the Windows app's (WPF), the same on every system: VS Code's Dark Modern and Light Modern.
+       The palette, the sizes and the icons are generated from the WPF theme (Themes/Palette, Tokens, Icons.axaml -
+       .github/scripts/port-theme.py); the controls are styled as WPF's in Themes/Controls.axaml. Light and dark follow
+       the setting appearance.theme (system, light, dark). -->
   <Application.Resources>
     <ResourceDictionary>
-      <ResourceDictionary.ThemeDictionaries>
-        <ResourceDictionary x:Key="Light">
-          <SolidColorBrush x:Key="ActivityBarBrush" Color="#2C2C2C" />
-          <SolidColorBrush x:Key="ActivityIconBrush" Color="#C8C8C8" />
-          <SolidColorBrush x:Key="SideBarBrush" Color="#F3F3F3" />
-          <SolidColorBrush x:Key="EditorBrush" Color="#FFFFFF" />
-          <SolidColorBrush x:Key="PanelBrush" Color="#F8F8F8" />
-          <SolidColorBrush x:Key="BorderBrush" Color="#E0E0E0" />
-          <SolidColorBrush x:Key="MutedBrush" Color="#616161" />
-          <SolidColorBrush x:Key="HeaderBrush" Color="#E8E8E8" />
-          <SolidColorBrush x:Key="AddedLineBrush" Color="#DFF5E1" />
-          <SolidColorBrush x:Key="RemovedLineBrush" Color="#FBE0E0" />
-          <SolidColorBrush x:Key="AddedTextBrush" Color="#1E7A34" />
-          <SolidColorBrush x:Key="RemovedTextBrush" Color="#B3261E" />
-          <SolidColorBrush x:Key="ConflictTextBrush" Color="#9A6700" />
-          <SolidColorBrush x:Key="StatusBarBrush" Color="#007ACC" />
-        </ResourceDictionary>
-        <ResourceDictionary x:Key="Dark">
-          <SolidColorBrush x:Key="ActivityBarBrush" Color="#333333" />
-          <SolidColorBrush x:Key="ActivityIconBrush" Color="#C8C8C8" />
-          <SolidColorBrush x:Key="SideBarBrush" Color="#252526" />
-          <SolidColorBrush x:Key="EditorBrush" Color="#1E1E1E" />
-          <SolidColorBrush x:Key="PanelBrush" Color="#1E1E1E" />
-          <SolidColorBrush x:Key="BorderBrush" Color="#3C3C3C" />
-          <SolidColorBrush x:Key="MutedBrush" Color="#A0A0A0" />
-          <SolidColorBrush x:Key="HeaderBrush" Color="#2D2D2D" />
-          <SolidColorBrush x:Key="AddedLineBrush" Color="#1F3A26" />
-          <SolidColorBrush x:Key="RemovedLineBrush" Color="#4B1F22" />
-          <SolidColorBrush x:Key="AddedTextBrush" Color="#73C991" />
-          <SolidColorBrush x:Key="RemovedTextBrush" Color="#F48771" />
-          <SolidColorBrush x:Key="ConflictTextBrush" Color="#E2C08D" />
-          <SolidColorBrush x:Key="StatusBarBrush" Color="#007ACC" />
-        </ResourceDictionary>
-      </ResourceDictionary.ThemeDictionaries>
-      <FontFamily x:Key="CodeFont">Cascadia Mono, Menlo, SF Mono, DejaVu Sans Mono, Liberation Mono, Consolas, monospace</FontFamily>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="/Themes/Palette.axaml" />
+        <ResourceInclude Source="/Themes/Tokens.axaml" />
+        <ResourceInclude Source="/Themes/Icons.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+      <!-- Fluent's own accent (check boxes, focus, progress): VS Code's blue, as WPF's Accent. -->
+      <Color x:Key="SystemAccentColor">#0078D4</Color>
+      <Color x:Key="SystemAccentColorLight1">#3794FF</Color>
+      <Color x:Key="SystemAccentColorDark1">#026EC1</Color>
+      <!-- Segoe UI, as WPF's windows - Inter (bundled) where there is no Segoe UI: macOS and Linux. -->
+      <FontFamily x:Key="UiFont">Segoe UI, Inter</FontFamily>
+      <FontFamily x:Key="CodeFont">Cascadia Mono, Consolas, Menlo, SF Mono, DejaVu Sans Mono, Liberation Mono, monospace</FontFamily>
     </ResourceDictionary>
   </Application.Resources>
 
   <Application.Styles>
     <FluentTheme DensityStyle="Compact" />
-    <Style Selector="TextBlock.muted">
-      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
-    </Style>
-    <Style Selector="TextBlock.section">
-      <Setter Property="FontSize" Value="11" />
-      <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
-    </Style>
-    <Style Selector="Button.icon">
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="Padding" Value="6,2" />
-      <Setter Property="MinWidth" Value="0" />
-    </Style>
-    <Style Selector="ToggleButton.activity, Button.activity">
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="Width" Value="48" />
-      <Setter Property="Height" Value="48" />
-      <Setter Property="Foreground" Value="{DynamicResource ActivityIconBrush}" />
-      <Setter Property="FontSize" Value="20" />
-      <Setter Property="HorizontalContentAlignment" Value="Center" />
-      <Setter Property="VerticalContentAlignment" Value="Center" />
-      <Setter Property="CornerRadius" Value="0" />
-    </Style>
-    <Style Selector="ToggleButton.activity:checked /template/ ContentPresenter">
-      <Setter Property="Background" Value="#22FFFFFF" />
-      <Setter Property="BorderBrush" Value="White" />
-      <Setter Property="BorderThickness" Value="2,0,0,0" />
-    </Style>
-    <Style Selector="ToggleButton.activity:checked">
-      <Setter Property="Foreground" Value="White" />
-    </Style>
+    <StyleInclude Source="/Themes/Controls.axaml" />
   </Application.Styles>
 </Application>

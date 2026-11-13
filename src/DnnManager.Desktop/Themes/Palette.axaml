@@ -1,0 +1,436 @@
+<!-- GENERATED from the Windows app's theme (src/DnnManager.Presentation/Themes/LightTheme.xaml, DarkTheme.xaml) - the same keys and values,
+     so both apps look alike. Change the WPF file, then run .github/scripts/port-theme.py; don't edit this one. -->
+<ResourceDictionary xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ResourceDictionary.ThemeDictionaries>
+    <ResourceDictionary x:Key="Light">
+      <!-- VS Code's Light Modern - same keys as DarkTheme.xaml; everything references them with DynamicResource so a switch
+           repaints live. Each colour is VS Code's own, named after the key it comes from:
+           extensions/theme-defaults/themes/light_modern.json, and VS Code's built-in defaults (colorRegistry,
+           terminalColorRegistry) for what that file leaves out. Not VS Code's: the flame (KeepWarmFg) and the Danger button,
+           which it has neither of, and TextMuted - Light Modern's descriptionForeground is its text colour (#3B3B3B), so the
+           muted text is its inactive-tab grey. -->
+      <SolidColorBrush x:Key="WindowBg"         Color="#FFFFFF" />
+      <!-- editor.background -->
+      <SolidColorBrush x:Key="CardBg"           Color="#F8F8F8" />
+      <!-- panel.background -->
+      <SolidColorBrush x:Key="CardBorder"       Color="#E5E5E5" />
+      <!-- panel.border -->
+      <SolidColorBrush x:Key="InputBg"          Color="#FFFFFF" />
+      <!-- input.background -->
+      <SolidColorBrush x:Key="InputBorder"      Color="#8A8A8A" />
+      <!-- input.border -->
+      <SolidColorBrush x:Key="FieldBorder"      Color="#CECECE" />
+      <!-- text boxes and drop-downs: VS Code Light Modern's input.border - focus shows FocusBorder -->
+      <SolidColorBrush x:Key="HoverBg"          Color="#F2F2F2" />
+      <!-- list.hoverBackground -->
+      <SolidColorBrush x:Key="SelectionBg"      Color="#E8E8E8" />
+      <!-- list.activeSelectionBackground -->
+      <SolidColorBrush x:Key="HeaderBg"         Color="#F8F8F8" />
+      <!-- sideBarSectionHeader.background -->
+      <SolidColorBrush x:Key="GridLine"         Color="#E5E5E5" />
+      <!-- tab.border -->
+      <SolidColorBrush x:Key="ScrollThumb"      Color="#66646464" />
+      <!-- scrollbarSlider.background -->
+      <SolidColorBrush x:Key="ScrollThumbHover" Color="#B3646464" />
+      <!-- scrollbarSlider.hoverBackground -->
+      <SolidColorBrush x:Key="TextPrimary"      Color="#3B3B3B" />
+      <!-- foreground -->
+      <SolidColorBrush x:Key="TextMuted"        Color="#616161" />
+      <!-- tab.inactiveForeground -->
+      <SolidColorBrush x:Key="ErrorText"        Color="#B01011" />
+      <!-- errorForeground -->
+      <SolidColorBrush x:Key="SuccessText"      Color="#236B26" />
+      <!-- ports.iconRunningProcessForeground -->
+      <!-- Keep warm's flame while a site is kept warm. -->
+      <SolidColorBrush x:Key="KeepWarmFg"       Color="#D9480F" />
+      <SolidColorBrush x:Key="Accent"           Color="#005FB8" />
+      <!-- button.background, focusBorder -->
+      <!-- The border of a field or check box under the mouse or with the focus: 3:1 against the field (WCAG 1.4.11). -->
+      <SolidColorBrush x:Key="FocusBorder"      Color="#005FB8" />
+      <!-- focusBorder -->
+      <!-- Text that is a link or acts like one (LinkButton, links in text, accent icons in rows). -->
+      <SolidColorBrush x:Key="LinkFg"           Color="#005FB8" />
+      <!-- textLink.foreground -->
+      <!-- Text and marks on an accent fill: a primary button, a ticked check box, a switch that is on. -->
+      <SolidColorBrush x:Key="OnAccent"         Color="#FFFFFF" />
+      <SolidColorBrush x:Key="AccentHover"      Color="#0258A8" />
+      <!-- button.hoverBackground -->
+      <SolidColorBrush x:Key="DangerBrush"      Color="#C72E0F" />
+      <!-- statusBarItem.errorBackground -->
+      <SolidColorBrush x:Key="DangerHoverBrush" Color="#A8270D" />
+      <SolidColorBrush x:Key="InfoBannerBg"     Color="#D6ECF2" />
+      <!-- inputValidation.infoBackground -->
+      <SolidColorBrush x:Key="InfoBannerBorder" Color="#007ACC" />
+      <!-- inputValidation.infoBorder -->
+      <SolidColorBrush x:Key="WarnBannerBg"     Color="#F6F5D2" />
+      <!-- inputValidation.warningBackground -->
+      <SolidColorBrush x:Key="WarnBannerBorder" Color="#B89500" />
+      <!-- inputValidation.warningBorder -->
+      <SolidColorBrush x:Key="SidebarBg"        Color="#F8F8F8" />
+      <!-- sideBar.background, titleBar.activeBackground -->
+      <SolidColorBrush x:Key="SidebarBorder"    Color="#E5E5E5" />
+      <!-- sideBar.border -->
+      <SolidColorBrush x:Key="SidebarFg"        Color="#3B3B3B" />
+      <!-- sideBar.foreground -->
+      <SolidColorBrush x:Key="SidebarActiveFg"  Color="#000000" />
+      <!-- list.activeSelectionForeground -->
+      <SolidColorBrush x:Key="SidebarHover"     Color="#F2F2F2" />
+      <!-- list.hoverBackground -->
+      <SolidColorBrush x:Key="SidebarSelected"  Color="#E8E8E8" />
+      <!-- list.activeSelectionBackground -->
+      <SolidColorBrush x:Key="SidebarMuted"     Color="#616161" />
+      <!-- activityBar.inactiveForeground -->
+      <SolidColorBrush x:Key="SidebarDivider"   Color="#E5E5E5" />
+      <!-- sideBarSectionHeader.border -->
+      <SolidColorBrush x:Key="StatusBarBg"      Color="#F8F8F8" />
+      <!-- statusBar.background -->
+      <!-- A search option (Aa, ab, .*) in the panel's search box, under the mouse. -->
+      <SolidColorBrush x:Key="InputOptionHoverBg"       Color="#50B8B8B8" />
+      <!-- inputOption.hoverBackground -->
+      <!-- The line between groups of the command palette (Customize Layout). -->
+      <SolidColorBrush x:Key="PickerGroupBorder"        Color="#E5E5E5" />
+      <!-- pickerGroup.border -->
+      <!-- Behind Settings and Troubleshoot, which open over the page: the page dimmed. -->
+      <SolidColorBrush x:Key="ModalBackdrop"            Color="#33000000" />
+      <!-- The tour's: darker, so the one part it is about stands out. -->
+      <SolidColorBrush x:Key="TourBackdrop"             Color="#80000000" />
+      <!-- The search in the middle of the title bar. -->
+      <SolidColorBrush x:Key="CommandCenterFg"          Color="#1E1E1E" />
+      <!-- commandCenter.foreground -->
+      <SolidColorBrush x:Key="CommandCenterBg"          Color="#0D000000" />
+      <!-- commandCenter.background -->
+      <SolidColorBrush x:Key="CommandCenterHoverBg"     Color="#14000000" />
+      <!-- commandCenter.activeBackground -->
+      <SolidColorBrush x:Key="CommandCenterBorder"      Color="#331E1E1E" />
+      <!-- commandCenter.border -->
+      <SolidColorBrush x:Key="CommandCenterHoverBorder" Color="#4D1E1E1E" />
+      <!-- commandCenter.activeBorder -->
+      <SolidColorBrush x:Key="LogBg"            Color="#F8F8F8" />
+      <!-- panel.background -->
+      <!-- Search (Ctrl+F in the bottom panel): every match, and the current one. -->
+      <!-- Every match: opaque, under the text - lighter than VS Code's findMatchHighlightBackground (#55EA5C00, #F3C4A5 on
+           the panel), so text that reads at 5.5:1 or more on the panel still does at 4.5:1 on a match (LogFg 8.3:1, LogMuted
+           4.6:1); it stands out from the panel by its colour (1.28:1). -->
+      <SolidColorBrush x:Key="SearchMatchBg"    Color="#FED894" />
+      <!-- editor.findMatchHighlightBackground, lighter -->
+      <SolidColorBrush x:Key="SearchCurrentBg"  Color="#FFE4A6" />
+      <!-- told apart by SearchCurrentBorder; muted text on it 5.0:1 -->
+      <!-- Around the current match, so it stands out from the others by more than its colour. -->
+      <SolidColorBrush x:Key="SearchCurrentBorder" Color="#855F00" />
+      <!-- editorWarning.foreground -->
+      <SolidColorBrush x:Key="LogHeaderBg"      Color="#F8F8F8" />
+      <!-- panel.background -->
+      <SolidColorBrush x:Key="LogHeaderFg"      Color="#000000" />
+      <!-- list.activeSelectionForeground -->
+      <SolidColorBrush x:Key="LogFg"            Color="#3B3B3B" />
+      <!-- terminal.foreground -->
+      <SolidColorBrush x:Key="LogMuted"         Color="#616161" />
+      <!-- tab.inactiveForeground -->
+      <SolidColorBrush x:Key="LogFail"          Color="#CD3131" />
+      <!-- terminal.ansiRed -->
+      <SolidColorBrush x:Key="LogWarn"          Color="#855F00" />
+      <!-- editorWarning.foreground -->
+      <SolidColorBrush x:Key="LogTrack"         Color="#E5E5E5" />
+      <!-- panel.border -->
+      <!-- Output tab (Controls/PipelineView): the log, the stage icons and the status pills - its header and stage rail use
+           the panel's Log* brushes. -->
+      <SolidColorBrush x:Key="OutBorder"          Color="#E5E5E5" />
+      <!-- panel.border -->
+      <SolidColorBrush x:Key="OutLogBg"           Color="#F8F8F8" />
+      <!-- panel.background -->
+      <SolidColorBrush x:Key="OutText"            Color="#3B3B3B" />
+      <!-- foreground -->
+      <SolidColorBrush x:Key="OutHeading"         Color="#1F1F1F" />
+      <!-- settings.headerForeground -->
+      <SolidColorBrush x:Key="OutHeadingTime"     Color="#616161" />
+      <!-- tab.inactiveForeground -->
+      <SolidColorBrush x:Key="OutTime"            Color="#616161" />
+      <!-- tab.inactiveForeground -->
+      <SolidColorBrush x:Key="OutMuted"           Color="#616161" />
+      <!-- tab.inactiveForeground -->
+      <SolidColorBrush x:Key="OutDim"             Color="#6B6B6B" />
+      <!-- pickerGroup.foreground -->
+      <SolidColorBrush x:Key="OutSkippedIcon"     Color="#8A8A8A" />
+      <!-- input.border -->
+      <SolidColorBrush x:Key="OutValue"           Color="#005FB8" />
+      <!-- textLink.foreground -->
+      <SolidColorBrush x:Key="OutActive"          Color="#0063D3" />
+      <!-- editorInfo.foreground -->
+      <SolidColorBrush x:Key="OutSuccessText"     Color="#236B26" />
+      <!-- ports.iconRunningProcessForeground -->
+      <SolidColorBrush x:Key="OutOk"              Color="#369432" />
+      <!-- ports.iconRunningProcessForeground -->
+      <SolidColorBrush x:Key="OutWarn"            Color="#855F00" />
+      <!-- editorWarning.foreground -->
+      <SolidColorBrush x:Key="OutWarnText"        Color="#855F00" />
+      <!-- list.warningForeground -->
+      <SolidColorBrush x:Key="OutWarnRowBg"       Color="#F6F5D2" />
+      <!-- inputValidation.warningBackground -->
+      <SolidColorBrush x:Key="OutError"           Color="#CD3131" />
+      <!-- terminal.ansiRed -->
+      <SolidColorBrush x:Key="OutErrorSoft"       Color="#B01011" />
+      <!-- list.errorForeground -->
+      <SolidColorBrush x:Key="OutErrorText"       Color="#B01011" />
+      <!-- list.errorForeground -->
+      <SolidColorBrush x:Key="OutErrorDetail"     Color="#616161" />
+      <!-- tab.inactiveForeground -->
+      <SolidColorBrush x:Key="OutErrorBg"         Color="#F2DEDE" />
+      <!-- inputValidation.errorBackground -->
+      <SolidColorBrush x:Key="OutBadgeText"       Color="#FFFFFF" />
+      <!-- button.foreground -->
+      <SolidColorBrush x:Key="OutPillRunningBg"   Color="#D6ECF2" />
+      <!-- inputValidation.infoBackground -->
+      <SolidColorBrush x:Key="OutPillRunningFg"   Color="#0063D3" />
+      <!-- editorInfo.foreground -->
+      <SolidColorBrush x:Key="OutPillOkBg"        Color="#26369432" />
+      <!-- ports.iconRunningProcessForeground, faint -->
+      <SolidColorBrush x:Key="OutPillOkFg"        Color="#236B26" />
+      <!-- ports.iconRunningProcessForeground -->
+      <SolidColorBrush x:Key="OutPillFailBg"      Color="#F2DEDE" />
+      <!-- inputValidation.errorBackground -->
+      <SolidColorBrush x:Key="OutPillFailFg"      Color="#B01011" />
+      <!-- list.errorForeground -->
+      <SolidColorBrush x:Key="OutPillNeutralBg"   Color="#E5E5E5" />
+      <!-- button.secondaryBackground -->
+      <SolidColorBrush x:Key="OutPillNeutralFg"   Color="#3B3B3B" />
+      <!-- button.secondaryForeground -->
+      <!-- Deployments: which way a change goes, and the diff viewer (GitHub's diff, VS Code's Light+ syntax). -->
+      <SolidColorBrush x:Key="DeployPush"         Color="#0063D3" />
+      <!-- editorInfo.foreground -->
+      <SolidColorBrush x:Key="DeployPull"         Color="#7A3EC8" />
+      <!-- a purple apart from the push's blue -->
+      <SolidColorBrush x:Key="DeployConflict"     Color="#B01011" />
+      <!-- list.errorForeground -->
+      <SolidColorBrush x:Key="DiffAddedBg"        Color="#E6FFEC" />
+      <SolidColorBrush x:Key="DiffRemovedBg"      Color="#FFEBE9" />
+      <SolidColorBrush x:Key="DiffAddedMark"      Color="#116329" />
+      <SolidColorBrush x:Key="DiffRemovedMark"    Color="#A40E26" />
+      <SolidColorBrush x:Key="DiffEmptyBg"        Color="#F3F3F3" />
+      <SolidColorBrush x:Key="DiffHunkBg"         Color="#DDF4FF" />
+      <SolidColorBrush x:Key="DiffSelectionBg"    Color="#B0ADD6FF" />
+      <!-- editor.selectionBackground, see-through on + and - -->
+      <SolidColorBrush x:Key="SyntaxKeyword"      Color="#0000FF" />
+      <SolidColorBrush x:Key="SyntaxString"       Color="#A31515" />
+      <SolidColorBrush x:Key="SyntaxComment"      Color="#008000" />
+      <SolidColorBrush x:Key="SyntaxNumber"       Color="#098658" />
+      <SolidColorBrush x:Key="SyntaxTag"          Color="#800000" />
+      <SolidColorBrush x:Key="SyntaxAttribute"    Color="#C50000" />
+    </ResourceDictionary>
+    <ResourceDictionary x:Key="Dark">
+      <!-- VS Code's Dark Modern - same keys as LightTheme.xaml. Each colour is VS Code's own, named after the key it comes
+           from: extensions/theme-defaults/themes/dark_modern.json, and VS Code's built-in defaults (colorRegistry,
+           terminalColorRegistry) for what that file leaves out. Only the flame (KeepWarmFg) and the Danger button aren't
+           VS Code's - it has neither. -->
+      <SolidColorBrush x:Key="WindowBg"         Color="#1F1F1F" />
+      <!-- editor.background -->
+      <SolidColorBrush x:Key="CardBg"           Color="#181818" />
+      <!-- panel.background -->
+      <SolidColorBrush x:Key="CardBorder"       Color="#2B2B2B" />
+      <!-- panel.border -->
+      <SolidColorBrush x:Key="InputBg"          Color="#313131" />
+      <!-- input.background -->
+      <SolidColorBrush x:Key="InputBorder"      Color="#6B6B6B" />
+      <!-- input.border -->
+      <SolidColorBrush x:Key="FieldBorder"      Color="#3C3C3C" />
+      <!-- text boxes and drop-downs: VS Code Dark Modern's input.border - focus shows FocusBorder -->
+      <SolidColorBrush x:Key="HoverBg"          Color="#2A2D2E" />
+      <!-- list.hoverBackground -->
+      <SolidColorBrush x:Key="SelectionBg"      Color="#04395E" />
+      <!-- list.activeSelectionBackground -->
+      <SolidColorBrush x:Key="HeaderBg"         Color="#181818" />
+      <!-- sideBarSectionHeader.background -->
+      <SolidColorBrush x:Key="GridLine"         Color="#2B2B2B" />
+      <!-- tab.border -->
+      <SolidColorBrush x:Key="ScrollThumb"      Color="#66797979" />
+      <!-- scrollbarSlider.background -->
+      <SolidColorBrush x:Key="ScrollThumbHover" Color="#B3646464" />
+      <!-- scrollbarSlider.hoverBackground -->
+      <SolidColorBrush x:Key="TextPrimary"      Color="#CCCCCC" />
+      <!-- foreground -->
+      <!-- A touch lighter than VS Code's descriptionForeground (#9D9D9D): 4.5:1 also on a selected row (SelectionBg) and
+           the selected sidebar entry (WCAG 1.4.3). -->
+      <SolidColorBrush x:Key="TextMuted"        Color="#A3A3A3" />
+      <!-- descriptionForeground, lighter -->
+      <SolidColorBrush x:Key="ErrorText"        Color="#FF6B61" />
+      <!-- errorForeground -->
+      <SolidColorBrush x:Key="SuccessText"      Color="#73C991" />
+      <!-- testing.iconPassed -->
+      <!-- Keep warm's flame while a site is kept warm. -->
+      <SolidColorBrush x:Key="KeepWarmFg"       Color="#FF8A3D" />
+      <SolidColorBrush x:Key="Accent"           Color="#0078D4" />
+      <!-- button.background, focusBorder -->
+      <!-- The border of a field or check box under the mouse or with the focus: 3:1 against the field (WCAG 1.4.11). -->
+      <SolidColorBrush x:Key="FocusBorder"      Color="#3794FF" />
+      <!-- a focusBorder with 3:1 against the fields -->
+      <!-- Text that is a link or acts like one (LinkButton, links in text, accent icons in rows): 4.5:1 on the cards, a
+           hovered and a selected row - the button blue (Accent) has 3.6:1 on the page and 2.7:1 on a selected row. -->
+      <SolidColorBrush x:Key="LinkFg"           Color="#4DAAFC" />
+      <!-- textLink.foreground -->
+      <!-- Text and marks on an accent fill: a primary button, a ticked check box, a switch that is on. -->
+      <SolidColorBrush x:Key="OnAccent"         Color="#FFFFFF" />
+      <SolidColorBrush x:Key="AccentHover"      Color="#026EC1" />
+      <!-- button.hoverBackground -->
+      <SolidColorBrush x:Key="DangerBrush"      Color="#C72E0F" />
+      <!-- statusBarItem.errorBackground -->
+      <SolidColorBrush x:Key="DangerHoverBrush" Color="#A8270D" />
+      <SolidColorBrush x:Key="InfoBannerBg"     Color="#063B49" />
+      <!-- inputValidation.infoBackground -->
+      <SolidColorBrush x:Key="InfoBannerBorder" Color="#007ACC" />
+      <!-- inputValidation.infoBorder -->
+      <SolidColorBrush x:Key="WarnBannerBg"     Color="#352A05" />
+      <!-- inputValidation.warningBackground -->
+      <SolidColorBrush x:Key="WarnBannerBorder" Color="#B89500" />
+      <!-- inputValidation.warningBorder -->
+      <SolidColorBrush x:Key="SidebarBg"        Color="#181818" />
+      <!-- sideBar.background, titleBar.activeBackground -->
+      <SolidColorBrush x:Key="SidebarBorder"    Color="#2B2B2B" />
+      <!-- sideBar.border -->
+      <SolidColorBrush x:Key="SidebarFg"        Color="#CCCCCC" />
+      <!-- sideBar.foreground -->
+      <SolidColorBrush x:Key="SidebarActiveFg"  Color="#FFFFFF" />
+      <!-- list.activeSelectionForeground -->
+      <SolidColorBrush x:Key="SidebarHover"     Color="#2A2D2E" />
+      <!-- list.hoverBackground -->
+      <SolidColorBrush x:Key="SidebarSelected"  Color="#37373D" />
+      <!-- list.inactiveSelectionBackground -->
+      <SolidColorBrush x:Key="SidebarMuted"     Color="#9D9D9D" />
+      <!-- descriptionForeground -->
+      <SolidColorBrush x:Key="SidebarDivider"   Color="#2B2B2B" />
+      <!-- sideBarSectionHeader.border -->
+      <SolidColorBrush x:Key="StatusBarBg"      Color="#181818" />
+      <!-- statusBar.background -->
+      <!-- A search option (Aa, ab, .*) in the panel's search box, under the mouse. -->
+      <SolidColorBrush x:Key="InputOptionHoverBg"       Color="#805A5D5E" />
+      <!-- inputOption.hoverBackground -->
+      <!-- The line between groups of the command palette (Customize Layout). -->
+      <SolidColorBrush x:Key="PickerGroupBorder"        Color="#3C3C3C" />
+      <!-- pickerGroup.border -->
+      <!-- Behind Settings and Troubleshoot, which open over the page: the page dimmed. -->
+      <SolidColorBrush x:Key="ModalBackdrop"            Color="#66000000" />
+      <!-- The tour's: darker, so the one part it is about stands out. -->
+      <SolidColorBrush x:Key="TourBackdrop"             Color="#B3000000" />
+      <!-- The search in the middle of the title bar. -->
+      <SolidColorBrush x:Key="CommandCenterFg"          Color="#CCCCCC" />
+      <!-- commandCenter.foreground -->
+      <SolidColorBrush x:Key="CommandCenterBg"          Color="#0DFFFFFF" />
+      <!-- commandCenter.background -->
+      <SolidColorBrush x:Key="CommandCenterHoverBg"     Color="#14FFFFFF" />
+      <!-- commandCenter.activeBackground -->
+      <SolidColorBrush x:Key="CommandCenterBorder"      Color="#33CCCCCC" />
+      <!-- commandCenter.border -->
+      <SolidColorBrush x:Key="CommandCenterHoverBorder" Color="#4DCCCCCC" />
+      <!-- commandCenter.activeBorder -->
+      <SolidColorBrush x:Key="LogBg"            Color="#181818" />
+      <!-- panel.background -->
+      <!-- Search (Ctrl+F in the bottom panel): every match, and the current one. -->
+      <!-- Every match: opaque, under the text - VS Code's findMatchHighlightBackground (#55EA5C00, #5E2F10 on the panel)
+           darker, so text that reads at 5.5:1 or more on the panel still does at 4.5:1 on a match (LogFg 8.9:1, LogMuted
+           5.3:1, OutDim 4.7:1); it stands out from the panel by its colour (1.24:1). -->
+      <SolidColorBrush x:Key="SearchMatchBg"    Color="#481E04" />
+      <!-- editor.findMatchHighlightBackground, darker -->
+      <!-- The current one darker than VS Code's findMatchBackground (#9E6A03, 2.9:1 under the text): 6.2:1 under LogFg -
+           and outlined (SearchCurrentBorder), so it stands out from the other matches by more than its colour. -->
+      <SolidColorBrush x:Key="SearchCurrentBg"  Color="#3F2A00" />
+      <!-- told apart by SearchCurrentBorder; muted text on it 5.0:1 -->
+      <SolidColorBrush x:Key="SearchCurrentBorder" Color="#CCA700" />
+      <!-- editorWarning.foreground -->
+      <SolidColorBrush x:Key="LogHeaderBg"      Color="#181818" />
+      <!-- panel.background -->
+      <SolidColorBrush x:Key="LogHeaderFg"      Color="#FFFFFF" />
+      <!-- list.activeSelectionForeground -->
+      <SolidColorBrush x:Key="LogFg"            Color="#CCCCCC" />
+      <!-- terminal.foreground -->
+      <SolidColorBrush x:Key="LogMuted"         Color="#9D9D9D" />
+      <!-- panelTitle.inactiveForeground -->
+      <SolidColorBrush x:Key="LogFail"          Color="#F14C4C" />
+      <!-- editorError.foreground -->
+      <SolidColorBrush x:Key="LogWarn"          Color="#CCA700" />
+      <!-- editorWarning.foreground -->
+      <SolidColorBrush x:Key="LogTrack"         Color="#2B2B2B" />
+      <!-- panel.border -->
+      <!-- Output tab (Controls/PipelineView): the log, the stage icons and the status pills - its header and stage rail use
+           the panel's Log* brushes. -->
+      <SolidColorBrush x:Key="OutBorder"          Color="#2B2B2B" />
+      <!-- panel.border -->
+      <SolidColorBrush x:Key="OutLogBg"           Color="#181818" />
+      <!-- panel.background -->
+      <SolidColorBrush x:Key="OutText"            Color="#CCCCCC" />
+      <!-- foreground -->
+      <SolidColorBrush x:Key="OutHeading"         Color="#FFFFFF" />
+      <!-- settings.headerForeground -->
+      <SolidColorBrush x:Key="OutHeadingTime"     Color="#9D9D9D" />
+      <!-- descriptionForeground -->
+      <SolidColorBrush x:Key="OutTime"            Color="#9D9D9D" />
+      <!-- descriptionForeground -->
+      <SolidColorBrush x:Key="OutMuted"           Color="#9D9D9D" />
+      <!-- descriptionForeground -->
+      <SolidColorBrush x:Key="OutDim"             Color="#8B949E" />
+      <!-- editorLineNumber.foreground -->
+      <SolidColorBrush x:Key="OutSkippedIcon"     Color="#6B6B6B" />
+      <!-- input.border -->
+      <SolidColorBrush x:Key="OutValue"           Color="#4DAAFC" />
+      <!-- textLink.foreground -->
+      <SolidColorBrush x:Key="OutActive"          Color="#59A4F9" />
+      <!-- editorInfo.foreground -->
+      <SolidColorBrush x:Key="OutSuccessText"     Color="#73C991" />
+      <!-- testing.iconPassed -->
+      <SolidColorBrush x:Key="OutOk"              Color="#73C991" />
+      <!-- testing.iconPassed -->
+      <SolidColorBrush x:Key="OutWarn"            Color="#CCA700" />
+      <!-- editorWarning.foreground -->
+      <SolidColorBrush x:Key="OutWarnText"        Color="#CCA700" />
+      <!-- list.warningForeground -->
+      <SolidColorBrush x:Key="OutWarnRowBg"       Color="#352A05" />
+      <!-- inputValidation.warningBackground -->
+      <SolidColorBrush x:Key="OutError"           Color="#F14C4C" />
+      <!-- editorError.foreground -->
+      <SolidColorBrush x:Key="OutErrorSoft"       Color="#F88070" />
+      <!-- list.errorForeground -->
+      <SolidColorBrush x:Key="OutErrorText"       Color="#F88070" />
+      <!-- list.errorForeground -->
+      <SolidColorBrush x:Key="OutErrorDetail"     Color="#9D9D9D" />
+      <!-- descriptionForeground -->
+      <SolidColorBrush x:Key="OutErrorBg"         Color="#5A1D1D" />
+      <!-- inputValidation.errorBackground -->
+      <SolidColorBrush x:Key="OutBadgeText"       Color="#1F1F1F" />
+      <!-- editor.background -->
+      <SolidColorBrush x:Key="OutPillRunningBg"   Color="#063B49" />
+      <!-- inputValidation.infoBackground -->
+      <SolidColorBrush x:Key="OutPillRunningFg"   Color="#59A4F9" />
+      <!-- editorInfo.foreground -->
+      <SolidColorBrush x:Key="OutPillOkBg"        Color="#2673C991" />
+      <!-- testing.iconPassed, faint -->
+      <SolidColorBrush x:Key="OutPillOkFg"        Color="#73C991" />
+      <!-- testing.iconPassed -->
+      <SolidColorBrush x:Key="OutPillFailBg"      Color="#5A1D1D" />
+      <!-- inputValidation.errorBackground -->
+      <SolidColorBrush x:Key="OutPillFailFg"      Color="#F88070" />
+      <!-- list.errorForeground -->
+      <SolidColorBrush x:Key="OutPillNeutralBg"   Color="#313131" />
+      <!-- badge (button.secondary) -->
+      <SolidColorBrush x:Key="OutPillNeutralFg"   Color="#CCCCCC" />
+      <!-- foreground -->
+      <!-- Deployments: which way a change goes, and the diff viewer (GitHub's dark diff, VS Code's Dark+ syntax). -->
+      <SolidColorBrush x:Key="DeployPush"         Color="#3794FF" />
+      <!-- editorInfo.foreground -->
+      <SolidColorBrush x:Key="DeployPull"         Color="#C090F0" />
+      <!-- a purple apart from the push's blue -->
+      <SolidColorBrush x:Key="DeployConflict"     Color="#F88070" />
+      <!-- list.errorForeground -->
+      <SolidColorBrush x:Key="DiffAddedBg"        Color="#16331F" />
+      <SolidColorBrush x:Key="DiffRemovedBg"      Color="#3D1A1C" />
+      <SolidColorBrush x:Key="DiffAddedMark"      Color="#7EE787" />
+      <SolidColorBrush x:Key="DiffRemovedMark"    Color="#FFA198" />
+      <SolidColorBrush x:Key="DiffEmptyBg"        Color="#252526" />
+      <SolidColorBrush x:Key="DiffHunkBg"         Color="#12304A" />
+      <SolidColorBrush x:Key="DiffSelectionBg"    Color="#B0264F78" />
+      <!-- editor.selectionBackground, see-through on + and - -->
+      <SolidColorBrush x:Key="SyntaxKeyword"      Color="#569CD6" />
+      <SolidColorBrush x:Key="SyntaxString"       Color="#CE9178" />
+      <SolidColorBrush x:Key="SyntaxComment"      Color="#6A9955" />
+      <SolidColorBrush x:Key="SyntaxNumber"       Color="#B5CEA8" />
+      <SolidColorBrush x:Key="SyntaxTag"          Color="#569CD6" />
+      <SolidColorBrush x:Key="SyntaxAttribute"    Color="#9CDCFE" />
+    </ResourceDictionary>
+  </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

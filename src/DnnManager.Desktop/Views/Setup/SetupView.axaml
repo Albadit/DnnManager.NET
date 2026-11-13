@@ -1,0 +1,230 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:s="using:DnnManager.Desktop.Views.Setup"
+             x:Class="DnnManager.Desktop.Views.Setup.SetupView">
+  <UserControl.Styles>
+    <StyleInclude Source="/Themes/SetupStyles.axaml" />
+  </UserControl.Styles>
+  <!-- New project - the Windows app's Pages/SetupPage.xaml, card for card. -->
+  <Panel>
+    <!-- macOS and Linux: what only Windows has, said instead of the page. -->
+    <Border x:Name="NotHerePanel" Padding="40" IsVisible="False">
+      <StackPanel MaxWidth="560" Spacing="12" VerticalAlignment="Center">
+        <TextBlock Text="New project" FontSize="22" FontWeight="SemiBold" />
+        <TextBlock x:Name="NotHereTitle" FontSize="15" />
+        <TextBlock x:Name="NotHereText" TextWrapping="Wrap" Classes="muted" />
+      </StackPanel>
+    </Border>
+
+    <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto">
+      <!-- Centred: as wide as there is room, up to 860 - the width of the settings. -->
+      <StackPanel Margin="28,24,28,20" MaxWidth="860">
+        <TextBlock Classes="pageTitle" Text="New project" />
+        <TextBlock Classes="pageSubtitle"
+                   Text="Creates a project from a fresh DNN download - installed for you, so the first visit shows your new site - or from a .zip of an existing site (with its .bacpac / .bak), with its IIS website, hostname and database." />
+
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="cardTitle" Text="Project" />
+            <TextBlock Classes="fieldLabel" Text="Project name" Margin="0,0,0,4" />
+            <TextBox AutomationProperties.Name="Project name" x:Name="NameBox" TextChanged="NameBox_TextChanged" />
+            <TextBlock x:Name="NameError" Classes="errorLine" IsVisible="False" />
+            <TextBlock x:Name="NameHint" Classes="hint" />
+          </StackPanel>
+        </Border>
+
+        <!-- Right under the name it follows - for a new site and an imported one alike. -->
+        <Border x:Name="IisSiteCard" Classes="card">
+          <StackPanel>
+            <TextBlock Classes="cardTitle" Text="IIS" />
+            <Grid ColumnDefinitions="*,12,120">
+              <StackPanel>
+                <TextBlock Classes="fieldLabel" Text="Host name" Margin="0,0,0,4" />
+                <TextBox AutomationProperties.Name="Host name" x:Name="HostNameBox" TextChanged="HostName_TextChanged" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Classes="fieldLabel" Text="Port" Margin="0,0,0,4" />
+                <TextBox AutomationProperties.Name="Port" x:Name="PortBox" TextChanged="Field_Changed" />
+              </StackPanel>
+            </Grid>
+            <TextBlock x:Name="IisHint" Classes="hint" />
+          </StackPanel>
+        </Border>
+
+        <Border x:Name="StartCard" Classes="card">
+          <StackPanel>
+            <TextBlock Classes="cardTitle" Text="Start from" />
+            <RadioButton x:Name="FromScratch" GroupName="Start" Content="A new site - download a DNN release" IsChecked="True" IsCheckedChanged="Start_Checked" />
+            <RadioButton x:Name="FromZip" GroupName="Start" Content="An existing site - import a .zip of its files and its .bacpac" IsCheckedChanged="Start_Checked" />
+          </StackPanel>
+        </Border>
+
+        <Border x:Name="ImportCard" Classes="card" IsVisible="False">
+          <StackPanel>
+            <TextBlock Classes="cardTitle" Text="Import" />
+            <!-- Only when a project has a backup to start from. -->
+            <StackPanel x:Name="BackupPickPanel">
+              <TextBlock Classes="fieldLabel" Text="From a project backup" Margin="0,0,0,4" />
+              <Grid ColumnDefinitions="*,12,*">
+                <ComboBox x:Name="BackupProjectCombo" AutomationProperties.Name="Project with backups" SelectionChanged="BackupProject_Changed" />
+                <ComboBox x:Name="ProjectBackupCombo" Grid.Column="2" AutomationProperties.Name="Backup" IsEnabled="False" SelectionChanged="ProjectBackup_Changed" />
+              </Grid>
+              <TextBlock Classes="hint"
+                         Text="A project and one of its backups (Documents\DnnManager\backups) - or choose the files anywhere on this PC below." />
+            </StackPanel>
+            <TextBlock Classes="fieldLabel" Text="Site .zip" />
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="BrowseZip_Click" ToolTip.Tip="Browse" />
+              <TextBox AutomationProperties.Name="Site .zip" x:Name="ZipBox" TextChanged="ImportField_Changed" />
+            </DockPanel>
+            <TextBlock Classes="hint" Text="The site's files - web.config at the top of the zip or in one folder inside it." />
+            <TextBlock Classes="fieldLabel" Text="Database .bacpac" />
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,0,0,0" Click="BrowseBackup_Click" ToolTip.Tip="Browse" />
+              <TextBox AutomationProperties.Name="Database .bacpac" x:Name="BackupBox" TextChanged="ImportField_Changed" />
+            </DockPanel>
+            <TextBlock Classes="hint" Text="The site's database - restored into the project's database. A .bak works too." />
+            <TextBlock x:Name="ImportError" Classes="errorLine" IsVisible="False" />
+          </StackPanel>
+        </Border>
+
+        <Border x:Name="PackageCard" Classes="card">
+          <StackPanel>
+            <TextBlock Classes="cardTitle" Text="DNN package" />
+            <Grid ColumnDefinitions="*,12,*">
+              <StackPanel>
+                <TextBlock Classes="fieldLabel" Text="Repository" Margin="0,0,0,4" />
+                <ComboBox AutomationProperties.Name="Repository" x:Name="SourceCombo" SelectionChanged="SourceCombo_SelectionChanged" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Classes="fieldLabel" Text="Version" Margin="0,0,0,4" />
+                <ComboBox AutomationProperties.Name="Version" x:Name="VersionCombo" SelectionChanged="VersionCombo_SelectionChanged" />
+              </StackPanel>
+            </Grid>
+            <TextBlock x:Name="VersionHint" Classes="hint"
+                       Text="The repository's DNN releases, highest version first - the latest is selected." />
+          </StackPanel>
+        </Border>
+
+        <Border x:Name="InstallCard" Classes="card">
+          <StackPanel>
+            <TextBlock Classes="cardTitle" Text="DNN installation" />
+            <RadioButton x:Name="AutomaticInstall" GroupName="Install" IsCheckedChanged="Install_Checked">
+              <StackPanel>
+                <TextBlock Text="Automatic setup (recommended)" FontWeight="SemiBold" />
+                <TextBlock Classes="hint" Margin="0,2,0,0"
+                           Text="DNN Manager installs DNN with the account and website below - the first visit shows your new site, not DNN's installation wizard." />
+              </StackPanel>
+            </RadioButton>
+            <RadioButton x:Name="ManualInstall" GroupName="Install" IsCheckedChanged="Install_Checked" Margin="0,8,0,0">
+              <StackPanel>
+                <TextBlock Text="Manual DNN setup" FontWeight="SemiBold" />
+                <TextBlock Classes="hint" Margin="0,2,0,0"
+                           Text="DNN's own installation wizard opens on the first visit, for you to fill in." />
+              </StackPanel>
+            </RadioButton>
+          </StackPanel>
+        </Border>
+
+        <Border x:Name="AccountCard" Classes="card">
+          <StackPanel>
+            <TextBlock Classes="cardTitle" Text="DNN account and website" />
+            <Grid ColumnDefinitions="*,12,*" RowDefinitions="Auto,Auto,Auto">
+              <StackPanel>
+                <TextBlock Classes="fieldLabel" Text="Host username" Margin="0,0,0,4" />
+                <TextBox AutomationProperties.Name="Host username" x:Name="HostUserBox" TextChanged="Field_Changed" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <DockPanel Margin="0,0,0,4">
+                  <Button DockPanel.Dock="Right" Classes="link" Content="Generate" FontSize="{StaticResource TextCaption}"
+                          ToolTip.Tip="Generate password" Click="GeneratePassword_Click" />
+                  <TextBlock Classes="fieldLabel" Text="Host password" Margin="0" />
+                </DockPanel>
+                <s:PasswordInput AutomationProperties.Name="Host password" x:Name="HostPasswordBox" />
+              </StackPanel>
+              <StackPanel Grid.Row="1">
+                <TextBlock Classes="fieldLabel" Text="Host e-mail" />
+                <TextBox AutomationProperties.Name="Host e-mail" x:Name="HostEmailBox" TextChanged="Field_Changed" />
+              </StackPanel>
+              <StackPanel Grid.Row="1" Grid.Column="2">
+                <TextBlock Classes="fieldLabel" Text="Website name" />
+                <TextBox AutomationProperties.Name="Website name" x:Name="WebsiteNameBox" TextChanged="WebsiteName_TextChanged" />
+              </StackPanel>
+              <StackPanel Grid.Row="2">
+                <TextBlock Classes="fieldLabel" Text="Language" />
+                <ComboBox AutomationProperties.Name="Language" x:Name="LanguageCombo" SelectionChanged="Selection_Changed" />
+              </StackPanel>
+              <StackPanel Grid.Row="2" Grid.Column="2">
+                <TextBlock Classes="fieldLabel" Text="Site template" />
+                <ComboBox AutomationProperties.Name="Site template" x:Name="TemplateCombo" SelectionChanged="Selection_Changed" />
+              </StackPanel>
+            </Grid>
+            <TextBlock x:Name="AccountError" Classes="errorLine" IsVisible="False" />
+            <TextBlock x:Name="AccountHint" Classes="hint" />
+          </StackPanel>
+        </Border>
+
+        <!-- The database: filled in from Settings → Database server - changed here, for this project only. -->
+        <Border x:Name="DatabaseCard" Classes="card">
+          <StackPanel>
+            <DockPanel>
+              <Button x:Name="ResetDatabaseButton" DockPanel.Dock="Right" Classes="link" Content="Use the settings"
+                      FontSize="{StaticResource TextCaption}" VerticalAlignment="Top" IsVisible="False"
+                      ToolTip.Tip="Use the settings" Click="ResetDatabase_Click" />
+              <TextBlock Classes="cardTitle" Text="Database" />
+            </DockPanel>
+            <TextBlock Classes="fieldLabel" Text="Connection type" Margin="0,0,0,4" />
+            <WrapPanel>
+              <RadioButton x:Name="DbContainer" GroupName="DbType" Content="Local SQL container (Docker)" Margin="0,0,20,4" IsCheckedChanged="DbType_Checked" />
+              <RadioButton x:Name="DbSqlServer" GroupName="DbType" Content="SQL Server / SQL Server Express" Margin="0,0,20,4" IsCheckedChanged="DbType_Checked" />
+              <RadioButton x:Name="DbLocalDb" GroupName="DbType" Content="LocalDB file" Margin="0,0,0,4" IsCheckedChanged="DbType_Checked" />
+            </WrapPanel>
+            <Grid ColumnDefinitions="*,12,*" RowDefinitions="Auto,Auto,Auto">
+              <StackPanel>
+                <TextBlock x:Name="DbServerLabel" Classes="fieldLabel" Text="Server" />
+                <TextBox AutomationProperties.Name="Server" x:Name="DbServerBox" TextChanged="DbField_Changed" />
+              </StackPanel>
+              <StackPanel x:Name="DbNamePanel" Grid.Column="2">
+                <TextBlock Classes="fieldLabel" Text="Database name" />
+                <TextBox AutomationProperties.Name="Database name" x:Name="DbNameBox" TextChanged="DbName_Changed" />
+              </StackPanel>
+              <StackPanel x:Name="DbAuthPanel" Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,10,0,0">
+                <RadioButton x:Name="DbWindowsAuth" GroupName="DbAuth" Content="Windows authentication" Margin="0,0,20,0" IsCheckedChanged="DbAuth_Checked" />
+                <RadioButton x:Name="DbSqlAuth" GroupName="DbAuth" Content="SQL Server authentication" IsCheckedChanged="DbAuth_Checked" />
+              </StackPanel>
+              <StackPanel x:Name="DbUserPanel" Grid.Row="2">
+                <TextBlock Classes="fieldLabel" Text="Username" />
+                <TextBox AutomationProperties.Name="Username" x:Name="DbUserBox" TextChanged="DbField_Changed" />
+              </StackPanel>
+              <StackPanel x:Name="DbPasswordPanel" Grid.Row="2" Grid.Column="2">
+                <TextBlock Classes="fieldLabel" Text="Password" />
+                <s:PasswordInput AutomationProperties.Name="Password" x:Name="DbPasswordBox" />
+              </StackPanel>
+            </Grid>
+            <TextBlock x:Name="DatabaseError" Classes="errorLine" IsVisible="False" />
+            <TextBlock x:Name="DatabaseHint" Classes="hint" />
+          </StackPanel>
+        </Border>
+
+        <!-- What was just made, and the way to it - the Windows app's toast ("Open site"). -->
+        <Border x:Name="DoneBanner" Classes="banner" IsVisible="False">
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" Margin="12,0,0,0">
+              <Button Classes="link" Content="Open site" Click="OpenSite_Click" ToolTip.Tip="Open the new site in the browser" />
+              <Button Classes="link" Content="Dismiss" Click="DismissDone_Click" ToolTip.Tip="Dismiss" />
+            </StackPanel>
+            <TextBlock x:Name="DoneText" TextWrapping="Wrap" VerticalAlignment="Center" />
+          </DockPanel>
+        </Border>
+
+        <StackPanel Orientation="Horizontal">
+          <Button x:Name="RunButton" Classes="primary" Content="Create project" IsEnabled="False" Click="Run_Click"
+                  ToolTip.Tip="Create the website with these choices - the panel at the bottom shows each step, Cancel undoes it" />
+          <!-- Why the button can't be clicked yet: a disabled button says nothing. A screen reader hears it too, as the
+               button's help text. -->
+          <TextBlock x:Name="StillNeeded" Classes="hint" VerticalAlignment="Center" Margin="12,0,0,0" MaxWidth="520" />
+        </StackPanel>
+      </StackPanel>
+    </ScrollViewer>
+  </Panel>
+</UserControl>

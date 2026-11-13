@@ -126,9 +126,11 @@ foreach ($platform in $Platforms) {
                 }
                 if ($Kind -eq 'portable') {
                     if (Test-Path $folder) { Remove-Item $folder -Recurse -Force }
-                    Invoke-Dotnet @('publish', (Join-Path $root 'DnnManager.csproj'), '-c', $Configuration, '-r', $runtime.Rid, '--self-contained', 'true', '-nologo',
-                        '-p:PublishSingleFile=true', '-p:IncludeNativeLibrariesForSelfExtract=true', '-p:EnableCompressionInSingleFile=true',
-                        '-p:PortableExe=true', '-o', $folder)
+                    # DNN Manager in Avalonia - the same app as on macOS and Linux; its publish names the exe DnnManager-<version>-<arch>.exe.
+                    Invoke-Dotnet @('publish', (Join-Path $root 'src/DnnManager.Desktop/DnnManager.Desktop.csproj'), '-c', $Configuration, '-r', $runtime.Rid,
+                        '--self-contained', 'true', '-nologo', '-p:PublishSingleFile=true', '-p:IncludeNativeLibrariesForSelfExtract=true',
+                        '-p:EnableCompressionInSingleFile=true', '-p:PortableExe=true',
+                        "-p:Version=$version", "-p:AssemblyVersion=$fileVersion", "-p:FileVersion=$fileVersion", '-o', $folder)
                     # Only the portable exe: not the symbols and XML docs, nor DnnManager.exe it was copied from.
                     Get-ChildItem $folder -File | Where-Object { $_.Name -notlike 'DnnManager-*.exe' } | Remove-Item
                     $made.Add((Join-Path $folder "DnnManager-$version-$($runtime.Arch).exe"))
@@ -167,7 +169,7 @@ foreach ($platform in $Platforms) {
             $folder = Join-Path ([IO.Path]::GetTempPath()) "dnnmanager-publish-$([guid]::NewGuid().ToString('N'))"
             try {
                 Publish-Desktop $runtime.Rid $folder
-                & (Join-Path $root 'src/DnnManager.Desktop/Packaging/package.ps1') -Publish $folder -Rid $runtime.Rid -Version $version -Out $out -Name $runtime.Name | Out-Null
+                & (Join-Path $root 'src/DnnManager.Desktop/Packaging/package.ps1') -Publish $folder -Rid $runtime.Rid -Version $version -Out $out -Name $runtime.Name -Kind bundle | Out-Null
                 $made.Add((Join-Path $out "$base$(if ($platform -eq 'macos') { '.zip' } else { '.tar.gz' })"))
             }
             finally { Remove-Item $folder -Recurse -Force -ErrorAction SilentlyContinue }

@@ -57,8 +57,9 @@ if (-not $env:GH_TOKEN) { throw 'GH_TOKEN isn''t set.' }
 $platformList = @($Platforms -split '[,\s]+' | Where-Object { $_ })
 $byPlatform = @{
     windows = @("DnnManager-$version-x64.exe", "DnnManager_Setup-$version-x64.exe")
-    macos   = @("DnnManager-$version-macos-arm64.zip", "DnnManager-$version-macos-x64.zip")
-    linux   = @("DnnManager-$version-linux-x64.tar.gz", "DnnManager-$version-linux-arm64.tar.gz")
+    # macOS and Linux: the program itself, one file each - no zip.
+    macos   = @("DnnManager-$version-macos-arm64", "DnnManager-$version-macos-x64")
+    linux   = @("DnnManager-$version-linux-x64", "DnnManager-$version-linux-arm64")
 }
 $unknown = @($platformList | Where-Object { -not $byPlatform.ContainsKey($_) })
 if ($unknown -or $platformList.Count -eq 0) { throw "'$Platforms' isn't a list of platforms (windows, macos, linux)." }

@@ -1,0 +1,482 @@
+<!-- The controls, as the Windows app styles them (src/DnnManager.Presentation/Themes/Controls): VS Code's look, with the
+     colours of Palette.axaml and the sizes of Tokens.axaml - both generated from the WPF theme. A plain Button, TextBox,
+     CheckBox, ListBox is styled without a class; the variants are classes: Button.primary (Primary), Button.danger
+     (Danger), Button.icon (IconButton), Button.link (LinkButton), ToggleButton.icon (IconToggleButton). -->
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- ═══ The title bar Avalonia draws (Windows, Linux): the window buttons as WPF's - minimize, maximize, close; no
+       full-screen button. ═══ -->
+  <Style Selector="Button#PART_FullScreenButton">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+
+  <!-- ═══ Window and text ═══ -->
+  <Style Selector="Window">
+    <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+    <Setter Property="FontSize" Value="{StaticResource TextBody}" />
+    <Setter Property="Background" Value="{DynamicResource WindowBg}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+  </Style>
+  <Style Selector="TextBlock.muted, SelectableTextBlock.muted">
+    <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+  </Style>
+  <!-- A side bar section's title (SERVERS, CHANGES): VS Code's 11 px, bold, upper case. -->
+  <Style Selector="TextBlock.section">
+    <Setter Property="FontSize" Value="{StaticResource TextSmall}" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarFg}" />
+  </Style>
+  <Style Selector="TextBlock.glyph">
+    <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- ═══ Buttons (ButtonStyles.xaml) ═══ -->
+  <!-- Secondary, flat: the card's colour with its quiet edge. -->
+  <Style Selector="Button">
+    <Setter Property="Background" Value="{DynamicResource CardBg}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="14,5" />
+    <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
+    <Setter Property="CornerRadius" Value="{StaticResource ControlRadius}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource HoverBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+  </Style>
+  <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource CardBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+    <Setter Property="Opacity" Value="0.5" />
+  </Style>
+
+  <!-- Primary: VS Code's blue button (button.background). "accent" is the same. -->
+  <Style Selector="Button.primary, Button.accent">
+    <Setter Property="Background" Value="{DynamicResource Accent}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+    <Setter Property="Foreground" Value="{DynamicResource OnAccent}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.accent:pointerover /template/ ContentPresenter#PART_ContentPresenter,
+                   Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.accent:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AccentHover}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentHover}" />
+    <Setter Property="Foreground" Value="{DynamicResource OnAccent}" />
+  </Style>
+  <Style Selector="Button.primary:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.accent:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Accent}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+    <Setter Property="Foreground" Value="{DynamicResource OnAccent}" />
+    <Setter Property="Opacity" Value="0.45" />
+  </Style>
+
+  <!-- Danger: what can't be undone. -->
+  <Style Selector="Button.danger">
+    <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource OnAccent}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource DangerHoverBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DangerHoverBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource OnAccent}" />
+  </Style>
+
+  <!-- Icon only (row actions, a section's actions, the status bar): transparent, a 28 px square, hover shows it. -->
+  <Style Selector="Button.icon, ToggleButton.icon">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+    <Setter Property="Padding" Value="6,2" />
+    <Setter Property="MinWidth" Value="28" />
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="CornerRadius" Value="{StaticResource ControlRadius}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.icon:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.icon:pressed /template/ ContentPresenter#PART_ContentPresenter,
+                   ToggleButton.icon:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource HoverBg}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+  </Style>
+  <Style Selector="Button.icon:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Opacity" Value="0.35" />
+  </Style>
+  <!-- On: the selection behind it, the icon in the link blue (3:1 on the selection - WCAG 1.4.11). -->
+  <Style Selector="ToggleButton.icon:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource SelectionBg}" />
+    <Setter Property="Foreground" Value="{DynamicResource LinkFg}" />
+  </Style>
+
+  <!-- Text only, as a link. -->
+  <Style Selector="Button.link">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource LinkFg}" />
+  </Style>
+  <Style Selector="Button.link:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.link:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource LinkFg}" />
+  </Style>
+
+  <!-- ═══ Inputs (InputStyles.xaml) ═══ -->
+  <Style Selector="TextBox, AutoCompleteBox /template/ TextBox">
+    <Setter Property="Background" Value="{DynamicResource InputBg}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource FieldBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{StaticResource ControlRadius}" />
+    <Setter Property="Padding" Value="{StaticResource InputPadding}" />
+    <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="CaretBrush" Value="{DynamicResource TextPrimary}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource SelectionBg}" />
+  </Style>
+  <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="{DynamicResource InputBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource FieldBorder}" />
+  </Style>
+  <!-- The focus: the border in the focus blue (3:1 against the field - WCAG 1.4.11), no thicker line. -->
+  <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="{DynamicResource InputBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource FocusBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="TextBox /template/ TextBlock#PART_Watermark, TextBox /template/ TextBlock#PART_Placeholder">
+    <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+  </Style>
+
+  <Style Selector="ComboBox">
+    <Setter Property="Background" Value="{DynamicResource InputBg}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource FieldBorder}" />
+    <Setter Property="CornerRadius" Value="{StaticResource ControlRadius}" />
+    <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
+  </Style>
+
+  <!-- ═══ Lists (ListStyles.xaml) ═══ -->
+  <Style Selector="ListBox">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="ListBoxItem">
+    <Setter Property="Padding" Value="8,3" />
+    <Setter Property="MinHeight" Value="22" />
+  </Style>
+  <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource HoverBg}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+  </Style>
+  <Style Selector="ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter,
+                   ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter,
+                   ListBoxItem:selected:focus /template/ ContentPresenter#PART_ContentPresenter,
+                   ListBoxItem:selected:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource SelectionBg}" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarActiveFg}" />
+  </Style>
+
+  <!-- ═══ The splitters between the side bar, the view and Output: VS Code's sash - the border, the blue under the mouse. ═══ -->
+  <Style Selector="GridSplitter">
+    <Setter Property="Background" Value="{DynamicResource SidebarBorder}" />
+  </Style>
+  <Style Selector="GridSplitter:pointerover">
+    <Setter Property="Background" Value="{DynamicResource FocusBorder}" />
+  </Style>
+
+  <!-- ═══ The side bar's entries (App.xaml NavItem, the icons-only side bar): a rounded highlight inset from the edges,
+       VS Code's activity bar. ═══ -->
+  <Style Selector="ToggleButton.nav, Button.nav">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarFg}" />
+    <Setter Property="Margin" Value="{DynamicResource NavIconMargin}" />
+    <Setter Property="Padding" Value="{DynamicResource NavIconPadding}" />
+    <Setter Property="CornerRadius" Value="{StaticResource CardRadius}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FontSize" Value="16" />
+  </Style>
+  <Style Selector="ToggleButton.nav:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.nav:pointerover /template/ ContentPresenter#PART_ContentPresenter,
+                   ToggleButton.nav:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource SidebarHover}" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarFg}" />
+  </Style>
+  <Style Selector="ToggleButton.nav:checked /template/ ContentPresenter#PART_ContentPresenter,
+                   ToggleButton.nav:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource SidebarSelected}" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarActiveFg}" />
+  </Style>
+  <!-- The entry's icon: a glyph of the icon font in 30 px (App.xaml NavGlyph), or a drawn one in 16. -->
+  <Style Selector="ToggleButton.nav TextBlock.glyph, Button.nav TextBlock.glyph">
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="Width" Value="30" />
+    <Setter Property="TextAlignment" Value="Center" />
+  </Style>
+  <Style Selector="ToggleButton.nav Path, Button.nav Path">
+    <Setter Property="Width" Value="18" />
+    <Setter Property="Height" Value="18" />
+    <Setter Property="Stretch" Value="Uniform" />
+    <Setter Property="StrokeThickness" Value="1.2" />
+    <Setter Property="StrokeLineCap" Value="Round" />
+    <Setter Property="StrokeJoin" Value="Round" />
+  </Style>
+
+  <!-- ═══ Tooltips: the card's colour with its edge, as WPF's. ═══ -->
+  <Style Selector="ToolTip">
+    <Setter Property="Background" Value="{DynamicResource CardBg}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
+    <Setter Property="FontSize" Value="{StaticResource TextCaption}" />
+  </Style>
+
+  <!-- ═══ The title bar (MainWindow.xaml's styles) ═══ -->
+  <!-- The command centre: VS Code's search box in the middle of the title bar - it opens the command palette. -->
+  <Style Selector="Button.commandcenter">
+    <Setter Property="Height" Value="22" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="8,0" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Foreground" Value="{DynamicResource CommandCenterFg}" />
+    <Setter Property="Background" Value="{DynamicResource CommandCenterBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CommandCenterBorder}" />
+    <Setter Property="FontSize" Value="{StaticResource TextCaption}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="Focusable" Value="False" />
+  </Style>
+  <Style Selector="Button.commandcenter:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.commandcenter:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource CommandCenterHoverBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CommandCenterHoverBorder}" />
+    <Setter Property="Foreground" Value="{DynamicResource CommandCenterFg}" />
+  </Style>
+  <!-- Update, left of the layout buttons: a small primary (blue) button, as tall as the icons beside it. -->
+  <Style Selector="Button.titleupdate">
+    <Setter Property="Height" Value="22" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="9,0" />
+    <Setter Property="Margin" Value="0,0,6,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="FontSize" Value="{StaticResource TextSmall}" />
+    <Setter Property="Focusable" Value="False" />
+  </Style>
+  <!-- VS Code's layout buttons: Help, Customize Layout, the side bars, the panel - small, rounded on hover. -->
+  <Style Selector="Button.layout">
+    <Setter Property="Width" Value="{DynamicResource LayoutButtonWidth}" />
+    <Setter Property="Height" Value="{DynamicResource LayoutButtonHeight}" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="1,0" />
+    <Setter Property="CornerRadius" Value="5" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Focusable" Value="False" />
+  </Style>
+  <Style Selector="Button.layout:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.layout:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource HoverBg}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+  </Style>
+  <Style Selector="Button.layout:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Opacity" Value="0.4" />
+  </Style>
+  <!-- Minimize, maximize and close (Windows): 46 px wide, the title bar's height, the icon font's glyphs; close turns red. -->
+  <Style Selector="Button.caption">
+    <Setter Property="Width" Value="46" />
+    <Setter Property="Height" Value="{StaticResource TitleBarHeight}" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+    <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="Cursor" Value="Arrow" />
+    <Setter Property="Focusable" Value="False" />
+  </Style>
+  <Style Selector="Button.caption:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.caption:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource HoverBg}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+  </Style>
+  <Style Selector="Button.caption.close:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.caption.close:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#C42B1C" />
+    <Setter Property="Foreground" Value="{DynamicResource OnAccent}" />
+  </Style>
+  <!-- The layout icons (Icons.axaml's Layout…): drawn on a 16 px square, 1 px lines (WPF's IconStroke). -->
+  <Style Selector="Path.layouticon">
+    <Setter Property="StrokeThickness" Value="1" />
+    <Setter Property="Stretch" Value="None" />
+  </Style>
+  <Style Selector="Button.layout Path">
+    <Setter Property="Stretch" Value="None" />
+  </Style>
+
+  <!-- ═══ The status bar's figures: equal-width digits, the same gap after each, lifted 1.5 px (Segoe UI's descent). ═══ -->
+  <Style Selector="TextBlock.figure">
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="0,0,12,1.5" />
+    <Setter Property="FontSize" Value="{StaticResource TextCaption}" />
+    <Setter Property="FontFeatures" Value="+tnum" />
+  </Style>
+
+  <!-- ═══ The sashes between the side bars, the page and the panel: transparent in the gap between the cards, the blue
+       under the mouse; in the Compact density the line between them (class line). ═══ -->
+  <Style Selector="GridSplitter.sash">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+  <Style Selector="GridSplitter.sash.line">
+    <Setter Property="Background" Value="{DynamicResource SidebarBorder}" />
+  </Style>
+  <Style Selector="GridSplitter.sash:pointerover">
+    <Setter Property="Background" Value="{DynamicResource FocusBorder}" />
+  </Style>
+
+  <!-- ═══ The bottom panel (TerminalPanel.xaml's styles) ═══ -->
+  <!-- Its tabs: the name in capitals' size, underlined in the accent while shown. -->
+  <Style Selector="RadioButton.paneltab">
+    <Setter Property="Foreground" Value="{DynamicResource LogMuted}" />
+    <Setter Property="FontSize" Value="{StaticResource TextSmall}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Margin" Value="0,0,18,0" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent" BorderThickness="0,0,0,1" Padding="0,8,0,7">
+          <ContentPresenter Content="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                            TextElement.FontSize="{TemplateBinding FontSize}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="RadioButton.paneltab:pointerover">
+    <Setter Property="Foreground" Value="{DynamicResource LogHeaderFg}" />
+  </Style>
+  <Style Selector="RadioButton.paneltab:checked">
+    <Setter Property="Foreground" Value="{DynamicResource LogHeaderFg}" />
+  </Style>
+  <Style Selector="RadioButton.paneltab:checked /template/ Border#Bd">
+    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+  </Style>
+  <!-- Its buttons: icon buttons, 26 px. -->
+  <Style Selector="Button.panel">
+    <Setter Property="MinWidth" Value="26" />
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="Padding" Value="4,2" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource LogHeaderFg}" />
+  </Style>
+  <!-- The search's options inside its box: Aa, ab, .* - on, the selection behind them. -->
+  <Style Selector="ToggleButton.searchoption">
+    <Setter Property="Width" Value="22" />
+    <Setter Property="Height" Value="20" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="1,0" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+  </Style>
+  <Style Selector="ToggleButton.searchoption:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource InputOptionHoverBg}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+  </Style>
+  <Style Selector="ToggleButton.searchoption:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource SelectionBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource FocusBorder}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+  </Style>
+  <!-- Every search field (the SearchBox style): VS Code's 26 px. -->
+  <Style Selector="TextBox.search">
+    <Setter Property="MinHeight" Value="{StaticResource SearchHeight}" />
+    <Setter Property="Padding" Value="{StaticResource SearchPadding}" />
+  </Style>
+  <!-- A stage in Output's list: flat - the row inside draws it, hover lights it. -->
+  <Style Selector="Button.stage">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="FontSize" Value="{StaticResource TextCaption}" />
+  </Style>
+  <Style Selector="Button.stage:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.stage:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource HoverBg}" />
+  </Style>
+  <Style Selector="Button.stage:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="Path.step">
+    <Setter Property="Width" Value="14" />
+    <Setter Property="Height" Value="14" />
+    <Setter Property="StrokeLineCap" Value="Round" />
+    <Setter Property="StrokeJoin" Value="Round" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBlock.summaryKey">
+    <Setter Property="Foreground" Value="{DynamicResource LogMuted}" />
+    <Setter Property="Margin" Value="0,3" />
+    <Setter Property="FontSize" Value="{StaticResource TextCaption}" />
+  </Style>
+  <Style Selector="TextBlock.summaryValue">
+    <Setter Property="Foreground" Value="{DynamicResource LogFg}" />
+    <Setter Property="HorizontalAlignment" Value="Right" />
+    <Setter Property="Margin" Value="12,3,0,3" />
+    <Setter Property="FontSize" Value="{StaticResource TextCaption}" />
+  </Style>
+
+  <!-- ═══ The command palette's rows: VS Code's 22 px, rounded, the selection behind the chosen one. ═══ -->
+  <Style Selector="ListBox.palette ListBoxItem">
+    <Setter Property="Padding" Value="8,0" />
+    <Setter Property="MinHeight" Value="22" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Focusable" Value="False" />
+  </Style>
+
+  <!-- ═══ Menus (MenuStyles.xaml): the card's colour with its edge, rows with the hover colour. ═══ -->
+  <Style Selector="ContextMenu, MenuFlyoutPresenter">
+    <Setter Property="Background" Value="{DynamicResource CardBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{StaticResource CardRadius}" />
+    <Setter Property="Padding" Value="4" />
+  </Style>
+  <Style Selector="MenuItem">
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+    <Setter Property="FontSize" Value="{StaticResource TextBody}" />
+    <Setter Property="CornerRadius" Value="{StaticResource ControlRadius}" />
+    <Setter Property="Padding" Value="10,4" />
+  </Style>
+  <Style Selector="MenuItem:pointerover /template/ Border#PART_LayoutRoot, MenuItem:selected /template/ Border#PART_LayoutRoot">
+    <Setter Property="Background" Value="{DynamicResource HoverBg}" />
+  </Style>
+  <Style Selector="MenuItem /template/ TextBlock#PART_InputGestureText">
+    <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+  </Style>
+</Styles>

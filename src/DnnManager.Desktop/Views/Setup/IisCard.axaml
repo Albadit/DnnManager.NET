@@ -1,0 +1,82 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:s="using:DnnManager.Desktop.Views.Setup"
+             x:Class="DnnManager.Desktop.Views.Setup.IisCard">
+  <UserControl.Styles>
+    <StyleInclude Source="/Themes/SetupStyles.axaml" />
+    <Style Selector="TextBlock.state">
+      <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+    </Style>
+    <Style Selector="TextBlock.state.enabled">
+      <Setter Property="Foreground" Value="{DynamicResource SuccessText}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.state.missing">
+      <Setter Property="Foreground" Value="{DynamicResource ErrorText}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="card">
+    <StackPanel>
+      <DockPanel Margin="0,0,0,8">
+        <Button DockPanel.Dock="Right" x:Name="TestButton" Content="Test" MinWidth="80" Margin="8,0,0,0"
+                ToolTip.Tip="Test" VerticalAlignment="Center" Click="Test_Click" />
+        <Button DockPanel.Dock="Right" x:Name="EditButton" Content="Edit…" MinWidth="80" Margin="8,0,0,0"
+                ToolTip.Tip="Add or remove Windows features" VerticalAlignment="Center" Click="Edit_Click" />
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Classes="cardTitle" Text="IIS" Margin="0" />
+          <TextBlock x:Name="Summary" Classes="hint" Margin="0,2,0,0" Text="Windows features: not tested yet - press Test." />
+        </StackPanel>
+      </DockPanel>
+
+      <!-- A plain table, as the Windows app's (a grid control would swallow the page's mouse-wheel scrolling). -->
+      <Border BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="4" Grid.IsSharedSizeScope="True">
+        <StackPanel>
+          <Border Background="{DynamicResource HeaderBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1"
+                  CornerRadius="4,4,0,0" Padding="12,7">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="Feature" />
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="FeatureStatus" />
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="Feature" FontWeight="SemiBold" Foreground="{DynamicResource TextMuted}" />
+              <TextBlock Grid.Column="2" Text="Status" FontWeight="SemiBold" Foreground="{DynamicResource TextMuted}" />
+              <TextBlock Grid.Column="4" Text="Windows feature name" FontWeight="SemiBold" Foreground="{DynamicResource TextMuted}" />
+            </Grid>
+          </Border>
+          <ItemsControl x:Name="FeatureList">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="s:FeatureRow">
+                <!-- No divider above the first row - the header already has one. -->
+                <Border BorderBrush="{DynamicResource GridLine}" BorderThickness="{Binding Divider}" Padding="12,6">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto" SharedSizeGroup="Feature" />
+                      <ColumnDefinition Width="24" />
+                      <ColumnDefinition Width="Auto" SharedSizeGroup="FeatureStatus" />
+                      <ColumnDefinition Width="24" />
+                      <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding Label}" />
+                    <TextBlock Grid.Column="2" Text="{Binding Status}" Classes="state"
+                               Classes.enabled="{Binding IsEnabled}" Classes.missing="{Binding IsMissing}" />
+                    <TextBlock Grid.Column="4" Text="{Binding Name}" Foreground="{DynamicResource TextMuted}"
+                               FontFamily="{StaticResource CodeFont}" FontSize="{StaticResource TextCaption}" VerticalAlignment="Center" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <WrapPanel Margin="0,10,0,0">
+        <Button x:Name="SetupButton" Classes="primary" Content="Set up IIS" Click="Setup_Click" ToolTip.Tip="Set up IIS" />
+      </WrapPanel>
+    </StackPanel>
+  </Border>
+</UserControl>

@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:s="using:DnnManager.Desktop.Views.Setup"
+             x:Class="DnnManager.Desktop.Views.Setup.DatabaseCheckList">
+  <UserControl.Styles>
+    <StyleInclude Source="/Themes/SetupStyles.axaml" />
+    <Style Selector="TextBlock.mark">
+      <Setter Property="Foreground" Value="{DynamicResource SuccessText}" />
+    </Style>
+    <Style Selector="TextBlock.mark.warning">
+      <Setter Property="Foreground" Value="{DynamicResource LogWarn}" />
+    </Style>
+    <Style Selector="TextBlock.mark.failed">
+      <Setter Property="Foreground" Value="{DynamicResource ErrorText}" />
+    </Style>
+  </UserControl.Styles>
+  <!-- Test connection's checks, one per line: a mark (passed, warning, failed) and what was found. -->
+  <StackPanel>
+    <TextBlock x:Name="Testing" Classes="hint" Text="Testing the connection…" IsVisible="False" Margin="0" />
+    <ItemsControl x:Name="Lines">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="s:CheckLine">
+          <DockPanel Margin="0,3,0,0">
+            <TextBlock DockPanel.Dock="Left" Width="20" FontSize="12" Margin="0,2,0,0" Text="{Binding Mark}"
+                       FontFamily="{Binding MarkFont}" Classes="mark" Classes.warning="{Binding IsWarning}" Classes.failed="{Binding IsFailed}" />
+            <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextPrimary}">
+              <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=": " /><Run Text="{Binding Detail, Mode=OneWay}" />
+            </TextBlock>
+          </DockPanel>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </StackPanel>
+</UserControl>

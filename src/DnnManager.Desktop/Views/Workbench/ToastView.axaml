@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="using:DnnManager.Desktop.Views"
+             x:Class="DnnManager.Desktop.Views.Workbench.ToastView"
+             IsVisible="False" MaxWidth="480" MinWidth="260">
+  <!-- A short message over the page's bottom-right corner (src/DnnManager.Presentation/Controls/ToastView.xaml) - e.g.
+       "Settings saved" - that fades out by itself; a warning or an error stays until closed. -->
+  <UserControl.Transitions>
+    <Transitions>
+      <DoubleTransition Property="Opacity" Duration="0:0:0.25" />
+    </Transitions>
+  </UserControl.Transitions>
+  <Border Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1"
+          CornerRadius="6" Padding="14,10,8,10" BoxShadow="0 3 18 0 #4D000000">
+    <DockPanel>
+      <Button DockPanel.Dock="Right" Classes="icon" ToolTip.Tip="Close" AutomationProperties.Name="Close" Click="Close_Click"
+              VerticalAlignment="Center" Margin="6,0,0,0" Width="26" Height="26" MinWidth="0" MinHeight="0" Padding="0"
+              Foreground="{DynamicResource TextMuted}">
+        <Panel>
+          <TextBlock Classes="glyph" Text="{StaticResource GlyphCancel}" FontSize="11" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+          <TextBlock Text="✕" FontSize="11" IsVisible="{x:Static v:MainWindow.NoIconFont}" />
+        </Panel>
+      </Button>
+      <Button DockPanel.Dock="Right" x:Name="ActionButton" Classes="primary" IsVisible="False" VerticalAlignment="Center"
+              Margin="12,0,0,0" Click="Action_Click" />
+      <Panel DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,10,0">
+        <TextBlock x:Name="Glyph" Classes="glyph" FontSize="16" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+        <TextBlock x:Name="Mark" FontSize="15" FontWeight="Bold" IsVisible="{x:Static v:MainWindow.NoIconFont}" />
+      </Panel>
+      <StackPanel VerticalAlignment="Center">
+        <TextBlock x:Name="Message" TextWrapping="Wrap" />
+        <!-- Others waiting their turn (ToastQueue): they show when this one is closed. -->
+        <TextBlock x:Name="More" Foreground="{DynamicResource TextMuted}" FontSize="{StaticResource TextCaption}" Margin="0,2,0,0"
+                   IsVisible="False" />
+      </StackPanel>
+    </DockPanel>
+  </Border>
+</UserControl>

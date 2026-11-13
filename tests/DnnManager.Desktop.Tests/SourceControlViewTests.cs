@@ -81,12 +81,16 @@ public sealed class SourceControlViewTests
             server.Write("Portals/0/site.css", "body {\n  color: red;\n}\n");
 
             Exception? failed = null;
+            // Returning a value, the async lambda is awaited by the session (Dispatch<TResult>(Func<Task<TResult>>)), its UI
+            // thread running meanwhile - one returning nothing would be Dispatch<Task>, over at its first await.
             await _session!.Dispatch(async () =>
             {
               try
               {
                 var window = new MainWindow { Width = 1280, Height = 800 };
                 window.Show();
+                // On Windows the window opens on Projects, as the Windows app: Source Control is chosen.
+                window.Show("SourceControl");
                 var view = (SourceControlView)window.FindControl<ContentControl>("ViewHost")!.Content!;
                 var servers = view.FindControl<ListBox>("ServersList")!;
                 var changes = view.FindControl<ListBox>("Changes")!;
@@ -109,37 +113,77 @@ public sealed class SourceControlViewTests
                 Assert.AreEqual("A", Rows().Single(r => r.Path == "new-feature.js").Letter);
                 StringAssert.Contains(rows.Single(r => r.Site == "shop").Name, "Live");
 
-                // A file chosen: its diff, old on the left and new on the right.
+                // A file chosen: its diff in the preview tab - unified at first, as in the Windows app.
                 changes.SelectedItem = Rows().Single(r => r.Path == "index.html");
-                var split = view.FindControl<ListBox>("SplitList")!;
-                await Until(() => split.IsVisible);
-                var diff = ((IEnumerable<DiffRow>)split.ItemsSource!).ToList();
-                Assert.IsTrue(diff.Any(r => r.RightText == "<p>new in development</p>" && r.RightBackground is not null), "The added line, marked.");
-                Assert.AreEqual("index.html", view.FindControl<TextBlock>("DiffTitle")!.Text);
+                var diff = view.FindControl<DiffView>("Diff")!;
+                await Until(() => diff.ShownRows.Count > 0);
+                Assert.IsTrue(diff.ShownRows.Any(r => r.Unified.Text == "<p>new in development</p>" && r.Unified.IsAdded), "The added line, marked.");
+                Assert.IsTrue(diff.ShownRows.Any(r => r.IsHunk), "Its hunk's header.");
+                StringAssert.Contains(view.FindControl<TextBlock>("Breadcrumb")!.Text, "index.html");
+                Assert.AreEqual(1, view.OpenTabs.Count);
+                Assert.IsTrue(view.OpenTabs[0].IsPreview, "A click opens the preview tab.");
                 Save(window, "2-compared-with-diff");
 
-                // One column.
-                view.FindControl<CheckBox>("SideBySide")!.IsChecked = false;
-                view.FindControl<CheckBox>("SideBySide")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-                var unified = view.FindControl<ListBox>("UnifiedList")!;
-                Assert.IsTrue(unified.IsVisible);
-                Assert.IsTrue(((IEnumerable<DiffRow>)unified.ItemsSource!).Any(r => r.Sign == "+" && r.Text == "<p>new in development</p>"));
+                // Side by side: old on the left, new on the right.
+                diff.SetMode(split: true);
+                await Until(() => diff.IsSplit && diff.ShownRows.Any(r => r.Right.Text == "<p>new in development</p>" && r.Right.IsAdded));
+                // The code is selected and copied as in an editor.
+                diff.SelectAll();
+                StringAssert.Contains(diff.Selection, "<h1>shop</h1>");
+                diff.SetMode(split: false);
+                await Until(() => !diff.IsSplit && diff.ShownRows.Count > 0);
+
+                // Another file: the preview tab shows it; a double-click keeps a tab - two tabs, moved with the keyboard's keys.
+                var css = Rows().Single(r => r.Path == "Portals/0/site.css");
+                changes.SelectedItem = css;
+                Assert.AreEqual(1, view.OpenTabs.Count, "The preview tab is reused.");
+                await Until(() => view.FindControl<Border>("ConflictBar")!.IsVisible);
+                Assert.IsTrue(view.FindControl<Button>("MergeButton")!.IsEnabled, "Changed in both, as text: it can be merged.");
+                view.OpenTab(Rows().Single(r => r.Path == "index.html").Item!, keep: true);
+                Assert.AreEqual(2, view.OpenTabs.Count);
+                Assert.AreEqual("index.html", view.OpenTabs[1].Path);
+                view.MoveTab(view.OpenTabs[1], 0);
+                Assert.AreEqual("index.html", view.OpenTabs[0].Path, "Moved to the front.");
+                Assert.AreEqual(1, SourceControlView.TargetIndex(0, SourceControlView.DropGap(150, [(0, 100), (100, 100)])), "Dropped past the second tab's middle.");
 
                 // Staged: Push counts it; a conflict can't be.
                 var index = Rows().Single(r => r.Path == "index.html");
                 Assert.IsTrue(index.CanStage);
                 Assert.IsFalse(Rows().Single(r => r.Path == "Portals/0/site.css").CanStage, "A conflict is resolved, not staged.");
                 view.FindControl<ListBox>("Changes")!.SelectedItem = index;
-                var push = view.FindControl<Button>("PushButton")!;
+                var push = view.FindControl<Button>("PrimaryButton")!;
                 Assert.IsFalse(push.IsEnabled, "Nothing staged, nothing to push.");
                 changes.Focus();
                 changes.RaiseEvent(new Avalonia.Input.KeyEventArgs { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.Space });
                 Assert.AreEqual("Staged Changes 1", Rows().Where(r => r.IsHeader).Select(r => $"{r.Title} {r.Count}").First());
                 Assert.IsTrue(push.IsEnabled);
-                Assert.AreEqual("↑ Push 1", push.Content);
+                Assert.AreEqual("Push 1", view.FindControl<TextBlock>("PrimaryLabel")!.Text);
+
+                // The Explorer: the project's files as a push sees them, a changed one with its letter; a folder opens.
+                view.ShowView(SideView.Explorer);
+                var tree = view.FindControl<ListBox>("ExplorerTree")!;
+                await Until(() => tree.ItemCount > 0);
+                var explorer = tree.Items.Cast<ExplorerRow>().ToList();
+                Assert.AreEqual("M", explorer.Single(r => r.Path == "index.html").Letter);
+                await view.ToggleFolderAsync(explorer.Single(r => r.Path == "Controllers"));
+                Assert.IsTrue(tree.Items.Cast<ExplorerRow>().Any(r => r.Path == "Controllers/HomeController.cs" && r.Depth == 1));
+                Save(window, "2b-explorer");
+
+                // Search: every match in the project's files; a match opens the file there.
+                view.ShowView(SideView.Search);
+                view.FindControl<TextBox>("SearchText")!.Text = "navy";
+                await view.SearchAsync();
+                var match = view.SearchRows.Single(r => r.IsMatch);
+                Assert.AreEqual("Portals/0/site.css", match.Path);
+                view.OpenResult(match, keep: false);
+                await Until(() => diff.SelectedLine == 2);
+                Assert.IsTrue(view.OpenTabs.Any(t => t.IsFile && t.Path == "Portals/0/site.css"), "Opened as it is in the project.");
+                Save(window, "2c-search");
+                view.ShowView(SideView.SourceControl);
 
                 // Both chosen: each compared; CHANGES says which one it shows.
-                servers.SelectedItems.Add(rows.Single(r => r.Site == "blog"));
+                // The list is made anew after each comparison: its row now.
+                servers.SelectedItems!.Add(servers.Items.Cast<ServerRow>().Single(r => r.Site == "blog"));
                 await Until(() => view.FindControl<Button>("ChangesServer")!.IsVisible && Rows().Any(r => r.Path == "only-here.txt"));
                 Assert.AreEqual("blog · Staging", view.FindControl<TextBlock>("ChangesServerText")!.Text, "The one chosen last is shown.");
                 view.ShowServer(rows.Single(r => r.Site == "shop"));
@@ -159,6 +203,7 @@ public sealed class SourceControlViewTests
                   // Thrown inside the session, a failure would leave it waiting: it is thrown outside.
                   failed = ex;
               }
+              return true;
             }, CancellationToken.None);
             if (failed is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(failed);
         }
@@ -202,6 +247,7 @@ public sealed class SourceControlViewTests
                     dialog.FindControl<TextBox>("UserBox")!.Text = "deploy";
                     dialog.FindControl<TextBox>("PasswordBox")!.Text = "secret";
                     dialog.FindControl<ComboBox>("EncryptionBox")!.SelectedIndex = (int)FtpEncryption.PlainOnly;
+                    Assert.IsTrue(dialog.FindControl<Border>("PlainFtpWarning")!.IsVisible, "Plain FTP says what it means.");
                     dialog.FindControl<TextBox>("RootBox")!.Text = "/www";
                     dialog.FindControl<TextBox>("LocalBox")!.Text = elsewhere;
                     StringAssert.StartsWith(dialog.FindControl<TextBlock>("LocalHint")!.Text, "The folder on this computer");
@@ -223,6 +269,36 @@ public sealed class SourceControlViewTests
         {
             try { Directory.Delete(run, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
         }
+    }
+
+    [TestMethod]
+    public async Task A_conflict_is_merged_by_hand_and_saved_once_no_marker_is_left()
+    {
+        Exception? failed = null;
+        await _session!.Dispatch(() =>
+        {
+            try
+            {
+                var origin = TextContent.FromText("a\nb\nc\n");
+                var local = TextContent.FromText("a\nproject\nc\n");
+                var remote = TextContent.FromText("a\nserver\nc\n");
+                var dialog = new MergeDialog("Portals/0/site.css", origin, local, remote);
+                dialog.Show();
+                var editor = dialog.FindControl<TextBox>("Editor")!;
+                var ok = dialog.FindControl<Button>("OkButton")!;
+                StringAssert.Contains(editor.Text, "<<<<<<<");
+                Assert.IsFalse(ok.IsEnabled, "Markers left: not saved.");
+                editor.Text = "a\nboth\nc\n";
+                Assert.IsTrue(ok.IsEnabled);
+                dialog.Ok_Click(null, new Avalonia.Interactivity.RoutedEventArgs());
+                Assert.AreEqual("a\nboth\nc\n", System.Text.Encoding.UTF8.GetString(dialog.Result!).Replace("\r\n", "\n"));
+            }
+            catch (Exception ex)
+            {
+                failed = ex;
+            }
+        }, CancellationToken.None);
+        if (failed is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(failed);
     }
 
     [TestMethod]

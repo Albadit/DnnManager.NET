@@ -50,7 +50,9 @@
   <ItemGroup>
     <!-- The tests and the launcher are projects of their own (tests\DnnManager.IntegrationTests,
          src\DnnManager.Launcher) - not part of the app. -->
-    <Compile Remove="tests\**;src\DnnManager.Launcher\**" />
+    <!-- obj and bin too: a build with an artifacts path (dotnet build -artifacts-path) moves its own output elsewhere,
+         and then no longer leaves out what an earlier build made here. -->
+    <Compile Remove="tests\**;src\DnnManager.Launcher\**;obj\**;bin\**" />
     <Page Remove="tests\**;src\DnnManager.Launcher\**" />
     <None Remove="tests\**;src\DnnManager.Launcher\**" />
     <EmbeddedResource Remove="tests\**;src\DnnManager.Launcher\**" />

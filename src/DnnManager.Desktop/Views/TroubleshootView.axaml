@@ -1,0 +1,94 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="using:DnnManager.Desktop.Views"
+             x:Class="DnnManager.Desktop.Views.TroubleshootView"
+             Focusable="True">
+  <!-- The Windows app's Troubleshoot (src/DnnManager.Presentation/Pages/TroubleshootPage.xaml): opened over the page like
+       Settings, laid out like Docker Desktop's - restart, clean up the data, reset the settings, reset to factory
+       defaults. Nothing here touches a project's site, folder or database. -->
+  <UserControl.Styles>
+    <StyleInclude Source="/Themes/SettingsStyles.axaml" />
+  </UserControl.Styles>
+
+  <DockPanel>
+    <Border DockPanel.Dock="Top" Classes="pageHeader">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Classes="icon" ToolTip.Tip="Close (Esc)" AutomationProperties.Name="Close" Click="Close_Click">
+          <Panel>
+            <TextBlock Classes="glyph" Text="{StaticResource GlyphClose}" FontSize="12" Foreground="{DynamicResource LinkFg}"
+                       IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+            <TextBlock Text="✕" Foreground="{DynamicResource LinkFg}" IsVisible="{x:Static v:MainWindow.NoIconFont}" />
+          </Panel>
+        </Button>
+        <TextBlock Classes="pageTitle" Text="Troubleshoot" />
+      </DockPanel>
+    </Border>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <!-- Centred: as wide as there is room, up to 860. -->
+      <StackPanel Margin="28,24,28,20" MaxWidth="860">
+        <TextBlock Classes="pageSubtitle" Text="Restart, clean up or reset DNN Manager. Your projects are never touched here." />
+
+        <Border Classes="actionRow" BorderThickness="0,1,0,1">
+          <DockPanel>
+            <Button x:Name="RestartButton" Classes="action" Content="Restart" Click="Restart_Click"
+                    ToolTip.Tip="Close DNN Manager and open it again - nothing is lost" />
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Classes="rowTitle" Text="Restart DNN Manager" />
+              <TextBlock Classes="hint" Margin="0,2,0,0" Text="Closes and starts it again. Your projects, settings and data are kept." />
+            </StackPanel>
+          </DockPanel>
+        </Border>
+
+        <Border Classes="actionRow">
+          <StackPanel>
+            <DockPanel>
+              <Button x:Name="CleanupButton" Classes="action" Content="Clean up data" Click="Cleanup_Click"
+                      ToolTip.Tip="Delete what is ticked below, to free disk space" />
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock Classes="rowTitle" Text="Clean up data" />
+                <TextBlock x:Name="CleanupHint" Classes="hint" Margin="0,2,0,0" />
+              </StackPanel>
+            </DockPanel>
+            <StackPanel Margin="0,10,0,0">
+              <CheckBox x:Name="CleanLogs" />
+              <CheckBox x:Name="CleanPackages" Margin="0,6,0,0" />
+              <CheckBox x:Name="CleanProjectBackups" Margin="0,6,0,0" />
+              <TextBlock Classes="hint" Margin="22,2,0,0" Text="They can't be brought back." />
+              <CheckBox x:Name="CleanDeployments" Margin="0,6,0,0" />
+              <TextBlock Classes="hint" Margin="22,2,0,0" Text="They can hold a live connection string - delete them once deployed." />
+              <CheckBox x:Name="CleanOldSettings" Margin="0,6,0,0" />
+              <TextBlock Classes="hint" Margin="22,2,0,0" Text="They can hold the sa password in plain text." />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="actionRow">
+          <DockPanel>
+            <Button x:Name="ResetSettingsButton" Classes="action" Content="Reset settings" Click="ResetSettings_Click"
+                    ToolTip.Tip="Put every setting back as it was at install - your websites aren't touched" />
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Classes="rowTitle" Text="Reset settings to defaults" />
+              <TextBlock Classes="hint" Margin="0,2,0,0"
+                         Text="Every setting back to its default, passwords and start at sign-in too. Projects, logs and keep warm stay." />
+            </StackPanel>
+          </DockPanel>
+        </Border>
+
+        <Border Classes="actionRow">
+          <DockPanel>
+            <Button x:Name="ResetButton" Classes="action danger" Content="Reset to factory defaults" Click="Reset_Click"
+                    ToolTip.Tip="Put DNN Manager back as it was installed - your websites and backups are kept; asks first" />
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Classes="rowTitle" Text="Reset to factory defaults" />
+              <TextBlock Classes="hint" Margin="0,2,0,0"
+                         Text="Removes settings, passwords, logs, kept packages and keep warm, then restarts. Projects and backups stay." />
+            </StackPanel>
+          </DockPanel>
+        </Border>
+
+        <TextBlock x:Name="BusyHint" Classes="hint" Margin="0,12,0,0" IsVisible="False" />
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

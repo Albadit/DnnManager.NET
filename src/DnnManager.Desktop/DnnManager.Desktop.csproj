@@ -16,7 +16,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+    <!-- COM on (Avalonia's template turns it off): IIS is read and changed through Microsoft.Web.Administration, which is
+         COM (applicationHost.config) - without it every IIS read fails ("Built-in COM has been disabled via a feature
+         switch") and Projects shows "IIS's configuration can't be read.". The app isn't trimmed, so it costs nothing. -->
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <ApplicationIcon>..\DnnManager.Presentation\Assets\dnn.ico</ApplicationIcon>
     <Product>DNN Manager</Product>
@@ -24,7 +27,7 @@
     <Version Condition="'$(Version)' == ''">0.0.0</Version>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <!-- The systems it is published for - in packages.lock.json too, so a locked restore can publish each. -->
-    <RuntimeIdentifiers>win-x64;win-arm64;osx-x64;osx-arm64;linux-x64;linux-arm64</RuntimeIdentifiers>
+    <RuntimeIdentifiers>win-x64;win-x86;win-arm64;osx-x64;osx-arm64;linux-x64;linux-arm64</RuntimeIdentifiers>
     <PublishSingleFile Condition="'$(RuntimeIdentifier)' != ''">true</PublishSingleFile>
     <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
@@ -41,6 +44,17 @@
     <AvaloniaResource Include="..\DnnManager.Presentation\Assets\dnn.ico" Link="Assets\dnn.ico" />
   </ItemGroup>
 
+  <!-- What the Windows app has that draws nothing, compiled in as it is (one copy of each): the getting started guide's and
+       the pages' help texts, the release notes' reader, the workspace kept between starts, the panel's search. -->
+  <ItemGroup>
+    <Compile Include="..\DnnManager.Presentation\Services\Onboarding.cs" Link="Shared\Onboarding.cs" />
+    <Compile Include="..\DnnManager.Presentation\Services\ReleaseNotes.cs" Link="Shared\ReleaseNotes.cs" />
+    <Compile Include="..\DnnManager.Presentation\Services\WorkspaceStates.cs" Link="Shared\WorkspaceStates.cs" />
+    <Compile Include="..\DnnManager.Presentation\Controls\PanelSearch.cs" Link="Shared\PanelSearch.cs" />
+    <!-- What's new: each release's notes, read by ReleaseNotes.Between (as DnnManager.csproj embeds them). -->
+    <EmbeddedResource Include="..\..\.docs\release-notes\v*.md" LogicalName="ReleaseNotes.%(Filename)%(Extension)" Link="ReleaseNotes\%(Filename)%(Extension)" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.4" />
     <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
@@ -53,5 +67,25 @@
     <ProjectReference Include="..\DnnManager.Core\DnnManager.Core.csproj" />
     <ProjectReference Include="..\DnnManager.Ui\DnnManager.Ui.csproj" />
   </ItemGroup>
+
+  <!-- DNN Manager on Windows (from 2.0): this app, under the Windows app's file names, so Setup, the launcher, the sign-in
+       task and every DNN Manager's Update button find it as before. A Windows publish renames the exe DnnManager.exe -
+       or, with -p:PortableExe=true, DnnManager-<version>-<arch>.exe (the portable exe). A single-file exe runs under any
+       name. The assembly stays DnnManager.Desktop. -->
+  <Target Name="WindowsExeName" AfterTargets="Publish" Condition="$(RuntimeIdentifier.StartsWith('win-'))">
+    <PropertyGroup>
+      <WindowsArch>$(RuntimeIdentifier.Replace('win-', ''))</WindowsArch>
+      <WindowsExeName Condition="'$(PortableExe)' == 'true'">DnnManager-$(Version)-$(WindowsArch).exe</WindowsExeName>
+      <WindowsExeName Condition="'$(PortableExe)' != 'true'">DnnManager.exe</WindowsExeName>
+    </PropertyGroup>
+    <Copy SourceFiles="$(PublishDir)$(AssemblyName).exe" DestinationFiles="$(PublishDir)$(WindowsExeName)" />
+    <Delete Files="$(PublishDir)$(AssemblyName).exe" />
+    <!-- Only what runs: not the symbols (libSkiaSharp.pdb alone is 80 MB) nor the XML docs - Setup installs the folder. -->
+    <ItemGroup>
+      <_NotShipped Include="$(PublishDir)*.pdb;$(PublishDir)*.xml" />
+    </ItemGroup>
+    <Delete Files="@(_NotShipped)" />
+    <Message Importance="high" Text="DNN Manager for Windows: $([System.IO.Path]::GetFullPath('$(PublishDir)$(WindowsExeName)'))" />
+  </Target>
 
 </Project>

@@ -1,0 +1,175 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:p="using:DnnManager.Desktop.Views.Projects"
+             x:Class="DnnManager.Desktop.Views.Projects.ProjectView"
+             x:DataType="p:ProjectRow" Focusable="True">
+  <!-- One IIS site, in tabs (the Windows app's Pages/Projects/ProjectView) - what was detected about it, as an environment
+       inspector: General, IIS, DNN, Database and Advanced. DataContext: the table's ProjectRow. -->
+  <UserControl.Styles>
+    <Style Selector="Button.headerButton">
+      <Setter Property="Padding" Value="10,4" />
+      <Setter Property="Margin" Value="6,0,0,0" />
+    </Style>
+    <Style Selector="Button.editButton">
+      <Setter Property="Padding" Value="10,4" />
+      <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+    <Style Selector="TextBlock.btnGlyph">
+      <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Margin" Value="0,0,6,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="IsVisible" Value="{x:Static p:ProjectView.HasIconFont}" />
+    </Style>
+  </UserControl.Styles>
+
+  <!-- Centred: as wide as there is room, up to 1100. -->
+  <DockPanel Margin="28,20,28,12" MaxWidth="1100">
+    <!-- Back, the site's name and state; its actions on the right. -->
+    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,18">
+      <Button DockPanel.Dock="Left" Classes="icon" Width="32" Height="32" Margin="0,2,10,0" VerticalAlignment="Top"
+              ToolTip.Tip="Back (Esc)" AutomationProperties.Name="Back" Click="Back_Click">
+        <Panel>
+          <TextBlock Classes="glyph" Text="{StaticResource GlyphBack}" IsVisible="{x:Static p:ProjectView.HasIconFont}" />
+          <TextBlock Text="←" IsVisible="{x:Static p:ProjectView.NoIconFont}" />
+        </Panel>
+      </Button>
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,4,0,0">
+        <Button Classes="headerButton" Click="Start_Click" IsEnabled="{Binding CanStart}" IsVisible="{Binding ShowStart}"
+                AutomationProperties.Name="Start" ToolTip.Tip="Start - turn the website on so it can be opened">
+          <StackPanel Orientation="Horizontal"><TextBlock Classes="btnGlyph" Text="{StaticResource GlyphPlay}" /><TextBlock Text="Start" /></StackPanel>
+        </Button>
+        <Button Classes="headerButton" Click="Stop_Click" IsEnabled="{Binding CanStop}" IsVisible="{Binding ShowStop}"
+                AutomationProperties.Name="Stop" ToolTip.Tip="Stop - turn the website off until you start it again; nothing is deleted">
+          <StackPanel Orientation="Horizontal"><TextBlock Classes="btnGlyph" Text="{StaticResource GlyphStop}" /><TextBlock Text="Stop" /></StackPanel>
+        </Button>
+        <Button Classes="headerButton" Click="Restart_Click" IsEnabled="{Binding CanRestart}" IsVisible="{Binding ShowStop}"
+                AutomationProperties.Name="Restart the website's background process"
+                ToolTip.Tip="Restart the website's background process - can fix problems; it is unavailable for a few seconds">
+          <StackPanel Orientation="Horizontal"><TextBlock Classes="btnGlyph" Text="{StaticResource GlyphRefresh}" /><TextBlock Text="Restart" /></StackPanel>
+        </Button>
+        <Button Classes="headerButton" Click="OpenSite_Click" IsEnabled="{Binding HasUrl}"
+                AutomationProperties.Name="Open the website in your browser" ToolTip.Tip="Open the website in your browser">
+          <StackPanel Orientation="Horizontal"><TextBlock Classes="btnGlyph" Text="{StaticResource GlyphGlobe}" /><TextBlock Text="Open site" /></StackPanel>
+        </Button>
+        <Button Classes="headerButton" Click="Deploy_Click" AutomationProperties.Name="Source Control"
+                ToolTip.Tip="Source Control - compare with the project's servers, push and pull files">
+          <StackPanel Orientation="Horizontal">
+            <Path Data="{StaticResource SourceControlGeometry}" Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.2"
+                  Width="13" Height="13" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center" />
+            <TextBlock Text="Source Control" />
+          </StackPanel>
+        </Button>
+        <Button Classes="headerButton" Click="OpenFolder_Click" AutomationProperties.Name="Open the website's files in File Explorer"
+                ToolTip.Tip="Open the website's files in File Explorer">
+          <StackPanel Orientation="Horizontal"><TextBlock Classes="btnGlyph" Text="{StaticResource GlyphFolderOpen}" /><TextBlock Text="Open folder" /></StackPanel>
+        </Button>
+        <Button x:Name="MoreButton" Classes="headerButton" Click="More_Click" AutomationProperties.Name="More actions"
+                ToolTip.Tip="More actions: logs, clear cache, export, backups, upgrade">
+          <Panel>
+            <TextBlock Classes="glyph" FontSize="12" Text="{StaticResource GlyphMore}" RenderTransform="rotate(90deg)"
+                       IsVisible="{x:Static p:ProjectView.HasIconFont}" />
+            <TextBlock Text="⋮" IsVisible="{x:Static p:ProjectView.NoIconFont}" />
+          </Panel>
+        </Button>
+      </StackPanel>
+      <StackPanel>
+        <TextBlock Classes="pageTitle" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+          <Ellipse Classes="statusDot pulse" Classes.running="{Binding State, Converter={x:Static p:ProjectConverters.IsRunning}}"
+                   Classes.transitioning="{Binding IsTransitioning}" />
+          <TextBlock Text="{Binding StateText}" Margin="8,0,0,0" VerticalAlignment="Center" />
+          <TextBlock Text="·" Classes="muted" Margin="8,0" VerticalAlignment="Center" IsVisible="{Binding HasUrl}" />
+          <Button Classes="link" Content="{Binding Url}" Click="OpenSite_Click" VerticalAlignment="Center" IsVisible="{Binding HasUrl}"
+                  AutomationProperties.Name="Open site" ToolTip.Tip="Open site" />
+          <ProgressBar Width="60" Height="3" MinHeight="3" Margin="12,0,0,0" VerticalAlignment="Center" IsIndeterminate="{Binding ShowProgress}"
+                       IsVisible="{Binding ShowProgress}" Foreground="{DynamicResource Accent}" Background="{DynamicResource GridLine}" />
+        </StackPanel>
+      </StackPanel>
+    </DockPanel>
+
+    <!-- The tabs. -->
+    <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1" Margin="0,0,0,16">
+      <StackPanel x:Name="TabStrip" Orientation="Horizontal">
+        <RadioButton x:Name="GeneralTab" Classes="sectionTab" GroupName="Sections" Content="General" IsChecked="True" IsCheckedChanged="Section_Checked" />
+        <RadioButton x:Name="IisTab" Classes="sectionTab" GroupName="Sections" Content="IIS" IsCheckedChanged="Section_Checked" />
+        <RadioButton x:Name="DnnTab" Classes="sectionTab" GroupName="Sections" Content="DNN" IsCheckedChanged="Section_Checked" />
+        <RadioButton x:Name="DatabaseTab" Classes="sectionTab" GroupName="Sections" Content="Database" IsCheckedChanged="Section_Checked" />
+        <RadioButton x:Name="AdvancedTab" Classes="sectionTab" GroupName="Sections" Content="Advanced" IsCheckedChanged="Section_Checked" />
+      </StackPanel>
+    </Border>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <Panel>
+        <StackPanel x:Name="GeneralSection">
+          <WrapPanel Margin="0,0,0,12">
+            <Button Classes="editButton" Content="Rename…" Click="Rename_Click"
+                    ToolTip.Tip="Rename the project: its folder, IIS site and app pool - and its host name and database if you like" />
+          </WrapPanel>
+          <p:InspectorPanel x:Name="GeneralPanel" />
+        </StackPanel>
+
+        <StackPanel x:Name="IisSection" IsVisible="False">
+          <WrapPanel Margin="0,0,0,12">
+            <Button Classes="editButton" Content="Edit host names…" Click="EditBindings_Click"
+                    ToolTip.Tip="The host names and ports the site answers on - DNN's portal aliases follow" />
+            <Button Classes="editButton" Content="Edit app pool…" Click="EditAppPool_Click"
+                    ToolTip.Tip=".NET CLR version, pipeline, 32-bit, identity, idle time-out, start mode" />
+          </WrapPanel>
+          <p:InspectorPanel x:Name="IisPanel" />
+          <!-- Keep warm: switched here too; how it is going and how it is done. -->
+          <Border Classes="card">
+            <StackPanel>
+              <DockPanel>
+                <ToggleSwitch x:Name="KeepWarmSwitch" DockPanel.Dock="Right" VerticalAlignment="Top" OnContent="" OffContent=""
+                              IsEnabled="{Binding CanToggleKeepWarm}" ToolTip.Tip="{Binding KeepWarmTip}" ToolTip.ShowOnDisabled="True"
+                              AutomationProperties.Name="Keep warm" Click="KeepWarmSwitch_Click" />
+                <TextBlock Classes="cardTitle" Text="Keep warm" />
+              </DockPanel>
+              <TextBlock Classes="hint" Margin="0,0,0,10"
+                         Text="While DNN Manager runs - minimized too - it requests the site before IIS would shut it down for being idle, and warms it up again after a recycle, so its next page opens at once instead of after DNN starting up (3 to 10 seconds). No browser: a small request DNN answers in milliseconds, none while the site is in use." />
+              <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Check now" Margin="12,0,0,0" VerticalAlignment="Center"
+                        IsEnabled="{Binding KeepWarmOn}" Click="KeepWarmCheck_Click" ToolTip.Tip="Check now" />
+                <p:KeepWarmFlame VerticalAlignment="Center" />
+                <TextBlock Text="{Binding KeepWarmText}" TextWrapping="Wrap" Margin="8,0,0,0" VerticalAlignment="Center" />
+              </DockPanel>
+              <StackPanel x:Name="KeepWarmFacts" Margin="0,10,0,0" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <StackPanel x:Name="DnnSection" IsVisible="False">
+          <WrapPanel Margin="0,0,0,12" IsVisible="{Binding IsDnn}">
+            <Button Classes="editButton" Content="Upgrade DNN…" Click="UpgradeDnn_Click" ToolTip.Tip="To a newer DNN, with a backup before each step" />
+          </WrapPanel>
+          <p:InspectorPanel x:Name="DnnPanel" />
+          <!-- The host accounts in the database - and changing their password, which only happens here. -->
+          <Border Classes="card" IsVisible="{Binding IsDnn}">
+            <StackPanel>
+              <TextBlock Classes="cardTitle" Text="Host accounts" />
+              <StackPanel x:Name="HostFacts" />
+              <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <Button x:Name="ChangePasswordButton" Content="Change host password…" IsEnabled="False" Click="ChangePassword_Click"
+                        ToolTip.Tip="Change host password" />
+              </StackPanel>
+              <TextBlock x:Name="PasswordHint" Classes="hint" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <StackPanel x:Name="DatabaseSection" IsVisible="False">
+          <WrapPanel Margin="0,0,0,12">
+            <Button Classes="editButton" Content="Change connection…" Click="ChangeDatabase_Click"
+                    ToolTip.Tip="Point web.config at another server, database or sign-in" />
+          </WrapPanel>
+          <p:InspectorPanel x:Name="DatabasePanel" />
+        </StackPanel>
+
+        <StackPanel x:Name="AdvancedSection" IsVisible="False">
+          <p:InspectorPanel x:Name="AdvancedPanel" />
+        </StackPanel>
+      </Panel>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

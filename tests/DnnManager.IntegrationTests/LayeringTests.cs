@@ -88,7 +88,14 @@ public sealed class LayeringTests
         @"DnnManager.Infrastructure\Updates\UpdateHelper.cs",
         @"DnnManager.Presentation\AdminElevation.cs",
         @"DnnManager.Presentation\AppRestart.cs",
-        @"DnnManager.Presentation\Services\AppUpdater.cs"
+        @"DnnManager.Presentation\Services\AppUpdater.cs",
+        // The same in the Avalonia app: its elevation and restarts (its own exe), and its update helper (checked by SHA-256).
+        @"DnnManager.Desktop\Services\AppProcess.cs",
+        @"DnnManager.Desktop\Services\AppUpdater.cs",
+        // An editor started directly only while DNN Manager isn't elevated (as the user) - elevated, through ElevatedStart.
+        @"DnnManager.Desktop\Views\Projects\IdeLocator.cs",
+        // open / xdg-open: macOS and Linux only, where DNN Manager never runs elevated - Windows goes through ElevatedStart.Explorer.
+        @"DnnManager.Desktop\Views\Projects\ProjectSupport.cs"
     ];
 
     [TestMethod]

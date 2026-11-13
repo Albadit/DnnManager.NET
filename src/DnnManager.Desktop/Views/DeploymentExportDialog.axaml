@@ -1,0 +1,48 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:DnnManager.Desktop.Views"
+        x:Class="DnnManager.Desktop.Views.DeploymentExportDialog"
+        x:DataType="v:DeploymentExportDialog"
+        Title="Export for deployment" Width="520" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+  <!-- What the package for the live server is made for: its domains, HTTPS, its database and where it goes. -->
+  <Window.Styles>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,14,0,4" />
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+      <Setter Property="FontSize" Value="{DynamicResource TextHint}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Margin" Value="0,4,0,0" />
+    </Style>
+  </Window.Styles>
+  <StackPanel Margin="20">
+    <TextBlock x:Name="Intro" TextWrapping="Wrap" />
+    <TextBlock Classes="label" Text="Live domain(s)" Margin="0,12,0,4" />
+    <TextBox x:Name="DomainsBox" AutomationProperties.Name="Live domain(s)" TextChanged="Field_Changed" />
+    <TextBlock Classes="hint"
+               Text="Comma- or space-separated host names, e.g. www.example.com, example.com - the first is the primary portal alias. Left empty, the portal aliases stay as they are." />
+    <CheckBox x:Name="HttpsBox" Content="The live site uses HTTPS" IsChecked="True" Margin="0,14,0,0" />
+    <TextBlock Classes="hint" Text="Switches DNN's SSL setting on, and turns the HTTPS redirect rules DNN Manager switched off back on." />
+    <TextBlock Classes="label" Text="Live database connection string (optional)" />
+    <TextBox x:Name="ConnectionBox" AutomationProperties.Name="Live database connection string (optional)" TextWrapping="Wrap" AcceptsReturn="False"
+             MinHeight="44" MaxHeight="88" VerticalContentAlignment="Top" />
+    <TextBlock Classes="hint" Text="Left empty, web.config gets a placeholder to fill in on the server." />
+    <CheckBox x:Name="IncludeDatabaseBox" Content="Include the database (.bacpac)" Margin="0,14,0,0" />
+    <TextBlock x:Name="NoDatabaseHint" Classes="hint" Text="The site's web.config names no database that can be exported." IsVisible="False" />
+    <TextBlock Classes="label" Text="Folder" />
+    <DockPanel>
+      <Button DockPanel.Dock="Right" Content="Browse…" MinWidth="80" Margin="8,0,0,0" ToolTip.Tip="Browse…" Click="Browse_Click" />
+      <TextBox x:Name="FolderBox" AutomationProperties.Name="Folder" TextChanged="Field_Changed" />
+    </DockPanel>
+    <TextBlock x:Name="FolderHint" Classes="hint" />
+    <TextBlock x:Name="Problem" Foreground="{DynamicResource ErrorText}" TextWrapping="Wrap" Margin="0,8,0,0" IsVisible="False" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0" Spacing="8">
+      <Button x:Name="OkButton" Content="Export" Classes="primary" MinWidth="80" IsDefault="True" IsEnabled="False" Click="Ok_Click"
+              ToolTip.Tip="Export (Enter)" />
+      <Button Content="Cancel" MinWidth="80" IsCancel="True" Click="Cancel_Click" ToolTip.Tip="Cancel (Esc)" />
+    </StackPanel>
+  </StackPanel>
+</Window>

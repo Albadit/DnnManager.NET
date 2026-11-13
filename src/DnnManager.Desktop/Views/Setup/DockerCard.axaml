@@ -1,0 +1,118 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="using:DnnManager.Desktop.Views"
+             x:Class="DnnManager.Desktop.Views.Setup.DockerCard">
+  <UserControl.Styles>
+    <StyleInclude Source="/Themes/SetupStyles.axaml" />
+    <!-- A status line: name | status (coloured from code) | detail | action button. -->
+    <Style Selector="Border.statusRow">
+      <Setter Property="BorderBrush" Value="{DynamicResource GridLine}" />
+      <Setter Property="BorderThickness" Value="0,1,0,0" />
+      <Setter Property="Padding" Value="0,8" />
+    </Style>
+    <Style Selector="TextBlock.statusName">
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.statusValue">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+    </Style>
+    <!-- The status word's tone (SetupText.SetStatus) - after statusValue, so it wins over the muted colour. -->
+    <Style Selector="TextBlock.statusValue.good">
+      <Setter Property="Foreground" Value="{DynamicResource SuccessText}" />
+    </Style>
+    <Style Selector="TextBlock.statusValue.badTone">
+      <Setter Property="Foreground" Value="{DynamicResource ErrorText}" />
+    </Style>
+    <Style Selector="TextBlock.statusValue.warnTone">
+      <Setter Property="Foreground" Value="{DynamicResource LogWarn}" />
+    </Style>
+    <Style Selector="TextBlock.statusDetail">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMuted}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="Button.statusAction">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="12,0,0,0" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="card">
+    <StackPanel>
+      <DockPanel Margin="0,0,0,8">
+        <Button DockPanel.Dock="Right" x:Name="TestButton" Content="Test" MinWidth="80" Click="Test_Click" ToolTip.Tip="Test" />
+        <TextBlock Classes="cardTitle" Text="Docker" Margin="0" VerticalAlignment="Center" />
+      </DockPanel>
+      <Grid Grid.IsSharedSizeScope="True">
+        <StackPanel>
+          <Border Classes="statusRow" BorderThickness="0">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="Status" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Classes="statusName" Text="Docker Desktop" Margin="0,0,24,0" />
+              <TextBlock Classes="statusValue" Grid.Column="1" x:Name="DockerStatus" Text="Not tested" Margin="0,0,16,0" />
+              <TextBlock Classes="statusDetail" Grid.Column="2" x:Name="DockerDetail" />
+              <Button Classes="statusAction" Grid.Column="3" x:Name="InstallDockerButton" Content="Install Docker Desktop" IsVisible="False"
+                      Click="InstallDocker_Click" ToolTip.Tip="Install Docker Desktop" />
+            </Grid>
+          </Border>
+          <Border Classes="statusRow">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="Status" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Classes="statusName" Text="Docker engine" Margin="0,0,24,0" />
+              <TextBlock Classes="statusValue" Grid.Column="1" x:Name="EngineStatus" Text="Not tested" Margin="0,0,16,0" />
+              <TextBlock Classes="statusDetail" Grid.Column="2" x:Name="EngineDetail" />
+              <Button Classes="statusAction" Grid.Column="3" x:Name="StartDockerButton" Content="Start Docker Desktop" IsVisible="False"
+                      Click="StartDocker_Click" ToolTip.Tip="Start Docker Desktop" />
+            </Grid>
+          </Border>
+          <Border Classes="statusRow">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="Status" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Classes="statusName" Text="SQL Server container" Margin="0,0,24,0" />
+              <TextBlock Classes="statusValue" Grid.Column="1" x:Name="ContainerStatus" Text="Not tested" Margin="0,0,16,0" />
+              <TextBlock Classes="statusDetail" Grid.Column="2" x:Name="ContainerDetail" />
+            </Grid>
+          </Border>
+        </StackPanel>
+      </Grid>
+
+      <WrapPanel Margin="0,10,0,0">
+        <!-- Off until Test finds a Docker DNN Manager can use, its engine running - why, beside it. -->
+        <Button x:Name="SetupComposeButton" Classes="primary" Content="Set up docker-compose" Margin="0,0,8,0"
+                Click="SetupCompose_Click" IsEnabled="False" ToolTip.Tip="Set up docker-compose" ToolTip.ShowOnDisabled="True" />
+        <Button x:Name="ShowYamlButton" Content="Show docker-compose.yml" Click="ShowYaml_Click" ToolTip.Tip="Show docker-compose.yml" />
+        <TextBlock x:Name="SetupComposeHint" Classes="hint" Margin="8,0,0,0" VerticalAlignment="Center" IsVisible="False" />
+      </WrapPanel>
+      <Panel x:Name="YamlPanel" IsVisible="False" Margin="0,10,0,0">
+        <TextBox x:Name="YamlBox" AutomationProperties.Name="docker-compose.yml" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                 FontFamily="{StaticResource CodeFont}" FontSize="{StaticResource TextCaption}" MaxHeight="380" Padding="8"
+                 VerticalContentAlignment="Top" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+        <!-- Over the top-right corner of the box, clear of its vertical scrollbar. -->
+        <Button AutomationProperties.Name="Copy" x:Name="CopyYamlButton" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,24,0"
+                Padding="10,3" ToolTip.Tip="Copy" Click="CopyYaml_Click">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Classes="glyph" Text="{StaticResource GlyphCopy}" FontSize="12" Margin="0,0,6,0" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+            <TextBlock x:Name="CopyYamlText" Text="Copy" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+      </Panel>
+    </StackPanel>
+  </Border>
+</UserControl>

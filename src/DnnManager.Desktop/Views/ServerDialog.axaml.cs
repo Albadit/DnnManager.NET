@@ -61,6 +61,10 @@ public partial class ServerDialog : Window
         LocalBox.Text = c.LocalRoot ?? "";
         LocalBox.PropertyChanged += (_, e) => { if (e.Property == TextBox.TextProperty) ShowLocalHint(); };
         RulesBox.Text = c.IgnoreRules;
+        ParallelBox.Text = c.Parallel.ToString();
+        BackupsBox.IsChecked = c.KeepBackups;
+        VerifyBox.IsChecked = c.Verify == VerifyMode.Checksum;
+        MoreToggle.IsCheckedChanged += (_, _) => MoreChevron.Text = MoreToggle.IsChecked == true ? "⌄" : "›";
         if (!string.IsNullOrEmpty(_saved.PrivateKey)) KeyBox.PlaceholderText = "A key is saved - Browse… to replace it";
         if (existing is not null && !string.IsNullOrEmpty(_saved.Password)) PasswordBox.PlaceholderText = "Saved - type to replace it";
         ShowLocalHint();
@@ -129,6 +133,14 @@ public partial class ServerDialog : Window
         PasswordLabel.IsVisible = PasswordBox.IsVisible = logon is DeployAuth.Password or DeployAuth.AskForPassword;
         PasswordLabel.Text = logon == DeployAuth.AskForPassword ? "Password (test):" : "Password:";
         KeyLabel.IsVisible = KeyRow.IsVisible = PassphraseLabel.IsVisible = PassphraseBox.IsVisible = logon == DeployAuth.PrivateKey;
+        PlainFtpWarning.IsVisible = ftp && Encryption is FtpEncryption.PlainOnly or FtpEncryption.ExplicitIfAvailable;
+        PlainFtpText.Text = Encryption == FtpEncryption.PlainOnly
+            ? "Plain FTP sends your password and your files unencrypted - anyone on the network between you and the server can read them, and there is no way to check you reached the real server. Some servers refuse it (an Azure App Service set to \"FTPS only\")."
+            : "If the server doesn't offer TLS, this falls back to plain FTP - your password and files then cross the network unencrypted. Require explicit or implicit TLS when the server has it.";
+        PasswordHint.Text = logon == DeployAuth.AskForPassword
+            ? "Not saved: DNN Manager asks for it the first time it reaches the server, and forgets it when it closes. What you type here is used for the test."
+            : "A password is saved - leave this empty to keep it.";
+        PasswordHint.IsVisible = logon == DeployAuth.AskForPassword || (logon == DeployAuth.Password && !string.IsNullOrEmpty(_saved.Password));
         ShowIdentity();
     }
 
@@ -194,6 +206,9 @@ public partial class ServerDialog : Window
                         !Path.TrimEndingDirectorySeparator(local).Equals(Path.TrimEndingDirectorySeparator(ProjectFolder), StringComparison.OrdinalIgnoreCase)
                 ? local : null,
             IgnoreRules = RulesBox.Text ?? "",
+            Parallel = int.TryParse((ParallelBox.Text ?? "").Trim(), out var parallel) ? parallel : 0,
+            KeepBackups = BackupsBox.IsChecked == true,
+            Verify = VerifyBox.IsChecked == true ? VerifyMode.Checksum : VerifyMode.Size,
             TrustedHostKey = IsPlain ? null : _trusted
         };
 

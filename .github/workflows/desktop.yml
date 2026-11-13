@@ -2,10 +2,10 @@
 # make: nothing is signed with a paid certificate - the macOS app is signed ad hoc (codesign -s -), which Apple Silicon
 # needs to start it, and isn't notarized: the first start is Right-click -> Open (see .docs/cross-platform.md).
 #
-#   DnnManager-<version>-macos-arm64.zip    DNN Manager.app, Apple Silicon
-#   DnnManager-<version>-macos-x64.zip      DNN Manager.app, Intel
-#   DnnManager-<version>-linux-x64.tar.gz   the program, with a .desktop file
-#   DnnManager-<version>-linux-arm64.tar.gz
+#   DnnManager-<version>-macos-arm64        the program itself, one file - Apple Silicon, signed ad hoc
+#   DnnManager-<version>-macos-x64          the same, Intel
+#   DnnManager-<version>-linux-x64          the program itself, one file
+#   DnnManager-<version>-linux-arm64
 #   DnnManager-<version>-windows-x64.zip    the program - only by hand: a release's Windows files are its Setup and
 #                                           portable exe (the Windows app, with IIS)
 #
@@ -89,7 +89,10 @@ jobs:
           -p:ContinuousIntegrationBuild=true -o out/app
 
       - name: Package
-        run: ./src/DnnManager.Desktop/Packaging/package.ps1 -Publish out/app -Rid ${{ matrix.rid }} -Version $env:VERSION -Out out/dist -Name ${{ matrix.name }}
+        # macOS and Linux: the executable itself, no zip (package.ps1 -Kind executable); Windows, by hand only: a zip.
+        run: >-
+          ./src/DnnManager.Desktop/Packaging/package.ps1 -Publish out/app -Rid ${{ matrix.rid }} -Version $env:VERSION
+          -Out out/dist -Name ${{ matrix.name }} -Kind $(if ('${{ matrix.rid }}' -like 'win-*') { 'bundle' } else { 'executable' })
 
       - name: Keep the package
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

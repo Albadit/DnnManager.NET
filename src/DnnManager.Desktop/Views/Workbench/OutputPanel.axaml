@@ -1,0 +1,185 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="using:DnnManager.Desktop.Views"
+             xmlns:o="using:DnnManager.Presentation.Services"
+             x:Class="DnnManager.Desktop.Views.Workbench.OutputPanel"
+             Background="{DynamicResource LogBg}">
+  <!-- The bottom panel, as the Windows app's (Controls/TerminalPanel.xaml): its tabs and buttons along the top; Output - the
+       pipeline of the latest operation (PipelineView: its stages on the left, the log of every operation on the right) -
+       and Logs (DNN Manager's own log); the search (Ctrl+F) over its top right. -->
+  <DockPanel>
+    <Border DockPanel.Dock="Top" Background="{DynamicResource LogHeaderBg}" BorderBrush="{DynamicResource CardBorder}"
+            BorderThickness="0,0,0,1" Height="34" Padding="4,0">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+          <Button x:Name="ClearButton" Classes="icon panel" ToolTip.Tip="Clear output" AutomationProperties.Name="Clear output" Click="Clear_Click">
+            <Panel>
+              <TextBlock Classes="glyph" Text="{StaticResource GlyphDelete}" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+              <TextBlock Text="Clear" IsVisible="{x:Static v:MainWindow.NoIconFont}" />
+            </Panel>
+          </Button>
+          <Button x:Name="FindButton" Classes="icon panel" ToolTip.Tip="Find (Ctrl+F)" AutomationProperties.Name="Find" Click="Find_Click">
+            <Panel>
+              <TextBlock Classes="glyph" Text="{StaticResource GlyphSearch}" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+              <Path Data="{StaticResource SearchGeometry}" Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.2"
+                    Width="14" Height="14" Stretch="Uniform" IsVisible="{x:Static v:MainWindow.NoIconFont}" />
+            </Panel>
+          </Button>
+          <Border Width="1" Height="16" Margin="6,0" Background="{DynamicResource CardBorder}" />
+          <Button x:Name="MaximizeButton" Classes="icon panel" ToolTip.Tip="Maximize panel" AutomationProperties.Name="Maximize panel"
+                  Click="Maximize_Click">
+            <Path x:Name="MaximizeIcon" Data="{StaticResource PanelMaximize}" Stroke="{Binding $parent[Button].Foreground}"
+                  StrokeThickness="1" Width="16" Height="16" Stretch="None" />
+          </Button>
+          <Button Classes="icon panel" ToolTip.Tip="Hide panel" AutomationProperties.Name="Hide panel" Click="Hide_Click">
+            <Panel>
+              <TextBlock Classes="glyph" Text="{StaticResource GlyphClose}" FontSize="11" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+              <TextBlock Text="✕" IsVisible="{x:Static v:MainWindow.NoIconFont}" />
+            </Panel>
+          </Button>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="6,0,0,0">
+          <RadioButton x:Name="OutputTab" Classes="paneltab" GroupName="PanelTabs" IsChecked="True" IsCheckedChanged="Tab_Changed"
+                       ToolTip.Tip="Output - what DNN Manager is doing, step by step">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="Output" />
+              <Ellipse x:Name="OutputDot" Width="6" Height="6" Margin="5,1,0,0" VerticalAlignment="Center" IsVisible="False" />
+            </StackPanel>
+          </RadioButton>
+          <RadioButton x:Name="LogsTab" Classes="paneltab" GroupName="PanelTabs" Content="Logs" IsCheckedChanged="Tab_Changed"
+                       ToolTip.Tip="Logs - what DNN Manager wrote down (its daily log file); look here when something goes wrong" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <Panel>
+      <!-- Output: the newest run's pipeline - its header, its stages and summary on the left - and the log. -->
+      <Grid x:Name="OutputPane" RowDefinitions="40,*">
+        <Border Background="{DynamicResource LogBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1" Padding="10,0">
+          <Panel>
+            <TextBlock x:Name="NoRun" Text="No operation has run yet - what DNN Manager does shows here, stage by stage."
+                       Foreground="{DynamicResource LogMuted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                       FontSize="{StaticResource TextCaption}" />
+            <DockPanel x:Name="RunHeader" IsVisible="False">
+              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel x:Name="Issues" Orientation="Horizontal" Margin="14,0,0,0" VerticalAlignment="Center">
+                  <Path x:Name="IssueIcon" Classes="step" StrokeThickness="1.5" Margin="0,0,6,0" />
+                  <TextBlock x:Name="IssueText" VerticalAlignment="Center" FontSize="{StaticResource TextCaption}" />
+                </StackPanel>
+                <TextBlock x:Name="RunTime" Foreground="{DynamicResource LogMuted}" Margin="14,0,0,0" VerticalAlignment="Center"
+                           FontSize="{StaticResource TextCaption}" />
+                <TextBlock x:Name="RunDuration" Foreground="{DynamicResource LogHeaderFg}" FontWeight="SemiBold" Margin="14,0,0,0"
+                           VerticalAlignment="Center" FontSize="{StaticResource TextCaption}" />
+              </StackPanel>
+              <Border x:Name="Pill" DockPanel.Dock="Left" CornerRadius="10" Padding="8,2,10,2" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal">
+                  <Path x:Name="PillIcon" Classes="step" Width="12" Height="12" Stretch="Uniform" StrokeThickness="2" Margin="0,0,6,0" />
+                  <TextBlock x:Name="PillText" FontSize="{StaticResource TextSmall}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                </StackPanel>
+              </Border>
+              <TextBlock x:Name="RunTitle" DockPanel.Dock="Left" FontWeight="SemiBold" Margin="12,0,0,0"
+                         Foreground="{DynamicResource LogHeaderFg}" VerticalAlignment="Center" />
+              <TextBlock x:Name="RunMeta" Foreground="{DynamicResource LogMuted}" Margin="12,0,0,0" VerticalAlignment="Center"
+                         TextTrimming="CharacterEllipsis" FontSize="{StaticResource TextCaption}" />
+            </DockPanel>
+          </Panel>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="220,*">
+          <Border Background="{DynamicResource LogBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,1,0">
+            <DockPanel>
+              <Border x:Name="Summary" DockPanel.Dock="Bottom" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0"
+                      Margin="10,10,10,7" Padding="0,7,0,0" IsVisible="False">
+                <StackPanel>
+                  <ItemsControl x:Name="Facts">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="o:OutputFact">
+                        <DockPanel>
+                          <TextBlock DockPanel.Dock="Right" Classes="summaryValue" Text="{Binding Value}" />
+                          <TextBlock Classes="summaryKey" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <DockPanel>
+                    <TextBlock x:Name="WarningCount" DockPanel.Dock="Right" Classes="summaryValue" />
+                    <TextBlock Classes="summaryKey" Text="Warnings" />
+                  </DockPanel>
+                  <DockPanel>
+                    <TextBlock x:Name="ErrorCount" DockPanel.Dock="Right" Classes="summaryValue" />
+                    <TextBlock Classes="summaryKey" Text="Errors" />
+                  </DockPanel>
+                </StackPanel>
+              </Border>
+              <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="StagesPart" Margin="0,10,0,0" IsVisible="False">
+                  <TextBlock x:Name="StagesLabel" FontSize="{StaticResource TextSmall}" FontWeight="SemiBold"
+                             Foreground="{DynamicResource LogMuted}" Margin="10,0,10,6" />
+                  <ItemsControl x:Name="Stages" />
+                </StackPanel>
+              </ScrollViewer>
+            </DockPanel>
+          </Border>
+          <GridSplitter Grid.Column="0" Width="5" HorizontalAlignment="Right" Background="Transparent" ResizeDirection="Columns"
+                        ToolTip.Tip="Drag to resize the stages" />
+          <ScrollViewer x:Name="LogScroller" Grid.Column="1" Background="{DynamicResource OutLogBg}"
+                        HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <SelectableTextBlock x:Name="Log" Margin="14,8,14,12" TextWrapping="Wrap" FontFamily="{StaticResource CodeFont}"
+                                 FontSize="12.5" Foreground="{DynamicResource OutText}" SelectionBrush="{DynamicResource SearchCurrentBg}" />
+          </ScrollViewer>
+        </Grid>
+      </Grid>
+
+      <!-- Logs: DNN Manager's own log, today's - its warnings and errors with their details. -->
+      <DockPanel x:Name="LogsPane" IsVisible="False">
+        <Border DockPanel.Dock="Top" Padding="12,6" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1">
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Classes="link" Content="Open the logs folder" Click="OpenLogs_Click" />
+            <TextBlock x:Name="LogFileName" Foreground="{DynamicResource LogMuted}" FontSize="{StaticResource TextCaption}"
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+          </DockPanel>
+        </Border>
+        <ScrollViewer x:Name="AppLogScroller" Background="{DynamicResource OutLogBg}" HorizontalScrollBarVisibility="Auto">
+          <SelectableTextBlock x:Name="AppLog" Margin="14,8,14,12" FontFamily="{StaticResource CodeFont}" FontSize="12.5"
+                               Foreground="{DynamicResource OutText}" SelectionBrush="{DynamicResource SearchCurrentBg}" />
+        </ScrollViewer>
+      </DockPanel>
+
+      <!-- Search (Ctrl+F): over the top right of the tab, like VS Code's. -->
+      <Border x:Name="SearchBar" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,20,0" IsVisible="False"
+              Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="4"
+              Padding="4" BoxShadow="0 2 8 0 #40000000">
+        <StackPanel Orientation="Horizontal">
+          <Panel>
+            <TextBox x:Name="SearchBox" Classes="search" Width="260" Padding="6,2,78,2" KeyDown="SearchBox_KeyDown"
+                     AutomationProperties.Name="Find" PlaceholderText="Find" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,3,0">
+              <ToggleButton x:Name="MatchCase" Classes="searchoption" Content="Aa" ToolTip.Tip="Match Case (Alt+C)" Click="SearchOption_Click" />
+              <ToggleButton x:Name="WholeWord" Classes="searchoption" Content="ab" ToolTip.Tip="Match Whole Word (Alt+W)" Click="SearchOption_Click" />
+              <ToggleButton x:Name="UseRegex" Classes="searchoption" Content=".*" ToolTip.Tip="Use Regular Expression (Alt+R)" Click="SearchOption_Click" />
+            </StackPanel>
+          </Panel>
+          <TextBlock x:Name="SearchCount" MinWidth="70" Margin="8,0,4,0" VerticalAlignment="Center" FontSize="{StaticResource TextCaption}" />
+          <Button Classes="icon panel" ToolTip.Tip="Previous match (Shift+Enter)" AutomationProperties.Name="Previous match" Click="SearchPrevious_Click">
+            <Panel>
+              <TextBlock Classes="glyph" Text="{StaticResource GlyphChevronUp}" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+              <TextBlock Text="↑" IsVisible="{x:Static v:MainWindow.NoIconFont}" />
+            </Panel>
+          </Button>
+          <Button Classes="icon panel" ToolTip.Tip="Next match (Enter)" AutomationProperties.Name="Next match" Click="SearchNext_Click">
+            <Panel>
+              <TextBlock Classes="glyph" Text="{StaticResource GlyphChevronDown}" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+              <TextBlock Text="↓" IsVisible="{x:Static v:MainWindow.NoIconFont}" />
+            </Panel>
+          </Button>
+          <Button Classes="icon panel" ToolTip.Tip="Close (Esc)" AutomationProperties.Name="Close" Click="SearchClose_Click">
+            <Panel>
+              <TextBlock Classes="glyph" Text="{StaticResource GlyphClose}" FontSize="10" IsVisible="{x:Static v:MainWindow.HasIconFont}" />
+              <TextBlock Text="✕" IsVisible="{x:Static v:MainWindow.NoIconFont}" />
+            </Panel>
+          </Button>
+        </StackPanel>
+      </Border>
+    </Panel>
+  </DockPanel>
+</UserControl>
